@@ -27,8 +27,8 @@ NC='\033[0m'
 # Default to local session; set LIBVIRT_URI for SSH-based connection
 LIBVIRT_URI="${LIBVIRT_URI:-qemu:///session}"
 VM_NAME="${1:-test-vm}"
-SSH_CA_PUB_PATH="${2:-${SSH_CA_PUB_PATH:-/etc/virsh-sandbox/ssh_ca.pub}}"
-SSH_CA_KEY_PATH="${3:-${SSH_CA_KEY_PATH:-/etc/virsh-sandbox/ssh_ca}}"
+SSH_CA_PUB_PATH="${2:-${SSH_CA_PUB_PATH:-/etc/fluid/ssh_ca.pub}}"
+SSH_CA_KEY_PATH="${3:-${SSH_CA_KEY_PATH:-/etc/fluid/ssh_ca}}"
 VM_MEMORY_KB=2097152  # 2GB
 VM_VCPUS=2
 VM_DISK_SIZE="10G"
@@ -171,7 +171,7 @@ create_cloud_init_iso() {
         ca_pub_key=$(cat "$SSH_CA_PUB_PATH")
         log_info "Using CA public key from: $SSH_CA_PUB_PATH"
     else
-        ca_pub_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO0e/MeLFYx1jCQv0qFJvSBEco+2z9TYrwN6wQAlR31E virsh-sandbox-ssh-ca"
+        ca_pub_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO0e/MeLFYx1jCQv0qFJvSBEco+2z9TYrwN6wQAlR31E fluid-ssh-ca"
         log_warn "CA public key file not found at $SSH_CA_PUB_PATH, using default fallback"
     fi
 
@@ -232,7 +232,7 @@ packages:
   - ufw # Ensure ufw is installed to manage it
 
 runcmd:
-  - echo "Test VM is ready for virsh-sandbox testing" > /etc/motd
+  - echo "Test VM is ready for fluid.sh testing" > /etc/motd
   # Disable UFW (Uncomplicated Firewall) to ensure SSH connections are not blocked
   - ufw disable || true
   # Restart ssh.service to apply all configuration changes

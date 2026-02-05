@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌊 fluid.sh 
+# fluid.sh
 
 ### Autonomous AI Agents for Infrastructure
 
@@ -11,7 +11,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react&logoColor=black)](https://react.dev)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Demo](#-demo) • [Documentation](#-documentation)
+[Features](#-features) * [Quick Start](#-quick-start) * [Demo](#-demo) * [Documentation](#-documentation)
 
 </div>
 
@@ -27,7 +27,7 @@
 
 AI agents are ready to do infrastructure work, but they can't touch prod:
 
-- Agents can install packages, configure services, write scripts—autonomously
+- Agents can install packages, configure services, write scripts--autonomously
 - But one mistake on production and you're getting paged at 3 AM to fix it
 - So we limit agents to chatbots instead of letting them *do the work*
 
@@ -36,27 +36,27 @@ AI agents are ready to do infrastructure work, but they can't touch prod:
 **fluid.sh** lets AI agents work autonomously in isolated VMs, then a human approves before anything touches production:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Autonomous AI Sysadmin Workflow                      │
-│                                                                         │
-│  ┌─────────┐     ┌─────────────────┐     ┌──────────┐     ┌──────────┐  │
-│  │  Agent  │────►│  Sandbox VM     │────►│  Human   │────►│Production│  │
-│  │  Task   │     │  (autonomous)   │     │ Approval │     │  Server  │  │
-│  └─────────┘     └─────────────────┘     └──────────┘     └──────────┘  │
-│                         │                      │                        │
-│                    • Full root access     • Review diff                 │
-│                    • Install packages     • Approve Ansible             │
-│                    • Edit configs         • One-click apply             │
-│                    • Run services                                       │
-│                    • Snapshot/restore                                   │
-└─────────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------+
+|                    Autonomous AI Sysadmin Workflow                      |
+|                                                                         |
+|  +---------+     +-----------------+     +----------+     +----------+  |
+|  |  Agent  |---->|  Sandbox VM     |---->|  Human   |---->|Production|  |
+|  |  Task   |     |  (autonomous)   |     | Approval |     |  Server  |  |
+|  +---------+     +-----------------+     +----------+     +----------+  |
+|                         |                      |                        |
+|                    - Full root access     - Review diff                 |
+|                    - Install packages     - Approve Ansible             |
+|                    - Edit configs         - One-click apply             |
+|                    - Run services                                       |
+|                    - Snapshot/restore                                   |
++-----------------------------------------------------------------------+
 ```
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
-|  **Autonomous Execution** | Agents run commands, install packages, edit configs—no hand-holding |
+|  **Autonomous Execution** | Agents run commands, install packages, edit configs--no hand-holding |
 |  **Full VM Isolation** | Each agent gets a dedicated KVM virtual machine with root access |
 |  **Snapshot & Restore** | Checkpoint progress, rollback mistakes, branch experiments |
 |  **Human-in-the-Loop** | Blocking approval workflow before any production changes |
@@ -81,14 +81,14 @@ try:
         auto_start=True,
         wait_for_ip=True
     ).sandbox
-    
+
     run_agent("Install nginx and configure TLS, create an Ansible playbook to recreate the task.", sandbox.id)
-    
+
     # NOW the human reviews:
     # - Diff between snapshots shows exactly what changed
     # - Auto-generated Ansible playbook ready to apply
-    # - Human approves → playbook runs on production
-    # - Human rejects → nothing happens, agent tries again
+    # - Human approves -> playbook runs on production
+    # - Human rejects -> nothing happens, agent tries again
 
 finally:
     if(sandbox):
@@ -96,17 +96,17 @@ finally:
         client.sandbox.destroy_sandbox(sandbox.id)
 ```
 
-## 🏄 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-`virsh-sandbox` is setup to be ran on a control plane on the same network as the VM hosts it needs to connect with. It will also need a postgres instance running on the control plan to keep tack of commands run, sandboxes, and other auditting.
+`fluid` is setup to be ran on a control plane on the same network as the VM hosts it needs to connect with. It will also need a postgres instance running on the control plane to keep track of commands run, sandboxes, and other auditing.
 
 If you need another way of accessing VMs, open an issue and we will get back to you.
 
 ### Installation
 
-The recommended deployment model is a **single control node** running the `virsh-sandbox` API and PostgreSQL, with SSH access to one or more libvirt/KVM hosts.
+The recommended deployment model is a **single control node** running the `fluid` API and PostgreSQL, with SSH access to one or more libvirt/KVM hosts.
 
 ---
 
@@ -116,14 +116,14 @@ The recommended deployment model is a **single control node** running the `virsh
 +--------------------+        SSH        +------------------+
 | Control Node       |----------------->| KVM / libvirt    |
 |                    |                  | Hosts            |
-| - virsh-sandbox    |                  |                  |
+| - fluid            |                  |                  |
 | - PostgreSQL       |                  | - libvirtd       |
 +--------------------+                  +------------------+
 ```
 
 The control node:
 
-* Runs the `virsh-sandbox` API
+* Runs the `fluid` API
 * Stores audit logs and metadata in PostgreSQL
 * Connects to hosts over SSH to execute libvirt operations
 
@@ -173,7 +173,7 @@ curl https://raw.githubusercontent.com/aspectrr/fluid.sh/main/public-key.asc | g
 ### 2. Download release assets
 ```bash
 VERSION=0.0.4-beta
-wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/virsh-sandbox_${VERSION}_linux_amd64.tar.gz
+wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/fluid_${VERSION}_linux_amd64.tar.gz
 wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/checksums.txt
 wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/checksums.txt.sig
 ```
@@ -189,8 +189,8 @@ sha256sum -c checksums.txt --ignore-missing
 
 ### 4. Extract and install
 ```bash
-tar -xzf virsh-sandbox_${VERSION}_linux_amd64.tar.gz
-sudo install -m 755 virsh-sandbox /usr/local/bin/
+tar -xzf fluid_${VERSION}_linux_amd64.tar.gz
+sudo install -m 755 fluid /usr/local/bin/
 ```
 
 ## System User and Directories
@@ -198,24 +198,24 @@ sudo install -m 755 virsh-sandbox /usr/local/bin/
 Create a dedicated system user and required directories:
 
 ```bash
-useradd --system --home /var/lib/virsh-sandbox --shell /usr/sbin/nologin virsh-sandbox
+useradd --system --home /var/lib/fluid --shell /usr/sbin/nologin fluid
 
-mkdir -p /etc/virsh-sandbox \
-         /var/lib/virsh-sandbox \
-         /var/log/virsh-sandbox
+mkdir -p /etc/fluid \
+         /var/lib/fluid \
+         /var/log/fluid
 
-chown -R virsh-sandbox:virsh-sandbox \
-  /var/lib/virsh-sandbox \
-  /var/log/virsh-sandbox
+chown -R fluid:fluid \
+  /var/lib/fluid \
+  /var/log/fluid
 ```
 
 Filesystem layout:
 
 ```
-/usr/local/bin/virsh-sandbox
-/etc/virsh-sandbox/config.yaml
-/var/lib/virsh-sandbox/
-/var/log/virsh-sandbox/
+/usr/local/bin/fluid
+/etc/fluid/config.yaml
+/var/lib/fluid/
+/var/log/fluid/
 ```
 
 ---
@@ -231,9 +231,9 @@ sudo -u postgres psql
 ```
 
 ```sql
-CREATE DATABASE virsh_sandbox;
-CREATE USER virsh_sandbox WITH PASSWORD 'strong-password';
-GRANT ALL PRIVILEGES ON DATABASE virsh_sandbox TO virsh_sandbox;
+CREATE DATABASE fluid;
+CREATE USER fluid WITH PASSWORD 'strong-password';
+GRANT ALL PRIVILEGES ON DATABASE fluid TO fluid;
 ```
 
 Ensure PostgreSQL is listening only on localhost:
@@ -249,7 +249,7 @@ listen_addresses = '127.0.0.1'
 Create the main configuration file:
 
 ```bash
-vim /etc/virsh-sandbox/config.yaml
+vim /etc/fluid/config.yaml
 ```
 
 Example:
@@ -261,8 +261,8 @@ server:
 database:
   host: 127.0.0.1
   port: 5432
-  name: virsh_sandbox
-  user: virsh_sandbox
+  name: fluid
+  user: fluid
   password: strong-password
 
 hosts:
@@ -280,11 +280,11 @@ The control node requires SSH access to each libvirt host.
 
 Recommended approach:
 
-* Generate a dedicated SSH key for `virsh-sandbox`
+* Generate a dedicated SSH key for `fluid`
 * Grant limited sudo or libvirt access on hosts
 
 ```bash
-sudo -u virsh-sandbox ssh-keygen -t ed25519
+sudo -u fluid ssh-keygen -t ed25519
 ```
 
 On each host, allow execution of `virsh` via sudo or libvirt permissions.
@@ -296,19 +296,19 @@ On each host, allow execution of `virsh` via sudo or libvirt permissions.
 Create the service unit:
 
 ```bash
-vim /etc/systemd/system/virsh-sandbox.service
+vim /etc/systemd/system/fluid.service
 ```
 
 ```ini
 [Unit]
-Description=virsh-sandbox control plane
+Description=fluid.sh control plane
 After=network.target postgresql.service
 
 [Service]
-User=virsh-sandbox
-Group=virsh-sandbox
-ExecStart=/usr/local/bin/virsh-sandbox \
-  --config /etc/virsh-sandbox/config.yaml
+User=fluid
+Group=fluid
+ExecStart=/usr/local/bin/fluid \
+  --config /etc/fluid/config.yaml
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
@@ -321,8 +321,8 @@ Enable and start:
 
 ```bash
 systemctl daemon-reload
-systemctl enable virsh-sandbox
-systemctl start virsh-sandbox
+systemctl enable fluid
+systemctl start fluid
 ```
 
 ---
@@ -332,14 +332,14 @@ systemctl start virsh-sandbox
 Check service status:
 
 ```bash
-systemctl status virsh-sandbox
+systemctl status fluid
 ```
 
 Basic health checks:
 
 ```bash
-virsh-sandbox status
-virsh-sandbox hosts list
+fluid status
+fluid hosts list
 ```
 
 ---
@@ -348,7 +348,7 @@ virsh-sandbox hosts list
 
 * Download the new binary
 * Verify checksum
-* Replace `/usr/local/bin/virsh-sandbox`
+* Replace `/usr/local/bin/fluid`
 * Restart the systemd service
 
 PostgreSQL migrations are handled automatically on startup.
@@ -358,20 +358,20 @@ PostgreSQL migrations are handled automatically on startup.
 ## Uninstallation
 
 ```bash
-systemctl stop virsh-sandbox
-systemctl disable virsh-sandbox
-rm /usr/local/bin/virsh-sandbox
-rm /etc/systemd/system/virsh-sandbox.service
+systemctl stop fluid
+systemctl disable fluid
+rm /usr/local/bin/fluid
+rm /etc/systemd/system/fluid.service
 ```
 
 (Optional) Remove data and user:
 
 ```bash
-userdel virsh-sandbox
-rm -rf /etc/virsh-sandbox /var/lib/virsh-sandbox /var/log/virsh-sandbox
+userdel fluid
+rm -rf /etc/fluid /var/lib/fluid /var/log/fluid
 ```
 
-## ⛵ Contributing Quickstart
+## Contributing Quickstart
 
 ### Prerequisites
 
@@ -379,8 +379,10 @@ rm -rf /etc/virsh-sandbox /var/lib/virsh-sandbox /var/log/virsh-sandbox
 - **Docker & Docker Compose** - For containerized deployment in production
 - **libvirt/KVM** - For virtual machine management
 - **macOS**:
-  - **libvirt** - `brew install libvirt`
-  - **socket_vmnet** - `brew install socket_vmnet`
+  - **qemu** - `brew install qemu` (the hypervisor)
+  - **libvirt** - `brew install libvirt` (VM management daemon)
+  - **socket_vmnet** - `brew install socket_vmnet` (VM networking)
+  - **cdrtools** - `brew install cdrtools` (provides `mkisofs` for cloud-init)
 
 ### 30-Second Start
 
@@ -402,22 +404,28 @@ mprocs
 <details>
 <summary><b>Mac</b></summary>
 
-You will need to install libvirt and socket_vmnet on Mac:
+You will need to install qemu, libvirt, socket_vmnet, and cdrtools on Mac:
 
 ```bash
-# Install Lima and libvirt client
-brew install libvirt socket_vmnet
+# Install qemu, libvirt, socket_vmnet, and cdrtools
+brew install qemu libvirt socket_vmnet cdrtools
 
-# Set up SSH CA (Needed for Sanbox VMs)
+# Start the libvirt daemon
+brew services start libvirt
+
+# Create image directories
+sudo mkdir -p /var/lib/libvirt/images/{base,jobs}
+sudo chown -R $(whoami) /var/lib/libvirt/images/{base,jobs}
+
+# Verify libvirt is running
+virsh -c qemu:///session list --all
+
+# Set up SSH CA (Needed for Sandbox VMs)
 cd fluid.sh
-./virsh-sandbox/scripts/setup-ssh-ca.sh --dir .ssh-ca
+./scripts/setup-ssh-ca.sh --dir .ssh-ca
 
 # Set up libvirt VM (ARM64 Ubuntu)
-cd fluid.sh
-./virsh-sandbox/scripts/reset-libvirt-macos.sh
-
-# Verify connection
-virsh -c "$LIBVIRT_URI" list --all
+SSH_CA_PUB_PATH=.ssh-ca/ssh_ca.pub SSH_CA_KEY_PATH=.ssh-ca/ssh_ca ./scripts/reset-libvirt-macos.sh
 
 # Start services
 mprocs
@@ -425,29 +433,29 @@ mprocs
 
 **What happens:**
 1. A SSH CA is generated and then is used to build the golden VM
-2. libvirt runs on the machine and is queried by the virsh-sandbox API
-4. Test VMs run on your root machine
+2. libvirt runs on the machine and is queried by the fluid API
+4. Test VMs run on your local machine
 
 **Architecture:**
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     Apple Silicon Mac                               │
-│  ┌─────────────────┐                                                │
-│  │ virsh-sandbox   │                                                │
-│  │ API + Web UI    │────►  ┌──────────────────────────────────┐     │
-│  │                 │       │     libvirt/QEMU (ARM64)         │     │
-│  │ LIBVIRT_URI=    │       │  ┌──────────┐  ┌──────────┐      │     │
-│  │ qemu+tcp://     │       │  │ sandbox  │  │ sandbox  │ ...  │     │
-│  │ localhost:16509 │       │  │ VM (arm) │  │ VM (arm) │      │     │
-│  └─────────────────┘       │  └──────────┘  └──────────┘      │     │
-│                            └──────────────────────────────────┘     │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------+
+|                     Apple Silicon Mac                                 |
+|  +-----------------+                                                 |
+|  | fluid           |                                                 |
+|  | API + Web UI    |---->  +----------------------------------+      |
+|  |                 |       |     libvirt/QEMU (ARM64)         |      |
+|  | LIBVIRT_URI=    |       |  +----------+  +----------+      |      |
+|  | qemu:///session |       |  | sandbox  |  | sandbox  | ...  |      |
+|  |                 |       |  | VM (arm) |  | VM (arm) |      |      |
+|  +-----------------+       |  +----------+  +----------+      |      |
+|                            +----------------------------------+      |
+|                                                                      |
++----------------------------------------------------------------------+
 ```
 
 **Create ARM64 test VMs:**
 ```bash
-./virsh-sandbox/scripts/reset-libvirt-macos.sh
+./scripts/reset-libvirt-macos.sh
 ```
 
 **Default test VM credentials:**
@@ -492,7 +500,7 @@ sudo mkdir -p /var/lib/libvirt/images/{base,jobs}
 cat > .env << 'EOF'
 LIBVIRT_URI=qemu:///system
 LIBVIRT_NETWORK=default
-DATABASE_URL=postgresql://virsh_sandbox:virsh_sandbox@localhost:5432/virsh_sandbox
+DATABASE_URL=postgresql://fluid:fluid@localhost:5432/fluid
 BASE_IMAGE_DIR=/var/lib/libvirt/images/base
 SANDBOX_WORKDIR=/var/lib/libvirt/images/jobs
 EOF
@@ -510,26 +518,26 @@ docker-compose up --build
 
 **Architecture:**
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Linux x86_64 Host                                │
-│                                                                     │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │
-│  │ virsh-sandbox   │  │   PostgreSQL    │  │    Web UI           │  │
-│  │ API (Go)        │  │   (Docker)      │  │    (React)          │  │
-│  │ :8080           │  │   :5432         │  │    :5173            │  │
-│  └────────┬────────┘  └─────────────────┘  └─────────────────────┘  │
-│           │                                                         │
-│           │ LIBVIRT_URI=qemu:///system                              │
-│           ▼                                                         │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                    libvirt/KVM (native)                      │   │
-│  │                                                              │   │
-│  │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │   │
-│  │   │  sandbox-1   │  │  sandbox-2   │  │  sandbox-N   │  ...  │   │
-│  │   │  (x86_64)    │  │  (x86_64)    │  │  (x86_64)    │       │   │
-│  │   └──────────────┘  └──────────────┘  └──────────────┘       │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------+
+|                    Linux x86_64 Host                                 |
+|                                                                      |
+|  +-----------------+  +-----------------+  +---------------------+   |
+|  | fluid           |  |   PostgreSQL    |  |    Web UI           |   |
+|  | API (Go)        |  |   (Docker)      |  |    (React)          |   |
+|  | :8080           |  |   :5432         |  |    :5173            |   |
+|  +--------+--------+  +-----------------+  +---------------------+   |
+|           |                                                          |
+|           | LIBVIRT_URI=qemu:///system                               |
+|           v                                                          |
+|  +--------------------------------------------------------------+   |
+|  |                    libvirt/KVM (native)                       |   |
+|  |                                                               |   |
+|  |   +--------------+  +--------------+  +--------------+        |   |
+|  |   |  sandbox-1   |  |  sandbox-2   |  |  sandbox-N   |  ...  |   |
+|  |   |  (x86_64)    |  |  (x86_64)    |  |  (x86_64)    |       |   |
+|  |   +--------------+  +--------------+  +--------------+        |   |
+|  +--------------------------------------------------------------+   |
++----------------------------------------------------------------------+
 ```
 
 **Create a base VM image:**
@@ -539,8 +547,8 @@ cd /var/lib/libvirt/images/base
 sudo wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
 
 # Create test VM using the provided script
-./virsh-sandbox/scripts/setup-ssh-ca.sh --dir [ssh-ca-dir]
-./virsh-sandbox/scripts/reset-libvirt-macos.sh [vm-name] [ca-pub-path] [ca-key-path]
+./scripts/setup-ssh-ca.sh --dir [ssh-ca-dir]
+./scripts/reset-libvirt-macos.sh [vm-name] [ca-pub-path] [ca-key-path]
 ```
 
 **Default test VM credentials:**
@@ -573,7 +581,7 @@ newgrp libvirt
 cat > .env << 'EOF'
 LIBVIRT_URI=qemu:///system
 LIBVIRT_NETWORK=default
-DATABASE_URL=postgresql://virsh_sandbox:virsh_sandbox@localhost:5432/virsh_sandbox
+DATABASE_URL=postgresql://fluid:fluid@localhost:5432/fluid
 BASE_IMAGE_DIR=/var/lib/libvirt/images/base
 SANDBOX_WORKDIR=/var/lib/libvirt/images/jobs
 EOF
@@ -622,7 +630,7 @@ virsh -c "$LIBVIRT_URI" list --all
 cat > .env << EOF
 LIBVIRT_URI=${LIBVIRT_URI}
 LIBVIRT_NETWORK=default
-DATABASE_URL=postgresql://virsh_sandbox:virsh_sandbox@localhost:5432/virsh_sandbox
+DATABASE_URL=postgresql://fluid:fluid@localhost:5432/fluid
 EOF
 
 # Start services
@@ -648,18 +656,18 @@ sudo usermod -aG libvirt remote-user
 ## Project Structure
 
 ```
-virsh-sandbox/
-├── virsh-sandbox/          #    Main API server (Go)
-│   ├── cmd/api/            #    Entry point
-│   ├── internal/           #    Business logic
-│   └── scripts/            #    Setup scripts
-├── web/                    #    React frontend
-│   └── src/                #    Components, hooks, routes
-├── sdk/                    #    Python SDK
-│   └── virsh-sandbox-py/   #    Auto-generated client
-├── examples/               #    Example implementations
-│   └── agent-example/      #    AI agent with OpenAI
-└── docker-compose.yml      #    Container orchestration
+fluid.sh/
+├── fluid/                 #    Main API server & CLI (Go)
+│   ├── cmd/fluid/         #    Entry point
+│   ├── internal/          #    Business logic
+├── scripts/               #    Setup & utility scripts
+├── web/                   #    React frontend
+│   └── src/               #    Components, hooks, routes
+├── sdk/                   #    Python SDK
+│   └── fluid-sdk-py/      #    Auto-generated client
+├── examples/              #    Example implementations
+│   └── agent-example/     #    AI agent with OpenAI
+└── docker-compose.yml     #    Container orchestration
 ```
 
 ## API Reference
@@ -722,7 +730,7 @@ The control node connects to hypervisor hosts via SSH. You **must** configure pr
 **Required: Configure `~/.ssh/config` on the control node:**
 
 ```ssh-config
-# /home/virsh-sandbox/.ssh/config (for the virsh-sandbox user)
+# /home/fluid/.ssh/config (for the fluid user)
 
 # Global defaults - strict verification
 Host *
@@ -744,12 +752,12 @@ Host kvm-02
 **Pre-populate known_hosts before first use:**
 
 ```bash
-# As the virsh-sandbox user, add each host's key
-sudo -u virsh-sandbox ssh-keyscan -H 10.0.0.11 >> /home/virsh-sandbox/.ssh/known_hosts
-sudo -u virsh-sandbox ssh-keyscan -H 10.0.0.12 >> /home/virsh-sandbox/.ssh/known_hosts
+# As the fluid user, add each host's key
+sudo -u fluid ssh-keyscan -H 10.0.0.11 >> /home/fluid/.ssh/known_hosts
+sudo -u fluid ssh-keyscan -H 10.0.0.12 >> /home/fluid/.ssh/known_hosts
 
 # Verify the fingerprints match your hosts
-sudo -u virsh-sandbox ssh-keygen -lf /home/virsh-sandbox/.ssh/known_hosts
+sudo -u fluid ssh-keygen -lf /home/fluid/.ssh/known_hosts
 ```
 
 **Warning:** Never use `StrictHostKeyChecking=no` in production. This disables host verification and exposes you to MITM attacks.
@@ -757,18 +765,18 @@ sudo -u virsh-sandbox ssh-keygen -lf /home/virsh-sandbox/.ssh/known_hosts
 ##  Documentation
 
 - [Docs from Previous Issues](./docs/) - Documentation on common issues working with the project
-- [Scripts Reference](./virsh-sandbox/scripts/README.md) - Setup and utility scripts
-- [SSH Certificates](./virsh-sandbox/scripts/README.md#ssh-certificate-based-access) - Ephemeral credential system
+- [Scripts Reference](./scripts/README.md) - Setup and utility scripts
+- [SSH Certificates](./scripts/README.md#ssh-certificate-based-access) - Ephemeral credential system
 - [Agent Connection Flow](./docs/agent-connection-flow.md) - How agents connect to sandboxes
 - [Examples](./examples/) - Working examples
 
 ## Development
 
-To run the API locally, first build the `virsh-sandbox` binary:
+To run the API locally, first build the `fluid` binary:
 
 ```bash
 # Build the API binary
-cd virsh-sandbox && make build
+cd fluid && make build
 ```
 
 Then, use `mprocs` to run all the services together for local development.
@@ -782,7 +790,7 @@ cargo install mprocs # Linux
 mprocs
 
 # Or run individual services
-cd virsh-sandbox && make run
+cd fluid && make run
 cd web && bun run dev
 ```
 
@@ -790,13 +798,13 @@ cd web && bun run dev
 
 ```bash
 # Go services
-(cd virsh-sandbox && make test)
+(cd fluid && make test)
 
 # Python SDK
-(cd sdk/virsh-sandbox-py && pytest)
+(cd sdk/fluid-sdk-py && pytest)
 
 # All checks
-(cd virsh-sandbox && make check)
+(cd fluid && make check)
 ```
 
 ##  Contributing
@@ -804,7 +812,7 @@ cd web && bun run dev
 1. Fork the repository
 2. Create a feature branch
 3. Make changes with tests
-4. Run `make check` 
+4. Run `make check`
 5. Submit a pull request
 
 All contributions must maintain the security model and include appropriate tests.
@@ -816,6 +824,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-Made with ❤️
+Made with <3
 
 </div>

@@ -1,16 +1,15 @@
-# virsh-sandbox
+# fluid.sh
 
-Autonomous AI agents for infrastructure—with human approval.
+Autonomous AI agents for infrastructure -- with human approval.
 
 ## What This Is
 
-virsh-sandbox lets AI agents do infrastructure work in isolated VM sandboxes. Agent works autonomously. Human approves before production.
+fluid.sh lets AI agents do infrastructure work in isolated VM sandboxes. Agent works autonomously. Human approves before production.
 
 ## Project Structure
 
 ```
-virsh-sandbox/    # Go API - VM management via libvirt
-tmux-client/      # Go API - Terminal, files, commands
+fluid/            # Go CLI & API - VM management via libvirt
 web/              # React - UI for monitoring/approval
 sdk/              # Python SDK - Build agents
 examples/         # Working agent examples
@@ -25,15 +24,13 @@ Every code change needs tests. See project-specific AGENTS.md files for details.
 
 ```bash
 docker-compose up --build              # Start everything
-cd virsh-sandbox && make test          # Test API
-cd tmux-client && make test            # Test terminal service
-cd sdk/virsh-sandbox-py && pytest      # Test SDK
+cd fluid && make test                  # Test API
+cd sdk/fluid-sdk-py && pytest          # Test SDK
 ```
 
 ## Project Docs
 
-- @virsh-sandbox/AGENTS.md
-- @tmux-client/AGENTS.md
+- @fluid/AGENTS.md
 - @sdk/AGENTS.md
 - @web/AGENTS.md
 - @examples/agent-example/AGENTS.md
