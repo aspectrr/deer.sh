@@ -1,6 +1,6 @@
 <div align="center">
 
-# fluid.sh
+# fluid.sh 🌊
 
 ### Claude Code for Infrastructure
 
@@ -10,12 +10,13 @@
 [![GitHub stars](https://img.shields.io/github/stars/aspectrr/fluid.sh)](https://github.com/aspectrr/fluid.sh)
 
 Fluid comes in two flavors:
-- A local [CLI Agent](#-fluid-cli) (like Claude Code) that can connect to remote KVM hosts from your local host
-- An [Agent API](#-fluid-remote) that connects to KVM hosts and can handle tens to thousands of concurrent agent sessions.
+A local [CLI Agent](#fluid-cli) (like Claude Code) that can connect to remote KVM hosts from your local host
+
+An [Agent API](#fluid-remote) that connects to KVM hosts and can handle tens to thousands of concurrent agent sessions.
 
 Choose your own adventure 🧙‍♂️
 
-[Features](#features) * [Quick Start](#quick-start) * [Demo](#demo) * [Documentation](#documentation)
+[Features](#features) [Quick Start](#quick-start) [Demo](#demo-of-cli-agent) [Documentation](#documentation)
 
 </div>
 
@@ -54,7 +55,7 @@ AI agents are ready to do infrastructure work, but they can't touch prod:
 
 ### Demo of CLI Agent
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/ZSUBGXNTz34?si=HK4zbcu4njys7ETE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[![CLI Agent Demo](https://img.youtube.com/vi/ZSUBGXNTz34/0.jpg)](https://www.youtube.com/watch?v=ZSUBGXNTz34)
 
 ## Features
 
@@ -97,8 +98,7 @@ to start onboarding.
 
 Onboarding will take you through adding remote hosts, generating SSH CAs for the agent to access sandboxes, and getting your LLM API key setup.
 
-
-<iframe width="560" height="315" src="https://www.youtube.com/embed/wbevPJGmukw?si=sDNcmu0VsMosVnVH" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[![Fluid CLI Onboarding](https://img.youtube.com/vi/wbevPJGmukw/0.jpg)](https://www.youtube.com/watch?v=wbevPJGmukw)
 
 ### Sandbox Creation Limits
 
@@ -180,13 +180,15 @@ Please reach out on Discord with any problems or questions you encounter!
  [Discord](https://discord.gg/4WGGXJWm8J)
 
 
-## Fluid Remote (⚠️WIP Not Production Ready⚠️)
+## Fluid Remote 
+
+*(⚠️WIP Not Production Ready⚠️)*
 
 Fluid-Remote is the API version of Fluid. Allowing you to run agents autonomously on your infrastructure from the UI or API calls. Instead of just one agent in your terminal, control hundreds. Talk to Fluid in your favorite apps and spawn tasks to run async, getting your approval before continuining. Run Ansible playbooks from anywhere.
 
 ### Demo of Fluid Remote
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/nAlqRMhZxP0?si=JgujotIWGAD7NCrf" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[![Fluid Remote Demo](https://img.youtube.com/vi/nAlqRMhZxP0/0.jpg)](https://www.youtube.com/watch?v=nAlqRMhZxP0)
 
 ## SDK Example
 
@@ -299,7 +301,7 @@ curl https://raw.githubusercontent.com/aspectrr/fluid.sh/main/public-key.asc | g
 
 ### 2. Download release assets
 ```bash
-VERSION=0.0.4-beta
+VERSION=0.1.0
 wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/fluid-remote_${VERSION}_linux_amd64.tar.gz
 wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/checksums.txt
 wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/checksums.txt.sig
