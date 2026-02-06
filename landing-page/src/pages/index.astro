@@ -25,7 +25,7 @@ import { YouTube } from "astro-embed";
                 </p>
                 <h2 class="mt-14 mb-4 text-xl text-neutral-200">What does that mean?</h2>
             <p class="mt-4 text-neutral-400">
-                Fluid is a terminal agent that helps manage and debug production infrastructure like VMs/K8s cluster by making sandbox clones of the infrastructure for AI agents to work on, allowing the agents to run commands, test connections, edit files, and then generate Infra-as-code like an Ansible Playbook to be applied osn production.
+                Fluid is a terminal agent that helps manage and debug production infrastructure like VMs/K8s cluster by making sandbox clones of the infrastructure for AI agents to work on, allowing the agents to run commands, test connections, edit files, and then generate Infra-as-code like an Ansible Playbook to be applied on production.
             </p>
             <h2 class="mt-14 mb-4 text-xl text-neutral-200">
                 Why not just use an LLM to generate Infrastructure-as-Code (IaC)?
@@ -39,7 +39,7 @@ import { YouTube } from "astro-embed";
                 Why not just provide tools, skills, MCP server to Claude Code?
                 </h2>
                 <p class="mt-4 text-neutral-400">
-                Safety and observability. I didn't want Claude Code to SSH into a production machine and run bash commands with limited observability/control. Restricting Fluid's tools to only run on sanboxes gives it autonomy to execute commands, write and edit files safely without having to watch every second of it (ofc still good to keep a close eye).
+                Safety and observability. I didn't want Claude Code to SSH into a production machine and run bash commands with limited observability/control. Restricting Fluid's tools to only run on sandboxes gives it autonomy to execute commands, write and edit files safely without having to watch every second of it (ofc still good to keep a close eye).
                 It allows agents to spin up sandboxes when needed to debug, make changes etc. that actually can scale to a full worker, not just a sidekick companion.
                 In the future, where you are managing ten agents at a time, this does not make any sense and doesn't scale.
 
