@@ -130,81 +130,28 @@ import { YouTube } from "astro-embed";
                     </h2>
 
                     <!-- Feature Cards Grid -->
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-12">
-                                            <FeatureCard
-                                                iconString="[~]"
-                                                title={'Sandbox Isolation'}
-                                                description={`Clone VMs instantly. Test changes in isolation before touching production.`}
-                                            />
-                                            <FeatureCard
-                                                iconString="ls"
-                                                title={'Context-Aware'}
-                                                description={`Fluid explores your host first - OS, packages, CLI tools - then adapts.`}
-                                            />
-                                            <FeatureCard
-                                                iconString=">>>"
-                                                title={'Full Audit Trail'}
-                                                description={`Every command logged. Every change tracked. Review before production.`}
-                                            />
-                                            <FeatureCard
-                                                iconString=".yaml"
-                                                title={'Ansible Playbooks'}
-                                                description={`Auto-generates playbooks from sandbox work. Reproducible infrastructure.`}
-                                            />
-                                        </div>
-
-                    <!-- Workflow Steps -->
-                    <!-- <div class="relative">
-                        <h3 class="text-neutral-400 text-sm font-mono mb-4 uppercase tracking-wider">How it works</h3>
-
-
-                        <div class="hidden md:block absolute top-18 left-0 right-0 h-px bg-neutral-800"></div>
-                        <div id="workflow-progress" class="hidden md:block absolute top-18 left-0 h-px bg-linear-to-r from-blue-500 to-blue-400 transition-all duration-1000 ease-out" style="width: 0%;"></div>
-
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div class="workflow-step opacity-0 translate-y-4 transition-all duration-500" data-step="1">
-                                <div class="relative flex flex-col items-center text-center">
-                                    <div class="w-10 h-10 rounded-full bg-neutral-900 border-2 border-neutral-700 flex items-center justify-center mb-3 transition-all duration-300 workflow-dot">
-                                        <span class="text-neutral-500 font-mono text-sm transition-colors duration-300">1</span>
-                                    </div>
-                                    <span class="text-blue-400 font-mono text-sm mb-1">explore</span>
-                                    <span class="text-neutral-600 text-xs">Scan host environment</span>
-                                </div>
-                            </div>
-
-
-                            <div class="workflow-step opacity-0 translate-y-4 transition-all duration-500" data-step="2">
-                                <div class="relative flex flex-col items-center text-center">
-                                    <div class="w-10 h-10 rounded-full bg-neutral-900 border-2 border-neutral-700 flex items-center justify-center mb-3 transition-all duration-300 workflow-dot">
-                                        <span class="text-neutral-500 font-mono text-sm transition-colors duration-300">2</span>
-                                    </div>
-                                    <span class="text-blue-400 font-mono text-sm mb-1">plan</span>
-                                    <span class="text-neutral-600 text-xs">Build execution strategy</span>
-                                </div>
-                            </div>
-
-                            <div class="workflow-step opacity-0 translate-y-4 transition-all duration-500" data-step="3">
-                                <div class="relative flex flex-col items-center text-center">
-                                    <div class="w-10 h-10 rounded-full bg-neutral-900 border-2 border-neutral-700 flex items-center justify-center mb-3 transition-all duration-300 workflow-dot">
-                                        <span class="text-neutral-500 font-mono text-sm transition-colors duration-300">3</span>
-                                    </div>
-                                    <span class="text-blue-400 font-mono text-sm mb-1">execute</span>
-                                    <span class="text-neutral-600 text-xs">Run in sandbox</span>
-                                </div>
-                            </div>
-
-                            <div class="workflow-step opacity-0 translate-y-4 transition-all duration-500" data-step="4">
-                                <div class="relative flex flex-col items-center text-center">
-                                    <div class="w-10 h-10 rounded-full bg-neutral-900 border-2 border-neutral-700 flex items-center justify-center mb-3 transition-all duration-300 workflow-dot">
-                                        <span class="text-neutral-500 font-mono text-sm transition-colors duration-300">4</span>
-                                    </div>
-                                    <span class="text-blue-400 font-mono text-sm mb-1">export</span>
-                                    <span class="text-neutral-600 text-xs">Generate playbook</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div> -->
-
+                   <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-12">
+                      <FeatureCard
+                       iconString="[~]"
+                       title={'Sandbox Isolation'}
+                       description={`Clone VMs instantly. Test changes in isolation before touching production.`}
+                      />
+                      <FeatureCard
+                       iconString="ls"
+                       title={'Context-Aware'}
+                       description={`Fluid explores your host first - OS, packages, CLI tools - then adapts.`}
+                      />
+                      <FeatureCard
+                       iconString=">>>"
+                       title={'Full Audit Trail'}
+                       description={`Every command logged. Every change tracked. Review before production.`}
+                      />
+                      <FeatureCard
+                       iconString=".yaml"
+                       title={'Ansible Playbooks'}
+                       description={`Auto-generates playbooks from sandbox work. Reproducible infrastructure.`}
+                      />
+                   </div>
                     <script>
                         // Workflow animation
                         function initWorkflowAnimation() {

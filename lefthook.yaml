@@ -80,7 +80,7 @@ pre-push:
     # Python SDK
     test-sdk:
       glob: "*.py"
-      root: "sdk/fluid-sdk-py"
+      root: "sdk/fluid-py"
       run: python3 -m pytest test/ -v --tb=short
 
     # Web

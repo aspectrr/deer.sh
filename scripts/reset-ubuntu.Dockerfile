@@ -12,4 +12,4 @@ COPY run-on-remotes.sh hosts.txt reset-ubuntu.sh ./
 RUN chmod +x run-on-remotes.sh reset-ubuntu.sh
 
 # Default command
-ENTRYPOINT ["bash", "./run.sh", "./hosts.txt", "./reset-ubuntu.sh"]
+ENTRYPOINT ["bash", "./run-on-remotes.sh", "./hosts.txt", "./reset-ubuntu.sh"]

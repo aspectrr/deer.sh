@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌊 fluid.sh 
+# fluid.sh
 
 ### Claude Code for Infrastructure
 
@@ -15,7 +15,7 @@ Fluid comes in two flavors:
 
 Choose your own adventure 🧙‍♂️
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Demo](#-demo) • [Documentation](#-documentation)
+[Features](#features) * [Quick Start](#quick-start) * [Demo](#demo) * [Documentation](#documentation)
 
 </div>
 
@@ -25,7 +25,7 @@ Choose your own adventure 🧙‍♂️
 
 AI agents are ready to do infrastructure work, but they can't touch prod:
 
-- Agents can install packages, configure services, write scripts—autonomously
+- Agents can install packages, configure services, write scripts--autonomously
 - But one mistake on production and you're getting paged at 3 AM to fix it
 - So we limit agents to chatbots instead of letting them manage and debug on their own
 
@@ -60,7 +60,7 @@ AI agents are ready to do infrastructure work, but they can't touch prod:
 
 | Feature | Description |
 |---------|-------------|
-|  **Autonomous Execution** | Agents run commands, install packages, edit configs—no hand-holding |
+|  **Autonomous Execution** | Agents run commands, install packages, edit configs--no hand-holding |
 |  **Full VM Isolation** | Each agent gets a dedicated KVM virtual machine with root access |
 |  **Human-in-the-Loop** | Blocking approval workflow before any production changes |
 |  **Ansible Export** | Auto-generate playbooks from agent work for production apply |
@@ -204,14 +204,14 @@ try:
         auto_start=True,
         wait_for_ip=True
     ).sandbox
-    
+
     run_agent("Install nginx and configure TLS, create an Ansible playbook to recreate the task.", sandbox.id)
-    
+
     # NOW the human reviews:
     # - Diff between snapshots shows exactly what changed
     # - Auto-generated Ansible playbook ready to apply
-    # - Human approves → playbook runs on production
-    # - Human rejects → nothing happens, agent tries again
+    # - Human approves -> playbook runs on production
+    # - Human rejects -> nothing happens, agent tries again
 
 finally:
     if(sandbox):
@@ -219,7 +219,7 @@ finally:
         client.sandbox.destroy_sandbox(sandbox.id)
 ```
 
-## 🏄 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -500,7 +500,7 @@ userdel fluid-remote
 rm -rf /etc/fluid-remote /var/lib/fluid-remote /var/log/fluid-remote
 ```
 
-## ⛵ Contributing Quickstart
+## Contributing Quickstart
 
 ### **Note: As the lovely contributors that you are, I host two Ubuntu VMs with libvirt installed for testing in the cloud for fluid-remote/fluid. If you would like access to these rather than the Mac workaround, please reach out in [Discord](https://discord.gg/4WGGXJWm8J) and I will add your public keys to them. They reset every hour to prevent long-running malicious processes from staying put.**
 
@@ -509,8 +509,10 @@ rm -rf /etc/fluid-remote /var/lib/fluid-remote /var/log/fluid-remote
 - **mprocs** - For local dev
 - **libvirt/KVM** - For virtual machine management
 - **macOS**:
-  - **libvirt** - `brew install libvirt`
-  - **socket_vmnet** - `brew install socket_vmnet`
+  - **qemu** - `brew install qemu` (the hypervisor)
+  - **libvirt** - `brew install libvirt` (VM management daemon)
+  - **socket_vmnet** - `brew install socket_vmnet` (VM networking)
+  - **cdrtools** - `brew install cdrtools` (provides `mkisofs` for cloud-init)
 
 ### 30-Second Start
 
@@ -532,22 +534,29 @@ mprocs
 <details>
 <summary><b>Mac</b></summary>
 
-You will need to install libvirt and socket_vmnet on Mac:
+You will need to install qemu, libvirt, socket_vmnet, and cdrtools on Mac:
 
 ```bash
-# Install Lima and libvirt client
-brew install libvirt socket_vmnet
+# Install qemu, libvirt, socket_vmnet, and cdrtools
+brew install qemu libvirt socket_vmnet cdrtools
 
 # Set up SSH CA (Needed for Sanbox VMs)
 cd fluid.sh
 ./fluid-remote/scripts/setup-ssh-ca.sh --dir .ssh-ca
 
-# Set up libvirt VM (ARM64 Ubuntu)
+# Create image directories
+sudo mkdir -p /var/lib/libvirt/images/{base,jobs}
+sudo chown -R $(whoami) /var/lib/libvirt/images/{base,jobs}
+
+# Verify libvirt is running
+virsh -c qemu:///session list --all
+
+# Set up SSH CA (Needed for Sandbox VMs)
 cd fluid.sh
 ./fluid-remote/scripts/reset-libvirt-macos.sh
 
-# Verify connection
-virsh -c "$LIBVIRT_URI" list --all
+# Set up libvirt VM (ARM64 Ubuntu)
+SSH_CA_PUB_PATH=.ssh-ca/ssh_ca.pub SSH_CA_KEY_PATH=.ssh-ca/ssh_ca ./scripts/reset-libvirt-macos.sh
 
 # Start services
 mprocs
@@ -622,7 +631,7 @@ sudo mkdir -p /var/lib/libvirt/images/{base,jobs}
 cat > .env << 'EOF'
 LIBVIRT_URI=qemu:///system
 LIBVIRT_NETWORK=default
-DATABASE_URL=postgresql://virsh_sandbox:virsh_sandbox@localhost:5432/virsh_sandbox
+DATABASE_URL=postgresql://fluid:fluid@localhost:5432/fluid
 BASE_IMAGE_DIR=/var/lib/libvirt/images/base
 SANDBOX_WORKDIR=/var/lib/libvirt/images/jobs
 EOF
@@ -703,7 +712,7 @@ newgrp libvirt
 cat > .env << 'EOF'
 LIBVIRT_URI=qemu:///system
 LIBVIRT_NETWORK=default
-DATABASE_URL=postgresql://virsh_sandbox:virsh_sandbox@localhost:5432/virsh_sandbox
+DATABASE_URL=postgresql://fluid:fluid@localhost:5432/fluid
 BASE_IMAGE_DIR=/var/lib/libvirt/images/base
 SANDBOX_WORKDIR=/var/lib/libvirt/images/jobs
 EOF
@@ -752,7 +761,7 @@ virsh -c "$LIBVIRT_URI" list --all
 cat > .env << EOF
 LIBVIRT_URI=${LIBVIRT_URI}
 LIBVIRT_NETWORK=default
-DATABASE_URL=postgresql://virsh_sandbox:virsh_sandbox@localhost:5432/virsh_sandbox
+DATABASE_URL=postgresql://fluid:fluid@localhost:5432/fluid
 EOF
 
 # Start services
@@ -915,7 +924,7 @@ cd web && bun run dev
 1. Fork the repository
 2. Create a feature branch
 3. Make changes with tests
-4. Run `make check` 
+4. Run `make check`
 5. Submit a pull request
 
 All contributions must maintain the security model and include appropriate tests.

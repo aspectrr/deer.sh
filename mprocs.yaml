@@ -6,9 +6,9 @@ procs:
     stop: "SIGTERM"
 
   api:
-    cwd: "./virsh-sandbox"
+    cwd: "./fluid"
     autostart: false
-    shell: 'go build --tags libvirt -ldflags="-s -w" -o bin/api ./cmd/api && bin/api'
+    shell: 'go build --tags libvirt -ldflags="-s -w" -o bin/fluid ./cmd/fluid && bin/fluid'
 
   frontend:
     cwd: "./web"
@@ -23,4 +23,4 @@ procs:
   cleanup-sandboxes:
     cwd: "."
     autostart: false
-    shell: "./virsh-sandbox/scripts/cleanup-vms.sh"
+    shell: "./scripts/cleanup-vms.sh"
