@@ -35,7 +35,7 @@ services:
       - BASE_IMAGE_DIR=/var/lib/libvirt/images/base
       - SANDBOX_WORKDIR=/var/lib/libvirt/images/jobs
 
-      - DATABASE_URL=${DATABASE_URL:-postgresql://virsh_sandbox:virsh_sandbox@postgres:5432/virsh_sandbox}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://fluid:fluid@postgres:5432/fluid}
 
       # Defaults and timeouts
       - DEFAULT_VCPUS=${DEFAULT_VCPUS:-2}
@@ -43,8 +43,8 @@ services:
       - COMMAND_TIMEOUT_SEC=${COMMAND_TIMEOUT_SEC:-600}
       - IP_DISCOVERY_TIMEOUT_SEC=${IP_DISCOVERY_TIMEOUT_SEC:-180}
       # SSH CA config
-      - SSH_CA_KEY_PATH=${SSH_CA_KEY_PATH:-/etc/virsh-sandbox/ssh_ca}
-      - SSH_CA_PUB_KEY_PATH=${SSH_CA_PUB_KEY_PATH:-/etc/virsh-sandbox/ssh_ca.pub}
+      - SSH_CA_KEY_PATH=${SSH_CA_KEY_PATH:-/etc/fluid-remote/ssh_ca}
+      - SSH_CA_PUB_KEY_PATH=${SSH_CA_PUB_KEY_PATH:-/etc/fluid-remote/ssh_ca.pub}
       - SSH_KEY_DIR=${SSH_KEY_DIR:-/tmp/sandbox-keys}
       - SSH_CERT_TTL_SEC=${SSH_CERT_TTL_SEC:-300}
 
@@ -59,7 +59,7 @@ services:
       - ${JOBS_DIR:-/var/lib/libvirt/images/jobs}:/var/lib/libvirt/images/jobs:rw
 
       # SSH CA for managed credentials (run setup-ssh-ca.sh first)
-      - ./virsh-sandbox/.ssh-ca:/etc/virsh-sandbox:ro
+      - ./fluid-remote/.ssh-ca:/etc/fluid-remote:ro
 
       # Optionally mount SSH deploy key for GitOps (uncomment and set env GITOPS_SSH_KEY_PATH accordingly)
       # - ./secrets/gitops_key:/run/secrets/gitops_key:ro

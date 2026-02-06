@@ -27,7 +27,7 @@ AI agents are ready to do infrastructure work, but they can't touch prod:
 
 - Agents can install packages, configure services, write scripts—autonomously
 - But one mistake on production and you're getting paged at 3 AM to fix it
-- So we limit agents to chatbots instead of letting them manage and debug on their won
+- So we limit agents to chatbots instead of letting them manage and debug on their own
 
 ## Solution
 
@@ -231,6 +231,10 @@ If you need another way of accessing VMs, open an issue and we will get back to 
 
 The recommended deployment model is a **single control node** running the `fluid-remote` API and PostgreSQL, with SSH access to one or more libvirt/KVM hosts.
 
+### **Warning: It is reccomended to NOT use Docker**
+There is a Docker container and a `docker-compose.yml` file in this repo for `fluid-remote`, purely in the off-chance that you would prefer to host in a container VS install a system process.
+The reason not to use docker is due to the networking issues that arise. `fluid-remote` uses SSH to connect to libvirt and in testing, containers can interfere with connections to hosts. If you must use Docker, please use host-mode for the network, vs Docker's internal network. Please reach out in the [Discord](https://discord.gg/4WGGXJWm8J) if you want support implimenting this.
+
 ---
 
 ## Architecture Overview
@@ -386,8 +390,8 @@ server:
 database:
   host: 127.0.0.1
   port: 5432
-  name: virsh_sandbox
-  user: virsh_sandbox
+  name: fluid
+  user: fluid
   password: strong-password
 
 hosts:
@@ -497,6 +501,8 @@ rm -rf /etc/fluid-remote /var/lib/fluid-remote /var/log/fluid-remote
 ```
 
 ## ⛵ Contributing Quickstart
+
+### **Note: As the lovely contributors that you are, I host two Ubuntu VMs with libvirt installed for testing in the cloud for fluid-remote/fluid. If you would like access to these rather than the Mac workaround, please reach out in [Discord](https://discord.gg/4WGGXJWm8J) and I will add your public keys to them. They reset every hour to prevent long-running malicious processes from staying put.**
 
 ### Prerequisites
 
@@ -898,7 +904,7 @@ cd web && bun run dev
 (cd fluid-remote && make test)
 
 # Python SDK
-(cd sdk/fluid-remote-py && pytest)
+(cd sdk/fluid-py && pytest)
 
 # All checks
 (cd fluid-remote && make check)
@@ -925,6 +931,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-Made with ❤️ by Collin
+Made with ❤️ by Collin & [Contributors](https://github.com/aspectrr/fluid.sh/graphs/contributors)
 
 </div>

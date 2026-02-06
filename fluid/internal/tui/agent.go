@@ -234,7 +234,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			tools := llm.GetTools()
 			if a.readOnly {
 				tools = llm.GetReadOnlyTools()
-				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources."
+				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources.  Available tools: list_sandboxes, get_sandbox, list_vms, read_file, list_playbooks, get_playbook."
 			}
 
 			req := llm.ChatRequest{
