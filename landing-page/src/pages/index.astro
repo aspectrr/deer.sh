@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import FeatureCard from '../components/FeatureCard.astro'
 ---
 
 <BaseLayout title="fluid.sh">
@@ -121,49 +122,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
                     <!-- Feature Cards Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-12">
-                        <!-- Card 1: Sandbox -->
-                        <div class="group p-4 rounded-lg bg-neutral-900/50 border border-neutral-800 hover:border-blue-500/30 transition-all duration-300">
-                            <div class="flex items-start gap-3">
-                                <div class="text-blue-400 font-mono text-lg">[~]</div>
-                                <div>
-                                    <h3 class="text-neutral-200 font-medium mb-1">Sandbox Isolation</h3>
-                                    <p class="text-neutral-500 text-sm">Clone VMs instantly. Test changes in isolation before touching production.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 2: Explore -->
-                        <div class="group p-4 rounded-lg bg-neutral-900/50 border border-neutral-800 hover:border-blue-500/30 transition-all duration-300">
-                            <div class="flex items-start gap-3">
-                                <div class="text-blue-400 font-mono text-lg">ls</div>
-                                <div>
-                                    <h3 class="text-neutral-200 font-medium mb-1">Context-Aware</h3>
-                                    <p class="text-neutral-500 text-sm">Fluid explores your host first - OS, packages, CLI tools - then adapts.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 3: Audit -->
-                        <div class="group p-4 rounded-lg bg-neutral-900/50 border border-neutral-800 hover:border-blue-500/30 transition-all duration-300">
-                            <div class="flex items-start gap-3">
-                                <div class="text-blue-400 font-mono text-lg">&gt;&gt;&gt;</div>
-                                <div>
-                                    <h3 class="text-neutral-200 font-medium mb-1">Full Audit Trail</h3>
-                                    <p class="text-neutral-500 text-sm">Every command logged. Every change tracked. Review before production.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 4: Ansible -->
-                        <div class="group p-4 rounded-lg bg-neutral-900/50 border border-neutral-800 hover:border-blue-500/30 transition-all duration-300">
-                            <div class="flex items-start gap-3">
-                                <div class="text-blue-400 font-mono text-lg">.yaml</div>
-                                <div>
-                                    <h3 class="text-neutral-200 font-medium mb-1">Ansible Playbooks</h3>
-                                    <p class="text-neutral-500 text-sm">Auto-generates playbooks from sandbox work. Reproducible infrastructure.</p>
-                                </div>
-                            </div>
-                        </div>
+                        <FeatureCard
+                            iconString="[~]"
+                            title={'Sandbox Isolation'}
+                            description={`Clone VMs instantly. Test changes in isolation before touching production.`}
+                        />
+                        <FeatureCard
+                            iconString="ls"
+                            title={'Context-Aware'}
+                            description={`Fluid explores your host first - OS, packages, CLI tools - then adapts.`}
+                        />
+                        <FeatureCard
+                            iconString=">>>"
+                            title={'Full Audit Trail'}
+                            description={`Every command logged. Every change tracked. Review before production.`}
+                        />
+                        <FeatureCard
+                            iconString=".yaml"
+                            title={'Ansible Playbooks'}
+                            description={`Auto-generates playbooks from sandbox work. Reproducible infrastructure.`}
+                        />
                     </div>
 
                     <!-- Workflow Steps -->
