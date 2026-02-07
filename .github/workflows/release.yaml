@@ -69,6 +69,14 @@ jobs:
             --local-user="${{ secrets.GPG_FINGERPRINT }}" \
             --detach-sign || echo "FAILED"
 
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -76,6 +84,9 @@ jobs:
           version: latest
           args: release --clean
         env:
+          CGO_ENABLED: 1
+          CC_linux_arm64: aarch64-linux-gnu-gcc
+          CXX_linux_arm64: aarch64-linux-gnu-g++
           GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
