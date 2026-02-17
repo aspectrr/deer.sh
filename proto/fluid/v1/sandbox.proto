@@ -4,6 +4,27 @@ package fluid.v1;
 
 option go_package = "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1";
 
+// SnapshotMode controls whether to use a cached image or take a fresh snapshot.
+enum SnapshotMode {
+  SNAPSHOT_MODE_CACHED = 0;
+  SNAPSHOT_MODE_FRESH = 1;
+}
+
+// SourceHostConnection carries the credentials needed to connect to a source host.
+message SourceHostConnection {
+  // type is "libvirt" or "proxmox".
+  string type = 1;
+  string ssh_host = 2;
+  int32 ssh_port = 3;
+  string ssh_user = 4;
+  string ssh_identity_file = 5;
+  string proxmox_host = 6;
+  string proxmox_token_id = 7;
+  string proxmox_secret = 8;
+  string proxmox_node = 9;
+  bool proxmox_verify_ssl = 10;
+}
+
 // CreateSandboxCommand instructs a sandbox host to create a new microVM sandbox.
 message CreateSandboxCommand {
   // sandbox_id is assigned by the control plane.
@@ -36,6 +57,12 @@ message CreateSandboxCommand {
 
   // ssh_public_key is injected into the sandbox for SSH access.
   string ssh_public_key = 10;
+
+  // snapshot_mode controls cached vs fresh snapshot behavior.
+  SnapshotMode snapshot_mode = 11;
+
+  // source_host_connection carries credentials for the remote source host.
+  SourceHostConnection source_host_connection = 12;
 }
 
 // SandboxCreated is sent by the host after successfully creating a sandbox.

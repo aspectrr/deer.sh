@@ -1,0 +1,60 @@
+---
+title: 'Introducing Fluid v0.1.0'
+pubDate: 2026-01-24
+description: 'Claude Code for Infrastructure'
+author: 'Collin @ Fluid.sh'
+authorImage: '/images/skeleton_smoking_cigarette.jpg'
+authorEmail: 'cpfeifer@madcactus.org'
+authorPhone: '+3179955114'
+authorDiscord: 'https://discordapp.com/users/301068417685913600'
+---
+
+import { YouTube } from '~/components/youtube'
+
+<YouTube id="ZSUBGXNTz34" />
+
+## Hello World!
+
+Welcome to Fluid! Fluid is a terminal agent for Debugging and Managing on-prem VMs.
+
+## What does that mean?
+
+Fluid is a terminal agent that helps manage and debug production VMs by making sandbox clones for AI agents to work on, allowing the agents to run commands, test connections, edit files, and then generate Infra-as-code like an Ansible Playbook to be applied on production.
+
+## Why not just use an LLM to generate Infrastructure-as-Code (IaC)?
+
+For debugging and managing VMs, even humans cannot write IaC to diagnose the issue without first interacting with the environment. Fluid provides a safe environment for AI agents to work on sandbox replicas of infrastructure, allowing them to run commands, test connections, edit files, and generate IaC without affecting production.
+
+## How does it work?
+
+Fluid works by letting AI work on sandbox replicas of infrastructure, not prod itself. Think like replicas of VMs, Kubernetes clusters, etc. Letting AI run safely and complete a task without you having to worry if it's bringing down your whole environment.
+
+For auditability and review, the agent will generate a nice Infrastructure as Code (IaC) like an Ansible Playbook for you to audit and then apply to prod, just like you are used to.
+
+## Why not just provide tools, skills, MCP server to Claude Code?
+
+Safety and observability. I didn't want Claude Code to SSH into a production machine and run bash commands with limited observability/control. Restricting Fluid's tools to only run on sandboxes gives it autonomy to execute commands, write and edit files safely without having to watch every second of it (ofc still good to keep a close eye).
+It allows agents to spin up sandboxes when needed to debug, make changes etc. that actually can scale to a full worker, not just a sidekick companion.
+In the future, where you are managing ten agents at a time, this does not make any sense and doesn't scale.
+
+To enhance observability, Fluid gives access to a live output of commands run (it's pretty cool) and secures sandbox connections by ephemeral SSH Certificates. Fluid gives tools for creating IaC and requires human approval for creating sandboxes on hosts with low memory/CPU and for accessing the internet or installing packages.
+
+## Why now?
+
+Claude Code and similar terminal agents took the world by storm for their increased productivity and autonomous features. The same is now happening to infrastructure roles with the help of sandboxing.
+
+Fluid can fix on-call issues, restart services, debug memory problems, all without the engineer having to worry. There has never been more code in the world than there is now and I don't see that stopping anytime soon.
+
+We will always need infrastructure support to run our code whether AI or human.
+
+## How did you come up with the idea?
+
+This was a problem that I had and I wanted to share it. I wanted AI to help with my infrastructure work like Claude Code did with my code.
+
+## Next
+
+Try it out and let me know what you think! [text](tel:+3179955114), [email](mailto:cpfeifer@madcactus.org) [discord](https://discordapp.com/users/301068417685913600)
+
+Check out the code on [GitHub](https://github.com/aspectrr/fluid.sh)
+
+Install at [Fluid.sh](https://fluid.sh)

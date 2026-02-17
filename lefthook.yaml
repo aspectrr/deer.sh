@@ -2,17 +2,24 @@ pre-commit:
   parallel: false
   commands:
     # Go - fluid CLI
-    fmt-fluid:
+    fmt-fluid-cli:
       glob: "*.go"
-      root: "fluid"
-      run: make fmt
+      root: "fluid-cli"
+      run: gofumpt -w .
       stage_fixed: true
 
-    # Go - fluid-remote API
-    fmt-fluid-remote:
+    # Go - fluid daemon
+    fmt-fluid-daemon:
       glob: "*.go"
-      root: "fluid-remote"
-      run: make fmt
+      root: "fluid-daemon"
+      run: go fmt ./...
+      stage_fixed: true
+
+    # Go - API
+    fmt-api:
+      glob: "*.go"
+      root: "api"
+      run: go fmt ./...
       stage_fixed: true
 
     # Python SDK
@@ -35,46 +42,55 @@ pre-commit:
       run: bun format
       stage_fixed: true
 
-    # Landing Page
-    fmt-landing-page:
-      glob: "*.{ts,tsx,js,jsx,json,css,md,astro}"
-      root: "landing-page"
-      run: bun format
-      stage_fixed: true
-
 pre-push:
   parallel: true
   commands:
     # Go - fluid CLI
-    vet-fluid:
+    vet-fluid-cli:
       glob: "*.go"
-      root: "fluid"
+      root: "fluid-cli"
       run: make vet
 
-    test-fluid:
+    test-fluid-cli:
       glob: "*.go"
-      root: "fluid"
+      root: "fluid-cli"
       run: make test
 
-    lint-fluid:
+    lint-fluid-cli:
       glob: "*.go"
-      root: "fluid"
+      root: "fluid-cli"
       run: make lint
 
-    # Go - fluid-remote API
-    vet-fluid-remote:
+    # Go - fluid daemon
+    vet-fluid-daemon:
       glob: "*.go"
-      root: "fluid-remote"
+      root: "fluid-daemon"
       run: make vet
 
-    test-fluid-remote:
+    test-fluid-daemon:
       glob: "*.go"
-      root: "fluid-remote"
+      root: "fluid-daemon"
       run: make test
 
-    lint-fluid-remote:
+    lint-fluid-daemon:
       glob: "*.go"
-      root: "fluid-remote"
+      root: "fluid-daemon"
+      run: make lint
+
+    # Go - API
+    vet-api:
+      glob: "*.go"
+      root: "api"
+      run: make vet
+
+    test-api:
+      glob: "*.go"
+      root: "api"
+      run: make test
+
+    lint-api:
+      glob: "*.go"
+      root: "api"
       run: make lint
 
     # Python SDK
@@ -93,19 +109,3 @@ pre-push:
       glob: "*.ts"
       root: "web"
       run: bun typecheck
-
-    # Landing Page
-    lint-landing-page:
-      glob: "*.{ts,tsx,js,jsx,css,astro}"
-      root: "landing-page"
-      run: bun lint
-
-    typecheck-landing-page:
-      glob: "*.{ts,tsx,js,jsx,css,astro}"
-      root: "landing-page"
-      run: bun typecheck
-
-    check-landing-page:
-      glob: "*.{ts,tsx,js,jsx,css,astro}"
-      root: "landing-page"
-      run: bun check

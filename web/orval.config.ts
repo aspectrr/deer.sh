@@ -1,22 +1,26 @@
 import { defineConfig } from 'orval'
 
 export default defineConfig({
-  'virsh-sandbox-api': {
+  'fluid-api': {
     output: {
       client: 'react-query',
       mode: 'tags-split',
       clean: true,
       prettier: true,
-      target: 'src/virsh-sandbox',
-      schemas: 'src/virsh-sandbox/model',
+      target: 'src/api',
+      schemas: 'src/api/model',
       override: {
         operationName: (operation) => {
           return operation.operationId || ''
         },
+        mutator: {
+          path: './src/lib/axios.ts',
+          name: 'customInstance',
+        },
       },
     },
     input: {
-      target: '../virsh-sandbox/docs/openapi.yaml',
+      target: '../api/docs/openapi.yaml',
     },
   },
 })

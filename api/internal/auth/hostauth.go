@@ -1,0 +1,78 @@
+package auth
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+
+	"github.com/aspectrr/fluid.sh/api/internal/store"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+)
+
+type hostOrgKey struct{}
+
+// OrgIDFromContext returns the org ID attached to a gRPC context by the
+// host token auth interceptor.
+func OrgIDFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(hostOrgKey{}).(string)
+	return v
+}
+
+// HashToken produces a SHA-256 hex digest of a raw bearer token.
+func HashToken(raw string) string {
+	h := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(h[:])
+}
+
+// HostTokenStreamInterceptor returns a gRPC stream server interceptor that
+// validates bearer tokens from host daemons. On success it attaches the
+// host token's org_id to the stream context.
+func HostTokenStreamInterceptor(st store.Store) grpc.StreamServerInterceptor {
+	return func(
+		srv any,
+		ss grpc.ServerStream,
+		info *grpc.StreamServerInfo,
+		handler grpc.StreamHandler,
+	) error {
+		md, ok := metadata.FromIncomingContext(ss.Context())
+		if !ok {
+			return status.Error(codes.Unauthenticated, "missing metadata")
+		}
+
+		vals := md.Get("authorization")
+		if len(vals) == 0 {
+			return status.Error(codes.Unauthenticated, "missing authorization header")
+		}
+
+		raw := vals[0]
+		// Strip "Bearer " prefix if present.
+		if len(raw) > 7 && raw[:7] == "Bearer " {
+			raw = raw[7:]
+		}
+
+		hash := HashToken(raw)
+		token, err := st.GetHostTokenByHash(ss.Context(), hash)
+		if err != nil {
+			return status.Error(codes.Unauthenticated, "invalid host token")
+		}
+
+		// Attach org_id to stream context.
+		ctx := context.WithValue(ss.Context(), hostOrgKey{}, token.OrgID)
+		wrapped := &wrappedStream{ServerStream: ss, ctx: ctx}
+		return handler(srv, wrapped)
+	}
+}
+
+// wrappedStream overrides Context() to return an enriched context.
+type wrappedStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (w *wrappedStream) Context() context.Context {
+	return w.ctx
+}

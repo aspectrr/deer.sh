@@ -10,12 +10,12 @@ on:
 
 jobs:
   # Go services - fluid CLI
-  fluid:
+  fluid-cli:
     name: Fluid CLI
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: fluid
+        working-directory: fluid-cli
 
     steps:
       - uses: actions/checkout@v4
@@ -24,12 +24,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-          cache-dependency-path: fluid/go.sum
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev
+          cache-dependency-path: fluid-cli/go.sum
 
       - name: Download dependencies
         run: go mod download
@@ -38,22 +33,22 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          working-directory: fluid
-          args: --build-tags=libvirt --timeout=10m
+          working-directory: fluid-cli
+          args: --timeout=10m
 
       - name: Test
-        run: go test -v -race --tags libvirt ./...
+        run: go test -v -race ./...
 
       - name: Build
-        run: go build --tags libvirt -o bin/fluid ./cmd/fluid
+        run: go build -o bin/fluid ./cmd/fluid-cli
 
-  # Go services - fluid-remote API
-  fluid-remote:
-    name: Fluid Remote API
+  # Go services - fluid daemon
+  fluid-daemon:
+    name: Fluid Daemon
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: fluid-remote
+        working-directory: fluid-daemon
 
     steps:
       - uses: actions/checkout@v4
@@ -62,12 +57,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-          cache-dependency-path: fluid-remote/go.sum
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev
+          cache-dependency-path: fluid-daemon/go.sum
 
       - name: Download dependencies
         run: go mod download
@@ -76,14 +66,45 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          working-directory: fluid-remote
-          args: --build-tags=libvirt
+          working-directory: fluid-daemon
 
       - name: Test
-        run: go test -v -race --tags libvirt ./...
+        run: go test -v -race ./...
 
       - name: Build
-        run: go build --tags libvirt -o bin/fluid-remote ./cmd/api
+        run: go build -o bin/fluid-daemon ./cmd/fluid-daemon
+
+  # Go services - API
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: api/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: api
+
+      - name: Test
+        run: go test -v -race ./...
+
+      - name: Build
+        run: go build -o bin/api ./cmd/server
 
   # Python SDK
   sdk:

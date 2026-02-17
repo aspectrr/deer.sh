@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package fluid.v1;
+
+option go_package = "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1";
+
+import "fluid/v1/sandbox.proto";
+import "fluid/v1/source.proto";
+import "fluid/v1/host.proto";
+
+// DaemonService is served by the fluid-daemon for direct CLI access.
+// Unlike HostService (bidirectional streaming for control plane),
+// this uses standard unary RPCs for CLI-to-daemon communication.
+service DaemonService {
+  // Sandbox lifecycle
+  rpc CreateSandbox(CreateSandboxCommand) returns (SandboxCreated);
+  rpc GetSandbox(GetSandboxRequest) returns (SandboxInfo);
+  rpc ListSandboxes(ListSandboxesRequest) returns (ListSandboxesResponse);
+  rpc DestroySandbox(DestroySandboxCommand) returns (SandboxDestroyed);
+  rpc StartSandbox(StartSandboxCommand) returns (SandboxStarted);
+  rpc StopSandbox(StopSandboxCommand) returns (SandboxStopped);
+
+  // Command execution
+  rpc RunCommand(RunCommandCommand) returns (CommandResult);
+
+  // Snapshots
+  rpc CreateSnapshot(SnapshotCommand) returns (SnapshotCreated);
+
+  // Source VM operations
+  rpc ListSourceVMs(ListSourceVMsCommand) returns (SourceVMsList);
+  rpc ValidateSourceVM(ValidateSourceVMCommand) returns (SourceVMValidation);
+  rpc PrepareSourceVM(PrepareSourceVMCommand) returns (SourceVMPrepared);
+  rpc RunSourceCommand(RunSourceCommandCommand) returns (SourceCommandResult);
+  rpc ReadSourceFile(ReadSourceFileCommand) returns (SourceFileResult);
+
+  // Host info
+  rpc GetHostInfo(GetHostInfoRequest) returns (HostInfoResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  // Host discovery
+  rpc DiscoverHosts(DiscoverHostsCommand) returns (DiscoverHostsResult);
+}
+
+// GetSandboxRequest requests details for a single sandbox.
+message GetSandboxRequest {
+  string sandbox_id = 1;
+}
+
+// SandboxInfo contains full details about a sandbox.
+message SandboxInfo {
+  string sandbox_id = 1;
+  string name = 2;
+  string state = 3;
+  string ip_address = 4;
+  string base_image = 5;
+  string agent_id = 6;
+  int32 vcpus = 7;
+  int32 memory_mb = 8;
+  string created_at = 9;
+}
+
+// ListSandboxesRequest requests all sandboxes.
+message ListSandboxesRequest {}
+
+// ListSandboxesResponse contains a list of sandboxes.
+message ListSandboxesResponse {
+  repeated SandboxInfo sandboxes = 1;
+  int32 count = 2;
+}
+
+// GetHostInfoRequest requests host information.
+message GetHostInfoRequest {}
+
+// HostInfoResponse contains host resource and capability information.
+message HostInfoResponse {
+  string host_id = 1;
+  string hostname = 2;
+  string version = 3;
+  int32 total_cpus = 4;
+  int64 total_memory_mb = 5;
+  int32 active_sandboxes = 6;
+  repeated string base_images = 7;
+}
+
+// HealthRequest is an empty health check request.
+message HealthRequest {}
+
+// HealthResponse indicates daemon health status.
+message HealthResponse {
+  string status = 1;
+}
+
+// DiscoverHostsCommand requests the daemon to parse SSH config and probe hosts.
+message DiscoverHostsCommand {
+  // ssh_config_content is the raw SSH config text to parse.
+  string ssh_config_content = 1;
+}
+
+// DiscoveredHost describes a single probed host.
+message DiscoveredHost {
+  string name = 1;
+  string hostname = 2;
+  string user = 3;
+  int32 port = 4;
+  string identity_file = 5;
+  bool reachable = 6;
+  bool has_libvirt = 7;
+  bool has_proxmox = 8;
+  repeated string vms = 9;
+  string error = 10;
+}
+
+// DiscoverHostsResult is the response containing all probed hosts.
+message DiscoverHostsResult {
+  repeated DiscoveredHost hosts = 1;
+}

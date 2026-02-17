@@ -9,104 +9,594 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SandboxesIndexRouteImport } from './routes/sandboxes/index'
-import { Route as AnsibleIndexRouteImport } from './routes/ansible/index'
-import { Route as SandboxesIdRouteImport } from './routes/sandboxes/$id'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as PublicRouteImport } from './routes/_public'
+import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
+import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as DocsUpgradeRouteImport } from './routes/docs/upgrade'
+import { Route as DocsSandboxesRouteImport } from './routes/docs/sandboxes'
+import { Route as DocsQuickstartRouteImport } from './routes/docs/quickstart'
+import { Route as DocsMcpRouteImport } from './routes/docs/mcp'
+import { Route as DocsLocalSetupRouteImport } from './routes/docs/local-setup'
+import { Route as DocsDaemonRouteImport } from './routes/docs/daemon'
+import { Route as DocsCliReferenceRouteImport } from './routes/docs/cli-reference'
+import { Route as DocsArchitectureRouteImport } from './routes/docs/architecture'
+import { Route as DocsApiRouteImport } from './routes/docs/api'
+import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
+import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppCalculatorRouteImport } from './routes/_app/calculator'
+import { Route as AppBillingRouteImport } from './routes/_app/billing'
+import { Route as AppAgentsRouteImport } from './routes/_app/agents'
+import { Route as PublicBlogIndexRouteImport } from './routes/_public/blog/index'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as PublicBlogSlugRouteImport } from './routes/_public/blog/$slug'
+import { Route as AppSettingsOrganizationRouteImport } from './routes/_app/settings/organization'
+import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 
-const IndexRoute = IndexRouteImport.update({
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicRoute = PublicRouteImport.update({
+  id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DocsRoute,
 } as any)
-const SandboxesIndexRoute = SandboxesIndexRouteImport.update({
-  id: '/sandboxes/',
-  path: '/sandboxes/',
-  getParentRoute: () => rootRouteImport,
+const PublicIndexRoute = PublicIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PublicRoute,
 } as any)
-const AnsibleIndexRoute = AnsibleIndexRouteImport.update({
-  id: '/ansible/',
-  path: '/ansible/',
-  getParentRoute: () => rootRouteImport,
+const DocsUpgradeRoute = DocsUpgradeRouteImport.update({
+  id: '/upgrade',
+  path: '/upgrade',
+  getParentRoute: () => DocsRoute,
 } as any)
-const SandboxesIdRoute = SandboxesIdRouteImport.update({
-  id: '/sandboxes/$id',
-  path: '/sandboxes/$id',
-  getParentRoute: () => rootRouteImport,
+const DocsSandboxesRoute = DocsSandboxesRouteImport.update({
+  id: '/sandboxes',
+  path: '/sandboxes',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsQuickstartRoute = DocsQuickstartRouteImport.update({
+  id: '/quickstart',
+  path: '/quickstart',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsMcpRoute = DocsMcpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsLocalSetupRoute = DocsLocalSetupRouteImport.update({
+  id: '/local-setup',
+  path: '/local-setup',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsDaemonRoute = DocsDaemonRouteImport.update({
+  id: '/daemon',
+  path: '/daemon',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsCliReferenceRoute = DocsCliReferenceRouteImport.update({
+  id: '/cli-reference',
+  path: '/cli-reference',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsArchitectureRoute = DocsArchitectureRouteImport.update({
+  id: '/architecture',
+  path: '/architecture',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsApiRoute = DocsApiRouteImport.update({
+  id: '/api',
+  path: '/api',
+  getParentRoute: () => DocsRoute,
+} as any)
+const AuthRegisterRoute = AuthRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCalculatorRoute = AppCalculatorRouteImport.update({
+  id: '/calculator',
+  path: '/calculator',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAgentsRoute = AppAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => AppRoute,
+} as any)
+const PublicBlogIndexRoute = PublicBlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AppRoute,
+} as any)
+const PublicBlogSlugRoute = PublicBlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AppSettingsOrganizationRoute = AppSettingsOrganizationRouteImport.update({
+  id: '/settings/organization',
+  path: '/settings/organization',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
+  id: '/settings/members',
+  path: '/settings/members',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/sandboxes/$id': typeof SandboxesIdRoute
-  '/ansible': typeof AnsibleIndexRoute
-  '/sandboxes': typeof SandboxesIndexRoute
+  '/docs': typeof DocsRouteWithChildren
+  '/agents': typeof AppAgentsRoute
+  '/billing': typeof AppBillingRoute
+  '/calculator': typeof AppCalculatorRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/login': typeof AuthLoginRoute
+  '/register': typeof AuthRegisterRoute
+  '/docs/api': typeof DocsApiRoute
+  '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/cli-reference': typeof DocsCliReferenceRoute
+  '/docs/daemon': typeof DocsDaemonRoute
+  '/docs/local-setup': typeof DocsLocalSetupRoute
+  '/docs/mcp': typeof DocsMcpRoute
+  '/docs/quickstart': typeof DocsQuickstartRoute
+  '/docs/sandboxes': typeof DocsSandboxesRoute
+  '/docs/upgrade': typeof DocsUpgradeRoute
+  '/': typeof PublicIndexRoute
+  '/docs/': typeof DocsIndexRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/organization': typeof AppSettingsOrganizationRoute
+  '/blog/$slug': typeof PublicBlogSlugRoute
+  '/settings': typeof AppSettingsIndexRoute
+  '/blog': typeof PublicBlogIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/sandboxes/$id': typeof SandboxesIdRoute
-  '/ansible': typeof AnsibleIndexRoute
-  '/sandboxes': typeof SandboxesIndexRoute
+  '/agents': typeof AppAgentsRoute
+  '/billing': typeof AppBillingRoute
+  '/calculator': typeof AppCalculatorRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/login': typeof AuthLoginRoute
+  '/register': typeof AuthRegisterRoute
+  '/docs/api': typeof DocsApiRoute
+  '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/cli-reference': typeof DocsCliReferenceRoute
+  '/docs/daemon': typeof DocsDaemonRoute
+  '/docs/local-setup': typeof DocsLocalSetupRoute
+  '/docs/mcp': typeof DocsMcpRoute
+  '/docs/quickstart': typeof DocsQuickstartRoute
+  '/docs/sandboxes': typeof DocsSandboxesRoute
+  '/docs/upgrade': typeof DocsUpgradeRoute
+  '/': typeof PublicIndexRoute
+  '/docs': typeof DocsIndexRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/organization': typeof AppSettingsOrganizationRoute
+  '/blog/$slug': typeof PublicBlogSlugRoute
+  '/settings': typeof AppSettingsIndexRoute
+  '/blog': typeof PublicBlogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/sandboxes/$id': typeof SandboxesIdRoute
-  '/ansible/': typeof AnsibleIndexRoute
-  '/sandboxes/': typeof SandboxesIndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_auth': typeof AuthRouteWithChildren
+  '/_public': typeof PublicRouteWithChildren
+  '/docs': typeof DocsRouteWithChildren
+  '/_app/agents': typeof AppAgentsRoute
+  '/_app/billing': typeof AppBillingRoute
+  '/_app/calculator': typeof AppCalculatorRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_auth/login': typeof AuthLoginRoute
+  '/_auth/register': typeof AuthRegisterRoute
+  '/docs/api': typeof DocsApiRoute
+  '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/cli-reference': typeof DocsCliReferenceRoute
+  '/docs/daemon': typeof DocsDaemonRoute
+  '/docs/local-setup': typeof DocsLocalSetupRoute
+  '/docs/mcp': typeof DocsMcpRoute
+  '/docs/quickstart': typeof DocsQuickstartRoute
+  '/docs/sandboxes': typeof DocsSandboxesRoute
+  '/docs/upgrade': typeof DocsUpgradeRoute
+  '/_public/': typeof PublicIndexRoute
+  '/docs/': typeof DocsIndexRoute
+  '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/settings/organization': typeof AppSettingsOrganizationRoute
+  '/_public/blog/$slug': typeof PublicBlogSlugRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_public/blog/': typeof PublicBlogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sandboxes/$id' | '/ansible' | '/sandboxes'
+  fullPaths:
+    | '/docs'
+    | '/agents'
+    | '/billing'
+    | '/calculator'
+    | '/dashboard'
+    | '/login'
+    | '/register'
+    | '/docs/api'
+    | '/docs/architecture'
+    | '/docs/cli-reference'
+    | '/docs/daemon'
+    | '/docs/local-setup'
+    | '/docs/mcp'
+    | '/docs/quickstart'
+    | '/docs/sandboxes'
+    | '/docs/upgrade'
+    | '/'
+    | '/docs/'
+    | '/settings/members'
+    | '/settings/organization'
+    | '/blog/$slug'
+    | '/settings'
+    | '/blog'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sandboxes/$id' | '/ansible' | '/sandboxes'
-  id: '__root__' | '/' | '/sandboxes/$id' | '/ansible/' | '/sandboxes/'
+  to:
+    | '/agents'
+    | '/billing'
+    | '/calculator'
+    | '/dashboard'
+    | '/login'
+    | '/register'
+    | '/docs/api'
+    | '/docs/architecture'
+    | '/docs/cli-reference'
+    | '/docs/daemon'
+    | '/docs/local-setup'
+    | '/docs/mcp'
+    | '/docs/quickstart'
+    | '/docs/sandboxes'
+    | '/docs/upgrade'
+    | '/'
+    | '/docs'
+    | '/settings/members'
+    | '/settings/organization'
+    | '/blog/$slug'
+    | '/settings'
+    | '/blog'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_auth'
+    | '/_public'
+    | '/docs'
+    | '/_app/agents'
+    | '/_app/billing'
+    | '/_app/calculator'
+    | '/_app/dashboard'
+    | '/_auth/login'
+    | '/_auth/register'
+    | '/docs/api'
+    | '/docs/architecture'
+    | '/docs/cli-reference'
+    | '/docs/daemon'
+    | '/docs/local-setup'
+    | '/docs/mcp'
+    | '/docs/quickstart'
+    | '/docs/sandboxes'
+    | '/docs/upgrade'
+    | '/_public/'
+    | '/docs/'
+    | '/_app/settings/members'
+    | '/_app/settings/organization'
+    | '/_public/blog/$slug'
+    | '/_app/settings/'
+    | '/_public/blog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SandboxesIdRoute: typeof SandboxesIdRoute
-  AnsibleIndexRoute: typeof AnsibleIndexRoute
-  SandboxesIndexRoute: typeof SandboxesIndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRouteWithChildren
+  PublicRoute: typeof PublicRouteWithChildren
+  DocsRoute: typeof DocsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof PublicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_auth': {
+      id: '/_auth'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/_public/': {
+      id: '/_public/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRoute
     }
-    '/sandboxes/': {
-      id: '/sandboxes/'
+    '/docs/upgrade': {
+      id: '/docs/upgrade'
+      path: '/upgrade'
+      fullPath: '/docs/upgrade'
+      preLoaderRoute: typeof DocsUpgradeRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/sandboxes': {
+      id: '/docs/sandboxes'
       path: '/sandboxes'
-      fullPath: '/sandboxes'
-      preLoaderRoute: typeof SandboxesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      fullPath: '/docs/sandboxes'
+      preLoaderRoute: typeof DocsSandboxesRouteImport
+      parentRoute: typeof DocsRoute
     }
-    '/ansible/': {
-      id: '/ansible/'
-      path: '/ansible'
-      fullPath: '/ansible'
-      preLoaderRoute: typeof AnsibleIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/docs/quickstart': {
+      id: '/docs/quickstart'
+      path: '/quickstart'
+      fullPath: '/docs/quickstart'
+      preLoaderRoute: typeof DocsQuickstartRouteImport
+      parentRoute: typeof DocsRoute
     }
-    '/sandboxes/$id': {
-      id: '/sandboxes/$id'
-      path: '/sandboxes/$id'
-      fullPath: '/sandboxes/$id'
-      preLoaderRoute: typeof SandboxesIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/docs/mcp': {
+      id: '/docs/mcp'
+      path: '/mcp'
+      fullPath: '/docs/mcp'
+      preLoaderRoute: typeof DocsMcpRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/local-setup': {
+      id: '/docs/local-setup'
+      path: '/local-setup'
+      fullPath: '/docs/local-setup'
+      preLoaderRoute: typeof DocsLocalSetupRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/daemon': {
+      id: '/docs/daemon'
+      path: '/daemon'
+      fullPath: '/docs/daemon'
+      preLoaderRoute: typeof DocsDaemonRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/cli-reference': {
+      id: '/docs/cli-reference'
+      path: '/cli-reference'
+      fullPath: '/docs/cli-reference'
+      preLoaderRoute: typeof DocsCliReferenceRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/architecture': {
+      id: '/docs/architecture'
+      path: '/architecture'
+      fullPath: '/docs/architecture'
+      preLoaderRoute: typeof DocsArchitectureRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/api': {
+      id: '/docs/api'
+      path: '/api'
+      fullPath: '/docs/api'
+      preLoaderRoute: typeof DocsApiRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/_auth/register': {
+      id: '/_auth/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof AuthRegisterRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/login': {
+      id: '/_auth/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/calculator': {
+      id: '/_app/calculator'
+      path: '/calculator'
+      fullPath: '/calculator'
+      preLoaderRoute: typeof AppCalculatorRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/billing': {
+      id: '/_app/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/agents': {
+      id: '/_app/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AppAgentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_public/blog/': {
+      id: '/_public/blog/'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof PublicBlogIndexRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_public/blog/$slug': {
+      id: '/_public/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof PublicBlogSlugRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_app/settings/organization': {
+      id: '/_app/settings/organization'
+      path: '/settings/organization'
+      fullPath: '/settings/organization'
+      preLoaderRoute: typeof AppSettingsOrganizationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/members': {
+      id: '/_app/settings/members'
+      path: '/settings/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof AppSettingsMembersRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppAgentsRoute: typeof AppAgentsRoute
+  AppBillingRoute: typeof AppBillingRoute
+  AppCalculatorRoute: typeof AppCalculatorRoute
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsOrganizationRoute: typeof AppSettingsOrganizationRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAgentsRoute: AppAgentsRoute,
+  AppBillingRoute: AppBillingRoute,
+  AppCalculatorRoute: AppCalculatorRoute,
+  AppDashboardRoute: AppDashboardRoute,
+  AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsOrganizationRoute: AppSettingsOrganizationRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
+interface AuthRouteChildren {
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthRegisterRoute: typeof AuthRegisterRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthLoginRoute: AuthLoginRoute,
+  AuthRegisterRoute: AuthRegisterRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
+interface PublicRouteChildren {
+  PublicIndexRoute: typeof PublicIndexRoute
+  PublicBlogSlugRoute: typeof PublicBlogSlugRoute
+  PublicBlogIndexRoute: typeof PublicBlogIndexRoute
+}
+
+const PublicRouteChildren: PublicRouteChildren = {
+  PublicIndexRoute: PublicIndexRoute,
+  PublicBlogSlugRoute: PublicBlogSlugRoute,
+  PublicBlogIndexRoute: PublicBlogIndexRoute,
+}
+
+const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
+
+interface DocsRouteChildren {
+  DocsApiRoute: typeof DocsApiRoute
+  DocsArchitectureRoute: typeof DocsArchitectureRoute
+  DocsCliReferenceRoute: typeof DocsCliReferenceRoute
+  DocsDaemonRoute: typeof DocsDaemonRoute
+  DocsLocalSetupRoute: typeof DocsLocalSetupRoute
+  DocsMcpRoute: typeof DocsMcpRoute
+  DocsQuickstartRoute: typeof DocsQuickstartRoute
+  DocsSandboxesRoute: typeof DocsSandboxesRoute
+  DocsUpgradeRoute: typeof DocsUpgradeRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsApiRoute: DocsApiRoute,
+  DocsArchitectureRoute: DocsArchitectureRoute,
+  DocsCliReferenceRoute: DocsCliReferenceRoute,
+  DocsDaemonRoute: DocsDaemonRoute,
+  DocsLocalSetupRoute: DocsLocalSetupRoute,
+  DocsMcpRoute: DocsMcpRoute,
+  DocsQuickstartRoute: DocsQuickstartRoute,
+  DocsSandboxesRoute: DocsSandboxesRoute,
+  DocsUpgradeRoute: DocsUpgradeRoute,
+  DocsIndexRoute: DocsIndexRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  SandboxesIdRoute: SandboxesIdRoute,
-  AnsibleIndexRoute: AnsibleIndexRoute,
-  SandboxesIndexRoute: SandboxesIndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthRoute: AuthRouteWithChildren,
+  PublicRoute: PublicRouteWithChildren,
+  DocsRoute: DocsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

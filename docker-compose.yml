@@ -9,76 +9,6 @@
 # - SSH key is mounted for libvirt authentication
 
 services:
-  fluid-remote:
-    container_name: fluid-remote
-    build:
-      context: ./fluid-remote
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      - postgres
-    environment:
-      # Logging
-      - LOG_FORMAT=${LOG_FORMAT:-text}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-
-      # API
-      - API_HTTP_ADDR=${API_HTTP_ADDR:-:8080}
-
-      # Libvirt/KVM (SSH-based connection)
-      # For macOS: qemu:///session
-      # For production: qemu+ssh://username@baremetal-host/system
-      - LIBVIRT_URI=${LIBVIRT_URI:-qemu:///session}
-      - LIBVIRT_NETWORK=${LIBVIRT_NETWORK:-default}
-      - BASE_IMAGE_DIR=/var/lib/libvirt/images/base
-      - SANDBOX_WORKDIR=/var/lib/libvirt/images/jobs
-
-      - DATABASE_URL=${DATABASE_URL:-postgresql://fluid:fluid@postgres:5432/fluid}
-
-      # Defaults and timeouts
-      - DEFAULT_VCPUS=${DEFAULT_VCPUS:-2}
-      - DEFAULT_MEMORY_MB=${DEFAULT_MEMORY_MB:-2048}
-      - COMMAND_TIMEOUT_SEC=${COMMAND_TIMEOUT_SEC:-600}
-      - IP_DISCOVERY_TIMEOUT_SEC=${IP_DISCOVERY_TIMEOUT_SEC:-180}
-      # SSH CA config
-      - SSH_CA_KEY_PATH=${SSH_CA_KEY_PATH:-/etc/fluid-remote/ssh_ca}
-      - SSH_CA_PUB_KEY_PATH=${SSH_CA_PUB_KEY_PATH:-/etc/fluid-remote/ssh_ca.pub}
-      - SSH_KEY_DIR=${SSH_KEY_DIR:-/tmp/sandbox-keys}
-      - SSH_CERT_TTL_SEC=${SSH_CERT_TTL_SEC:-300}
-
-    ports:
-      - "8080:8080"
-    volumes:
-      # SSH key for libvirt connection (required for SSH-based LIBVIRT_URI)
-      - ~/.ssh/id_ed25519:/root/.ssh/id_rsa:ro
-
-      # Bind base images (read-only) and job overlays (read-write)
-      - ${BASE_IMAGES_DIR:-/var/lib/libvirt/images/base}:/var/lib/libvirt/images/base:ro
-      - ${JOBS_DIR:-/var/lib/libvirt/images/jobs}:/var/lib/libvirt/images/jobs:rw
-
-      # SSH CA for managed credentials (run setup-ssh-ca.sh first)
-      - ./fluid-remote/.ssh-ca:/etc/fluid-remote:ro
-
-      # Optionally mount SSH deploy key for GitOps (uncomment and set env GITOPS_SSH_KEY_PATH accordingly)
-      # - ./secrets/gitops_key:/run/secrets/gitops_key:ro
-
-      # If using qemu-nbd inside the container, you may need these (ensure host has /dev/nbdX present):
-      # - /dev/nbd0:/dev/nbd0
-      # - /dev/nbd1:/dev/nbd1
-
-    # If qemu-nbd is required to mount snapshots, uncomment the following:
-    # cap_add:
-    #   - SYS_ADMIN
-    # privileged: false
-
-    healthcheck:
-      test: ["CMD", "curl", "-fsSL", "http://127.0.0.1:8080/v1/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-
   postgres:
     image: postgres:18
     container_name: fluid-postgres
@@ -89,12 +19,39 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - fluid-postgres-data:/var/lib/postgresql/data
+      - ./api/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     ports:
       - "5432:5432"
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fluid"]
       interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    container_name: fluid-api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./api/.env
+    environment:
+      - DATABASE_URL=${WEB_DATABASE_URL:-postgresql://fluid:fluid@postgres:5432/fluid_web}
+      - API_ADDR=${API_ADDR_WEB:-:8080}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - LOG_FORMAT=${LOG_FORMAT:-text}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/v1/health"]
+      interval: 30s
       timeout: 5s
       retries: 5
 
@@ -105,7 +62,9 @@ services:
     container_name: fluid-web
     restart: unless-stopped
     depends_on:
-      - fluid-remote
+      - api
+    environment:
+      - API_URL=http://fluid-api:8080
     ports:
       - "5173:5173"
 

@@ -44,6 +44,7 @@ type HostMessage struct {
 	//	*HostMessage_SourceFileResult
 	//	*HostMessage_SourceVmsList
 	//	*HostMessage_SourceVmValidation
+	//	*HostMessage_DiscoverHostsResult
 	Payload       isHostMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -237,6 +238,15 @@ func (x *HostMessage) GetSourceVmValidation() *SourceVMValidation {
 	return nil
 }
 
+func (x *HostMessage) GetDiscoverHostsResult() *DiscoverHostsResult {
+	if x != nil {
+		if x, ok := x.Payload.(*HostMessage_DiscoverHostsResult); ok {
+			return x.DiscoverHostsResult
+		}
+	}
+	return nil
+}
+
 type isHostMessage_Payload interface {
 	isHostMessage_Payload()
 }
@@ -308,6 +318,11 @@ type HostMessage_SourceVmValidation struct {
 	SourceVmValidation *SourceVMValidation `protobuf:"bytes,34,opt,name=source_vm_validation,json=sourceVmValidation,proto3,oneof"`
 }
 
+type HostMessage_DiscoverHostsResult struct {
+	// Host discovery responses
+	DiscoverHostsResult *DiscoverHostsResult `protobuf:"bytes,40,opt,name=discover_hosts_result,json=discoverHostsResult,proto3,oneof"`
+}
+
 func (*HostMessage_Registration) isHostMessage_Payload() {}
 
 func (*HostMessage_Heartbeat) isHostMessage_Payload() {}
@@ -340,6 +355,8 @@ func (*HostMessage_SourceVmsList) isHostMessage_Payload() {}
 
 func (*HostMessage_SourceVmValidation) isHostMessage_Payload() {}
 
+func (*HostMessage_DiscoverHostsResult) isHostMessage_Payload() {}
+
 // ControlMessage is the envelope for all messages sent from control plane to sandbox host.
 type ControlMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -359,6 +376,7 @@ type ControlMessage struct {
 	//	*ControlMessage_ReadSourceFile
 	//	*ControlMessage_ListSourceVms
 	//	*ControlMessage_ValidateSourceVm
+	//	*ControlMessage_DiscoverHosts
 	Payload       isControlMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -516,6 +534,15 @@ func (x *ControlMessage) GetValidateSourceVm() *ValidateSourceVMCommand {
 	return nil
 }
 
+func (x *ControlMessage) GetDiscoverHosts() *DiscoverHostsCommand {
+	if x != nil {
+		if x, ok := x.Payload.(*ControlMessage_DiscoverHosts); ok {
+			return x.DiscoverHosts
+		}
+	}
+	return nil
+}
+
 type isControlMessage_Payload interface {
 	isControlMessage_Payload()
 }
@@ -571,6 +598,11 @@ type ControlMessage_ValidateSourceVm struct {
 	ValidateSourceVm *ValidateSourceVMCommand `protobuf:"bytes,34,opt,name=validate_source_vm,json=validateSourceVm,proto3,oneof"`
 }
 
+type ControlMessage_DiscoverHosts struct {
+	// Host discovery commands
+	DiscoverHosts *DiscoverHostsCommand `protobuf:"bytes,40,opt,name=discover_hosts,json=discoverHosts,proto3,oneof"`
+}
+
 func (*ControlMessage_RegistrationAck) isControlMessage_Payload() {}
 
 func (*ControlMessage_CreateSandbox) isControlMessage_Payload() {}
@@ -595,11 +627,13 @@ func (*ControlMessage_ListSourceVms) isControlMessage_Payload() {}
 
 func (*ControlMessage_ValidateSourceVm) isControlMessage_Payload() {}
 
+func (*ControlMessage_DiscoverHosts) isControlMessage_Payload() {}
+
 var File_fluid_v1_stream_proto protoreflect.FileDescriptor
 
 const file_fluid_v1_stream_proto_rawDesc = "" +
 	"\n" +
-	"\x15fluid/v1/stream.proto\x12\bfluid.v1\x1a\x13fluid/v1/host.proto\x1a\x16fluid/v1/sandbox.proto\x1a\x15fluid/v1/source.proto\"\x9b\t\n" +
+	"\x15fluid/v1/stream.proto\x12\bfluid.v1\x1a\x13fluid/v1/host.proto\x1a\x16fluid/v1/sandbox.proto\x1a\x15fluid/v1/source.proto\x1a\x15fluid/v1/daemon.proto\"\xf0\t\n" +
 	"\vHostMessage\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12@\n" +
@@ -619,8 +653,9 @@ const file_fluid_v1_stream_proto_rawDesc = "" +
 	"\x15source_command_result\x18\x1f \x01(\v2\x1d.fluid.v1.SourceCommandResultH\x00R\x13sourceCommandResult\x12J\n" +
 	"\x12source_file_result\x18  \x01(\v2\x1a.fluid.v1.SourceFileResultH\x00R\x10sourceFileResult\x12A\n" +
 	"\x0fsource_vms_list\x18! \x01(\v2\x17.fluid.v1.SourceVMsListH\x00R\rsourceVmsList\x12P\n" +
-	"\x14source_vm_validation\x18\" \x01(\v2\x1c.fluid.v1.SourceVMValidationH\x00R\x12sourceVmValidationB\t\n" +
-	"\apayload\"\xb3\a\n" +
+	"\x14source_vm_validation\x18\" \x01(\v2\x1c.fluid.v1.SourceVMValidationH\x00R\x12sourceVmValidation\x12S\n" +
+	"\x15discover_hosts_result\x18( \x01(\v2\x1d.fluid.v1.DiscoverHostsResultH\x00R\x13discoverHostsResultB\t\n" +
+	"\apayload\"\xfc\a\n" +
 	"\x0eControlMessage\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12F\n" +
@@ -637,7 +672,8 @@ const file_fluid_v1_stream_proto_rawDesc = "" +
 	"\x12run_source_command\x18\x1f \x01(\v2!.fluid.v1.RunSourceCommandCommandH\x00R\x10runSourceCommand\x12K\n" +
 	"\x10read_source_file\x18  \x01(\v2\x1f.fluid.v1.ReadSourceFileCommandH\x00R\x0ereadSourceFile\x12H\n" +
 	"\x0flist_source_vms\x18! \x01(\v2\x1e.fluid.v1.ListSourceVMsCommandH\x00R\rlistSourceVms\x12Q\n" +
-	"\x12validate_source_vm\x18\" \x01(\v2!.fluid.v1.ValidateSourceVMCommandH\x00R\x10validateSourceVmB\t\n" +
+	"\x12validate_source_vm\x18\" \x01(\v2!.fluid.v1.ValidateSourceVMCommandH\x00R\x10validateSourceVm\x12G\n" +
+	"\x0ediscover_hosts\x18( \x01(\v2\x1e.fluid.v1.DiscoverHostsCommandH\x00R\rdiscoverHostsB\t\n" +
 	"\apayload2M\n" +
 	"\vHostService\x12>\n" +
 	"\aConnect\x12\x15.fluid.v1.HostMessage\x1a\x18.fluid.v1.ControlMessage(\x010\x01B<Z:github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1b\x06proto3"
@@ -674,18 +710,20 @@ var file_fluid_v1_stream_proto_goTypes = []any{
 	(*SourceFileResult)(nil),        // 15: fluid.v1.SourceFileResult
 	(*SourceVMsList)(nil),           // 16: fluid.v1.SourceVMsList
 	(*SourceVMValidation)(nil),      // 17: fluid.v1.SourceVMValidation
-	(*RegistrationAck)(nil),         // 18: fluid.v1.RegistrationAck
-	(*CreateSandboxCommand)(nil),    // 19: fluid.v1.CreateSandboxCommand
-	(*DestroySandboxCommand)(nil),   // 20: fluid.v1.DestroySandboxCommand
-	(*StartSandboxCommand)(nil),     // 21: fluid.v1.StartSandboxCommand
-	(*StopSandboxCommand)(nil),      // 22: fluid.v1.StopSandboxCommand
-	(*RunCommandCommand)(nil),       // 23: fluid.v1.RunCommandCommand
-	(*SnapshotCommand)(nil),         // 24: fluid.v1.SnapshotCommand
-	(*PrepareSourceVMCommand)(nil),  // 25: fluid.v1.PrepareSourceVMCommand
-	(*RunSourceCommandCommand)(nil), // 26: fluid.v1.RunSourceCommandCommand
-	(*ReadSourceFileCommand)(nil),   // 27: fluid.v1.ReadSourceFileCommand
-	(*ListSourceVMsCommand)(nil),    // 28: fluid.v1.ListSourceVMsCommand
-	(*ValidateSourceVMCommand)(nil), // 29: fluid.v1.ValidateSourceVMCommand
+	(*DiscoverHostsResult)(nil),     // 18: fluid.v1.DiscoverHostsResult
+	(*RegistrationAck)(nil),         // 19: fluid.v1.RegistrationAck
+	(*CreateSandboxCommand)(nil),    // 20: fluid.v1.CreateSandboxCommand
+	(*DestroySandboxCommand)(nil),   // 21: fluid.v1.DestroySandboxCommand
+	(*StartSandboxCommand)(nil),     // 22: fluid.v1.StartSandboxCommand
+	(*StopSandboxCommand)(nil),      // 23: fluid.v1.StopSandboxCommand
+	(*RunCommandCommand)(nil),       // 24: fluid.v1.RunCommandCommand
+	(*SnapshotCommand)(nil),         // 25: fluid.v1.SnapshotCommand
+	(*PrepareSourceVMCommand)(nil),  // 26: fluid.v1.PrepareSourceVMCommand
+	(*RunSourceCommandCommand)(nil), // 27: fluid.v1.RunSourceCommandCommand
+	(*ReadSourceFileCommand)(nil),   // 28: fluid.v1.ReadSourceFileCommand
+	(*ListSourceVMsCommand)(nil),    // 29: fluid.v1.ListSourceVMsCommand
+	(*ValidateSourceVMCommand)(nil), // 30: fluid.v1.ValidateSourceVMCommand
+	(*DiscoverHostsCommand)(nil),    // 31: fluid.v1.DiscoverHostsCommand
 }
 var file_fluid_v1_stream_proto_depIdxs = []int32{
 	2,  // 0: fluid.v1.HostMessage.registration:type_name -> fluid.v1.HostRegistration
@@ -704,25 +742,27 @@ var file_fluid_v1_stream_proto_depIdxs = []int32{
 	15, // 13: fluid.v1.HostMessage.source_file_result:type_name -> fluid.v1.SourceFileResult
 	16, // 14: fluid.v1.HostMessage.source_vms_list:type_name -> fluid.v1.SourceVMsList
 	17, // 15: fluid.v1.HostMessage.source_vm_validation:type_name -> fluid.v1.SourceVMValidation
-	18, // 16: fluid.v1.ControlMessage.registration_ack:type_name -> fluid.v1.RegistrationAck
-	19, // 17: fluid.v1.ControlMessage.create_sandbox:type_name -> fluid.v1.CreateSandboxCommand
-	20, // 18: fluid.v1.ControlMessage.destroy_sandbox:type_name -> fluid.v1.DestroySandboxCommand
-	21, // 19: fluid.v1.ControlMessage.start_sandbox:type_name -> fluid.v1.StartSandboxCommand
-	22, // 20: fluid.v1.ControlMessage.stop_sandbox:type_name -> fluid.v1.StopSandboxCommand
-	23, // 21: fluid.v1.ControlMessage.run_command:type_name -> fluid.v1.RunCommandCommand
-	24, // 22: fluid.v1.ControlMessage.create_snapshot:type_name -> fluid.v1.SnapshotCommand
-	25, // 23: fluid.v1.ControlMessage.prepare_source_vm:type_name -> fluid.v1.PrepareSourceVMCommand
-	26, // 24: fluid.v1.ControlMessage.run_source_command:type_name -> fluid.v1.RunSourceCommandCommand
-	27, // 25: fluid.v1.ControlMessage.read_source_file:type_name -> fluid.v1.ReadSourceFileCommand
-	28, // 26: fluid.v1.ControlMessage.list_source_vms:type_name -> fluid.v1.ListSourceVMsCommand
-	29, // 27: fluid.v1.ControlMessage.validate_source_vm:type_name -> fluid.v1.ValidateSourceVMCommand
-	0,  // 28: fluid.v1.HostService.Connect:input_type -> fluid.v1.HostMessage
-	1,  // 29: fluid.v1.HostService.Connect:output_type -> fluid.v1.ControlMessage
-	29, // [29:30] is the sub-list for method output_type
-	28, // [28:29] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	18, // 16: fluid.v1.HostMessage.discover_hosts_result:type_name -> fluid.v1.DiscoverHostsResult
+	19, // 17: fluid.v1.ControlMessage.registration_ack:type_name -> fluid.v1.RegistrationAck
+	20, // 18: fluid.v1.ControlMessage.create_sandbox:type_name -> fluid.v1.CreateSandboxCommand
+	21, // 19: fluid.v1.ControlMessage.destroy_sandbox:type_name -> fluid.v1.DestroySandboxCommand
+	22, // 20: fluid.v1.ControlMessage.start_sandbox:type_name -> fluid.v1.StartSandboxCommand
+	23, // 21: fluid.v1.ControlMessage.stop_sandbox:type_name -> fluid.v1.StopSandboxCommand
+	24, // 22: fluid.v1.ControlMessage.run_command:type_name -> fluid.v1.RunCommandCommand
+	25, // 23: fluid.v1.ControlMessage.create_snapshot:type_name -> fluid.v1.SnapshotCommand
+	26, // 24: fluid.v1.ControlMessage.prepare_source_vm:type_name -> fluid.v1.PrepareSourceVMCommand
+	27, // 25: fluid.v1.ControlMessage.run_source_command:type_name -> fluid.v1.RunSourceCommandCommand
+	28, // 26: fluid.v1.ControlMessage.read_source_file:type_name -> fluid.v1.ReadSourceFileCommand
+	29, // 27: fluid.v1.ControlMessage.list_source_vms:type_name -> fluid.v1.ListSourceVMsCommand
+	30, // 28: fluid.v1.ControlMessage.validate_source_vm:type_name -> fluid.v1.ValidateSourceVMCommand
+	31, // 29: fluid.v1.ControlMessage.discover_hosts:type_name -> fluid.v1.DiscoverHostsCommand
+	0,  // 30: fluid.v1.HostService.Connect:input_type -> fluid.v1.HostMessage
+	1,  // 31: fluid.v1.HostService.Connect:output_type -> fluid.v1.ControlMessage
+	31, // [31:32] is the sub-list for method output_type
+	30, // [30:31] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_fluid_v1_stream_proto_init() }
@@ -733,6 +773,7 @@ func file_fluid_v1_stream_proto_init() {
 	file_fluid_v1_host_proto_init()
 	file_fluid_v1_sandbox_proto_init()
 	file_fluid_v1_source_proto_init()
+	file_fluid_v1_daemon_proto_init()
 	file_fluid_v1_stream_proto_msgTypes[0].OneofWrappers = []any{
 		(*HostMessage_Registration)(nil),
 		(*HostMessage_Heartbeat)(nil),
@@ -750,6 +791,7 @@ func file_fluid_v1_stream_proto_init() {
 		(*HostMessage_SourceFileResult)(nil),
 		(*HostMessage_SourceVmsList)(nil),
 		(*HostMessage_SourceVmValidation)(nil),
+		(*HostMessage_DiscoverHostsResult)(nil),
 	}
 	file_fluid_v1_stream_proto_msgTypes[1].OneofWrappers = []any{
 		(*ControlMessage_RegistrationAck)(nil),
@@ -764,6 +806,7 @@ func file_fluid_v1_stream_proto_init() {
 		(*ControlMessage_ReadSourceFile)(nil),
 		(*ControlMessage_ListSourceVms)(nil),
 		(*ControlMessage_ValidateSourceVm)(nil),
+		(*ControlMessage_DiscoverHosts)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

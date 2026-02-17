@@ -6,9 +6,9 @@ procs:
     stop: "SIGTERM"
 
   api:
-    cwd: "./fluid"
+    cwd: "./api"
     autostart: false
-    shell: 'go build --tags libvirt -ldflags="-s -w" -o bin/fluid ./cmd/fluid && bin/fluid'
+    shell: "make build && bin/api"
 
   frontend:
     cwd: "./web"

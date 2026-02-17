@@ -1,0 +1,74 @@
+import { useEffect, useState } from 'react'
+import { Copy, Check } from 'lucide-react'
+import { getHighlighter } from '~/lib/shiki'
+import { cn } from '~/lib/utils'
+
+interface CodeBlockProps {
+  code: string
+  lang?: string
+  filename?: string
+  className?: string
+}
+
+export function CodeBlock({ code, lang = 'bash', filename, className }: CodeBlockProps) {
+  const [html, setHtml] = useState<string>('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getHighlighter().then((h) => {
+      if (cancelled) return
+      try {
+        const result = h.codeToHtml(code.trim(), {
+          lang,
+          theme: 'github-dark',
+        })
+        setHtml(result)
+      } catch {
+        // lang not loaded, fall back to plain
+        setHtml(`<pre class="shiki"><code>${escapeHtml(code.trim())}</code></pre>`)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [code, lang])
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code.trim())
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div className={cn('group border-border relative mb-3 border bg-neutral-900', className)}>
+      {filename && (
+        <div className="border-border flex items-center border-b px-3 py-1.5">
+          <span className="text-muted-foreground text-[10px]">{filename}</span>
+        </div>
+      )}
+      <div className="relative">
+        <button
+          onClick={handleCopy}
+          className="text-muted-foreground hover:text-foreground absolute top-2 right-2 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+        </button>
+        {html ? (
+          <div
+            className="overflow-x-auto p-3 text-xs [&_code]:!bg-transparent [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:!p-0"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        ) : (
+          <pre className="overflow-x-auto p-3 text-xs text-neutral-300">
+            <code>{code.trim()}</code>
+          </pre>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}

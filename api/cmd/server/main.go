@@ -1,0 +1,175 @@
+package main
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/aspectrr/fluid.sh/api/internal/agent"
+	"github.com/aspectrr/fluid.sh/api/internal/auth"
+	"github.com/aspectrr/fluid.sh/api/internal/config"
+	grpcServer "github.com/aspectrr/fluid.sh/api/internal/grpc"
+	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
+	"github.com/aspectrr/fluid.sh/api/internal/registry"
+	"github.com/aspectrr/fluid.sh/api/internal/rest"
+	"github.com/aspectrr/fluid.sh/api/internal/store"
+	postgresStore "github.com/aspectrr/fluid.sh/api/internal/store/postgres"
+
+	"google.golang.org/grpc"
+)
+
+// @title          Fluid API
+// @version        1.0
+// @description    API for managing sandboxes, organizations, billing, and hosts
+// @host           localhost:8081
+// @BasePath       /v1
+// @securityDefinitions.apikey CookieAuth
+// @in             cookie
+// @name           session
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	cfg := config.Load()
+
+	logger := setupLogger(cfg.Logging.Level, cfg.Logging.Format)
+	slog.SetDefault(logger)
+
+	logger.Info("starting fluid API",
+		"rest_addr", cfg.API.Addr,
+		"grpc_addr", cfg.GRPC.Address,
+		"db", cfg.Database.URL,
+	)
+
+	// 1. Initialize shared Postgres store.
+	st, err := postgresStore.New(ctx, store.Config{
+		DatabaseURL:     cfg.Database.URL,
+		MaxOpenConns:    cfg.Database.MaxOpenConns,
+		MaxIdleConns:    cfg.Database.MaxIdleConns,
+		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
+		AutoMigrate:     cfg.Database.AutoMigrate,
+	})
+	if err != nil {
+		logger.Error("failed to initialize store", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if cerr := st.Close(); cerr != nil {
+			logger.Error("failed to close store", "error", cerr)
+		}
+	}()
+
+	// 2. Initialize host registry (in-memory).
+	reg := registry.New()
+
+	// 3. Initialize gRPC server with host token auth.
+	grpcSrv, err := grpcServer.NewServer(
+		cfg.GRPC.Address,
+		reg,
+		st,
+		logger,
+		grpc.StreamInterceptor(auth.HostTokenStreamInterceptor(st)),
+	)
+	if err != nil {
+		logger.Error("failed to initialize gRPC server", "error", err)
+		os.Exit(1)
+	}
+
+	// 4. Initialize orchestrator.
+	orch := orchestrator.New(
+		reg,
+		st,
+		grpcSrv.Handler(),
+		logger,
+		cfg.Orchestrator.DefaultTTL,
+	)
+
+	// 5. Initialize agent client (optional - works without API key).
+	var agentClient *agent.Client
+	if cfg.Agent.OpenRouterAPIKey != "" {
+		agentClient = agent.NewClient(cfg.Agent, st, orch, logger)
+		logger.Info("agent client initialized", "model", cfg.Agent.DefaultModel)
+	} else {
+		logger.Warn("OPENROUTER_API_KEY not set, agent chat disabled")
+	}
+
+	// 6. Initialize REST server.
+	srv := rest.NewServer(st, cfg, orch, agentClient)
+
+	httpSrv := &http.Server{
+		Addr:              cfg.API.Addr,
+		Handler:           srv.Router,
+		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       cfg.API.ReadTimeout,
+		WriteTimeout:      cfg.API.WriteTimeout,
+		IdleTimeout:       cfg.API.IdleTimeout,
+	}
+
+	// 6. Start gRPC server in background.
+	grpcErrCh := make(chan error, 1)
+	go func() {
+		logger.Info("gRPC server listening", "addr", cfg.GRPC.Address)
+		if err := grpcSrv.Start(); err != nil {
+			grpcErrCh <- err
+		}
+	}()
+
+	// 7. Start REST server in background.
+	httpErrCh := make(chan error, 1)
+	go func() {
+		logger.Info("HTTP server listening", "addr", cfg.API.Addr)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			httpErrCh <- err
+		}
+	}()
+
+	// 8. Wait for signal or error.
+	select {
+	case <-ctx.Done():
+		logger.Info("shutdown signal received")
+	case err := <-grpcErrCh:
+		logger.Error("gRPC server error", "error", err)
+	case err := <-httpErrCh:
+		logger.Error("HTTP server error", "error", err)
+	}
+
+	// 9. Graceful shutdown.
+	grpcSrv.Stop()
+	logger.Info("gRPC server stopped")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.API.ShutdownTimeout)
+	defer cancel()
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logger.Error("HTTP server graceful shutdown failed", "error", err)
+		_ = httpSrv.Close()
+	} else {
+		logger.Info("HTTP server shut down gracefully")
+	}
+}
+
+func setupLogger(levelStr, format string) *slog.Logger {
+	var level slog.Level
+	switch strings.ToLower(levelStr) {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	var handler slog.Handler
+	if strings.ToLower(format) == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	}
+	return slog.New(handler)
+}

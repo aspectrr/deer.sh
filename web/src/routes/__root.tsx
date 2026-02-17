@@ -1,6 +1,6 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/router-devtools'
-import { Navbar } from '~/components/navbar'
+import { Toaster } from 'sonner'
+import { AuthProvider } from '~/lib/auth'
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -8,10 +8,20 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <>
-      <Navbar />
+    <AuthProvider>
       <Outlet />
-      <TanStackRouterDevtools position="bottom-right" />
-    </>
+      <Toaster
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: '#171717',
+            border: '1px solid #262626',
+            color: '#e5e5e5',
+            fontFamily: "'JetBrains Mono Variable', monospace",
+            fontSize: '0.75rem',
+          },
+        }}
+      />
+    </AuthProvider>
   )
 }

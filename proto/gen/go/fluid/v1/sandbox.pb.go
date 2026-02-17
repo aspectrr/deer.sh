@@ -21,6 +21,171 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SnapshotMode controls whether to use a cached image or take a fresh snapshot.
+type SnapshotMode int32
+
+const (
+	SnapshotMode_SNAPSHOT_MODE_CACHED SnapshotMode = 0
+	SnapshotMode_SNAPSHOT_MODE_FRESH  SnapshotMode = 1
+)
+
+// Enum value maps for SnapshotMode.
+var (
+	SnapshotMode_name = map[int32]string{
+		0: "SNAPSHOT_MODE_CACHED",
+		1: "SNAPSHOT_MODE_FRESH",
+	}
+	SnapshotMode_value = map[string]int32{
+		"SNAPSHOT_MODE_CACHED": 0,
+		"SNAPSHOT_MODE_FRESH":  1,
+	}
+)
+
+func (x SnapshotMode) Enum() *SnapshotMode {
+	p := new(SnapshotMode)
+	*p = x
+	return p
+}
+
+func (x SnapshotMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SnapshotMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_fluid_v1_sandbox_proto_enumTypes[0].Descriptor()
+}
+
+func (SnapshotMode) Type() protoreflect.EnumType {
+	return &file_fluid_v1_sandbox_proto_enumTypes[0]
+}
+
+func (x SnapshotMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SnapshotMode.Descriptor instead.
+func (SnapshotMode) EnumDescriptor() ([]byte, []int) {
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{0}
+}
+
+// SourceHostConnection carries the credentials needed to connect to a source host.
+type SourceHostConnection struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is "libvirt" or "proxmox".
+	Type             string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	SshHost          string `protobuf:"bytes,2,opt,name=ssh_host,json=sshHost,proto3" json:"ssh_host,omitempty"`
+	SshPort          int32  `protobuf:"varint,3,opt,name=ssh_port,json=sshPort,proto3" json:"ssh_port,omitempty"`
+	SshUser          string `protobuf:"bytes,4,opt,name=ssh_user,json=sshUser,proto3" json:"ssh_user,omitempty"`
+	SshIdentityFile  string `protobuf:"bytes,5,opt,name=ssh_identity_file,json=sshIdentityFile,proto3" json:"ssh_identity_file,omitempty"`
+	ProxmoxHost      string `protobuf:"bytes,6,opt,name=proxmox_host,json=proxmoxHost,proto3" json:"proxmox_host,omitempty"`
+	ProxmoxTokenId   string `protobuf:"bytes,7,opt,name=proxmox_token_id,json=proxmoxTokenId,proto3" json:"proxmox_token_id,omitempty"`
+	ProxmoxSecret    string `protobuf:"bytes,8,opt,name=proxmox_secret,json=proxmoxSecret,proto3" json:"proxmox_secret,omitempty"`
+	ProxmoxNode      string `protobuf:"bytes,9,opt,name=proxmox_node,json=proxmoxNode,proto3" json:"proxmox_node,omitempty"`
+	ProxmoxVerifySsl bool   `protobuf:"varint,10,opt,name=proxmox_verify_ssl,json=proxmoxVerifySsl,proto3" json:"proxmox_verify_ssl,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SourceHostConnection) Reset() {
+	*x = SourceHostConnection{}
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceHostConnection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceHostConnection) ProtoMessage() {}
+
+func (x *SourceHostConnection) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceHostConnection.ProtoReflect.Descriptor instead.
+func (*SourceHostConnection) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SourceHostConnection) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetSshHost() string {
+	if x != nil {
+		return x.SshHost
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetSshPort() int32 {
+	if x != nil {
+		return x.SshPort
+	}
+	return 0
+}
+
+func (x *SourceHostConnection) GetSshUser() string {
+	if x != nil {
+		return x.SshUser
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetSshIdentityFile() string {
+	if x != nil {
+		return x.SshIdentityFile
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetProxmoxHost() string {
+	if x != nil {
+		return x.ProxmoxHost
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetProxmoxTokenId() string {
+	if x != nil {
+		return x.ProxmoxTokenId
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetProxmoxSecret() string {
+	if x != nil {
+		return x.ProxmoxSecret
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetProxmoxNode() string {
+	if x != nil {
+		return x.ProxmoxNode
+	}
+	return ""
+}
+
+func (x *SourceHostConnection) GetProxmoxVerifySsl() bool {
+	if x != nil {
+		return x.ProxmoxVerifySsl
+	}
+	return false
+}
+
 // CreateSandboxCommand instructs a sandbox host to create a new microVM sandbox.
 type CreateSandboxCommand struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -44,14 +209,18 @@ type CreateSandboxCommand struct {
 	// source_vm is the source VM name used for network resolution.
 	SourceVm string `protobuf:"bytes,9,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
 	// ssh_public_key is injected into the sandbox for SSH access.
-	SshPublicKey  string `protobuf:"bytes,10,opt,name=ssh_public_key,json=sshPublicKey,proto3" json:"ssh_public_key,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SshPublicKey string `protobuf:"bytes,10,opt,name=ssh_public_key,json=sshPublicKey,proto3" json:"ssh_public_key,omitempty"`
+	// snapshot_mode controls cached vs fresh snapshot behavior.
+	SnapshotMode SnapshotMode `protobuf:"varint,11,opt,name=snapshot_mode,json=snapshotMode,proto3,enum=fluid.v1.SnapshotMode" json:"snapshot_mode,omitempty"`
+	// source_host_connection carries credentials for the remote source host.
+	SourceHostConnection *SourceHostConnection `protobuf:"bytes,12,opt,name=source_host_connection,json=sourceHostConnection,proto3" json:"source_host_connection,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *CreateSandboxCommand) Reset() {
 	*x = CreateSandboxCommand{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[0]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -63,7 +232,7 @@ func (x *CreateSandboxCommand) String() string {
 func (*CreateSandboxCommand) ProtoMessage() {}
 
 func (x *CreateSandboxCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[0]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -76,7 +245,7 @@ func (x *CreateSandboxCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSandboxCommand.ProtoReflect.Descriptor instead.
 func (*CreateSandboxCommand) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{0}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateSandboxCommand) GetSandboxId() string {
@@ -149,6 +318,20 @@ func (x *CreateSandboxCommand) GetSshPublicKey() string {
 	return ""
 }
 
+func (x *CreateSandboxCommand) GetSnapshotMode() SnapshotMode {
+	if x != nil {
+		return x.SnapshotMode
+	}
+	return SnapshotMode_SNAPSHOT_MODE_CACHED
+}
+
+func (x *CreateSandboxCommand) GetSourceHostConnection() *SourceHostConnection {
+	if x != nil {
+		return x.SourceHostConnection
+	}
+	return nil
+}
+
 // SandboxCreated is sent by the host after successfully creating a sandbox.
 type SandboxCreated struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -165,7 +348,7 @@ type SandboxCreated struct {
 
 func (x *SandboxCreated) Reset() {
 	*x = SandboxCreated{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[1]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -177,7 +360,7 @@ func (x *SandboxCreated) String() string {
 func (*SandboxCreated) ProtoMessage() {}
 
 func (x *SandboxCreated) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[1]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -190,7 +373,7 @@ func (x *SandboxCreated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxCreated.ProtoReflect.Descriptor instead.
 func (*SandboxCreated) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{1}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SandboxCreated) GetSandboxId() string {
@@ -252,7 +435,7 @@ type DestroySandboxCommand struct {
 
 func (x *DestroySandboxCommand) Reset() {
 	*x = DestroySandboxCommand{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[2]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -264,7 +447,7 @@ func (x *DestroySandboxCommand) String() string {
 func (*DestroySandboxCommand) ProtoMessage() {}
 
 func (x *DestroySandboxCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[2]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -277,7 +460,7 @@ func (x *DestroySandboxCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroySandboxCommand.ProtoReflect.Descriptor instead.
 func (*DestroySandboxCommand) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{2}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DestroySandboxCommand) GetSandboxId() string {
@@ -297,7 +480,7 @@ type SandboxDestroyed struct {
 
 func (x *SandboxDestroyed) Reset() {
 	*x = SandboxDestroyed{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[3]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -309,7 +492,7 @@ func (x *SandboxDestroyed) String() string {
 func (*SandboxDestroyed) ProtoMessage() {}
 
 func (x *SandboxDestroyed) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[3]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -322,7 +505,7 @@ func (x *SandboxDestroyed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxDestroyed.ProtoReflect.Descriptor instead.
 func (*SandboxDestroyed) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{3}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SandboxDestroyed) GetSandboxId() string {
@@ -342,7 +525,7 @@ type StartSandboxCommand struct {
 
 func (x *StartSandboxCommand) Reset() {
 	*x = StartSandboxCommand{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[4]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -354,7 +537,7 @@ func (x *StartSandboxCommand) String() string {
 func (*StartSandboxCommand) ProtoMessage() {}
 
 func (x *StartSandboxCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[4]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -367,7 +550,7 @@ func (x *StartSandboxCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSandboxCommand.ProtoReflect.Descriptor instead.
 func (*StartSandboxCommand) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{4}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *StartSandboxCommand) GetSandboxId() string {
@@ -389,7 +572,7 @@ type SandboxStarted struct {
 
 func (x *SandboxStarted) Reset() {
 	*x = SandboxStarted{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[5]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -401,7 +584,7 @@ func (x *SandboxStarted) String() string {
 func (*SandboxStarted) ProtoMessage() {}
 
 func (x *SandboxStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[5]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -414,7 +597,7 @@ func (x *SandboxStarted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxStarted.ProtoReflect.Descriptor instead.
 func (*SandboxStarted) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{5}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SandboxStarted) GetSandboxId() string {
@@ -449,7 +632,7 @@ type StopSandboxCommand struct {
 
 func (x *StopSandboxCommand) Reset() {
 	*x = StopSandboxCommand{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[6]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -461,7 +644,7 @@ func (x *StopSandboxCommand) String() string {
 func (*StopSandboxCommand) ProtoMessage() {}
 
 func (x *StopSandboxCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[6]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +657,7 @@ func (x *StopSandboxCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopSandboxCommand.ProtoReflect.Descriptor instead.
 func (*StopSandboxCommand) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{6}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *StopSandboxCommand) GetSandboxId() string {
@@ -502,7 +685,7 @@ type SandboxStopped struct {
 
 func (x *SandboxStopped) Reset() {
 	*x = SandboxStopped{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[7]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -514,7 +697,7 @@ func (x *SandboxStopped) String() string {
 func (*SandboxStopped) ProtoMessage() {}
 
 func (x *SandboxStopped) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[7]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -527,7 +710,7 @@ func (x *SandboxStopped) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxStopped.ProtoReflect.Descriptor instead.
 func (*SandboxStopped) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{7}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SandboxStopped) GetSandboxId() string {
@@ -557,7 +740,7 @@ type SandboxStateChanged struct {
 
 func (x *SandboxStateChanged) Reset() {
 	*x = SandboxStateChanged{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[8]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -569,7 +752,7 @@ func (x *SandboxStateChanged) String() string {
 func (*SandboxStateChanged) ProtoMessage() {}
 
 func (x *SandboxStateChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[8]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -582,7 +765,7 @@ func (x *SandboxStateChanged) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxStateChanged.ProtoReflect.Descriptor instead.
 func (*SandboxStateChanged) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{8}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SandboxStateChanged) GetSandboxId() string {
@@ -626,7 +809,7 @@ type RunCommandCommand struct {
 
 func (x *RunCommandCommand) Reset() {
 	*x = RunCommandCommand{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[9]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -638,7 +821,7 @@ func (x *RunCommandCommand) String() string {
 func (*RunCommandCommand) ProtoMessage() {}
 
 func (x *RunCommandCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[9]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -651,7 +834,7 @@ func (x *RunCommandCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunCommandCommand.ProtoReflect.Descriptor instead.
 func (*RunCommandCommand) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{9}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RunCommandCommand) GetSandboxId() string {
@@ -696,7 +879,7 @@ type CommandResult struct {
 
 func (x *CommandResult) Reset() {
 	*x = CommandResult{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[10]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +891,7 @@ func (x *CommandResult) String() string {
 func (*CommandResult) ProtoMessage() {}
 
 func (x *CommandResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[10]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +904,7 @@ func (x *CommandResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResult.ProtoReflect.Descriptor instead.
 func (*CommandResult) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{10}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CommandResult) GetSandboxId() string {
@@ -770,7 +953,7 @@ type SnapshotCommand struct {
 
 func (x *SnapshotCommand) Reset() {
 	*x = SnapshotCommand{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[11]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -782,7 +965,7 @@ func (x *SnapshotCommand) String() string {
 func (*SnapshotCommand) ProtoMessage() {}
 
 func (x *SnapshotCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[11]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -795,7 +978,7 @@ func (x *SnapshotCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SnapshotCommand.ProtoReflect.Descriptor instead.
 func (*SnapshotCommand) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{11}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SnapshotCommand) GetSandboxId() string {
@@ -824,7 +1007,7 @@ type SnapshotCreated struct {
 
 func (x *SnapshotCreated) Reset() {
 	*x = SnapshotCreated{}
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[12]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -836,7 +1019,7 @@ func (x *SnapshotCreated) String() string {
 func (*SnapshotCreated) ProtoMessage() {}
 
 func (x *SnapshotCreated) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_sandbox_proto_msgTypes[12]
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -849,7 +1032,7 @@ func (x *SnapshotCreated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SnapshotCreated.ProtoReflect.Descriptor instead.
 func (*SnapshotCreated) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{12}
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SnapshotCreated) GetSandboxId() string {
@@ -877,7 +1060,19 @@ var File_fluid_v1_sandbox_proto protoreflect.FileDescriptor
 
 const file_fluid_v1_sandbox_proto_rawDesc = "" +
 	"\n" +
-	"\x16fluid/v1/sandbox.proto\x12\bfluid.v1\"\xb4\x02\n" +
+	"\x16fluid/v1/sandbox.proto\x12\bfluid.v1\"\xec\x02\n" +
+	"\x14SourceHostConnection\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x19\n" +
+	"\bssh_host\x18\x02 \x01(\tR\asshHost\x12\x19\n" +
+	"\bssh_port\x18\x03 \x01(\x05R\asshPort\x12\x19\n" +
+	"\bssh_user\x18\x04 \x01(\tR\asshUser\x12*\n" +
+	"\x11ssh_identity_file\x18\x05 \x01(\tR\x0fsshIdentityFile\x12!\n" +
+	"\fproxmox_host\x18\x06 \x01(\tR\vproxmoxHost\x12(\n" +
+	"\x10proxmox_token_id\x18\a \x01(\tR\x0eproxmoxTokenId\x12%\n" +
+	"\x0eproxmox_secret\x18\b \x01(\tR\rproxmoxSecret\x12!\n" +
+	"\fproxmox_node\x18\t \x01(\tR\vproxmoxNode\x12,\n" +
+	"\x12proxmox_verify_ssl\x18\n" +
+	" \x01(\bR\x10proxmoxVerifySsl\"\xc7\x03\n" +
 	"\x14CreateSandboxCommand\x12\x1d\n" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x1d\n" +
@@ -892,7 +1087,9 @@ const file_fluid_v1_sandbox_proto_rawDesc = "" +
 	"\anetwork\x18\b \x01(\tR\anetwork\x12\x1b\n" +
 	"\tsource_vm\x18\t \x01(\tR\bsourceVm\x12$\n" +
 	"\x0essh_public_key\x18\n" +
-	" \x01(\tR\fsshPublicKey\"\xc3\x01\n" +
+	" \x01(\tR\fsshPublicKey\x12;\n" +
+	"\rsnapshot_mode\x18\v \x01(\x0e2\x16.fluid.v1.SnapshotModeR\fsnapshotMode\x12T\n" +
+	"\x16source_host_connection\x18\f \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\"\xc3\x01\n" +
 	"\x0eSandboxCreated\x12\x1d\n" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
@@ -959,7 +1156,10 @@ const file_fluid_v1_sandbox_proto_rawDesc = "" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x1f\n" +
 	"\vsnapshot_id\x18\x02 \x01(\tR\n" +
 	"snapshotId\x12#\n" +
-	"\rsnapshot_name\x18\x03 \x01(\tR\fsnapshotNameB<Z:github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1b\x06proto3"
+	"\rsnapshot_name\x18\x03 \x01(\tR\fsnapshotName*A\n" +
+	"\fSnapshotMode\x12\x18\n" +
+	"\x14SNAPSHOT_MODE_CACHED\x10\x00\x12\x17\n" +
+	"\x13SNAPSHOT_MODE_FRESH\x10\x01B<Z:github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1b\x06proto3"
 
 var (
 	file_fluid_v1_sandbox_proto_rawDescOnce sync.Once
@@ -973,30 +1173,35 @@ func file_fluid_v1_sandbox_proto_rawDescGZIP() []byte {
 	return file_fluid_v1_sandbox_proto_rawDescData
 }
 
-var file_fluid_v1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_fluid_v1_sandbox_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_fluid_v1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_fluid_v1_sandbox_proto_goTypes = []any{
-	(*CreateSandboxCommand)(nil),  // 0: fluid.v1.CreateSandboxCommand
-	(*SandboxCreated)(nil),        // 1: fluid.v1.SandboxCreated
-	(*DestroySandboxCommand)(nil), // 2: fluid.v1.DestroySandboxCommand
-	(*SandboxDestroyed)(nil),      // 3: fluid.v1.SandboxDestroyed
-	(*StartSandboxCommand)(nil),   // 4: fluid.v1.StartSandboxCommand
-	(*SandboxStarted)(nil),        // 5: fluid.v1.SandboxStarted
-	(*StopSandboxCommand)(nil),    // 6: fluid.v1.StopSandboxCommand
-	(*SandboxStopped)(nil),        // 7: fluid.v1.SandboxStopped
-	(*SandboxStateChanged)(nil),   // 8: fluid.v1.SandboxStateChanged
-	(*RunCommandCommand)(nil),     // 9: fluid.v1.RunCommandCommand
-	(*CommandResult)(nil),         // 10: fluid.v1.CommandResult
-	(*SnapshotCommand)(nil),       // 11: fluid.v1.SnapshotCommand
-	(*SnapshotCreated)(nil),       // 12: fluid.v1.SnapshotCreated
-	nil,                           // 13: fluid.v1.RunCommandCommand.EnvEntry
+	(SnapshotMode)(0),             // 0: fluid.v1.SnapshotMode
+	(*SourceHostConnection)(nil),  // 1: fluid.v1.SourceHostConnection
+	(*CreateSandboxCommand)(nil),  // 2: fluid.v1.CreateSandboxCommand
+	(*SandboxCreated)(nil),        // 3: fluid.v1.SandboxCreated
+	(*DestroySandboxCommand)(nil), // 4: fluid.v1.DestroySandboxCommand
+	(*SandboxDestroyed)(nil),      // 5: fluid.v1.SandboxDestroyed
+	(*StartSandboxCommand)(nil),   // 6: fluid.v1.StartSandboxCommand
+	(*SandboxStarted)(nil),        // 7: fluid.v1.SandboxStarted
+	(*StopSandboxCommand)(nil),    // 8: fluid.v1.StopSandboxCommand
+	(*SandboxStopped)(nil),        // 9: fluid.v1.SandboxStopped
+	(*SandboxStateChanged)(nil),   // 10: fluid.v1.SandboxStateChanged
+	(*RunCommandCommand)(nil),     // 11: fluid.v1.RunCommandCommand
+	(*CommandResult)(nil),         // 12: fluid.v1.CommandResult
+	(*SnapshotCommand)(nil),       // 13: fluid.v1.SnapshotCommand
+	(*SnapshotCreated)(nil),       // 14: fluid.v1.SnapshotCreated
+	nil,                           // 15: fluid.v1.RunCommandCommand.EnvEntry
 }
 var file_fluid_v1_sandbox_proto_depIdxs = []int32{
-	13, // 0: fluid.v1.RunCommandCommand.env:type_name -> fluid.v1.RunCommandCommand.EnvEntry
-	1,  // [1:1] is the sub-list for method output_type
-	1,  // [1:1] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	0,  // 0: fluid.v1.CreateSandboxCommand.snapshot_mode:type_name -> fluid.v1.SnapshotMode
+	1,  // 1: fluid.v1.CreateSandboxCommand.source_host_connection:type_name -> fluid.v1.SourceHostConnection
+	15, // 2: fluid.v1.RunCommandCommand.env:type_name -> fluid.v1.RunCommandCommand.EnvEntry
+	3,  // [3:3] is the sub-list for method output_type
+	3,  // [3:3] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_fluid_v1_sandbox_proto_init() }
@@ -1009,13 +1214,14 @@ func file_fluid_v1_sandbox_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fluid_v1_sandbox_proto_rawDesc), len(file_fluid_v1_sandbox_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   14,
+			NumEnums:      1,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_fluid_v1_sandbox_proto_goTypes,
 		DependencyIndexes: file_fluid_v1_sandbox_proto_depIdxs,
+		EnumInfos:         file_fluid_v1_sandbox_proto_enumTypes,
 		MessageInfos:      file_fluid_v1_sandbox_proto_msgTypes,
 	}.Build()
 	File_fluid_v1_sandbox_proto = out.File

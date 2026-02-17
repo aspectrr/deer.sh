@@ -1,0 +1,2165 @@
+openapi: 3.0.1
+info:
+  contact: {}
+  description: "API for managing sandboxes, organizations, billing, and hosts"
+  title: Fluid API
+  version: "1.0"
+servers:
+- url: //localhost:8081/v1
+paths:
+  /auth/github:
+    get:
+      description: Redirect to GitHub OAuth authorization page
+      responses:
+        "302":
+          content: {}
+          description: Redirect to GitHub
+        "501":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Implemented
+      summary: GitHub OAuth login
+      tags:
+      - Auth
+  /auth/github/callback:
+    get:
+      description: "Handle GitHub OAuth callback, create or link user, set session\
+        \ cookie, and redirect to dashboard"
+      parameters:
+      - description: OAuth authorization code
+        in: query
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "302":
+          content: {}
+          description: Redirect to dashboard
+        "400":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "500":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      summary: GitHub OAuth callback
+      tags:
+      - Auth
+  /auth/google:
+    get:
+      description: Redirect to Google OAuth authorization page
+      responses:
+        "302":
+          content: {}
+          description: Redirect to Google
+        "501":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Implemented
+      summary: Google OAuth login
+      tags:
+      - Auth
+  /auth/google/callback:
+    get:
+      description: "Handle Google OAuth callback, create or link user, set session\
+        \ cookie, and redirect to dashboard"
+      parameters:
+      - description: OAuth authorization code
+        in: query
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "302":
+          content: {}
+          description: Redirect to dashboard
+        "400":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "500":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      summary: Google OAuth callback
+      tags:
+      - Auth
+  /auth/login:
+    post:
+      description: "Authenticate with email and password, returns a session cookie"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rest.loginRequest"
+        description: Login credentials
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.authResponse"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Unauthorized
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      summary: Log in
+      tags:
+      - Auth
+      x-codegen-request-body-name: request
+  /auth/logout:
+    post:
+      description: Invalidate the current session and clear the session cookie
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+      security:
+      - CookieAuth: []
+      summary: Log out
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      description: Return the currently authenticated user
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.authResponse"
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Unauthorized
+      security:
+      - CookieAuth: []
+      summary: Get current user
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      description: Create a new user account and return a session cookie
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rest.registerRequest"
+        description: Registration details
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.authResponse"
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      summary: Register a new user
+      tags:
+      - Auth
+      x-codegen-request-body-name: request
+  /billing/calculator:
+    post:
+      description: Calculate estimated monthly costs based on resource usage
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rest.calculatorRequest"
+        description: Resource quantities
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.calculatorResponse"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+      summary: Pricing calculator
+      tags:
+      - Billing
+      x-codegen-request-body-name: request
+  /health:
+    get:
+      description: Returns API health status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+      summary: Health check
+      tags:
+      - Health
+  /orgs:
+    get:
+      description: List all organizations the current user belongs to
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: List organizations
+      tags:
+      - Organizations
+    post:
+      description: Create a new organization and add the current user as owner
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rest.createOrgRequest"
+        description: Organization details
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.orgResponse"
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Create organization
+      tags:
+      - Organizations
+      x-codegen-request-body-name: request
+  /orgs/{slug}:
+    delete:
+      description: Delete an organization (owner only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Delete organization
+      tags:
+      - Organizations
+    get:
+      description: Get organization details by slug
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.orgResponse"
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Get organization
+      tags:
+      - Organizations
+    patch:
+      description: Update organization details (owner or admin only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rest.updateOrgRequest"
+        description: Fields to update
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.orgResponse"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Update organization
+      tags:
+      - Organizations
+      x-codegen-request-body-name: request
+  /orgs/{slug}/billing:
+    get:
+      description: "Get the current billing plan, status, and usage summary for an\
+        \ organization"
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.billingResponse"
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Get billing info
+      tags:
+      - Billing
+  /orgs/{slug}/billing/portal:
+    post:
+      description: Create a Stripe billing portal session (owner only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Billing portal
+      tags:
+      - Billing
+  /orgs/{slug}/billing/subscribe:
+    post:
+      description: Create a Stripe checkout session for the organization (owner only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Subscribe
+      tags:
+      - Billing
+  /orgs/{slug}/billing/usage:
+    get:
+      description: Get current month usage records for the organization
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Get usage
+      tags:
+      - Billing
+  /orgs/{slug}/hosts:
+    get:
+      description: List all connected sandbox hosts
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: List hosts
+      tags:
+      - Hosts
+  /orgs/{slug}/hosts/{hostID}:
+    get:
+      description: Get details of a specific connected host
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Host ID
+        in: path
+        name: hostID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/orchestrator.HostInfo"
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+      security:
+      - CookieAuth: []
+      summary: Get host
+      tags:
+      - Hosts
+  /orgs/{slug}/hosts/tokens:
+    get:
+      description: List all host tokens for the organization
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: List host tokens
+      tags:
+      - Host Tokens
+    post:
+      description: Generate a new host authentication token (owner or admin only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rest.createHostTokenRequest"
+        description: Token details
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.hostTokenResponse"
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Create host token
+      tags:
+      - Host Tokens
+      x-codegen-request-body-name: request
+  /orgs/{slug}/hosts/tokens/{tokenID}:
+    delete:
+      description: Delete a host token (owner or admin only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Token ID
+        in: path
+        name: tokenID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+      security:
+      - CookieAuth: []
+      summary: Delete host token
+      tags:
+      - Host Tokens
+  /orgs/{slug}/members:
+    get:
+      description: List all members of an organization
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: List members
+      tags:
+      - Members
+    post:
+      description: Add a user to an organization (owner or admin only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/rest.addMemberRequest"
+        description: Member details
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.memberResponse"
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Add member
+      tags:
+      - Members
+      x-codegen-request-body-name: request
+  /orgs/{slug}/members/{memberID}:
+    delete:
+      description: Remove a member from an organization (owner or admin only)
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Member ID
+        in: path
+        name: memberID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Remove member
+      tags:
+      - Members
+  /orgs/{slug}/sandboxes:
+    get:
+      description: List all sandboxes in the organization
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: List sandboxes
+      tags:
+      - Sandboxes
+    post:
+      description: Create a new sandbox in the organization from a source VM or base
+        image
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/orchestrator.CreateSandboxRequest"
+        description: Sandbox configuration
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/store.Sandbox"
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Create sandbox
+      tags:
+      - Sandboxes
+      x-codegen-request-body-name: request
+  /orgs/{slug}/sandboxes/{sandboxID}:
+    delete:
+      description: Destroy a sandbox and release its resources
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Destroy sandbox
+      tags:
+      - Sandboxes
+    get:
+      description: Get sandbox details by ID
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/store.Sandbox"
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+      security:
+      - CookieAuth: []
+      summary: Get sandbox
+      tags:
+      - Sandboxes
+  /orgs/{slug}/sandboxes/{sandboxID}/commands:
+    get:
+      description: List all commands executed in a sandbox
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: List commands
+      tags:
+      - Sandboxes
+  /orgs/{slug}/sandboxes/{sandboxID}/ip:
+    get:
+      description: Get the IP address of a sandbox
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+      security:
+      - CookieAuth: []
+      summary: Get sandbox IP
+      tags:
+      - Sandboxes
+  /orgs/{slug}/sandboxes/{sandboxID}/run:
+    post:
+      description: Execute a command in a sandbox
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/orchestrator.RunCommandRequest"
+        description: Command to run
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/store.Command"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Run command
+      tags:
+      - Sandboxes
+      x-codegen-request-body-name: request
+  /orgs/{slug}/sandboxes/{sandboxID}/snapshot:
+    post:
+      description: Create a snapshot of a sandbox
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/orchestrator.SnapshotRequest"
+        description: Snapshot details
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/orchestrator.SnapshotResponse"
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Create snapshot
+      tags:
+      - Sandboxes
+      x-codegen-request-body-name: request
+  /orgs/{slug}/sandboxes/{sandboxID}/start:
+    post:
+      description: Start a stopped sandbox
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Start sandbox
+      tags:
+      - Sandboxes
+  /orgs/{slug}/sandboxes/{sandboxID}/stop:
+    post:
+      description: Stop a running sandbox
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Sandbox ID
+        in: path
+        name: sandboxID
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Stop sandbox
+      tags:
+      - Sandboxes
+  /orgs/{slug}/sources/{vm}/prepare:
+    post:
+      description: Prepare a source VM for sandbox cloning
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Source VM name
+        in: path
+        name: vm
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/orchestrator.PrepareRequest"
+        description: SSH credentials
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Prepare source VM
+      tags:
+      - Source VMs
+      x-codegen-request-body-name: request
+  /orgs/{slug}/sources/{vm}/read:
+    post:
+      description: Read a file from a source VM
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Source VM name
+        in: path
+        name: vm
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/orchestrator.ReadSourceRequest"
+        description: File path
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/orchestrator.SourceFileResult"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Read source file
+      tags:
+      - Source VMs
+      x-codegen-request-body-name: request
+  /orgs/{slug}/sources/{vm}/run:
+    post:
+      description: Execute a read-only command on a source VM
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      - description: Source VM name
+        in: path
+        name: vm
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/orchestrator.RunSourceRequest"
+        description: Command to run
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/orchestrator.SourceCommandResult"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Bad Request
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: Run source command
+      tags:
+      - Source VMs
+      x-codegen-request-body-name: request
+  /orgs/{slug}/vms:
+    get:
+      description: List all source VMs across connected hosts
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Forbidden
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/rest.swaggerError"
+          description: Internal Server Error
+      security:
+      - CookieAuth: []
+      summary: List source VMs
+      tags:
+      - Source VMs
+  /webhooks/stripe:
+    post:
+      description: Handle incoming Stripe webhook events
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+      summary: Stripe webhook
+      tags:
+      - Billing
+components:
+  schemas:
+    orchestrator.CreateSandboxRequest:
+      properties:
+        agent_id:
+          type: string
+        base_image:
+          type: string
+        memory_mb:
+          type: integer
+        name:
+          type: string
+        network:
+          type: string
+        org_id:
+          type: string
+        source_vm:
+          type: string
+        ttl_seconds:
+          type: integer
+        vcpus:
+          type: integer
+      type: object
+    orchestrator.HostInfo:
+      example:
+        hostname: hostname
+        available_disk_mb: 1
+        available_memory_mb: 5
+        active_sandboxes: 0
+        base_images:
+        - base_images
+        - base_images
+        last_heartbeat: last_heartbeat
+        available_cpus: 6
+        host_id: host_id
+        status: status
+      properties:
+        active_sandboxes:
+          type: integer
+        available_cpus:
+          type: integer
+        available_disk_mb:
+          type: integer
+        available_memory_mb:
+          type: integer
+        base_images:
+          items:
+            type: string
+          type: array
+        host_id:
+          type: string
+        hostname:
+          type: string
+        last_heartbeat:
+          type: string
+        status:
+          type: string
+      type: object
+    orchestrator.PrepareRequest:
+      properties:
+        ssh_key_path:
+          type: string
+        ssh_user:
+          type: string
+      type: object
+    orchestrator.ReadSourceRequest:
+      properties:
+        path:
+          type: string
+      type: object
+    orchestrator.RunCommandRequest:
+      properties:
+        command:
+          type: string
+        env:
+          additionalProperties:
+            type: string
+          type: object
+        timeout_seconds:
+          type: integer
+      type: object
+    orchestrator.RunSourceRequest:
+      properties:
+        command:
+          type: string
+        timeout_seconds:
+          type: integer
+      type: object
+    orchestrator.SnapshotRequest:
+      properties:
+        name:
+          type: string
+      type: object
+    orchestrator.SnapshotResponse:
+      example:
+        snapshot_name: snapshot_name
+        snapshot_id: snapshot_id
+        sandbox_id: sandbox_id
+        created_at: created_at
+      properties:
+        created_at:
+          type: string
+        sandbox_id:
+          type: string
+        snapshot_id:
+          type: string
+        snapshot_name:
+          type: string
+      type: object
+    orchestrator.SourceCommandResult:
+      example:
+        stdout: stdout
+        exit_code: 0
+        stderr: stderr
+        source_vm: source_vm
+      properties:
+        exit_code:
+          type: integer
+        source_vm:
+          type: string
+        stderr:
+          type: string
+        stdout:
+          type: string
+      type: object
+    orchestrator.SourceFileResult:
+      example:
+        path: path
+        content: content
+        source_vm: source_vm
+      properties:
+        content:
+          type: string
+        path:
+          type: string
+        source_vm:
+          type: string
+      type: object
+    rest.addMemberRequest:
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+      type: object
+    rest.authResponse:
+      example:
+        user:
+          email_verified: true
+          avatar_url: avatar_url
+          id: id
+          display_name: display_name
+          email: email
+      properties:
+        user:
+          $ref: "#/components/schemas/rest.userResponse"
+      type: object
+    rest.billingResponse:
+      example:
+        usage:
+          agent_hosts: 5.962133916683182
+          sandbox_hours: 5.637376656633329
+          source_vms: 2.3021358869347655
+        plan: plan
+        free_tier:
+          max_agent_hosts: 0
+          max_concurrent_sandboxes: 6
+          max_source_vms: 1
+        status: status
+      properties:
+        free_tier:
+          $ref: "#/components/schemas/rest.freeTierInfo"
+        plan:
+          type: string
+        status:
+          type: string
+        usage:
+          $ref: "#/components/schemas/rest.usageSummary"
+      type: object
+    rest.calculatorRequest:
+      properties:
+        agent_hosts:
+          type: integer
+        concurrent_sandboxes:
+          type: integer
+        hours_per_month:
+          type: number
+        source_vms:
+          type: integer
+      type: object
+    rest.calculatorResponse:
+      example:
+        sandbox_cost: 6.027456183070403
+        agent_host_cost: 0.8008281904610115
+        source_vm_cost: 1.4658129805029452
+        currency: currency
+        total_monthly: 5.962133916683182
+      properties:
+        agent_host_cost:
+          type: number
+        currency:
+          type: string
+        sandbox_cost:
+          type: number
+        source_vm_cost:
+          type: number
+        total_monthly:
+          type: number
+      type: object
+    rest.createHostTokenRequest:
+      properties:
+        name:
+          type: string
+      type: object
+    rest.createOrgRequest:
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+      type: object
+    rest.freeTierInfo:
+      example:
+        max_agent_hosts: 0
+        max_concurrent_sandboxes: 6
+        max_source_vms: 1
+      properties:
+        max_agent_hosts:
+          type: integer
+        max_concurrent_sandboxes:
+          type: integer
+        max_source_vms:
+          type: integer
+      type: object
+    rest.hostTokenResponse:
+      example:
+        name: name
+        created_at: created_at
+        id: id
+        token: token
+      properties:
+        created_at:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        token:
+          description: Only set on creation.
+          type: string
+      type: object
+    rest.loginRequest:
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      type: object
+    rest.memberResponse:
+      example:
+        role: role
+        user_id: user_id
+        created_at: created_at
+        id: id
+      properties:
+        created_at:
+          type: string
+        id:
+          type: string
+        role:
+          type: string
+        user_id:
+          type: string
+      type: object
+    rest.orgResponse:
+      example:
+        stripe_customer_id: stripe_customer_id
+        owner_id: owner_id
+        name: name
+        created_at: created_at
+        id: id
+        slug: slug
+      properties:
+        created_at:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        owner_id:
+          type: string
+        slug:
+          type: string
+        stripe_customer_id:
+          type: string
+      type: object
+    rest.registerRequest:
+      properties:
+        display_name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+      type: object
+    rest.swaggerError:
+      example:
+        code: 0
+        details: details
+        error: error
+      properties:
+        code:
+          type: integer
+        details:
+          type: string
+        error:
+          type: string
+      type: object
+    rest.updateOrgRequest:
+      properties:
+        name:
+          type: string
+      type: object
+    rest.usageSummary:
+      example:
+        agent_hosts: 5.962133916683182
+        sandbox_hours: 5.637376656633329
+        source_vms: 2.3021358869347655
+      properties:
+        agent_hosts:
+          type: number
+        sandbox_hours:
+          type: number
+        source_vms:
+          type: number
+      type: object
+    rest.userResponse:
+      example:
+        email_verified: true
+        avatar_url: avatar_url
+        id: id
+        display_name: display_name
+        email: email
+      properties:
+        avatar_url:
+          type: string
+        display_name:
+          type: string
+        email:
+          type: string
+        email_verified:
+          type: boolean
+        id:
+          type: string
+      type: object
+    store.Command:
+      example:
+        duration_ms: 0
+        stdout: stdout
+        exit_code: 6
+        sandbox_id: sandbox_id
+        started_at: started_at
+        id: id
+        stderr: stderr
+        command: command
+        ended_at: ended_at
+      properties:
+        command:
+          type: string
+        duration_ms:
+          type: integer
+        ended_at:
+          type: string
+        exit_code:
+          type: integer
+        id:
+          type: string
+        sandbox_id:
+          type: string
+        started_at:
+          type: string
+        stderr:
+          type: string
+        stdout:
+          type: string
+      type: object
+    store.Sandbox:
+      example:
+        agent_id: agent_id
+        tap_device: tap_device
+        ttl_seconds: 6
+        created_at: created_at
+        ip_address: ip_address
+        vcpus: 1
+        deleted_at: deleted_at
+        host_id: host_id
+        base_image: base_image
+        updated_at: updated_at
+        mac_address: mac_address
+        org_id: org_id
+        name: name
+        memory_mb: 0
+        bridge: bridge
+        id: id
+        state: CREATING
+        source_vm: source_vm
+      properties:
+        agent_id:
+          type: string
+        base_image:
+          type: string
+        bridge:
+          type: string
+        created_at:
+          type: string
+        deleted_at:
+          type: string
+        host_id:
+          type: string
+        id:
+          type: string
+        ip_address:
+          type: string
+        mac_address:
+          type: string
+        memory_mb:
+          type: integer
+        name:
+          type: string
+        org_id:
+          type: string
+        source_vm:
+          type: string
+        state:
+          $ref: "#/components/schemas/store.SandboxState"
+        tap_device:
+          type: string
+        ttl_seconds:
+          type: integer
+        updated_at:
+          type: string
+        vcpus:
+          type: integer
+      type: object
+    store.SandboxState:
+      enum:
+      - CREATING
+      - RUNNING
+      - STOPPED
+      - DESTROYED
+      - ERROR
+      type: string
+      x-enum-varnames:
+      - SandboxStateCreating
+      - SandboxStateRunning
+      - SandboxStateStopped
+      - SandboxStateDestroyed
+      - SandboxStateError
+x-original-swagger-version: "2.0"

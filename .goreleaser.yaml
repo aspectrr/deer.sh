@@ -4,7 +4,7 @@ project_name: fluid
 before:
   hooks:
     - sh -c "cd fluid-remote && go mod tidy"
-    - sh -c "cd fluid && go mod tidy"
+    - sh -c "cd fluid-cli && go mod tidy"
 builds:
   - id: fluid-remote
     dir: fluid-remote
@@ -42,8 +42,8 @@ builds:
           - CXX=g++
           - CGO_ENABLED=1
   - id: fluid
-    dir: fluid
-    main: ./cmd/fluid
+    dir: fluid-cli
+    main: ./cmd/fluid-cli
     binary: fluid
     env:
       - CGO_ENABLED=1
