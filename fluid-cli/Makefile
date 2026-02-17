@@ -63,7 +63,7 @@ fmt: ## Format code with gofumpt
 
 lint: ## Run golangci-lint
 	@echo "Running golangci-lint..."
-	golangci-lint run --build-tags=$(TAGS) ./...
+	golangci-lint run --allow-parallel-runners --build-tags=$(TAGS) ./...
 
 vet: ## Run go vet
 	@echo "Running go vet..."
