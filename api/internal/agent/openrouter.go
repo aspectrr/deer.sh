@@ -294,7 +294,7 @@ func (c *Client) callOpenRouter(ctx context.Context, w http.ResponseWriter, flus
 	if err != nil {
 		return "", nil, 0, 0, fmt.Errorf("openrouter request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -396,7 +396,7 @@ func (c *Client) callOpenRouter(ctx context.Context, w http.ResponseWriter, flus
 
 func (c *Client) writeSSE(w http.ResponseWriter, flusher http.Flusher, event string, data any) {
 	dataBytes, _ := json.Marshal(data)
-	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, string(dataBytes))
+	_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, string(dataBytes))
 	flusher.Flush()
 }
 

@@ -49,7 +49,10 @@ export function StepTracker({
     return steps.length - 1
   })
 
-  const [sessionCode, setSessionCode] = useState<string | null>(null)
+  const [sessionCode] = useState<string | null>(() => {
+    if (!progressEndpoint) return null
+    return externalCode || generateSessionCode()
+  })
   const registeredRef = useRef(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -77,28 +80,19 @@ export function StepTracker({
     [completedSteps, steps.length]
   )
 
-  // Register session and start polling when progressEndpoint is set
+  // Register session when progressEndpoint is set (client-generated code only)
   useEffect(() => {
-    if (!progressEndpoint || registeredRef.current) return
+    if (!progressEndpoint || !sessionCode || externalCode || registeredRef.current) return
     registeredRef.current = true
 
-    if (externalCode) {
-      // CLI already registered the session - just use the code and poll
-      setSessionCode(externalCode)
-    } else {
-      // No external code - generate client-side and register
-      const code = generateSessionCode()
-      setSessionCode(code)
-
-      fetch(`${progressEndpoint}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storage_key: storageKey }),
-      }).catch(() => {
-        // Registration failed - polling won't find anything
-      })
-    }
-  }, [progressEndpoint, storageKey, externalCode])
+    fetch(`${progressEndpoint}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storage_key: storageKey }),
+    }).catch(() => {
+      // Registration failed - polling won't find anything
+    })
+  }, [progressEndpoint, storageKey, externalCode, sessionCode])
 
   // Poll for progress when we have a session code
   useEffect(() => {

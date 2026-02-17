@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { motion, useAnimation } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 import { RotateCcw } from 'lucide-react'
@@ -9,9 +9,9 @@ const REDUCED_MOTION =
 export function DaemonConnectionAnimation() {
   const controls = useAnimation()
   const [ref, inView] = useInView({ threshold: 0.3, triggerOnce: false })
-  const [hasPlayed, setHasPlayed] = useState(false)
+  const hasPlayedRef = useRef(false)
 
-  const animate = async () => {
+  const animate = useCallback(async () => {
     // Reset
     await controls.start('hidden')
     // Sequence
@@ -21,22 +21,22 @@ export function DaemonConnectionAnimation() {
     await controls.start('line2')
     await controls.start('dashboard')
     await controls.start('pulse')
-    setHasPlayed(true)
-  }
+    hasPlayedRef.current = true
+  }, [controls])
 
   useEffect(() => {
-    if (inView && !hasPlayed) {
+    if (inView && !hasPlayedRef.current) {
       if (REDUCED_MOTION) {
         controls.start('instant')
-        setHasPlayed(true)
+        hasPlayedRef.current = true
       } else {
         animate()
       }
     }
-  }, [inView])
+  }, [inView, animate, controls])
 
   const replay = () => {
-    setHasPlayed(false)
+    hasPlayedRef.current = false
     animate()
   }
 

@@ -17,6 +17,8 @@ import (
 )
 
 // swaggerError is the error response model for swagger documentation.
+//
+//nolint:unused // referenced by swag godoc annotations
 type swaggerError struct {
 	Error   string `json:"error"`
 	Code    int    `json:"code"`

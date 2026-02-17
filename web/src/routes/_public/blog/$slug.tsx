@@ -14,7 +14,7 @@ interface BlogFrontmatter {
 
 interface BlogModule {
   frontmatter: BlogFrontmatter
-  default: React.ComponentType<{ components?: Record<string, React.ComponentType<any>> }>
+  default: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
 }
 
 const modules = import.meta.glob<BlogModule>('/src/content/blog/*.{md,mdx}', { eager: true })

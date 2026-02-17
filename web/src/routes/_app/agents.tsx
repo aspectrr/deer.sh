@@ -126,7 +126,7 @@ function AgentsPage() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let currentToolCalls: ToolCallInfo[] = []
+      const currentToolCalls: ToolCallInfo[] = []
 
       while (true) {
         const { done, value } = await reader.read()

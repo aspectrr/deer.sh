@@ -311,7 +311,7 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 // @Router       /auth/google [get]
 func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Auth.Google.ClientID == "" {
-		serverError.RespondError(w, http.StatusNotImplemented, fmt.Errorf("Google OAuth not configured"))
+		serverError.RespondError(w, http.StatusNotImplemented, fmt.Errorf("google OAuth not configured"))
 		return
 	}
 	cfg := auth.GoogleOAuthConfig(s.cfg.Auth.Google.ClientID, s.cfg.Auth.Google.ClientSecret, s.cfg.Auth.Google.RedirectURL)
@@ -380,7 +380,7 @@ func fetchGitHubUser(ctx context.Context, accessToken string) (*githubUserInfo, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	var user githubUserInfo
 	if err := json.Unmarshal(body, &user); err != nil {
@@ -402,7 +402,7 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	var emails []struct {
 		Email   string `json:"email"`
@@ -436,7 +436,7 @@ func fetchGoogleUser(ctx context.Context, accessToken string) (*googleUserInfo, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	var user googleUserInfo
 	if err := json.Unmarshal(body, &user); err != nil {

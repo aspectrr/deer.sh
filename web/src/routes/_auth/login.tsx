@@ -26,8 +26,9 @@ function LoginPage() {
       queryClient.invalidateQueries({ queryKey: ['auth'] })
       navigate({ to: '/dashboard' })
     },
-    onError: (err: any) => {
-      setError(err.response?.data?.error || 'Login failed')
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { error?: string } } }
+      setError(axiosErr.response?.data?.error || 'Login failed')
     },
   })
 
