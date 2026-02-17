@@ -83,7 +83,7 @@ func (p *Provider) CreateSandbox(ctx context.Context, req provider.CreateRequest
 
 	// Create TAP device
 	if err := network.CreateTAP(ctx, tapName, bridge, p.logger); err != nil {
-		microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
+		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
 		return nil, fmt.Errorf("create TAP: %w", err)
 	}
 
@@ -111,7 +111,7 @@ func (p *Provider) CreateSandbox(ctx context.Context, req provider.CreateRequest
 	})
 	if err != nil {
 		_ = network.DestroyTAP(ctx, tapName)
-		microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
+		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
 		return nil, fmt.Errorf("launch microVM: %w", err)
 	}
 
@@ -141,7 +141,7 @@ func (p *Provider) DestroySandbox(ctx context.Context, sandboxID string) error {
 		if err := p.vmMgr.Destroy(ctx, sandboxID); err != nil {
 			p.logger.Error("destroy microVM failed", "sandbox_id", sandboxID, "error", err)
 		}
-		microvm.RemoveOverlay(p.vmMgr.WorkDir(), sandboxID)
+		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), sandboxID)
 	}
 	return nil
 }

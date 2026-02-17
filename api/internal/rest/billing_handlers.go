@@ -134,7 +134,7 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.cfg.Billing.StripeSecretKey == "" {
+	if s.cfg.Billing.StripeSecretKey == "" || s.cfg.Billing.StripePriceID == "" {
 		_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{
 			"message": "Stripe integration pending configuration",
 			"status":  "not_configured",
@@ -171,8 +171,8 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		Mode:     stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
-				Price:    stripe.String(s.cfg.Billing.StripePublishableKey), // usage-based price ID
-				Quantity: nil,                                               // usage-based - no fixed quantity
+				Price:    stripe.String(s.cfg.Billing.StripePriceID), // usage-based price ID
+				Quantity: nil,                                        // usage-based - no fixed quantity
 			},
 		},
 		SuccessURL: stripe.String(s.cfg.Frontend.URL + "/billing?success=true"),

@@ -13,6 +13,8 @@ const ANSI = {
   reset: '\x1b[0m',
 } as const
 
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
 type ScriptAction =
   | { type: 'type'; text: string }
   | { type: 'think'; ms: number }
@@ -22,7 +24,7 @@ type ScriptAction =
 
 const SCRIPT: ScriptAction[] = [
   { type: 'type', text: 'nginx is returning 502 on web-prod-01' },
-  { type: 'think', ms: 1500 },
+  { type: 'think', ms: 3000 },
   {
     type: 'message',
     content:
@@ -52,7 +54,7 @@ const SCRIPT: ScriptAction[] = [
     args: 'vm=web-prod-01, cmd=ss -tlnp | grep 3000',
     result: '(empty - nothing listening)',
   },
-  { type: 'think', ms: 1000 },
+  { type: 'think', ms: 2000 },
   {
     type: 'message',
     content:
@@ -82,7 +84,7 @@ const SCRIPT: ScriptAction[] = [
     args: 'sandbox=sbx-a1b2c3, cmd=curl -s localhost/health',
     result: '{"status":"ok"}',
   },
-  { type: 'think', ms: 1000 },
+  { type: 'think', ms: 2000 },
   {
     type: 'message',
     content:
@@ -122,7 +124,7 @@ const SCRIPT: ScriptAction[] = [
     content:
       "Sandbox cleaned up. The playbook `fix-nginx-502` is ready to apply to production when you're ready.",
   },
-  { type: 'pause', ms: 6000 },
+  { type: 'pause', ms: 8000 },
 ]
 
 export class ScriptedDemoEngine {
@@ -196,19 +198,25 @@ export class ScriptedDemoEngine {
     for (const char of text) {
       if (this.destroyed) return
       this.term.write(char)
-      await this.delay(40 + Math.random() * 30)
+      await this.delay(60 + Math.random() * 40)
     }
     this.term.writeln('')
   }
 
   private startThinking() {
     if (this.thinkingInterval) return
+    let frame = 0
     let dots = 0
-    const frames = ['.', '..', '...']
-    this.term.write(`${ANSI.muted}${ANSI.italic}  Thinking${frames[0]}${ANSI.reset}`)
+    const dotFrames = ['', '.', '..', '...']
+    this.term.write(
+      `  ${ANSI.primary}${SPINNER_FRAMES[0]}${ANSI.reset} ${ANSI.muted}${ANSI.italic}Thinking${dotFrames[0]}${ANSI.reset}`
+    )
     this.thinkingInterval = setInterval(() => {
-      dots = (dots + 1) % frames.length
-      this.term.write(`\r\x1b[2K${ANSI.muted}${ANSI.italic}  Thinking${frames[dots]}${ANSI.reset}`)
+      frame = (frame + 1) % SPINNER_FRAMES.length
+      dots = (dots + 1) % dotFrames.length
+      this.term.write(
+        `\r\x1b[2K  ${ANSI.primary}${SPINNER_FRAMES[frame]}${ANSI.reset} ${ANSI.muted}${ANSI.italic}Thinking${dotFrames[dots]}${ANSI.reset}`
+      )
     }, 300)
   }
 
@@ -255,13 +263,13 @@ export class ScriptedDemoEngine {
         break
       case 'tool':
         this.writeToolStart(action.name, action.args)
-        await this.delay(300 + Math.random() * 200)
+        await this.delay(600 + Math.random() * 300)
         this.writeToolComplete(action.name, action.result)
-        await this.delay(150)
+        await this.delay(300)
         break
       case 'message':
         this.writeAssistantMessage(action.content)
-        await this.delay(400)
+        await this.delay(800)
         break
       case 'pause':
         await this.delay(action.ms)

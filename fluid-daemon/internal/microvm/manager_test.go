@@ -1,6 +1,7 @@
 package microvm
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 )
@@ -64,7 +65,7 @@ func TestRecoverState_EmptyDir(t *testing.T) {
 	}
 
 	// Empty dir should recover without error
-	if err := m.RecoverState(nil); err != nil {
+	if err := m.RecoverState(context.TODO()); err != nil {
 		t.Errorf("RecoverState on empty dir: %v", err)
 	}
 

@@ -106,7 +106,7 @@ func (c *Client) connectAndServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("dial control plane %s: %w", c.cpAddr, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	c.mu.Lock()
 	c.conn = conn

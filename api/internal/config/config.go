@@ -63,6 +63,7 @@ type BillingConfig struct {
 	StripeSecretKey      string
 	StripeWebhookSecret  string
 	StripePublishableKey string
+	StripePriceID        string
 	Prices               PriceConfig
 	FreeTier             FreeTierConfig
 }
@@ -135,6 +136,7 @@ func Load() *Config {
 			StripeSecretKey:      os.Getenv("STRIPE_SECRET_KEY"),
 			StripeWebhookSecret:  os.Getenv("STRIPE_WEBHOOK_SECRET"),
 			StripePublishableKey: os.Getenv("STRIPE_PUBLISHABLE_KEY"),
+			StripePriceID:        os.Getenv("STRIPE_PRICE_ID"),
 			Prices: PriceConfig{
 				SandboxHourCents: envInt("BILLING_SANDBOX_HOUR_CENTS", 5),
 				SourceVMMonthly:  envInt("BILLING_SOURCE_VM_MONTHLY_CENTS", 500),

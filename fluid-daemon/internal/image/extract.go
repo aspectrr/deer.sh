@@ -69,7 +69,7 @@ func extractKernelGuestfs(ctx context.Context, imagePath, outputPath string) (st
 	if err := os.WriteFile(kernelCompressed, kernelData, 0o644); err != nil {
 		return "", fmt.Errorf("write compressed kernel: %w", err)
 	}
-	defer os.Remove(kernelCompressed)
+	defer func() { _ = os.Remove(kernelCompressed) }()
 
 	// Try to decompress (extract-vmlinux script or direct use)
 	if err := decompressKernel(ctx, kernelCompressed, outputPath); err != nil {
@@ -105,7 +105,7 @@ func extractKernelNBD(ctx context.Context, imagePath, outputPath string) (string
 	if err != nil {
 		return "", fmt.Errorf("create mount dir: %w", err)
 	}
-	defer os.RemoveAll(mountDir)
+	defer func() { _ = os.RemoveAll(mountDir) }()
 
 	// Try partition 1 first, then the device itself
 	mounted := false
@@ -153,7 +153,7 @@ func extractKernelNBD(ctx context.Context, imagePath, outputPath string) (string
 	if err := os.WriteFile(kernelCompressed, kernelData, 0o644); err != nil {
 		return "", fmt.Errorf("write compressed kernel: %w", err)
 	}
-	defer os.Remove(kernelCompressed)
+	defer func() { _ = os.Remove(kernelCompressed) }()
 
 	if err := decompressKernel(ctx, kernelCompressed, outputPath); err != nil {
 		if err := os.Rename(kernelCompressed, outputPath); err != nil {

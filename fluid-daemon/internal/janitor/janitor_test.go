@@ -17,7 +17,7 @@ func newTestStore(t *testing.T) *state.Store {
 	if err != nil {
 		t.Fatalf("failed to create in-memory store: %v", err)
 	}
-	t.Cleanup(func() { st.Close() })
+	t.Cleanup(func() { _ = st.Close() })
 	return st
 }
 

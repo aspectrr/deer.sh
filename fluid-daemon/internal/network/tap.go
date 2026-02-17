@@ -44,11 +44,7 @@ func DestroyTAP(ctx context.Context, tapName string) error {
 // TAPName generates a TAP device name from a sandbox ID.
 // Uses the first 6 characters of the sandbox ID (after any prefix).
 func TAPName(sandboxID string) string {
-	id := sandboxID
-	// Strip common prefix
-	if strings.HasPrefix(id, "SBX-") {
-		id = id[4:]
-	}
+	id := strings.TrimPrefix(sandboxID, "SBX-")
 	if len(id) > 6 {
 		id = id[:6]
 	}

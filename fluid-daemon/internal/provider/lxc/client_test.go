@@ -60,7 +60,7 @@ func TestListCTs(t *testing.T) {
 			t.Errorf("missing API token in Authorization header: %s", auth)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(cts))
+		_, _ = w.Write(proxmoxResponse(cts))
 	}))
 
 	result, err := client.ListCTs(context.Background())
@@ -93,7 +93,7 @@ func TestGetCTStatus(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(status))
+		_, _ = w.Write(proxmoxResponse(status))
 	}))
 
 	result, err := client.GetCTStatus(context.Background(), 100)
@@ -121,7 +121,7 @@ func TestGetCTConfig(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(cfg))
+		_, _ = w.Write(proxmoxResponse(cfg))
 	}))
 
 	result, err := client.GetCTConfig(context.Background(), 100)
@@ -160,7 +160,7 @@ func TestCloneCT(t *testing.T) {
 			t.Errorf("full = %q, want 1", r.FormValue("full"))
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(expectedUPID))
+		_, _ = w.Write(proxmoxResponse(expectedUPID))
 	}))
 
 	upid, err := client.CloneCT(context.Background(), 100, 9001, "sbx-test", true)
@@ -183,7 +183,7 @@ func TestStartCT(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(expectedUPID))
+		_, _ = w.Write(proxmoxResponse(expectedUPID))
 	}))
 
 	upid, err := client.StartCT(context.Background(), 100)
@@ -203,7 +203,7 @@ func TestStopCT(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(expectedUPID))
+		_, _ = w.Write(proxmoxResponse(expectedUPID))
 	}))
 
 	upid, err := client.StopCT(context.Background(), 100)
@@ -223,7 +223,7 @@ func TestShutdownCT(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(expectedUPID))
+		_, _ = w.Write(proxmoxResponse(expectedUPID))
 	}))
 
 	upid, err := client.ShutdownCT(context.Background(), 100)
@@ -250,7 +250,7 @@ func TestDeleteCT(t *testing.T) {
 			t.Errorf("expected purge=1 in query")
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(expectedUPID))
+		_, _ = w.Write(proxmoxResponse(expectedUPID))
 	}))
 
 	upid, err := client.DeleteCT(context.Background(), 100)
@@ -273,7 +273,7 @@ func TestGetCTInterfaces(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(ifaces))
+		_, _ = w.Write(proxmoxResponse(ifaces))
 	}))
 
 	result, err := client.GetCTInterfaces(context.Background(), 100)
@@ -305,7 +305,7 @@ func TestCreateSnapshot(t *testing.T) {
 			t.Errorf("snapname = %q, want snap-1", r.FormValue("snapname"))
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(expectedUPID))
+		_, _ = w.Write(proxmoxResponse(expectedUPID))
 	}))
 
 	upid, err := client.CreateSnapshot(context.Background(), 100, "snap-1")
@@ -330,7 +330,7 @@ func TestGetNodeStatus(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(status))
+		_, _ = w.Write(proxmoxResponse(status))
 	}))
 
 	result, err := client.GetNodeStatus(context.Background())
@@ -358,7 +358,7 @@ func TestGetTaskStatus(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(taskStatus))
+		_, _ = w.Write(proxmoxResponse(taskStatus))
 	}))
 
 	result, err := client.GetTaskStatus(context.Background(), "UPID:pve:test")
@@ -382,7 +382,7 @@ func TestNextVMID(t *testing.T) {
 
 	client, _ := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(cts))
+		_, _ = w.Write(proxmoxResponse(cts))
 	}))
 
 	// Should skip 9000, 9001 and return 9002
@@ -404,7 +404,7 @@ func TestNextVMID_RangeExhausted(t *testing.T) {
 
 	client, _ := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(cts))
+		_, _ = w.Write(proxmoxResponse(cts))
 	}))
 
 	_, err := client.NextVMID(context.Background(), 100, 102)
@@ -419,7 +419,7 @@ func TestNextVMID_RangeExhausted(t *testing.T) {
 func TestClient_HTTPError4xx(t *testing.T) {
 	client, _ := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"data":null,"errors":{"vmid":"not found"}}`))
+		_, _ = w.Write([]byte(`{"data":null,"errors":{"vmid":"not found"}}`))
 	}))
 
 	_, err := client.GetCTStatus(context.Background(), 999)
@@ -437,11 +437,11 @@ func TestClient_RetryOn500(t *testing.T) {
 		attempts++
 		if attempts < 3 {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"data":null}`))
+			_, _ = w.Write([]byte(`{"data":null}`))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(CTStatus{VMID: 100, Status: "running"}))
+		_, _ = w.Write(proxmoxResponse(CTStatus{VMID: 100, Status: "running"}))
 	}))
 	// Override maxRetries to ensure we retry
 	client.maxRetries = 3
@@ -463,7 +463,7 @@ func TestClient_RetryExhausted(t *testing.T) {
 	client, _ := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf(`{"data":null,"errors":"server error attempt %d"}`, attempts)))
+		_, _ = fmt.Fprintf(w, `{"data":null,"errors":"server error attempt %d"}`, attempts)
 	}))
 	client.maxRetries = 2
 
@@ -505,7 +505,7 @@ func TestWaitForTask_EmptyUPID(t *testing.T) {
 func TestWaitForTask_FailedTask(t *testing.T) {
 	client, _ := testClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(TaskStatus{
+		_, _ = w.Write(proxmoxResponse(TaskStatus{
 			Status:     "stopped",
 			ExitStatus: "clone failed: disk error",
 		}))
@@ -535,7 +535,7 @@ func TestSetCTConfig(t *testing.T) {
 			t.Errorf("cores = %q, want 4", r.FormValue("cores"))
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse(nil))
+		_, _ = w.Write(proxmoxResponse(nil))
 	}))
 
 	params := map[string][]string{
@@ -555,7 +555,7 @@ func TestClient_AuthorizationHeader(t *testing.T) {
 			t.Errorf("Authorization = %q, want %q", auth, expected)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(proxmoxResponse([]CTListEntry{}))
+		_, _ = w.Write(proxmoxResponse([]CTListEntry{}))
 	}))
 
 	_, _ = client.ListCTs(context.Background())

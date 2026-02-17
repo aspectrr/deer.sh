@@ -44,7 +44,7 @@ func CheckLatest(currentVersion string) (string, string, bool, error) {
 	if err != nil {
 		return "", "", false, fmt.Errorf("fetch latest release: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", false, fmt.Errorf("github API returned %d", resp.StatusCode)
@@ -91,7 +91,7 @@ func Update(downloadURL string) error {
 	if err != nil {
 		return fmt.Errorf("download release: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download returned %d", resp.StatusCode)
@@ -102,7 +102,7 @@ func Update(downloadURL string) error {
 	if err != nil {
 		return fmt.Errorf("open gzip: %w", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
 	var binaryData []byte
@@ -148,20 +148,20 @@ func Update(downloadURL string) error {
 	tmpPath := tmp.Name()
 
 	if _, err := tmp.Write(binaryData); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("write temp binary: %w", err)
 	}
 	if err := tmp.Chmod(0o755); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("chmod temp binary: %w", err)
 	}
-	tmp.Close()
+	_ = tmp.Close()
 
 	// Atomic rename over the current executable
 	if err := os.Rename(tmpPath, execPath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("replace binary: %w", err)
 	}
 

@@ -14,7 +14,8 @@ interface BlogFrontmatter {
 
 interface BlogModule {
   frontmatter: BlogFrontmatter
-  default: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: React.ComponentType<{ components?: Record<string, React.ComponentType<any>> }>
 }
 
 const modules = import.meta.glob<BlogModule>('/src/content/blog/*.{md,mdx}', { eager: true })

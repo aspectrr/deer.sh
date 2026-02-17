@@ -1588,7 +1588,7 @@ func (m OnboardingModel) registerDocsSession() tea.Cmd {
 		if err != nil {
 			return docsSessionRegisteredMsg{err: err}
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var result struct {
 			SessionCode string `json:"session_code"`
@@ -1624,7 +1624,7 @@ func (m OnboardingModel) postDocsProgress(stepIndex int) {
 		if err != nil {
 			return
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}()
 }
 

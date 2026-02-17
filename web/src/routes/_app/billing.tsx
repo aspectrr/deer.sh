@@ -11,24 +11,33 @@ export const Route = createFileRoute('/_app/billing')({
 // TODO: get org slug from context/route params
 const orgSlug = 'default'
 
+interface FreeTier {
+  max_concurrent_sandboxes: number
+  max_source_vms: number
+  max_agent_hosts: number
+}
+
+interface UsageSummary {
+  sandbox_hours: number
+  source_vms: number
+  agent_hosts: number
+  tokens_used: number
+}
+
 interface BillingData {
   plan: string
   status: string
-  usage: {
-    sandboxes: number
-    source_vms: number
-    sandbox_hosts: number
-    tokens_used: number
-  }
-  limits: {
-    sandboxes: number
-    source_vms: number
-    sandbox_hosts: number
-  }
+  free_tier?: FreeTier
+  usage?: UsageSummary
 }
 
 function BillingPage() {
-  const { data: billing, isLoading } = useQuery({
+  const {
+    data: billing,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['billing', orgSlug],
     queryFn: async () => {
       const res = await axios.get(`/v1/orgs/${orgSlug}/billing`)
@@ -39,26 +48,34 @@ function BillingPage() {
   const subscribe = useMutation({
     mutationFn: async () => {
       const res = await axios.post(`/v1/orgs/${orgSlug}/billing/subscribe`)
-      return res.data as { checkout_url: string }
+      return res.data as { checkout_url?: string; status?: string }
     },
     onSuccess: (data) => {
-      window.location.href = data.checkout_url
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url
+      }
     },
   })
 
   const portal = useMutation({
     mutationFn: async () => {
       const res = await axios.post(`/v1/orgs/${orgSlug}/billing/portal`)
-      return res.data as { portal_url: string }
+      return res.data as { portal_url?: string; status?: string }
     },
     onSuccess: (data) => {
-      window.location.href = data.portal_url
+      if (data.portal_url) {
+        window.location.href = data.portal_url
+      }
     },
   })
 
-  const usage = billing?.usage || { sandboxes: 0, source_vms: 0, sandbox_hosts: 0, tokens_used: 0 }
-  const limits = billing?.limits || { sandboxes: 1, source_vms: 3, sandbox_hosts: 1 }
   const plan = billing?.plan || 'free'
+  const freeTier = billing?.free_tier
+  const usage = billing?.usage
+
+  if (isLoading) {
+    return <p className="text-muted-foreground text-xs">Loading billing data...</p>
+  }
 
   return (
     <div className="space-y-6">
@@ -66,6 +83,24 @@ function BillingPage() {
         <h2 className="text-sm font-medium text-white">Billing</h2>
         <p className="text-muted-foreground text-xs">Manage your plan and usage</p>
       </div>
+
+      {isError && (
+        <div className="border border-red-500/50 bg-red-950/30 p-4 text-xs text-red-400">
+          Failed to load billing data: {error?.message || 'Unknown error'}
+        </div>
+      )}
+
+      {subscribe.isError && (
+        <div className="border border-red-500/50 bg-red-950/30 p-4 text-xs text-red-400">
+          Failed to start checkout: {subscribe.error?.message || 'Unknown error'}
+        </div>
+      )}
+
+      {portal.isError && (
+        <div className="border border-red-500/50 bg-red-950/30 p-4 text-xs text-red-400">
+          Failed to open billing portal: {portal.error?.message || 'Unknown error'}
+        </div>
+      )}
 
       {/* Current Plan */}
       <div className="border-border border bg-neutral-900/50 p-6">
@@ -98,24 +133,29 @@ function BillingPage() {
       {/* Usage meters */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <UsageMeter
-          label="Max Concurrent Sandboxes"
-          current={usage.sandboxes}
-          limit={limits.sandboxes}
+          label="Sandbox Hours"
+          current={usage?.sandbox_hours ?? 0}
+          limit={freeTier?.max_concurrent_sandboxes}
           color="blue"
         />
         <UsageMeter
           label="Source VMs"
-          current={usage.source_vms}
-          limit={limits.source_vms}
+          current={usage?.source_vms ?? 0}
+          limit={freeTier?.max_source_vms}
           color="green"
         />
         <UsageMeter
-          label="Sandbox Hosts"
-          current={usage.sandbox_hosts}
-          limit={limits.sandbox_hosts}
+          label="Agent Hosts"
+          current={usage?.agent_hosts ?? 0}
+          limit={freeTier?.max_agent_hosts}
           color="amber"
         />
-        <UsageMeter label="Tokens" current={usage.tokens_used} limit={100000} color="purple" />
+        <UsageMeter
+          label="Tokens"
+          current={usage?.tokens_used ?? 0}
+          limit={100000}
+          color="purple"
+        />
       </div>
 
       {/* Manage billing */}
@@ -140,8 +180,6 @@ function BillingPage() {
           </Button>
         </div>
       </div>
-
-      {isLoading && <p className="text-muted-foreground text-xs">Loading billing data...</p>}
     </div>
   )
 }
@@ -154,10 +192,11 @@ function UsageMeter({
 }: {
   label: string
   current: number
-  limit: number
+  limit?: number
   color: string
 }) {
-  const pct = limit > 0 ? Math.min((current / limit) * 100, 100) : 0
+  const hasLimit = limit != null && limit > 0
+  const pct = hasLimit ? Math.min((current / limit) * 100, 100) : 0
   const colorMap: Record<string, string> = {
     blue: 'bg-blue-400',
     green: 'bg-green-400',
@@ -167,7 +206,7 @@ function UsageMeter({
 
   const formatNumber = (n: number) => {
     if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`
-    return n.toString()
+    return n % 1 === 0 ? n.toString() : n.toFixed(1)
   }
 
   return (
@@ -175,13 +214,14 @@ function UsageMeter({
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
         <span className="text-white">
-          {formatNumber(current)} / {formatNumber(limit)}
+          {formatNumber(current)}
+          {hasLimit ? ` / ${formatNumber(limit)}` : ''}
         </span>
       </div>
       <div className="mt-2 h-1.5 w-full bg-neutral-800">
         <div
           className={`h-full ${colorMap[color] || 'bg-blue-400'} transition-all`}
-          style={{ width: `${pct}%` }}
+          style={{ width: hasLimit ? `${pct}%` : '0%' }}
         />
       </div>
     </div>

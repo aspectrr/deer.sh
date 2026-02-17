@@ -21,7 +21,6 @@ type ProxmoxBackend struct {
 	tokenID    string
 	secret     string
 	node       string
-	verifySSL  bool
 	httpClient *http.Client
 	logger     *slog.Logger
 }
@@ -86,7 +85,7 @@ func (b *ProxmoxBackend) SnapshotAndPull(ctx context.Context, vmName string, des
 	if err := b.downloadFile(ctx, dumpFile, tmpDump); err != nil {
 		return fmt.Errorf("download dump: %w", err)
 	}
-	defer os.Remove(tmpDump)
+	defer func() { _ = os.Remove(tmpDump) }()
 
 	// 5. Convert to qcow2
 	if err := convertToQcow2(ctx, tmpDump, destPath); err != nil {
@@ -247,7 +246,7 @@ func (b *ProxmoxBackend) downloadFile(ctx context.Context, volid, localPath stri
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -258,7 +257,7 @@ func (b *ProxmoxBackend) downloadFile(ctx context.Context, volid, localPath stri
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -309,7 +308,7 @@ func (b *ProxmoxBackend) apiRequest(ctx context.Context, method, path string, pa
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

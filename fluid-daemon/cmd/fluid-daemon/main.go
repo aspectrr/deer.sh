@@ -81,7 +81,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 	logger.Info("state store initialized", "db_path", cfg.State.DBPath)
 
 	// Initialize provider based on config

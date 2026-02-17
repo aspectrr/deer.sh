@@ -47,7 +47,7 @@ func (m *mockProxmox) respond(w http.ResponseWriter, data any) {
 	}{Data: d}
 	b, _ := json.Marshal(resp)
 	w.WriteHeader(http.StatusOK)
-	w.Write(b)
+	_, _ = w.Write(b)
 }
 
 func (m *mockProxmox) handler() http.Handler {
@@ -91,7 +91,7 @@ func (m *mockProxmox) handler() http.Handler {
 				m.respond(w, s)
 			} else {
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte(`{"data":null}`))
+				_, _ = w.Write([]byte(`{"data":null}`))
 			}
 
 		// CT config GET
@@ -165,7 +165,7 @@ func (m *mockProxmox) handler() http.Handler {
 
 		default:
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"data":null}`))
+			_, _ = w.Write([]byte(`{"data":null}`))
 		}
 	})
 }
@@ -176,7 +176,7 @@ func extractVMID(path string) int {
 	for i, p := range parts {
 		if p == "lxc" && i+1 < len(parts) {
 			var vmid int
-			fmt.Sscanf(parts[i+1], "%d", &vmid)
+			_, _ = fmt.Sscanf(parts[i+1], "%d", &vmid)
 			return vmid
 		}
 	}

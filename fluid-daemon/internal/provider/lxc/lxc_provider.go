@@ -106,7 +106,7 @@ func (p *Provider) CreateSandbox(ctx context.Context, req provider.CreateRequest
 	if len(params) > 0 {
 		if err := p.client.SetCTConfig(ctx, newVMID, params); err != nil {
 			// Cleanup on config failure
-			p.cleanupCT(ctx, newVMID)
+			_ = p.cleanupCT(ctx, newVMID)
 			return nil, fmt.Errorf("configure clone: %w", err)
 		}
 	}
@@ -124,12 +124,12 @@ func (p *Provider) CreateSandbox(ctx context.Context, req provider.CreateRequest
 	// Start container
 	startUPID, err := p.client.StartCT(ctx, newVMID)
 	if err != nil {
-		p.cleanupCT(ctx, newVMID)
+		_ = p.cleanupCT(ctx, newVMID)
 		return nil, fmt.Errorf("start CT: %w", err)
 	}
 
 	if err := p.client.WaitForTask(ctx, startUPID); err != nil {
-		p.cleanupCT(ctx, newVMID)
+		_ = p.cleanupCT(ctx, newVMID)
 		return nil, fmt.Errorf("wait for start: %w", err)
 	}
 

@@ -261,7 +261,7 @@ func TestPuller_CacheMissWhenFileDeleted(t *testing.T) {
 
 	// Delete the file manually
 	path := filepath.Join(imgStore.BaseDir(), result1.ImageName+".qcow2")
-	os.Remove(path)
+	_ = os.Remove(path)
 
 	// Second pull should be a cache miss
 	result2, err := puller.Pull(context.Background(), req, backend)

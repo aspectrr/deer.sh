@@ -18,7 +18,7 @@ func testResolverClient(t *testing.T, cts []CTListEntry) (*CTResolver, *httptest
 		}{Data: d}
 		b, _ := json.Marshal(resp)
 		w.WriteHeader(http.StatusOK)
-		w.Write(b)
+		_, _ = w.Write(b)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -94,7 +94,7 @@ func TestCTResolver_CacheHit(t *testing.T) {
 		}{Data: d}
 		b, _ := json.Marshal(resp)
 		w.WriteHeader(http.StatusOK)
-		w.Write(b)
+		_, _ = w.Write(b)
 	}))
 	defer srv.Close()
 

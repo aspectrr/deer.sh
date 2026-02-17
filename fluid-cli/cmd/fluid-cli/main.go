@@ -129,8 +129,8 @@ func runMCP() error {
 	if err != nil {
 		return fmt.Errorf("init services: %w", err)
 	}
-	defer svc.Close()
-	defer st.Close()
+	defer func() { _ = svc.Close() }()
+	defer func() { _ = st.Close() }()
 
 	srv := fluidmcp.NewServer(cfg, st, svc, tele, logger)
 	return srv.Serve()
@@ -182,8 +182,8 @@ func runTUI() error {
 	if err != nil {
 		return fmt.Errorf("init services: %w", err)
 	}
-	defer svc.Close()
-	defer st.Close()
+	defer func() { _ = svc.Close() }()
+	defer func() { _ = st.Close() }()
 
 	agent := tui.NewFluidAgent(cfg, st, svc, tele, fileLogger)
 
@@ -211,7 +211,7 @@ func initServicesForMCPTUI(loadedCfg *config.Config, logger *slog.Logger) (sandb
 
 	svc, err := sandbox.NewRemoteService(daemonAddr)
 	if err != nil {
-		st.Close()
+		_ = st.Close()
 		return nil, nil, nil, fmt.Errorf("connect to daemon at %s: %w", daemonAddr, err)
 	}
 

@@ -302,7 +302,7 @@ func (m *Manager) Destroy(ctx context.Context, sandboxID string) error {
 	info, ok := m.vms[sandboxID]
 	if !ok {
 		// Even if not tracked, try to clean up disk
-		RemoveOverlay(m.workDir, sandboxID)
+		_ = RemoveOverlay(m.workDir, sandboxID)
 		return nil
 	}
 

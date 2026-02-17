@@ -108,7 +108,7 @@ func ParseFile(path string) ([]SSHHost, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open ssh config %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return Parse(f)
 }
 
