@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { DemoEngine } from '~/lib/demo-engine'
+import { ScriptedDemoEngine } from '~/lib/scripted-demo'
 import '@xterm/xterm/css/xterm.css'
 
 export function InteractiveDemo() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const engineRef = useRef<DemoEngine | null>(null)
-  const [status, setStatus] = useState('connecting...')
+  const engineRef = useRef<ScriptedDemoEngine | null>(null)
+  const [status, setStatus] = useState('demo')
 
   useEffect(() => {
     if (!containerRef.current || engineRef.current) return
 
-    const wsUrl = import.meta.env.VITE_DEMO_WS_URL || 'ws://localhost:8090/ws/demo'
-
-    engineRef.current = new DemoEngine(containerRef.current, wsUrl, (s: string) => {
+    engineRef.current = new ScriptedDemoEngine(containerRef.current, (s: string) => {
       setStatus(s)
     })
 
@@ -22,13 +20,6 @@ export function InteractiveDemo() {
     }
   }, [])
 
-  const statusClass =
-    status === 'connected'
-      ? 'text-green-200'
-      : status === 'connecting' || status === 'connecting...'
-        ? 'opacity-75'
-        : 'text-red-200'
-
   return (
     <div className="relative">
       <div className="flex items-center justify-between rounded-t-lg bg-blue-500 px-3 py-1.5 font-mono text-xs text-white">
@@ -37,7 +28,7 @@ export function InteractiveDemo() {
           <span className="opacity-75">demo</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className={statusClass}>{status}</span>
+          <span className="text-green-200">{status}</span>
         </div>
       </div>
       <div
