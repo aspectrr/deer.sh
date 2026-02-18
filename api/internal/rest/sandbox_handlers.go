@@ -41,8 +41,8 @@ func (s *Server) handleCreateSandbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.SourceVM == "" && req.BaseImage == "" {
-		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("source_vm or base_image is required"))
+	if req.SourceVM == "" {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("source_vm is required"))
 		return
 	}
 

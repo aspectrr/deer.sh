@@ -29,6 +29,9 @@ type StreamHandler struct {
 
 	// streams maps host_id -> active server stream.
 	streams sync.Map // map[string]fluidv1.HostService_ConnectServer
+
+	// streamMu holds a per-host mutex to serialize stream.Send calls.
+	streamMu sync.Map // map[string]*sync.Mutex
 }
 
 // NewStreamHandler creates a stream handler wired to the given dependencies.
@@ -47,6 +50,12 @@ func NewStreamHandler(
 		logger:           logger.With("component", "stream-handler"),
 		heartbeatTimeout: heartbeatTimeout,
 	}
+}
+
+// hostMu returns the per-host mutex, creating one if needed.
+func (h *StreamHandler) hostMu(hostID string) *sync.Mutex {
+	v, _ := h.streamMu.LoadOrStore(hostID, &sync.Mutex{})
+	return v.(*sync.Mutex)
 }
 
 // Connect handles a single bidirectional stream from a sandbox host.
@@ -108,6 +117,7 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	defer func() {
 		h.registry.Unregister(hostID)
 		h.streams.Delete(hostID)
+		h.streamMu.Delete(hostID)
 		logger.Info("host disconnected")
 	}()
 
@@ -189,7 +199,11 @@ func (h *StreamHandler) SendAndWait(hostID string, msg *fluidv1.ControlMessage, 
 	h.pendingRequests.Store(reqID, respCh)
 	defer h.pendingRequests.Delete(reqID)
 
-	if err := stream.Send(msg); err != nil {
+	mu := h.hostMu(hostID)
+	mu.Lock()
+	err := stream.Send(msg)
+	mu.Unlock()
+	if err != nil {
 		return nil, fmt.Errorf("send to host %s: %w", hostID, err)
 	}
 

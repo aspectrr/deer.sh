@@ -21,8 +21,8 @@ func AllTools() []Tool {
 		// Sandbox tools
 		{Type: "function", Function: ToolFunction{
 			Name:        "create_sandbox",
-			Description: "Create a new sandbox VM from a source VM or base image",
-			Parameters:  mustJSON(map[string]any{"type": "object", "properties": map[string]any{"source_vm": map[string]any{"type": "string", "description": "Name of the source VM to clone from"}, "base_image": map[string]any{"type": "string", "description": "Base image name"}, "name": map[string]any{"type": "string", "description": "Optional sandbox name"}, "vcpus": map[string]any{"type": "integer", "description": "Number of vCPUs (default 2)"}, "memory_mb": map[string]any{"type": "integer", "description": "Memory in MB (default 2048)"}}, "required": []string{}}),
+			Description: "Create a new sandbox VM by cloning from a source VM. Set live=true for current state, live=false to use cached snapshot.",
+			Parameters:  mustJSON(map[string]any{"type": "object", "properties": map[string]any{"source_vm": map[string]any{"type": "string", "description": "Name of the source VM to clone from"}, "name": map[string]any{"type": "string", "description": "Optional sandbox name"}, "vcpus": map[string]any{"type": "integer", "description": "Number of vCPUs (default 2)"}, "memory_mb": map[string]any{"type": "integer", "description": "Memory in MB (default 2048)"}, "live": map[string]any{"type": "boolean", "description": "If true, clone from the VM's current live state (fresh snapshot). If false (default), use a cached image if available."}}, "required": []string{"source_vm"}}),
 		}},
 		{Type: "function", Function: ToolFunction{
 			Name:        "list_sandboxes",

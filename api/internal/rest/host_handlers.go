@@ -203,7 +203,7 @@ func (s *Server) handleListHostTokens(w http.ResponseWriter, r *http.Request) {
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts/tokens/{tokenID} [delete]
 func (s *Server) handleDeleteHostToken(w http.ResponseWriter, r *http.Request) {
-	_, member, ok := s.resolveOrgMembership(w, r)
+	org, member, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
@@ -214,7 +214,7 @@ func (s *Server) handleDeleteHostToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenID := chi.URLParam(r, "tokenID")
-	if err := s.store.DeleteHostToken(r.Context(), tokenID); err != nil {
+	if err := s.store.DeleteHostToken(r.Context(), org.ID, tokenID); err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("host token not found"))
 		return
 	}

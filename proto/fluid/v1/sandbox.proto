@@ -63,6 +63,10 @@ message CreateSandboxCommand {
 
   // source_host_connection carries credentials for the remote source host.
   SourceHostConnection source_host_connection = 12;
+
+  // live controls whether to clone from the VM's current live state (true)
+  // or use a cached image if available (false, default).
+  bool live = 13;
 }
 
 // SandboxCreated is sent by the host after successfully creating a sandbox.

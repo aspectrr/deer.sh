@@ -65,10 +65,8 @@ func New(
 func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*store.Sandbox, error) {
 	sandboxID := id.Generate("SBX-")
 
-	baseImage := req.BaseImage
-	if baseImage == "" && req.SourceVM != "" {
-		baseImage = req.SourceVM
-	}
+	// base_image is derived from source_vm - users never set it directly
+	baseImage := req.SourceVM
 
 	host, err := SelectHost(o.registry, baseImage, req.OrgID, o.heartbeatTimeout)
 	if err != nil {
@@ -100,9 +98,14 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		name = "sbx-" + sandboxID[4:12]
 	}
 
+	// Map live flag to snapshot mode
+	var snapshotMode fluidv1.SnapshotMode
+	if req.Live {
+		snapshotMode = fluidv1.SnapshotMode_SNAPSHOT_MODE_FRESH
+	}
+
 	// Resolve source host connection if source_host_id is provided
 	var sourceHostConn *fluidv1.SourceHostConnection
-	var snapshotMode fluidv1.SnapshotMode
 	if req.SourceHostID != "" {
 		sh, err := o.store.GetSourceHost(ctx, req.SourceHostID)
 		if err != nil {
@@ -120,9 +123,6 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 			ProxmoxNode:      sh.ProxmoxNode,
 			ProxmoxVerifySsl: sh.ProxmoxVerifySSL,
 		}
-		if req.SnapshotMode == "fresh" {
-			snapshotMode = fluidv1.SnapshotMode_SNAPSHOT_MODE_FRESH
-		}
 	}
 
 	reqID := uuid.New().String()
@@ -131,7 +131,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		Payload: &fluidv1.ControlMessage_CreateSandbox{
 			CreateSandbox: &fluidv1.CreateSandboxCommand{
 				SandboxId:            sandboxID,
-				BaseImage:            req.BaseImage,
+				BaseImage:            baseImage,
 				Name:                 name,
 				Vcpus:                vcpus,
 				MemoryMb:             memMB,
@@ -149,8 +149,8 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		"sandbox_id", sandboxID,
 		"host_id", host.HostID,
 		"org_id", req.OrgID,
-		"base_image", req.BaseImage,
 		"source_vm", req.SourceVM,
+		"live", req.Live,
 	)
 
 	resp, err := o.sender.SendAndWait(host.HostID, cmd, 5*time.Minute)
@@ -172,7 +172,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		HostID:     host.HostID,
 		Name:       created.GetName(),
 		AgentID:    req.AgentID,
-		BaseImage:  req.BaseImage,
+		BaseImage:  baseImage,
 		Bridge:     created.GetBridge(),
 		MACAddress: created.GetMacAddress(),
 		IPAddress:  created.GetIpAddress(),

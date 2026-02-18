@@ -126,7 +126,7 @@ func (m *mockStore) GetHostTokenByHash(context.Context, string) (*store.HostToke
 func (m *mockStore) ListHostTokensByOrg(context.Context, string) ([]store.HostToken, error) {
 	return nil, nil
 }
-func (m *mockStore) DeleteHostToken(context.Context, string) error { return nil }
+func (m *mockStore) DeleteHostToken(context.Context, string, string) error { return nil }
 
 func (m *mockStore) CreateAgentConversation(context.Context, *store.AgentConversation) error {
 	return nil

@@ -39,7 +39,7 @@ func (r *RemoteService) Close() error {
 
 func (r *RemoteService) CreateSandbox(ctx context.Context, req CreateRequest) (*SandboxInfo, error) {
 	resp, err := r.client.CreateSandbox(ctx, &fluidv1.CreateSandboxCommand{
-		BaseImage:  req.SourceVM,
+		BaseImage:  req.SourceVM, // derived from source_vm - daemon resolves the actual image
 		SourceVm:   req.SourceVM,
 		Name:       req.Name,
 		Vcpus:      int32(req.VCPUs),
@@ -47,6 +47,7 @@ func (r *RemoteService) CreateSandbox(ctx context.Context, req CreateRequest) (*
 		TtlSeconds: int32(req.TTLSeconds),
 		AgentId:    req.AgentID,
 		Network:    req.Network,
+		Live:       req.Live,
 	})
 	if err != nil {
 		return nil, err

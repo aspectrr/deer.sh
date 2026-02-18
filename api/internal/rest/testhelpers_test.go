@@ -93,7 +93,7 @@ type mockStore struct {
 	CreateHostTokenFn     func(ctx context.Context, token *store.HostToken) error
 	GetHostTokenByHashFn  func(ctx context.Context, hash string) (*store.HostToken, error)
 	ListHostTokensByOrgFn func(ctx context.Context, orgID string) ([]store.HostToken, error)
-	DeleteHostTokenFn     func(ctx context.Context, id string) error
+	DeleteHostTokenFn     func(ctx context.Context, orgID, id string) error
 
 	// Agent Conversations
 	CreateAgentConversationFn     func(ctx context.Context, conv *store.AgentConversation) error
@@ -506,9 +506,9 @@ func (m *mockStore) ListHostTokensByOrg(ctx context.Context, orgID string) ([]st
 	m.call("ListHostTokensByOrg")
 	return nil, nil
 }
-func (m *mockStore) DeleteHostToken(ctx context.Context, id string) error {
+func (m *mockStore) DeleteHostToken(ctx context.Context, orgID, id string) error {
 	if m.DeleteHostTokenFn != nil {
-		return m.DeleteHostTokenFn(ctx, id)
+		return m.DeleteHostTokenFn(ctx, orgID, id)
 	}
 	m.call("DeleteHostToken")
 	return nil

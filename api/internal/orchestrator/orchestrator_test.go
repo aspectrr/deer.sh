@@ -77,7 +77,7 @@ type mockStore struct {
 	CreateHostTokenFn     func(ctx context.Context, token *store.HostToken) error
 	GetHostTokenByHashFn  func(ctx context.Context, hash string) (*store.HostToken, error)
 	ListHostTokensByOrgFn func(ctx context.Context, orgID string) ([]store.HostToken, error)
-	DeleteHostTokenFn     func(ctx context.Context, id string) error
+	DeleteHostTokenFn     func(ctx context.Context, orgID, id string) error
 
 	CreateAgentConversationFn     func(ctx context.Context, conv *store.AgentConversation) error
 	GetAgentConversationFn        func(ctx context.Context, id string) (*store.AgentConversation, error)
@@ -471,9 +471,9 @@ func (m *mockStore) ListHostTokensByOrg(ctx context.Context, orgID string) ([]st
 	m.p("ListHostTokensByOrg")
 	return nil, nil
 }
-func (m *mockStore) DeleteHostToken(ctx context.Context, id string) error {
+func (m *mockStore) DeleteHostToken(ctx context.Context, orgID, id string) error {
 	if m.DeleteHostTokenFn != nil {
-		return m.DeleteHostTokenFn(ctx, id)
+		return m.DeleteHostTokenFn(ctx, orgID, id)
 	}
 	m.p("DeleteHostToken")
 	return nil
@@ -959,11 +959,11 @@ func TestCreateSandbox_Success(t *testing.T) {
 
 	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
 	result, err := orch.CreateSandbox(context.Background(), CreateSandboxRequest{
-		OrgID:     "org-1",
-		BaseImage: "ubuntu-22.04",
-		Name:      "my-sandbox",
-		VCPUs:     4,
-		MemoryMB:  4096,
+		OrgID:    "org-1",
+		SourceVM: "ubuntu-22.04",
+		Name:     "my-sandbox",
+		VCPUs:    4,
+		MemoryMB: 4096,
 	})
 	if err != nil {
 		t.Fatalf("CreateSandbox: unexpected error: %v", err)
@@ -1009,8 +1009,8 @@ func TestCreateSandbox_NoHost(t *testing.T) {
 	orch := newTestOrchestrator(ms, sender)
 
 	_, err := orch.CreateSandbox(context.Background(), CreateSandboxRequest{
-		OrgID:     "org-1",
-		BaseImage: "ubuntu-22.04",
+		OrgID:    "org-1",
+		SourceVM: "ubuntu-22.04",
 	})
 	if err == nil {
 		t.Fatal("CreateSandbox: expected error when no hosts available")
@@ -1036,8 +1036,8 @@ func TestCreateSandbox_SenderError(t *testing.T) {
 
 	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
 	_, err := orch.CreateSandbox(context.Background(), CreateSandboxRequest{
-		OrgID:     "org-1",
-		BaseImage: "ubuntu-22.04",
+		OrgID:    "org-1",
+		SourceVM: "ubuntu-22.04",
 	})
 	if err == nil {
 		t.Fatal("CreateSandbox: expected error from sender")
@@ -1068,8 +1068,8 @@ func TestCreateSandbox_HostError(t *testing.T) {
 
 	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
 	_, err := orch.CreateSandbox(context.Background(), CreateSandboxRequest{
-		OrgID:     "org-1",
-		BaseImage: "ubuntu-22.04",
+		OrgID:    "org-1",
+		SourceVM: "ubuntu-22.04",
 	})
 	if err == nil {
 		t.Fatal("CreateSandbox: expected error from host error report")
@@ -1113,10 +1113,10 @@ func TestCreateSandbox_Defaults(t *testing.T) {
 
 	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
 	result, err := orch.CreateSandbox(context.Background(), CreateSandboxRequest{
-		OrgID:     "org-1",
-		BaseImage: "ubuntu-22.04",
-		VCPUs:     0,
-		MemoryMB:  0,
+		OrgID:    "org-1",
+		SourceVM: "ubuntu-22.04",
+		VCPUs:    0,
+		MemoryMB: 0,
 	})
 	if err != nil {
 		t.Fatalf("CreateSandbox: unexpected error: %v", err)

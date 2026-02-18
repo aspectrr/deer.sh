@@ -60,10 +60,11 @@ func (s *Server) registerTools() {
 	), s.handleListSandboxes)
 
 	s.mcpServer.AddTool(mcp.NewTool("create_sandbox",
-		mcp.WithDescription("Create a new sandbox VM by cloning from a source VM."),
+		mcp.WithDescription("Create a new sandbox VM by cloning from a source VM. Set live=true for current state, live=false to use cached image if available."),
 		mcp.WithString("source_vm", mcp.Required(), mcp.Description("The name of the source VM to clone from (e.g., 'ubuntu-base').")),
 		mcp.WithNumber("cpu", mcp.Description("Number of vCPUs (default: 2).")),
 		mcp.WithNumber("memory_mb", mcp.Description("RAM in MB (default: 4096).")),
+		mcp.WithBoolean("live", mcp.Description("If true, clone from the VM's live current state. If false (default), use cached image if available.")),
 	), s.handleCreateSandbox)
 
 	s.mcpServer.AddTool(mcp.NewTool("destroy_sandbox",

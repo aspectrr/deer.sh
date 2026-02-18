@@ -510,7 +510,7 @@ type DataStore interface {
 	CreateHostToken(ctx context.Context, token *HostToken) error
 	GetHostTokenByHash(ctx context.Context, hash string) (*HostToken, error)
 	ListHostTokensByOrg(ctx context.Context, orgID string) ([]HostToken, error)
-	DeleteHostToken(ctx context.Context, id string) error
+	DeleteHostToken(ctx context.Context, orgID, id string) error
 
 	// Agent Conversations
 	CreateAgentConversation(ctx context.Context, conv *AgentConversation) error

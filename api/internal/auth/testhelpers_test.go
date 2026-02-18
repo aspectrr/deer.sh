@@ -214,7 +214,7 @@ func (m *mockStore) GetHostTokenByHash(ctx context.Context, hash string) (*store
 func (m *mockStore) ListHostTokensByOrg(context.Context, string) ([]store.HostToken, error) {
 	panic("mockStore: ListHostTokensByOrg not implemented")
 }
-func (m *mockStore) DeleteHostToken(context.Context, string) error {
+func (m *mockStore) DeleteHostToken(context.Context, string, string) error {
 	panic("mockStore: DeleteHostToken not implemented")
 }
 

@@ -124,7 +124,10 @@ func TestHandleDeleteHostToken(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ms := &mockStore{}
 		setupOrgMembership(ms)
-		ms.DeleteHostTokenFn = func(_ context.Context, id string) error {
+		ms.DeleteHostTokenFn = func(_ context.Context, orgID, id string) error {
+			if orgID != testOrg.ID {
+				return store.ErrNotFound
+			}
 			return nil
 		}
 		s := newTestServer(ms, nil)
@@ -140,6 +143,27 @@ func TestHandleDeleteHostToken(t *testing.T) {
 		body := parseJSONResponse(rr)
 		if body["status"] != "deleted" {
 			t.Fatalf("expected status 'deleted', got %v", body["status"])
+		}
+	})
+
+	t.Run("cross-org deletion rejected", func(t *testing.T) {
+		ms := &mockStore{}
+		setupOrgMembership(ms)
+		ms.DeleteHostTokenFn = func(_ context.Context, orgID, id string) error {
+			// Token belongs to a different org, so scoped WHERE returns no rows
+			if orgID != "ORG-other" {
+				return store.ErrNotFound
+			}
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		req := authenticatedRequest(ms, "DELETE", "/v1/orgs/test-org/hosts/tokens/HTK-other-org", nil)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 for cross-org token, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 

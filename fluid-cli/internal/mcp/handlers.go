@@ -100,12 +100,14 @@ func (s *Server) handleCreateSandbox(ctx context.Context, request mcp.CallToolRe
 	}
 	cpu := request.GetInt("cpu", 0)
 	memoryMB := request.GetInt("memory_mb", 0)
+	live := request.GetBool("live", false)
 
 	sb, err := s.service.CreateSandbox(ctx, sandbox.CreateRequest{
 		SourceVM: sourceVM,
 		AgentID:  mcpAgentID,
 		VCPUs:    cpu,
 		MemoryMB: memoryMB,
+		Live:     live,
 	})
 	if err != nil {
 		s.logger.Error("create_sandbox failed", "error", err, "source_vm", sourceVM)

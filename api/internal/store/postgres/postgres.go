@@ -1298,8 +1298,8 @@ func (s *postgresStore) ListHostTokensByOrg(ctx context.Context, orgID string) (
 	return out, nil
 }
 
-func (s *postgresStore) DeleteHostToken(ctx context.Context, id string) error {
-	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&HostTokenModel{})
+func (s *postgresStore) DeleteHostToken(ctx context.Context, orgID, id string) error {
+	res := s.db.WithContext(ctx).Where("id = ? AND org_id = ?", id, orgID).Delete(&HostTokenModel{})
 	if res.Error != nil {
 		return mapDBError(res.Error)
 	}

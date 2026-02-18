@@ -27,6 +27,7 @@ type CreateRequest struct {
 	MemoryMB   int
 	TTLSeconds int
 	Network    string
+	Live       bool
 }
 
 // CommandResult holds the result of a command execution.

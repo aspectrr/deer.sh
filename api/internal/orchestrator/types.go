@@ -7,14 +7,13 @@ type CreateSandboxRequest struct {
 	OrgID        string `json:"org_id"`
 	AgentID      string `json:"agent_id"`
 	SourceVM     string `json:"source_vm"`
-	BaseImage    string `json:"base_image"`
 	Name         string `json:"name"`
 	VCPUs        int    `json:"vcpus,omitempty"`
 	MemoryMB     int    `json:"memory_mb,omitempty"`
 	TTLSeconds   int    `json:"ttl_seconds,omitempty"`
 	Network      string `json:"network,omitempty"`
 	SourceHostID string `json:"source_host_id,omitempty"`
-	SnapshotMode string `json:"snapshot_mode,omitempty"` // "cached" or "fresh"
+	Live         bool   `json:"live,omitempty"`
 }
 
 // DiscoveredHost is a host discovered from SSH config parsing + probing.

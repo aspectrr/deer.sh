@@ -180,7 +180,7 @@ func (m *mockDataStore) GetHostTokenByHash(context.Context, string) (*store.Host
 func (m *mockDataStore) ListHostTokensByOrg(context.Context, string) ([]store.HostToken, error) {
 	return nil, nil
 }
-func (m *mockDataStore) DeleteHostToken(context.Context, string) error { return nil }
+func (m *mockDataStore) DeleteHostToken(context.Context, string, string) error { return nil }
 
 // Agent Conversations
 func (m *mockDataStore) CreateAgentConversation(context.Context, *store.AgentConversation) error {

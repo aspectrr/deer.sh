@@ -357,11 +357,12 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			Host     string `json:"host"`
 			CPU      int    `json:"cpu"`
 			MemoryMB int    `json:"memory_mb"`
+			Live     bool   `json:"live"`
 		}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		return a.createSandbox(ctx, args.SourceVM, args.Host, args.CPU, args.MemoryMB)
+		return a.createSandbox(ctx, args.SourceVM, args.Host, args.CPU, args.MemoryMB, args.Live)
 	case "destroy_sandbox":
 		var args struct {
 			SandboxID string `json:"sandbox_id"`
@@ -672,18 +673,19 @@ func (a *FluidAgent) listSandboxes(ctx context.Context) (map[string]any, error) 
 	}, nil
 }
 
-func (a *FluidAgent) createSandbox(ctx context.Context, sourceVM, hostName string, cpu, memoryMB int) (map[string]any, error) {
+func (a *FluidAgent) createSandbox(ctx context.Context, sourceVM, hostName string, cpu, memoryMB int, live bool) (map[string]any, error) {
 	if sourceVM == "" {
 		return nil, fmt.Errorf("source-vm is required (e.g., create ubuntu-base)")
 	}
 
-	a.logger.Info("sandbox creation attempt", "source_vm", sourceVM, "cpu", cpu, "memory_mb", memoryMB)
+	a.logger.Info("sandbox creation attempt", "source_vm", sourceVM, "cpu", cpu, "memory_mb", memoryMB, "live", live)
 
 	sb, err := a.service.CreateSandbox(ctx, sandbox.CreateRequest{
 		SourceVM: sourceVM,
 		AgentID:  "tui-agent",
 		VCPUs:    cpu,
 		MemoryMB: memoryMB,
+		Live:     live,
 	})
 	if err != nil {
 		a.logger.Error("sandbox creation failed", "source_vm", sourceVM, "error", err)

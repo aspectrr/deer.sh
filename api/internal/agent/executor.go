@@ -88,12 +88,12 @@ func (c *Client) ExecuteTool(ctx context.Context, orgID, name string, args json.
 
 func (c *Client) execCreateSandbox(ctx context.Context, orgID string, params map[string]any) (string, error) {
 	req := orchestrator.CreateSandboxRequest{
-		OrgID:     orgID,
-		SourceVM:  strParam(params, "source_vm"),
-		BaseImage: strParam(params, "base_image"),
-		Name:      strParam(params, "name"),
-		VCPUs:     intParam(params, "vcpus"),
-		MemoryMB:  intParam(params, "memory_mb"),
+		OrgID:    orgID,
+		SourceVM: strParam(params, "source_vm"),
+		Name:     strParam(params, "name"),
+		VCPUs:    intParam(params, "vcpus"),
+		MemoryMB: intParam(params, "memory_mb"),
+		Live:     boolParam(params, "live"),
 	}
 	sandbox, err := c.orchestrator.CreateSandbox(ctx, req)
 	if err != nil {
@@ -364,6 +364,15 @@ func intParam(params map[string]any, key string) int {
 		}
 	}
 	return 0
+}
+
+func boolParam(params map[string]any, key string) bool {
+	if v, ok := params[key]; ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+	}
+	return false
 }
 
 func jsonResult(v any) (string, error) {
