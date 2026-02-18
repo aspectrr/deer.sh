@@ -9,7 +9,7 @@ import (
 
 // SelectHost picks the best connected host for a sandbox that needs the given
 // base image. Filters by image availability, resources, and health.
-func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeout time.Duration) (*registry.ConnectedHost, error) {
+func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeout time.Duration, requiredCPUs int32, requiredMemoryMB int32) (*registry.ConnectedHost, error) {
 	hosts := reg.ListConnectedByOrg(orgID)
 	if len(hosts) == 0 {
 		return nil, fmt.Errorf("no connected hosts")
@@ -27,10 +27,10 @@ func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeou
 			continue
 		}
 
-		if h.Registration.GetAvailableCpus() < 1 {
+		if h.Registration.GetAvailableCpus() < int32(requiredCPUs) {
 			continue
 		}
-		if h.Registration.GetAvailableMemoryMb() < 512 {
+		if h.Registration.GetAvailableMemoryMb() < int64(requiredMemoryMB) {
 			continue
 		}
 

@@ -92,15 +92,18 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 		return fmt.Errorf("send registration ack: %w", err)
 	}
 
-	// Register host.
+	// Store the stream before registering so it is available immediately
+	// when other goroutines observe the host in the registry.
+	h.streams.Store(hostID, stream)
 	if err := h.registry.Register(hostID, orgID, hostname, stream); err != nil {
+		h.streams.Delete(hostID)
 		return fmt.Errorf("register host: %w", err)
 	}
 	h.registry.SetRegistration(hostID, reg)
-	h.streams.Store(hostID, stream)
 
-	// Persist or update host in the database.
-	h.persistHostRegistration(stream.Context(), hostID, orgID, reg)
+	// Persist or update host in the database using a background context
+	// so the write completes even if the stream context is cancelled.
+	h.persistHostRegistration(context.Background(), hostID, orgID, reg)
 
 	logger.Info("host registered",
 		"total_cpus", reg.GetTotalCpus(),
@@ -226,7 +229,11 @@ func (h *StreamHandler) GetStream(hostID string) (fluidv1.HostService_ConnectSer
 }
 
 func (h *StreamHandler) monitorHeartbeat(ctx context.Context, cancel context.CancelFunc, hostID string, logger *slog.Logger) {
-	ticker := time.NewTicker(30 * time.Second)
+	interval := h.heartbeatTimeout / 3
+	if interval < 10*time.Second {
+		interval = 10 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	consecutiveMisses := 0

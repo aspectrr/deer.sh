@@ -305,13 +305,18 @@ func (c *Client) execAddPlaybookTask(ctx context.Context, orgID string, params m
 		paramsJSON = string(b)
 	}
 
-	// Get current max sort order
-	tasks, _ := c.store.ListPlaybookTasks(ctx, strParam(params, "playbook_id"))
+	playbookID := strParam(params, "playbook_id")
+
+	// Get current task count for sort order.
+	tasks, err := c.store.ListPlaybookTasks(ctx, playbookID)
+	if err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	sortOrder := len(tasks)
 
 	task := &store.PlaybookTask{
 		ID:         uuid.New().String(),
-		PlaybookID: strParam(params, "playbook_id"),
+		PlaybookID: playbookID,
 		SortOrder:  sortOrder,
 		Name:       strParam(params, "name"),
 		Module:     strParam(params, "module"),

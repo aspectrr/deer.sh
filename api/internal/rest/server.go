@@ -2,6 +2,7 @@ package rest
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
@@ -21,6 +22,7 @@ type Server struct {
 	cfg          *config.Config
 	orchestrator *orchestrator.Orchestrator
 	agentClient  *agent.Client
+	logger       *slog.Logger
 }
 
 func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrator, agentClient *agent.Client) *Server {
@@ -29,6 +31,7 @@ func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrat
 		cfg:          cfg,
 		orchestrator: orch,
 		agentClient:  agentClient,
+		logger:       slog.Default().With("component", "rest"),
 	}
 	s.Router = s.routes()
 	return s

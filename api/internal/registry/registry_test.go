@@ -185,68 +185,6 @@ func TestUpdateHeartbeat_NonexistentHost(t *testing.T) {
 	reg.UpdateHeartbeat("nonexistent")
 }
 
-func TestSelectHostForImage(t *testing.T) {
-	reg := New()
-	_ = reg.Register("host-1", "org-1", "h1", &mockStream{})
-	reg.SetRegistration("host-1", &fluidv1.HostRegistration{
-		BaseImages: []string{"ubuntu-22.04", "debian-12"},
-	})
-
-	_ = reg.Register("host-2", "org-1", "h2", &mockStream{})
-	reg.SetRegistration("host-2", &fluidv1.HostRegistration{
-		BaseImages: []string{"centos-9"},
-	})
-
-	// Should find host-1 for ubuntu-22.04.
-	h, err := reg.SelectHostForImage("ubuntu-22.04", "org-1")
-	if err != nil {
-		t.Fatalf("SelectHostForImage(ubuntu-22.04): unexpected error: %v", err)
-	}
-	if h.HostID != "host-1" {
-		t.Errorf("HostID = %q, want %q", h.HostID, "host-1")
-	}
-
-	// Should find host-2 for centos-9.
-	h, err = reg.SelectHostForImage("centos-9", "org-1")
-	if err != nil {
-		t.Fatalf("SelectHostForImage(centos-9): unexpected error: %v", err)
-	}
-	if h.HostID != "host-2" {
-		t.Errorf("HostID = %q, want %q", h.HostID, "host-2")
-	}
-
-	// No host has this image.
-	_, err = reg.SelectHostForImage("nonexistent-image", "org-1")
-	if err == nil {
-		t.Fatal("SelectHostForImage(nonexistent-image): expected error")
-	}
-}
-
-func TestSelectHostForImage_OrgFilter(t *testing.T) {
-	reg := New()
-	_ = reg.Register("host-1", "org-1", "h1", &mockStream{})
-	reg.SetRegistration("host-1", &fluidv1.HostRegistration{
-		BaseImages: []string{"ubuntu-22.04"},
-	})
-
-	// Different org should not find host-1.
-	_, err := reg.SelectHostForImage("ubuntu-22.04", "org-2")
-	if err == nil {
-		t.Fatal("SelectHostForImage: expected error when org does not match")
-	}
-}
-
-func TestSelectHostForImage_NoRegistration(t *testing.T) {
-	reg := New()
-	_ = reg.Register("host-1", "org-1", "h1", &mockStream{})
-	// No SetRegistration call - Registration is nil.
-
-	_, err := reg.SelectHostForImage("ubuntu-22.04", "org-1")
-	if err == nil {
-		t.Fatal("SelectHostForImage: expected error when host has no registration")
-	}
-}
-
 func TestConcurrentAccess(t *testing.T) {
 	reg := New()
 	var wg sync.WaitGroup

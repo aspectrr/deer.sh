@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
@@ -16,6 +17,7 @@ import (
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 // HostSender abstracts the ability to send a ControlMessage to a specific host
@@ -68,7 +70,16 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	// base_image is derived from source_vm - users never set it directly
 	baseImage := req.SourceVM
 
-	host, err := SelectHost(o.registry, baseImage, req.OrgID, o.heartbeatTimeout)
+	vcpus := int32(req.VCPUs)
+	if vcpus == 0 {
+		vcpus = 2
+	}
+	memMB := int32(req.MemoryMB)
+	if memMB == 0 {
+		memMB = 2048
+	}
+
+	host, err := SelectHost(o.registry, baseImage, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
 	if err != nil {
 		if req.SourceVM != "" {
 			host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout)
@@ -80,14 +91,6 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		}
 	}
 
-	vcpus := int32(req.VCPUs)
-	if vcpus == 0 {
-		vcpus = 2
-	}
-	memMB := int32(req.MemoryMB)
-	if memMB == 0 {
-		memMB = 2048
-	}
 	ttlSeconds := int32(req.TTLSeconds)
 	if ttlSeconds == 0 && o.defaultTTL > 0 {
 		ttlSeconds = int32(o.defaultTTL.Seconds())
@@ -184,7 +187,9 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	}
 
 	if err := o.store.CreateSandbox(ctx, sandbox); err != nil {
-		// Compensating action: destroy the VM on the host to avoid orphan
+		// Compensating action: destroy the VM on the host to avoid orphan.
+		// SendAndWait is context-independent (uses only hostID + timeout),
+		// so this runs reliably even if the caller's context is cancelled.
 		o.logger.Warn("DB persist failed, issuing compensating destroy",
 			"sandbox_id", sandboxID, "host_id", host.HostID, "error", err)
 		compReqID := uuid.New().String()
@@ -523,53 +528,61 @@ func (o *Orchestrator) GetHost(ctx context.Context, id, orgID string) (*HostInfo
 // Source VM operations
 // ---------------------------------------------------------------------------
 
-// ListVMs aggregates source VMs from all connected hosts.
+// ListVMs aggregates source VMs from all connected hosts in parallel.
 func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, error) {
 	connected := o.registry.ListConnectedByOrg(orgID)
+
+	var mu sync.Mutex
 	var result []*VMInfo
 
+	g, _ := errgroup.WithContext(ctx)
 	for _, h := range connected {
 		if h.Registration == nil {
 			continue
 		}
 
-		reqID := uuid.New().String()
-		cmd := &fluidv1.ControlMessage{
-			RequestId: reqID,
-			Payload: &fluidv1.ControlMessage_ListSourceVms{
-				ListSourceVms: &fluidv1.ListSourceVMsCommand{},
-			},
-		}
-
-		resp, err := o.sender.SendAndWait(h.HostID, cmd, 30*time.Second)
-		if err != nil {
-			o.logger.Warn("failed to list VMs from host", "host_id", h.HostID, "error", err)
-			for _, vm := range h.Registration.GetSourceVms() {
-				result = append(result, &VMInfo{
-					Name:      vm.GetName(),
-					State:     vm.GetState(),
-					IPAddress: vm.GetIpAddress(),
-					Prepared:  vm.GetPrepared(),
-					HostID:    h.HostID,
-				})
+		g.Go(func() error {
+			reqID := uuid.New().String()
+			cmd := &fluidv1.ControlMessage{
+				RequestId: reqID,
+				Payload: &fluidv1.ControlMessage_ListSourceVms{
+					ListSourceVms: &fluidv1.ListSourceVMsCommand{},
+				},
 			}
-			continue
-		}
 
-		vmList := resp.GetSourceVmsList()
-		if vmList != nil {
-			for _, vm := range vmList.GetVms() {
-				result = append(result, &VMInfo{
-					Name:      vm.GetName(),
-					State:     vm.GetState(),
-					IPAddress: vm.GetIpAddress(),
-					Prepared:  vm.GetPrepared(),
-					HostID:    h.HostID,
-				})
+			var vms []*VMInfo
+			resp, err := o.sender.SendAndWait(h.HostID, cmd, 30*time.Second)
+			if err != nil {
+				o.logger.Warn("failed to list VMs from host", "host_id", h.HostID, "error", err)
+				for _, vm := range h.Registration.GetSourceVms() {
+					vms = append(vms, &VMInfo{
+						Name:      vm.GetName(),
+						State:     vm.GetState(),
+						IPAddress: vm.GetIpAddress(),
+						Prepared:  vm.GetPrepared(),
+						HostID:    h.HostID,
+					})
+				}
+			} else if vmList := resp.GetSourceVmsList(); vmList != nil {
+				for _, vm := range vmList.GetVms() {
+					vms = append(vms, &VMInfo{
+						Name:      vm.GetName(),
+						State:     vm.GetState(),
+						IPAddress: vm.GetIpAddress(),
+						Prepared:  vm.GetPrepared(),
+						HostID:    h.HostID,
+					})
+				}
 			}
-		}
+
+			mu.Lock()
+			result = append(result, vms...)
+			mu.Unlock()
+			return nil
+		})
 	}
 
+	_ = g.Wait()
 	return result, nil
 }
 

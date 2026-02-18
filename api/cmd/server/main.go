@@ -38,6 +38,10 @@ func main() {
 	defer stop()
 
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		slog.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
 
 	logger := setupLogger(cfg.Logging.Level, cfg.Logging.Format)
 	slog.SetDefault(logger)
@@ -163,10 +167,8 @@ func main() {
 		logger.Error("HTTP server error", "error", err)
 	}
 
-	// 9. Graceful shutdown.
-	grpcSrv.Stop()
-	logger.Info("gRPC server stopped")
-
+	// 9. Graceful shutdown: stop HTTP first (drain in-flight requests),
+	// then stop gRPC so streaming daemons stay connected during drain.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.API.ShutdownTimeout)
 	defer cancel()
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
@@ -175,6 +177,9 @@ func main() {
 	} else {
 		logger.Info("HTTP server shut down gracefully")
 	}
+
+	grpcSrv.Stop()
+	logger.Info("gRPC server stopped")
 }
 
 func setupLogger(levelStr, format string) *slog.Logger {

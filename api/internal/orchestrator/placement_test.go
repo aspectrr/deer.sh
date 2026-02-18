@@ -28,7 +28,7 @@ func newRegistryWithHost(t *testing.T, hostID, orgID string, reg *fluidv1.HostRe
 
 func TestSelectHost_NoHosts(t *testing.T) {
 	r := registry.New()
-	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err == nil {
 		t.Fatal("SelectHost: expected error when no hosts are connected")
 	}
@@ -43,7 +43,7 @@ func TestSelectHost_MatchingImage(t *testing.T) {
 		AvailableMemoryMb: 8192,
 	})
 
-	h, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	h, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err != nil {
 		t.Fatalf("SelectHost: unexpected error: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestSelectHost_NoMatchingImage(t *testing.T) {
 		AvailableMemoryMb: 8192,
 	})
 
-	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err == nil {
 		t.Fatal("SelectHost: expected error when no host has the requested image")
 	}
@@ -76,7 +76,7 @@ func TestSelectHost_InsufficientCPU(t *testing.T) {
 		AvailableMemoryMb: 8192,
 	})
 
-	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err == nil {
 		t.Fatal("SelectHost: expected error when host has insufficient CPUs")
 	}
@@ -88,10 +88,10 @@ func TestSelectHost_InsufficientMemory(t *testing.T) {
 	r.SetRegistration("host-1", &fluidv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
-		AvailableMemoryMb: 256, // Below 512 threshold.
+		AvailableMemoryMb: 256, // Below required 2048.
 	})
 
-	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err == nil {
 		t.Fatal("SelectHost: expected error when host has insufficient memory")
 	}
@@ -113,7 +113,7 @@ func TestSelectHost_StaleHeartbeat(t *testing.T) {
 	}
 	h.LastHeartbeat = time.Now().Add(-2 * time.Minute)
 
-	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err == nil {
 		t.Fatal("SelectHost: expected error when host has stale heartbeat (>90s)")
 	}
@@ -124,7 +124,7 @@ func TestSelectHost_NilRegistration(t *testing.T) {
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
 	// No SetRegistration - Registration is nil.
 
-	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err == nil {
 		t.Fatal("SelectHost: expected error when host has nil registration")
 	}
@@ -145,7 +145,7 @@ func TestSelectHost_PicksHighestMemory(t *testing.T) {
 		AvailableMemoryMb: 16384,
 	})
 
-	h, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second)
+	h, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
 	if err != nil {
 		t.Fatalf("SelectHost: unexpected error: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestSelectHost_FiltersByOrg(t *testing.T) {
 		AvailableMemoryMb: 8192,
 	})
 
-	_, err := SelectHost(r, "ubuntu-22.04", "org-other", 90*time.Second)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-other", 90*time.Second, 2, 2048)
 	if err == nil {
 		t.Fatal("SelectHost: expected error when no hosts belong to the org")
 	}

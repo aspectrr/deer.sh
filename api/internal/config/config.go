@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -98,6 +100,20 @@ type LoggingConfig struct {
 	Format string
 }
 
+// Validate checks that required configuration fields are set and valid.
+func (c *Config) Validate() error {
+	if c.Database.URL == "" {
+		return fmt.Errorf("DATABASE_URL is required")
+	}
+	if c.Frontend.URL == "*" {
+		return fmt.Errorf("FRONTEND_URL must not be '*'")
+	}
+	if u, err := url.Parse(c.Frontend.URL); err != nil || u.Scheme == "" {
+		return fmt.Errorf("FRONTEND_URL must be a valid URL")
+	}
+	return nil
+}
+
 func Load() *Config {
 	return &Config{
 		API: APIConfig{
@@ -117,7 +133,7 @@ func Load() *Config {
 		},
 		Auth: AuthConfig{
 			SessionTTL:    envDuration("AUTH_SESSION_TTL", 720*time.Hour),
-			SecureCookies: envBool("AUTH_SECURE_COOKIES", true),
+			SecureCookies: envBool("AUTH_SECURE_COOKIES", false),
 			GitHub: OAuthProviderConfig{
 				ClientID:     os.Getenv("AUTH_GITHUB_CLIENT_ID"),
 				ClientSecret: os.Getenv("AUTH_GITHUB_CLIENT_SECRET"),

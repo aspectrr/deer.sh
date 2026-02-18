@@ -117,24 +117,3 @@ func (r *Registry) UpdateHeartbeat(hostID string) {
 		h.LastHeartbeat = time.Now()
 	}
 }
-
-// SelectHostForImage finds a connected host that advertises the given base image.
-func (r *Registry) SelectHostForImage(baseImage, orgID string) (*ConnectedHost, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	for _, h := range r.hosts {
-		if orgID != "" && h.OrgID != orgID {
-			continue
-		}
-		if h.Registration == nil {
-			continue
-		}
-		for _, img := range h.Registration.GetBaseImages() {
-			if img == baseImage {
-				return h, nil
-			}
-		}
-	}
-	return nil, fmt.Errorf("no connected host has base image %q", baseImage)
-}

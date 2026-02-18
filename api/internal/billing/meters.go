@@ -109,6 +109,26 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 
 	sanitized := sanitizeEventName(modelID)
 
+	// Track created Stripe objects for rollback on partial failure.
+	var createdProductID string
+	var createdPriceIDs []string
+	rollback := func() {
+		for _, priceID := range createdPriceIDs {
+			if _, err := stripePrice.Update(priceID, &stripe.PriceParams{
+				Active: stripe.Bool(false),
+			}); err != nil {
+				mm.logger.Warn("rollback: failed to deactivate price", "price_id", priceID, "error", err)
+			}
+		}
+		if createdProductID != "" {
+			if _, err := stripeProduct.Update(createdProductID, &stripe.ProductParams{
+				Active: stripe.Bool(false),
+			}); err != nil {
+				mm.logger.Warn("rollback: failed to deactivate product", "product_id", createdProductID, "error", err)
+			}
+		}
+	}
+
 	// Create Stripe Product
 	prod, err := stripeProduct.New(&stripe.ProductParams{
 		Name: stripe.String(fmt.Sprintf("LLM Tokens: %s", modelID)),
@@ -122,6 +142,7 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 	if err != nil {
 		return nil, fmt.Errorf("create stripe product: %w", err)
 	}
+	createdProductID = prod.ID
 
 	// Create input meter
 	inputEventName := sanitized + "_input"
@@ -137,6 +158,7 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 		},
 	})
 	if err != nil {
+		rollback()
 		return nil, fmt.Errorf("create input meter: %w", err)
 	}
 
@@ -154,6 +176,7 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 		},
 	})
 	if err != nil {
+		rollback()
 		return nil, fmt.Errorf("create output meter: %w", err)
 	}
 
@@ -171,8 +194,10 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 		},
 	})
 	if err != nil {
+		rollback()
 		return nil, fmt.Errorf("create input price: %w", err)
 	}
+	createdPriceIDs = append(createdPriceIDs, inputPrice.ID)
 
 	// Create output price
 	outputCentsPer := outputCostPerToken * mm.markup * 100.0
@@ -188,8 +213,10 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 		},
 	})
 	if err != nil {
+		rollback()
 		return nil, fmt.Errorf("create output price: %w", err)
 	}
+	createdPriceIDs = append(createdPriceIDs, outputPrice.ID)
 
 	meter := &store.ModelMeter{
 		ID:                  uuid.New().String(),
@@ -206,6 +233,7 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 	}
 
 	if err := mm.store.CreateModelMeter(ctx, meter); err != nil {
+		rollback()
 		return nil, fmt.Errorf("save model meter: %w", err)
 	}
 

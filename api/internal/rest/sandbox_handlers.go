@@ -50,7 +50,8 @@ func (s *Server) handleCreateSandbox(w http.ResponseWriter, r *http.Request) {
 
 	sandbox, err := s.orchestrator.CreateSandbox(r.Context(), req)
 	if err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create sandbox: %s", err.Error()))
+		s.logger.Error("failed to create sandbox", "error", err)
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create sandbox"))
 		return
 	}
 
@@ -153,7 +154,8 @@ func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.orchestrator.DestroySandbox(r.Context(), sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to destroy sandbox: %s", err.Error()))
+		s.logger.Error("failed to destroy sandbox", "sandbox_id", sandboxID, "error", err)
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to destroy sandbox"))
 		return
 	}
 
@@ -208,9 +210,16 @@ func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	const maxTimeoutSec = 3600
+	if req.TimeoutSec > maxTimeoutSec {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("timeout_seconds must be <= %d", maxTimeoutSec))
+		return
+	}
+
 	result, err := s.orchestrator.RunCommand(r.Context(), sandboxID, req.Command, req.TimeoutSec)
 	if err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to run command: %s", err.Error()))
+		s.logger.Error("failed to run command", "sandbox_id", sandboxID, "error", err)
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to run command"))
 		return
 	}
 
@@ -249,7 +258,8 @@ func (s *Server) handleStartSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.orchestrator.StartSandbox(r.Context(), sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to start sandbox: %s", err.Error()))
+		s.logger.Error("failed to start sandbox", "sandbox_id", sandboxID, "error", err)
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to start sandbox"))
 		return
 	}
 
@@ -291,7 +301,8 @@ func (s *Server) handleStopSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.orchestrator.StopSandbox(r.Context(), sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to stop sandbox: %s", err.Error()))
+		s.logger.Error("failed to stop sandbox", "sandbox_id", sandboxID, "error", err)
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to stop sandbox"))
 		return
 	}
 
@@ -379,7 +390,8 @@ func (s *Server) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.orchestrator.CreateSnapshot(r.Context(), sandboxID, req.Name)
 	if err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create snapshot: %s", err.Error()))
+		s.logger.Error("failed to create snapshot", "sandbox_id", sandboxID, "error", err)
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create snapshot"))
 		return
 	}
 

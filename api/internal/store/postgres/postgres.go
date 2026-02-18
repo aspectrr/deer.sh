@@ -60,7 +60,7 @@ type SessionModel struct {
 	UserID    string    `gorm:"column:user_id;index"`
 	IPAddress string    `gorm:"column:ip_address"`
 	UserAgent string    `gorm:"column:user_agent"`
-	ExpiresAt time.Time `gorm:"column:expires_at"`
+	ExpiresAt time.Time `gorm:"column:expires_at;index"`
 	CreatedAt time.Time `gorm:"column:created_at"`
 }
 
@@ -106,10 +106,10 @@ func (SubscriptionModel) TableName() string { return "subscriptions" }
 
 type UsageRecordModel struct {
 	ID           string    `gorm:"column:id;primaryKey"`
-	OrgID        string    `gorm:"column:org_id;index"`
+	OrgID        string    `gorm:"column:org_id;index:idx_usage_org_recorded,priority:1"`
 	ResourceType string    `gorm:"column:resource_type"`
 	Quantity     float64   `gorm:"column:quantity"`
-	RecordedAt   time.Time `gorm:"column:recorded_at"`
+	RecordedAt   time.Time `gorm:"column:recorded_at;index:idx_usage_org_recorded,priority:2"`
 	MetadataJSON string    `gorm:"column:metadata_json"`
 }
 
@@ -164,13 +164,13 @@ func (SandboxModel) TableName() string { return "sandboxes" }
 
 type CommandModel struct {
 	ID         string    `gorm:"column:id;primaryKey"`
-	SandboxID  string    `gorm:"column:sandbox_id;not null;index"`
+	SandboxID  string    `gorm:"column:sandbox_id;not null;index:idx_commands_sandbox_started,priority:1"`
 	Command    string    `gorm:"column:command;not null"`
 	Stdout     string    `gorm:"column:stdout"`
 	Stderr     string    `gorm:"column:stderr"`
 	ExitCode   int32     `gorm:"column:exit_code;not null;default:0"`
 	DurationMS int64     `gorm:"column:duration_ms;not null;default:0"`
-	StartedAt  time.Time `gorm:"column:started_at;not null"`
+	StartedAt  time.Time `gorm:"column:started_at;not null;index:idx_commands_sandbox_started,priority:2"`
 	EndedAt    time.Time `gorm:"column:ended_at"`
 }
 
@@ -258,6 +258,34 @@ type SourceHostModel struct {
 
 func (SourceHostModel) TableName() string { return "source_hosts" }
 
+type ModelMeterModel struct {
+	ID                  string    `gorm:"column:id;primaryKey"`
+	ModelID             string    `gorm:"column:model_id;uniqueIndex"`
+	StripeProductID     string    `gorm:"column:stripe_product_id"`
+	StripeInputMeterID  string    `gorm:"column:stripe_input_meter_id"`
+	StripeOutputMeterID string    `gorm:"column:stripe_output_meter_id"`
+	StripeInputPriceID  string    `gorm:"column:stripe_input_price_id"`
+	StripeOutputPriceID string    `gorm:"column:stripe_output_price_id"`
+	InputEventName      string    `gorm:"column:input_event_name"`
+	OutputEventName     string    `gorm:"column:output_event_name"`
+	InputCostPerToken   float64   `gorm:"column:input_cost_per_token"`
+	OutputCostPerToken  float64   `gorm:"column:output_cost_per_token"`
+	CreatedAt           time.Time `gorm:"column:created_at"`
+}
+
+func (ModelMeterModel) TableName() string { return "model_meters" }
+
+type OrgModelSubscriptionModel struct {
+	ID                    string    `gorm:"column:id;primaryKey"`
+	OrgID                 string    `gorm:"column:org_id;uniqueIndex:idx_org_model_sub,composite:org_model"`
+	ModelID               string    `gorm:"column:model_id;uniqueIndex:idx_org_model_sub,composite:org_model"`
+	StripeInputSubItemID  string    `gorm:"column:stripe_input_sub_item_id"`
+	StripeOutputSubItemID string    `gorm:"column:stripe_output_sub_item_id"`
+	CreatedAt             time.Time `gorm:"column:created_at"`
+}
+
+func (OrgModelSubscriptionModel) TableName() string { return "org_model_subscriptions" }
+
 // New creates a Store backed by Postgres + GORM.
 func New(ctx context.Context, cfg store.Config) (store.Store, error) {
 	if cfg.DatabaseURL == "" {
@@ -325,6 +353,8 @@ func (s *postgresStore) autoMigrate(_ context.Context) error {
 		&PlaybookModel{},
 		&PlaybookTaskModel{},
 		&SourceHostModel{},
+		&ModelMeterModel{},
+		&OrgModelSubscriptionModel{},
 	)
 }
 
@@ -1030,8 +1060,29 @@ func (s *postgresStore) ListHosts(ctx context.Context) ([]store.Host, error) {
 
 func (s *postgresStore) UpdateHost(ctx context.Context, host *store.Host) error {
 	host.UpdatedAt = time.Now().UTC()
-	if err := s.db.WithContext(ctx).Save(hostToModel(host)).Error; err != nil {
-		return mapDBError(err)
+	res := s.db.WithContext(ctx).Model(&HostModel{}).Where("id = ?", host.ID).
+		Updates(map[string]any{
+			"org_id":              host.OrgID,
+			"hostname":            host.Hostname,
+			"version":             host.Version,
+			"total_cpus":          host.TotalCPUs,
+			"total_memory_mb":     host.TotalMemoryMB,
+			"total_disk_mb":       host.TotalDiskMB,
+			"available_cpus":      host.AvailableCPUs,
+			"available_memory_mb": host.AvailableMemoryMB,
+			"available_disk_mb":   host.AvailableDiskMB,
+			"base_images":         host.BaseImages,
+			"source_vms":          host.SourceVMs,
+			"bridges":             host.Bridges,
+			"status":              string(host.Status),
+			"last_heartbeat":      host.LastHeartbeat,
+			"updated_at":          host.UpdatedAt,
+		})
+	if err := mapDBError(res.Error); err != nil {
+		return err
+	}
+	if res.RowsAffected == 0 {
+		return store.ErrNotFound
 	}
 	return nil
 }
@@ -1103,8 +1154,20 @@ func (s *postgresStore) ListSandboxesByOrg(ctx context.Context, orgID string) ([
 
 func (s *postgresStore) UpdateSandbox(ctx context.Context, sandbox *store.Sandbox) error {
 	sandbox.UpdatedAt = time.Now().UTC()
-	if err := s.db.WithContext(ctx).Save(sandboxToModel(sandbox)).Error; err != nil {
-		return mapDBError(err)
+	res := s.db.WithContext(ctx).Model(&SandboxModel{}).Where("id = ? AND deleted_at IS NULL", sandbox.ID).
+		Updates(map[string]any{
+			"state":       string(sandbox.State),
+			"ip_address":  sandbox.IPAddress,
+			"tap_device":  sandbox.TAPDevice,
+			"mac_address": sandbox.MACAddress,
+			"bridge":      sandbox.Bridge,
+			"updated_at":  sandbox.UpdatedAt,
+		})
+	if err := mapDBError(res.Error); err != nil {
+		return err
+	}
+	if res.RowsAffected == 0 {
+		return store.ErrNotFound
 	}
 	return nil
 }
@@ -1651,28 +1714,117 @@ func (s *postgresStore) GetOrganizationByStripeCustomerID(ctx context.Context, c
 	return orgFromModel(&model), nil
 }
 
-// --- Model Meter stubs ---
+// --- Model Meter / Billing ---
 
-func (s *postgresStore) GetModelMeter(_ context.Context, _ string) (*store.ModelMeter, error) {
-	return nil, store.ErrNotFound
+func modelMeterToModel(m *store.ModelMeter) *ModelMeterModel {
+	return &ModelMeterModel{
+		ID:                  m.ID,
+		ModelID:             m.ModelID,
+		StripeProductID:     m.StripeProductID,
+		StripeInputMeterID:  m.StripeInputMeterID,
+		StripeOutputMeterID: m.StripeOutputMeterID,
+		StripeInputPriceID:  m.StripeInputPriceID,
+		StripeOutputPriceID: m.StripeOutputPriceID,
+		InputEventName:      m.InputEventName,
+		OutputEventName:     m.OutputEventName,
+		InputCostPerToken:   m.InputCostPerToken,
+		OutputCostPerToken:  m.OutputCostPerToken,
+		CreatedAt:           m.CreatedAt,
+	}
 }
 
-func (s *postgresStore) CreateModelMeter(_ context.Context, _ *store.ModelMeter) error {
+func modelMeterFromModel(m *ModelMeterModel) *store.ModelMeter {
+	return &store.ModelMeter{
+		ID:                  m.ID,
+		ModelID:             m.ModelID,
+		StripeProductID:     m.StripeProductID,
+		StripeInputMeterID:  m.StripeInputMeterID,
+		StripeOutputMeterID: m.StripeOutputMeterID,
+		StripeInputPriceID:  m.StripeInputPriceID,
+		StripeOutputPriceID: m.StripeOutputPriceID,
+		InputEventName:      m.InputEventName,
+		OutputEventName:     m.OutputEventName,
+		InputCostPerToken:   m.InputCostPerToken,
+		OutputCostPerToken:  m.OutputCostPerToken,
+		CreatedAt:           m.CreatedAt,
+	}
+}
+
+func orgModelSubToModel(s *store.OrgModelSubscription) *OrgModelSubscriptionModel {
+	return &OrgModelSubscriptionModel{
+		ID:                    s.ID,
+		OrgID:                 s.OrgID,
+		ModelID:               s.ModelID,
+		StripeInputSubItemID:  s.StripeInputSubItemID,
+		StripeOutputSubItemID: s.StripeOutputSubItemID,
+		CreatedAt:             s.CreatedAt,
+	}
+}
+
+func orgModelSubFromModel(m *OrgModelSubscriptionModel) *store.OrgModelSubscription {
+	return &store.OrgModelSubscription{
+		ID:                    m.ID,
+		OrgID:                 m.OrgID,
+		ModelID:               m.ModelID,
+		StripeInputSubItemID:  m.StripeInputSubItemID,
+		StripeOutputSubItemID: m.StripeOutputSubItemID,
+		CreatedAt:             m.CreatedAt,
+	}
+}
+
+func (s *postgresStore) GetModelMeter(ctx context.Context, modelID string) (*store.ModelMeter, error) {
+	var model ModelMeterModel
+	if err := s.db.WithContext(ctx).Where("model_id = ?", modelID).First(&model).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	return modelMeterFromModel(&model), nil
+}
+
+func (s *postgresStore) CreateModelMeter(ctx context.Context, m *store.ModelMeter) error {
+	m.CreatedAt = time.Now().UTC()
+	if err := s.db.WithContext(ctx).Create(modelMeterToModel(m)).Error; err != nil {
+		return mapDBError(err)
+	}
 	return nil
 }
 
-func (s *postgresStore) GetOrgModelSubscription(_ context.Context, _, _ string) (*store.OrgModelSubscription, error) {
-	return nil, store.ErrNotFound
+func (s *postgresStore) GetOrgModelSubscription(ctx context.Context, orgID, modelID string) (*store.OrgModelSubscription, error) {
+	var model OrgModelSubscriptionModel
+	if err := s.db.WithContext(ctx).Where("org_id = ? AND model_id = ?", orgID, modelID).First(&model).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	return orgModelSubFromModel(&model), nil
 }
 
-func (s *postgresStore) CreateOrgModelSubscription(_ context.Context, _ *store.OrgModelSubscription) error {
+func (s *postgresStore) CreateOrgModelSubscription(ctx context.Context, sub *store.OrgModelSubscription) error {
+	sub.CreatedAt = time.Now().UTC()
+	if err := s.db.WithContext(ctx).Create(orgModelSubToModel(sub)).Error; err != nil {
+		return mapDBError(err)
+	}
 	return nil
 }
 
-func (s *postgresStore) SumTokenUsage(_ context.Context, _ string, _, _ time.Time) (float64, error) {
-	return 0, nil
+func (s *postgresStore) SumTokenUsage(ctx context.Context, orgID string, from, to time.Time) (float64, error) {
+	var total float64
+	err := s.db.WithContext(ctx).
+		Model(&UsageRecordModel{}).
+		Where("org_id = ? AND recorded_at >= ? AND recorded_at <= ?", orgID, from, to).
+		Select("COALESCE(SUM(quantity), 0)").
+		Scan(&total).Error
+	if err != nil {
+		return 0, mapDBError(err)
+	}
+	return total, nil
 }
 
-func (s *postgresStore) ListActiveSubscriptions(_ context.Context) ([]*store.Subscription, error) {
-	return nil, nil
+func (s *postgresStore) ListActiveSubscriptions(ctx context.Context) ([]*store.Subscription, error) {
+	var models []SubscriptionModel
+	if err := s.db.WithContext(ctx).Where("status = ?", string(store.SubStatusActive)).Find(&models).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	out := make([]*store.Subscription, 0, len(models))
+	for i := range models {
+		out = append(out, subFromModel(&models[i]))
+	}
+	return out, nil
 }
