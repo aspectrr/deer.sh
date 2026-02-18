@@ -113,7 +113,7 @@ func runMCP() error {
 
 	// Log to file - stdout is the MCP transport
 	logPath := filepath.Join(filepath.Dir(configPath), "fluid-mcp.log")
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		logFile = nil
 	}
@@ -165,7 +165,7 @@ func runTUI() error {
 
 	// Log to file to avoid corrupting the TUI
 	logPath := filepath.Join(filepath.Dir(configPath), "fluid.log")
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not open log file %s: %v\n", logPath, err)
 		logFile = nil

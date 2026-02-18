@@ -654,6 +654,9 @@ func (s *postgresStore) DeleteSession(ctx context.Context, id string) error {
 	if res.Error != nil {
 		return mapDBError(res.Error)
 	}
+	if res.RowsAffected == 0 {
+		return store.ErrNotFound
+	}
 	return nil
 }
 

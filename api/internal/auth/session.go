@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -10,6 +11,13 @@ import (
 
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
+
+// HashSessionToken returns the SHA-256 hex digest of a raw session token.
+// The raw token is returned to the user in a cookie; the hash is stored in the DB.
+func HashSessionToken(raw string) string {
+	h := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(h[:])
+}
 
 const (
 	SessionCookieName = "fluid_session"
@@ -24,14 +32,17 @@ func generateSessionToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func CreateSession(ctx context.Context, st store.Store, userID, ip, ua string, ttl time.Duration) (*store.Session, error) {
-	token, err := generateSessionToken()
+// CreateSession generates a random token, stores its SHA-256 hash as the
+// session ID in the database, and returns both the raw token (for the cookie)
+// and the session record.
+func CreateSession(ctx context.Context, st store.Store, userID, ip, ua string, ttl time.Duration) (rawToken string, sess *store.Session, err error) {
+	raw, err := generateSessionToken()
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
-	sess := &store.Session{
-		ID:        token,
+	sess = &store.Session{
+		ID:        HashSessionToken(raw),
 		UserID:    userID,
 		IPAddress: ip,
 		UserAgent: ua,
@@ -39,9 +50,9 @@ func CreateSession(ctx context.Context, st store.Store, userID, ip, ua string, t
 	}
 
 	if err := st.CreateSession(ctx, sess); err != nil {
-		return nil, fmt.Errorf("create session: %w", err)
+		return "", nil, fmt.Errorf("create session: %w", err)
 	}
-	return sess, nil
+	return raw, sess, nil
 }
 
 func SetSessionCookie(w http.ResponseWriter, token string, ttl time.Duration, secure bool) {

@@ -71,9 +71,12 @@ func TestRequireAuth_UserNotFound(t *testing.T) {
 func TestRequireAuth_ValidSession(t *testing.T) {
 	expectedUser := &store.User{ID: "user-1", Email: "test@example.com"}
 
+	rawToken := "good-token"
+	hashedToken := HashSessionToken(rawToken)
+
 	st := &mockStore{
 		getSessionFn: func(_ context.Context, id string) (*store.Session, error) {
-			if id != "good-token" {
+			if id != hashedToken {
 				return nil, fmt.Errorf("not found")
 			}
 			return &store.Session{ID: id, UserID: expectedUser.ID}, nil
@@ -103,7 +106,7 @@ func TestRequireAuth_ValidSession(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
-	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "good-token"})
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: rawToken})
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 

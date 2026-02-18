@@ -143,7 +143,9 @@ func (c *Client) StreamChat(ctx context.Context, w http.ResponseWriter, orgID, u
 		Content:        req.Message,
 		Model:          model,
 	}
-	_ = c.store.CreateAgentMessage(ctx, userMsg)
+	if err := c.store.CreateAgentMessage(ctx, userMsg); err != nil {
+		c.logger.Warn("failed to persist user message", "conversation_id", conv.ID, "error", err)
+	}
 	messages = append(messages, openRouterMsg{Role: "user", Content: req.Message})
 
 	// Send message_start
@@ -159,6 +161,12 @@ func (c *Client) StreamChat(ctx context.Context, w http.ResponseWriter, orgID, u
 
 	// Agentic loop
 	for {
+		// Break if client disconnected
+		if ctx.Err() != nil {
+			c.logger.Info("client disconnected", "conversation_id", conv.ID)
+			break
+		}
+
 		if toolCallCount >= maxToolCalls {
 			c.logger.Warn("max tool calls reached", "conversation_id", conv.ID)
 			break
@@ -184,7 +192,9 @@ func (c *Client) StreamChat(ctx context.Context, w http.ResponseWriter, orgID, u
 				TokensOutput:   totalOutputTokens,
 				Model:          model,
 			}
-			_ = c.store.CreateAgentMessage(ctx, assistantMsg)
+			if err := c.store.CreateAgentMessage(ctx, assistantMsg); err != nil {
+				c.logger.Warn("failed to persist assistant message", "conversation_id", conv.ID, "error", err)
+			}
 			break
 		}
 
@@ -198,7 +208,9 @@ func (c *Client) StreamChat(ctx context.Context, w http.ResponseWriter, orgID, u
 			ToolCalls:      string(toolCallsJSON),
 			Model:          model,
 		}
-		_ = c.store.CreateAgentMessage(ctx, assistantMsg)
+		if err := c.store.CreateAgentMessage(ctx, assistantMsg); err != nil {
+			c.logger.Warn("failed to persist assistant tool-call message", "conversation_id", conv.ID, "error", err)
+		}
 
 		messages = append(messages, openRouterMsg{
 			Role:      "assistant",
@@ -229,7 +241,9 @@ func (c *Client) StreamChat(ctx context.Context, w http.ResponseWriter, orgID, u
 				ToolCallID:     tc.ID,
 				Model:          model,
 			}
-			_ = c.store.CreateAgentMessage(ctx, toolMsg)
+			if err := c.store.CreateAgentMessage(ctx, toolMsg); err != nil {
+				c.logger.Warn("failed to persist tool result message", "conversation_id", conv.ID, "error", err)
+			}
 
 			messages = append(messages, openRouterMsg{
 				Role:       "tool",
@@ -401,10 +415,11 @@ func (c *Client) writeSSE(w http.ResponseWriter, flusher http.Flusher, event str
 }
 
 func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	r := []rune(s)
+	if len(r) <= maxLen {
 		return s
 	}
-	return s[:maxLen]
+	return string(r[:maxLen])
 }
 
 // AvailableModels returns the list of models with pricing info.

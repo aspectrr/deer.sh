@@ -28,7 +28,7 @@ func RequireAuth(st store.Store) func(http.Handler) http.Handler {
 				return
 			}
 
-			sess, err := st.GetSession(r.Context(), cookie.Value)
+			sess, err := st.GetSession(r.Context(), HashSessionToken(cookie.Value))
 			if err != nil {
 				ClearSessionCookie(w)
 				serverError.RespondError(w, http.StatusUnauthorized, fmt.Errorf("invalid or expired session"))

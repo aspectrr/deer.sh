@@ -46,6 +46,11 @@ func NewMeterManager(
 	if logger == nil {
 		logger = slog.Default()
 	}
+	// Set the Stripe key once at initialization rather than per-call
+	// to avoid a race condition when multiple goroutines set the global.
+	if stripeKey != "" {
+		stripe.Key = stripeKey
+	}
 	return &MeterManager{
 		store:      st,
 		modelCache: mc,
@@ -102,7 +107,6 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 		outputCostPerToken = 0.000015 // fallback: $15/1M tokens
 	}
 
-	stripe.Key = mm.stripeKey
 	sanitized := sanitizeEventName(modelID)
 
 	// Create Stripe Product
@@ -238,8 +242,6 @@ func (mm *MeterManager) EnsureOrgSubscriptionItems(ctx context.Context, orgID, m
 		return fmt.Errorf("ensure model meter: %w", err)
 	}
 
-	stripe.Key = mm.stripeKey
-
 	inputItem, err := stripeSubItem.New(&stripe.SubscriptionItemParams{
 		Subscription: stripe.String(sub.StripeSubscriptionID),
 		Price:        stripe.String(meter.StripeInputPriceID),
@@ -284,8 +286,6 @@ func (mm *MeterManager) ReportResourceUsage(ctx context.Context, stripeCustomerI
 	if value <= 0 || stripeCustomerID == "" {
 		return
 	}
-
-	stripe.Key = mm.stripeKey
 
 	_, err := stripeMeterEvent.New(&stripe.BillingMeterEventParams{
 		EventName: stripe.String(eventName),
@@ -377,8 +377,6 @@ func (mm *MeterManager) ReportUsage(ctx context.Context, orgID, modelID string, 
 	if err != nil {
 		return fmt.Errorf("ensure model meter: %w", err)
 	}
-
-	stripe.Key = mm.stripeKey
 
 	if billableInput > 0 {
 		_, err := stripeMeterEvent.New(&stripe.BillingMeterEventParams{

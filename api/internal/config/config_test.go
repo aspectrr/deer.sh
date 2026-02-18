@@ -156,8 +156,8 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.Database.MaxIdleConns != 8 {
 		t.Errorf("expected Database.MaxIdleConns 8, got %d", cfg.Database.MaxIdleConns)
 	}
-	if cfg.Database.AutoMigrate != true {
-		t.Error("expected Database.AutoMigrate true, got false")
+	if cfg.Database.AutoMigrate != false {
+		t.Error("expected Database.AutoMigrate false, got true")
 	}
 	if cfg.Orchestrator.HeartbeatTimeout != 90*time.Second {
 		t.Errorf("expected Orchestrator.HeartbeatTimeout 90s, got %v", cfg.Orchestrator.HeartbeatTimeout)

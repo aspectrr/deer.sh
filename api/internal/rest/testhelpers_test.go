@@ -826,10 +826,11 @@ func authenticatedRequest(ms *mockStore, method, path string, body *http.Request
 	})
 
 	if ms.GetSessionFn == nil {
+		hashedToken := auth.HashSessionToken(testSessionToken)
 		ms.GetSessionFn = func(_ context.Context, id string) (*store.Session, error) {
-			if id == testSessionToken {
+			if id == hashedToken {
 				return &store.Session{
-					ID:        testSessionToken,
+					ID:        hashedToken,
 					UserID:    testUser.ID,
 					ExpiresAt: time.Now().Add(24 * time.Hour),
 				}, nil

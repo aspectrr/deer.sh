@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
@@ -73,6 +74,13 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Basic email format validation
+	at := strings.LastIndex(req.Email, "@")
+	if at < 1 || at >= len(req.Email)-1 || !strings.Contains(req.Email[at+1:], ".") {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid email format"))
+		return
+	}
+
 	if len(req.Password) < 8 {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("password must be at least 8 characters"))
 		return
@@ -100,13 +108,13 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
+	rawToken, _, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create session"))
 		return
 	}
 
-	auth.SetSessionCookie(w, sess.ID, s.cfg.Auth.SessionTTL, r.TLS != nil)
+	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
 
 	_ = serverJSON.RespondJSON(w, http.StatusCreated, authResponse{
 		User: &userResponse{
@@ -170,13 +178,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
+	rawToken, _, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create session"))
 		return
 	}
 
-	auth.SetSessionCookie(w, sess.ID, s.cfg.Auth.SessionTTL, r.TLS != nil)
+	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
 
 	_ = serverJSON.RespondJSON(w, http.StatusOK, authResponse{
 		User: &userResponse{
@@ -202,7 +210,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(auth.SessionCookieName)
 	if err == nil {
-		_ = s.store.DeleteSession(r.Context(), cookie.Value)
+		_ = s.store.DeleteSession(r.Context(), auth.HashSessionToken(cookie.Value))
 	}
 	auth.ClearSessionCookie(w)
 	_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
@@ -256,7 +264,7 @@ func (s *Server) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate oauth state"))
 		return
 	}
-	auth.SetOAuthStateCookie(w, state, r.TLS != nil)
+	auth.SetOAuthStateCookie(w, state, s.cfg.Auth.SecureCookies)
 	cfg := auth.GitHubOAuthConfig(s.cfg.Auth.GitHub.ClientID, s.cfg.Auth.GitHub.ClientSecret, s.cfg.Auth.GitHub.RedirectURL)
 	url := cfg.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusFound)
@@ -305,13 +313,13 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
+	rawToken, _, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create session"))
 		return
 	}
 
-	auth.SetSessionCookie(w, sess.ID, s.cfg.Auth.SessionTTL, r.TLS != nil)
+	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
 	http.Redirect(w, r, s.cfg.Frontend.URL+"/dashboard", http.StatusFound)
 }
 
@@ -334,7 +342,7 @@ func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate oauth state"))
 		return
 	}
-	auth.SetOAuthStateCookie(w, state, r.TLS != nil)
+	auth.SetOAuthStateCookie(w, state, s.cfg.Auth.SecureCookies)
 	cfg := auth.GoogleOAuthConfig(s.cfg.Auth.Google.ClientID, s.cfg.Auth.Google.ClientSecret, s.cfg.Auth.Google.RedirectURL)
 	url := cfg.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusFound)
@@ -382,13 +390,13 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
+	rawToken, _, err := auth.CreateSession(r.Context(), s.store, user.ID, r.RemoteAddr, r.UserAgent(), s.cfg.Auth.SessionTTL)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create session"))
 		return
 	}
 
-	auth.SetSessionCookie(w, sess.ID, s.cfg.Auth.SessionTTL, r.TLS != nil)
+	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
 	http.Redirect(w, r, s.cfg.Frontend.URL+"/dashboard", http.StatusFound)
 }
 
@@ -412,7 +420,7 @@ func fetchGitHubUser(ctx context.Context, accessToken string) (*githubUserInfo, 
 	if resp.StatusCode != http.StatusOK {
 		return nil, false, fmt.Errorf("GitHub user API returned status %d", resp.StatusCode)
 	}
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	var user githubUserInfo
 	if err := json.Unmarshal(body, &user); err != nil {
 		return nil, false, err
@@ -447,7 +455,7 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, b
 	if resp.StatusCode != http.StatusOK {
 		return "", false, fmt.Errorf("GitHub emails API returned status %d", resp.StatusCode)
 	}
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	var emails []struct {
 		Email    string `json:"email"`
 		Primary  bool   `json:"primary"`
@@ -493,7 +501,7 @@ func fetchGoogleUser(ctx context.Context, accessToken string) (*googleUserInfo, 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("google userinfo API returned status %d", resp.StatusCode)
 	}
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	var user googleUserInfo
 	if err := json.Unmarshal(body, &user); err != nil {
 		return nil, err

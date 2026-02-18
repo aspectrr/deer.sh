@@ -3,6 +3,7 @@ package microvm
 import (
 	"context"
 	"log/slog"
+	"os"
 	"testing"
 )
 
@@ -25,25 +26,31 @@ func TestGenerateMACAddress(t *testing.T) {
 	}
 }
 
-func TestExtractJSONString(t *testing.T) {
-	input := `{"name":"test","tap_device":"fluid-abc123","vcpus":2,"memory_mb":2048}`
-
-	tests := []struct {
-		key  string
-		want string
-	}{
-		{"name", "test"},
-		{"tap_device", "fluid-abc123"},
-		{"vcpus", "2"},
-		{"memory_mb", "2048"},
-		{"nonexistent", ""},
+func TestWriteReadMetadata(t *testing.T) {
+	workDir := t.TempDir()
+	sandboxID := "test-sandbox"
+	if err := os.MkdirAll(workDir+"/"+sandboxID, 0o755); err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tt := range tests {
-		got := extractJSONString(input, tt.key)
-		if got != tt.want {
-			t.Errorf("extractJSONString(%q) = %q, want %q", tt.key, got, tt.want)
-		}
+	want := sandboxMetadata{
+		Name:       "test",
+		TAPDevice:  "fluid-abc123",
+		MACAddress: "52:54:00:aa:bb:cc",
+		Bridge:     "fluid0",
+		VCPUs:      2,
+		MemoryMB:   2048,
+	}
+
+	writeMetadata(workDir, sandboxID, want)
+
+	got, err := readMetadata(workDir, sandboxID)
+	if err != nil {
+		t.Fatalf("readMetadata: %v", err)
+	}
+
+	if got != want {
+		t.Errorf("metadata mismatch:\n got: %+v\nwant: %+v", got, want)
 	}
 }
 

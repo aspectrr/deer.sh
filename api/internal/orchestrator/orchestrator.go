@@ -184,6 +184,22 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	}
 
 	if err := o.store.CreateSandbox(ctx, sandbox); err != nil {
+		// Compensating action: destroy the VM on the host to avoid orphan
+		o.logger.Warn("DB persist failed, issuing compensating destroy",
+			"sandbox_id", sandboxID, "host_id", host.HostID, "error", err)
+		compReqID := uuid.New().String()
+		compCmd := &fluidv1.ControlMessage{
+			RequestId: compReqID,
+			Payload: &fluidv1.ControlMessage_DestroySandbox{
+				DestroySandbox: &fluidv1.DestroySandboxCommand{
+					SandboxId: sandboxID,
+				},
+			},
+		}
+		if _, compErr := o.sender.SendAndWait(host.HostID, compCmd, 2*time.Minute); compErr != nil {
+			o.logger.Error("compensating destroy failed - orphaned VM on host",
+				"sandbox_id", sandboxID, "host_id", host.HostID, "error", compErr)
+		}
 		return nil, fmt.Errorf("persist sandbox: %w", err)
 	}
 

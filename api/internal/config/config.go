@@ -48,9 +48,10 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	SessionTTL time.Duration
-	GitHub     OAuthProviderConfig
-	Google     OAuthProviderConfig
+	SessionTTL    time.Duration
+	SecureCookies bool
+	GitHub        OAuthProviderConfig
+	Google        OAuthProviderConfig
 }
 
 type OAuthProviderConfig struct {
@@ -108,14 +109,15 @@ func Load() *Config {
 			EnableDocs:      envBool("API_ENABLE_DOCS", true),
 		},
 		Database: DatabaseConfig{
-			URL:             envOr("DATABASE_URL", "postgresql://fluid:fluid@localhost:5432/fluid_web"),
+			URL:             os.Getenv("DATABASE_URL"),
 			MaxOpenConns:    envInt("DATABASE_MAX_OPEN_CONNS", 16),
 			MaxIdleConns:    envInt("DATABASE_MAX_IDLE_CONNS", 8),
 			ConnMaxLifetime: envDuration("DATABASE_CONN_MAX_LIFETIME", time.Hour),
-			AutoMigrate:     envBool("DATABASE_AUTO_MIGRATE", true),
+			AutoMigrate:     envBool("DATABASE_AUTO_MIGRATE", false),
 		},
 		Auth: AuthConfig{
-			SessionTTL: envDuration("AUTH_SESSION_TTL", 720*time.Hour),
+			SessionTTL:    envDuration("AUTH_SESSION_TTL", 720*time.Hour),
+			SecureCookies: envBool("AUTH_SECURE_COOKIES", true),
 			GitHub: OAuthProviderConfig{
 				ClientID:     os.Getenv("AUTH_GITHUB_CLIENT_ID"),
 				ClientSecret: os.Getenv("AUTH_GITHUB_CLIENT_SECRET"),

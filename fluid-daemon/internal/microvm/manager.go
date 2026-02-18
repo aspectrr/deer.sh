@@ -3,6 +3,7 @@ package microvm
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -159,6 +160,7 @@ type LaunchConfig struct {
 	Bridge       string
 	VCPUs        int
 	MemoryMB     int
+	RootDevice   string // kernel root= device, defaults to /dev/vda
 	CloudInitISO string // optional
 }
 
@@ -176,7 +178,19 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 		return nil, fmt.Errorf("create sandbox dir: %w", err)
 	}
 
+	success := false
+	defer func() {
+		if !success {
+			_ = os.RemoveAll(sandboxDir)
+		}
+	}()
+
 	pidFile := filepath.Join(sandboxDir, "qemu.pid")
+
+	rootDev := cfg.RootDevice
+	if rootDev == "" {
+		rootDev = "/dev/vda"
+	}
 
 	// Build QEMU command args
 	args := []string{
@@ -184,7 +198,7 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 		"-m", strconv.Itoa(cfg.MemoryMB),
 		"-smp", strconv.Itoa(cfg.VCPUs),
 		"-kernel", cfg.KernelPath,
-		"-append", "console=ttyS0 root=/dev/vda rw quiet",
+		"-append", fmt.Sprintf("console=ttyS0 root=%s rw quiet", rootDev),
 		"-drive", fmt.Sprintf("id=root,file=%s,format=qcow2,if=none", cfg.OverlayPath),
 		"-device", "virtio-blk-device,drive=root",
 		"-netdev", fmt.Sprintf("tap,id=net0,ifname=%s,script=no,downscript=no", cfg.TAPDevice),
@@ -260,6 +274,7 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	})
 
 	m.vms[cfg.SandboxID] = info
+	success = true
 	m.logger.Info("microVM launched", "sandbox_id", cfg.SandboxID, "pid", pid)
 
 	return info, nil
@@ -385,9 +400,11 @@ type sandboxMetadata struct {
 
 func writeMetadata(workDir, sandboxID string, meta sandboxMetadata) {
 	path := filepath.Join(workDir, sandboxID, "metadata.json")
-	data := fmt.Sprintf(`{"name":%q,"tap_device":%q,"mac_address":%q,"bridge":%q,"vcpus":%d,"memory_mb":%d}`,
-		meta.Name, meta.TAPDevice, meta.MACAddress, meta.Bridge, meta.VCPUs, meta.MemoryMB)
-	_ = os.WriteFile(path, []byte(data), 0o644)
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(path, data, 0o644)
 }
 
 func readMetadata(workDir, sandboxID string) (sandboxMetadata, error) {
@@ -396,52 +413,9 @@ func readMetadata(workDir, sandboxID string) (sandboxMetadata, error) {
 	if err != nil {
 		return sandboxMetadata{}, err
 	}
-
-	// Simple JSON parse - avoid importing encoding/json just for this
 	var meta sandboxMetadata
-	s := string(data)
-
-	meta.Name = extractJSONString(s, "name")
-	meta.TAPDevice = extractJSONString(s, "tap_device")
-	meta.MACAddress = extractJSONString(s, "mac_address")
-	meta.Bridge = extractJSONString(s, "bridge")
-
-	if v := extractJSONString(s, "vcpus"); v != "" {
-		meta.VCPUs, _ = strconv.Atoi(v)
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return sandboxMetadata{}, err
 	}
-	if v := extractJSONString(s, "memory_mb"); v != "" {
-		meta.MemoryMB, _ = strconv.Atoi(v)
-	}
-
 	return meta, nil
-}
-
-func extractJSONString(s, key string) string {
-	needle := fmt.Sprintf(`"%s":`, key)
-	idx := strings.Index(s, needle)
-	if idx < 0 {
-		return ""
-	}
-	rest := s[idx+len(needle):]
-	rest = strings.TrimSpace(rest)
-
-	if len(rest) == 0 {
-		return ""
-	}
-
-	if rest[0] == '"' {
-		// String value
-		end := strings.Index(rest[1:], `"`)
-		if end < 0 {
-			return ""
-		}
-		return rest[1 : end+1]
-	}
-
-	// Numeric value
-	end := strings.IndexAny(rest, ",}")
-	if end < 0 {
-		return rest
-	}
-	return rest[:end]
 }
