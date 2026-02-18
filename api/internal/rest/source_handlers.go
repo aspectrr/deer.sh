@@ -24,12 +24,12 @@ import (
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/vms [get]
 func (s *Server) handleListVMs(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
 
-	vms, err := s.orchestrator.ListVMs(r.Context())
+	vms, err := s.orchestrator.ListVMs(r.Context(), org.ID)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to list VMs"))
 		return
@@ -58,7 +58,7 @@ func (s *Server) handleListVMs(w http.ResponseWriter, r *http.Request) {
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sources/{vm}/prepare [post]
 func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
@@ -71,7 +71,7 @@ func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.orchestrator.PrepareSourceVM(r.Context(), vm, req.SSHUser, req.SSHKeyPath)
+	result, err := s.orchestrator.PrepareSourceVM(r.Context(), org.ID, vm, req.SSHUser, req.SSHKeyPath)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to prepare source VM: %s", err.Error()))
 		return
@@ -97,7 +97,7 @@ func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sources/{vm}/run [post]
 func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
@@ -115,7 +115,7 @@ func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := s.orchestrator.RunSourceCommand(r.Context(), vm, req.Command, req.TimeoutSec)
+	result, err := s.orchestrator.RunSourceCommand(r.Context(), org.ID, vm, req.Command, req.TimeoutSec)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to run source command: %s", err.Error()))
 		return
@@ -141,7 +141,7 @@ func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) 
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sources/{vm}/read [post]
 func (s *Server) handleReadSourceFile(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
@@ -159,7 +159,7 @@ func (s *Server) handleReadSourceFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.orchestrator.ReadSourceFile(r.Context(), vm, req.Path)
+	result, err := s.orchestrator.ReadSourceFile(r.Context(), org.ID, vm, req.Path)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to read source file: %s", err.Error()))
 		return

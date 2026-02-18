@@ -1,32 +1,31 @@
 # fluid.HealthApi
 
-All URIs are relative to *http://localhost*
+All URIs are relative to *http://localhost:8081/v1*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**get_health**](HealthApi.md#get_health) | **GET** /v1/health | Health check
+[**health_get**](HealthApi.md#health_get) | **GET** /health | Health check
 
 
-# **get_health**
-> GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse get_health()
+# **health_get**
+> Dict[str, str] health_get()
 
 Health check
 
-Returns service health status
+Returns API health status
 
 ### Example
 
 
 ```python
 import fluid
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_health_response import GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse
 from fluid.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to http://localhost
+# Defining the host is optional and defaults to http://localhost:8081/v1
 # See configuration.py for a list of all supported configuration parameters.
 configuration = fluid.Configuration(
-    host = "http://localhost"
+    host = "http://localhost:8081/v1"
 )
 
 
@@ -37,11 +36,11 @@ with fluid.ApiClient(configuration) as api_client:
 
     try:
         # Health check
-        api_response = api_instance.get_health()
-        print("The response of HealthApi->get_health:\n")
+        api_response = api_instance.health_get()
+        print("The response of HealthApi->health_get:\n")
         pprint(api_response)
     except Exception as e:
-        print("Exception when calling HealthApi->get_health: %s\n" % e)
+        print("Exception when calling HealthApi->health_get: %s\n" % e)
 ```
 
 
@@ -52,7 +51,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse**](GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse.md)
+**Dict[str, str]**
 
 ### Authorization
 

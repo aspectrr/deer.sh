@@ -36,7 +36,7 @@ type confirmSourceHost struct {
 }
 
 func (s *Server) handleDiscoverSourceHosts(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
@@ -53,7 +53,7 @@ func (s *Server) handleDiscoverSourceHosts(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Use the orchestrator to discover hosts via the daemon
-	results, err := s.orchestrator.DiscoverSourceHosts(r.Context(), req.SSHConfigContent)
+	results, err := s.orchestrator.DiscoverSourceHosts(r.Context(), org.ID, req.SSHConfigContent)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("discovery failed: %s", err.Error()))
 		return

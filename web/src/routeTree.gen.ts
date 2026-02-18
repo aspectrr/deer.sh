@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthRouteImport } from './routes/_auth'
@@ -26,16 +27,24 @@ import { Route as DocsArchitectureRouteImport } from './routes/docs/architecture
 import { Route as DocsApiRouteImport } from './routes/docs/api'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as AppPlaybooksRouteImport } from './routes/_app/playbooks'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppCalculatorRouteImport } from './routes/_app/calculator'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
 import { Route as AppAgentsRouteImport } from './routes/_app/agents'
 import { Route as PublicBlogIndexRouteImport } from './routes/_public/blog/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppBillingIndexRouteImport } from './routes/_app/billing/index'
 import { Route as PublicBlogSlugRouteImport } from './routes/_public/blog/$slug'
 import { Route as AppSettingsOrganizationRouteImport } from './routes/_app/settings/organization'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppBillingCalculatorRouteImport } from './routes/_app/billing/calculator'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
   path: '/docs',
@@ -118,6 +127,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRoute,
 } as any)
+const AppPlaybooksRoute = AppPlaybooksRouteImport.update({
+  id: '/playbooks',
+  path: '/playbooks',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -148,6 +162,11 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBillingIndexRoute = AppBillingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppBillingRoute,
+} as any)
 const PublicBlogSlugRoute = PublicBlogSlugRouteImport.update({
   id: '/blog/$slug',
   path: '/blog/$slug',
@@ -163,13 +182,20 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/settings/members',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBillingCalculatorRoute = AppBillingCalculatorRouteImport.update({
+  id: '/calculator',
+  path: '/calculator',
+  getParentRoute: () => AppBillingRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
+  '/onboarding': typeof OnboardingRoute
   '/agents': typeof AppAgentsRoute
-  '/billing': typeof AppBillingRoute
+  '/billing': typeof AppBillingRouteWithChildren
   '/calculator': typeof AppCalculatorRoute
   '/dashboard': typeof AppDashboardRoute
+  '/playbooks': typeof AppPlaybooksRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -183,17 +209,20 @@ export interface FileRoutesByFullPath {
   '/docs/upgrade': typeof DocsUpgradeRoute
   '/': typeof PublicIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/billing/calculator': typeof AppBillingCalculatorRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/organization': typeof AppSettingsOrganizationRoute
   '/blog/$slug': typeof PublicBlogSlugRoute
+  '/billing/': typeof AppBillingIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/blog': typeof PublicBlogIndexRoute
 }
 export interface FileRoutesByTo {
+  '/onboarding': typeof OnboardingRoute
   '/agents': typeof AppAgentsRoute
-  '/billing': typeof AppBillingRoute
   '/calculator': typeof AppCalculatorRoute
   '/dashboard': typeof AppDashboardRoute
+  '/playbooks': typeof AppPlaybooksRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -207,9 +236,11 @@ export interface FileRoutesByTo {
   '/docs/upgrade': typeof DocsUpgradeRoute
   '/': typeof PublicIndexRoute
   '/docs': typeof DocsIndexRoute
+  '/billing/calculator': typeof AppBillingCalculatorRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/organization': typeof AppSettingsOrganizationRoute
   '/blog/$slug': typeof PublicBlogSlugRoute
+  '/billing': typeof AppBillingIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/blog': typeof PublicBlogIndexRoute
 }
@@ -219,10 +250,12 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/docs': typeof DocsRouteWithChildren
+  '/onboarding': typeof OnboardingRoute
   '/_app/agents': typeof AppAgentsRoute
-  '/_app/billing': typeof AppBillingRoute
+  '/_app/billing': typeof AppBillingRouteWithChildren
   '/_app/calculator': typeof AppCalculatorRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/playbooks': typeof AppPlaybooksRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -236,9 +269,11 @@ export interface FileRoutesById {
   '/docs/upgrade': typeof DocsUpgradeRoute
   '/_public/': typeof PublicIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/_app/billing/calculator': typeof AppBillingCalculatorRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/organization': typeof AppSettingsOrganizationRoute
   '/_public/blog/$slug': typeof PublicBlogSlugRoute
+  '/_app/billing/': typeof AppBillingIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_public/blog/': typeof PublicBlogIndexRoute
 }
@@ -246,10 +281,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/docs'
+    | '/onboarding'
     | '/agents'
     | '/billing'
     | '/calculator'
     | '/dashboard'
+    | '/playbooks'
     | '/login'
     | '/register'
     | '/docs/api'
@@ -263,17 +300,20 @@ export interface FileRouteTypes {
     | '/docs/upgrade'
     | '/'
     | '/docs/'
+    | '/billing/calculator'
     | '/settings/members'
     | '/settings/organization'
     | '/blog/$slug'
+    | '/billing/'
     | '/settings'
     | '/blog'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/onboarding'
     | '/agents'
-    | '/billing'
     | '/calculator'
     | '/dashboard'
+    | '/playbooks'
     | '/login'
     | '/register'
     | '/docs/api'
@@ -287,9 +327,11 @@ export interface FileRouteTypes {
     | '/docs/upgrade'
     | '/'
     | '/docs'
+    | '/billing/calculator'
     | '/settings/members'
     | '/settings/organization'
     | '/blog/$slug'
+    | '/billing'
     | '/settings'
     | '/blog'
   id:
@@ -298,10 +340,12 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_public'
     | '/docs'
+    | '/onboarding'
     | '/_app/agents'
     | '/_app/billing'
     | '/_app/calculator'
     | '/_app/dashboard'
+    | '/_app/playbooks'
     | '/_auth/login'
     | '/_auth/register'
     | '/docs/api'
@@ -315,9 +359,11 @@ export interface FileRouteTypes {
     | '/docs/upgrade'
     | '/_public/'
     | '/docs/'
+    | '/_app/billing/calculator'
     | '/_app/settings/members'
     | '/_app/settings/organization'
     | '/_public/blog/$slug'
+    | '/_app/billing/'
     | '/_app/settings/'
     | '/_public/blog/'
   fileRoutesById: FileRoutesById
@@ -327,10 +373,18 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
   DocsRoute: typeof DocsRouteWithChildren
+  OnboardingRoute: typeof OnboardingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs': {
       id: '/docs'
       path: '/docs'
@@ -450,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_app/playbooks': {
+      id: '/_app/playbooks'
+      path: '/playbooks'
+      fullPath: '/playbooks'
+      preLoaderRoute: typeof AppPlaybooksRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -492,6 +553,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/billing/': {
+      id: '/_app/billing/'
+      path: '/'
+      fullPath: '/billing/'
+      preLoaderRoute: typeof AppBillingIndexRouteImport
+      parentRoute: typeof AppBillingRoute
+    }
     '/_public/blog/$slug': {
       id: '/_public/blog/$slug'
       path: '/blog/$slug'
@@ -513,14 +581,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/billing/calculator': {
+      id: '/_app/billing/calculator'
+      path: '/calculator'
+      fullPath: '/billing/calculator'
+      preLoaderRoute: typeof AppBillingCalculatorRouteImport
+      parentRoute: typeof AppBillingRoute
+    }
   }
 }
 
+interface AppBillingRouteChildren {
+  AppBillingCalculatorRoute: typeof AppBillingCalculatorRoute
+  AppBillingIndexRoute: typeof AppBillingIndexRoute
+}
+
+const AppBillingRouteChildren: AppBillingRouteChildren = {
+  AppBillingCalculatorRoute: AppBillingCalculatorRoute,
+  AppBillingIndexRoute: AppBillingIndexRoute,
+}
+
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
+
 interface AppRouteChildren {
   AppAgentsRoute: typeof AppAgentsRoute
-  AppBillingRoute: typeof AppBillingRoute
+  AppBillingRoute: typeof AppBillingRouteWithChildren
   AppCalculatorRoute: typeof AppCalculatorRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppPlaybooksRoute: typeof AppPlaybooksRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsOrganizationRoute: typeof AppSettingsOrganizationRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
@@ -528,9 +616,10 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAgentsRoute: AppAgentsRoute,
-  AppBillingRoute: AppBillingRoute,
+  AppBillingRoute: AppBillingRouteWithChildren,
   AppCalculatorRoute: AppCalculatorRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppPlaybooksRoute: AppPlaybooksRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsOrganizationRoute: AppSettingsOrganizationRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
@@ -597,6 +686,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
   DocsRoute: DocsRouteWithChildren,
+  OnboardingRoute: OnboardingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

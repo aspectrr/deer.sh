@@ -60,7 +60,7 @@ class Configuration:
         ca_cert_data: Optional[Union[str, bytes]] = None,
     ) -> None:
         """Initialize configuration."""
-        self._base_path = "http://localhost" if host is None else host
+        self._base_path = "http://localhost:8081/v1" if host is None else host
         """Default Base url.
         """
 
@@ -350,7 +350,7 @@ class Configuration:
             f"Python SDK Debug Report:\n"
             f"OS: {sys.platform}\n"
             f"Python Version: {sys.version}\n"
-            f"Version of the API: 0.1.0\n"
+            f"Version of the API: 1.0\n"
             f"SDK Package Version: 0.1.0"
         )
 
@@ -361,7 +361,7 @@ class Configuration:
         """
         return [
             {
-                "url": "",
+                "url": "//localhost:8081/v1",
                 "description": "No description provided",
             }
         ]

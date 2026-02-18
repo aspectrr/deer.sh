@@ -272,6 +272,7 @@ func (s *BridgeSlice) Scan(value interface{}) error {
 // Host represents a sandbox host machine registered with the control plane.
 type Host struct {
 	ID                string        `json:"id"`
+	OrgID             string        `json:"org_id"`
 	Hostname          string        `json:"hostname"`
 	Version           string        `json:"version"`
 	TotalCPUs         int32         `json:"total_cpus"`
@@ -378,6 +379,32 @@ type PlaybookTask struct {
 	Params     string    `json:"params"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// ModelMeter tracks Stripe meter/price objects for a specific LLM model.
+type ModelMeter struct {
+	ID                  string    `json:"id"`
+	ModelID             string    `json:"model_id"`
+	StripeProductID     string    `json:"stripe_product_id"`
+	StripeInputMeterID  string    `json:"stripe_input_meter_id"`
+	StripeOutputMeterID string    `json:"stripe_output_meter_id"`
+	StripeInputPriceID  string    `json:"stripe_input_price_id"`
+	StripeOutputPriceID string    `json:"stripe_output_price_id"`
+	InputEventName      string    `json:"input_event_name"`
+	OutputEventName     string    `json:"output_event_name"`
+	InputCostPerToken   float64   `json:"input_cost_per_token"`
+	OutputCostPerToken  float64   `json:"output_cost_per_token"`
+	CreatedAt           time.Time `json:"created_at"`
+}
+
+// OrgModelSubscription links an org's Stripe subscription items for a specific model.
+type OrgModelSubscription struct {
+	ID                    string    `json:"id"`
+	OrgID                 string    `json:"org_id"`
+	ModelID               string    `json:"model_id"`
+	StripeInputSubItemID  string    `json:"stripe_input_sub_item_id"`
+	StripeOutputSubItemID string    `json:"stripe_output_sub_item_id"`
+	CreatedAt             time.Time `json:"created_at"`
 }
 
 // SourceHost represents a confirmed source host that can be used for snapshot-based sandboxes.
@@ -512,6 +539,12 @@ type DataStore interface {
 
 	// Billing helpers
 	GetOrganizationByStripeCustomerID(ctx context.Context, customerID string) (*Organization, error)
+	GetModelMeter(ctx context.Context, modelID string) (*ModelMeter, error)
+	CreateModelMeter(ctx context.Context, m *ModelMeter) error
+	GetOrgModelSubscription(ctx context.Context, orgID, modelID string) (*OrgModelSubscription, error)
+	CreateOrgModelSubscription(ctx context.Context, s *OrgModelSubscription) error
+	SumTokenUsage(ctx context.Context, orgID string, from, to time.Time) (float64, error)
+	ListActiveSubscriptions(ctx context.Context) ([]*Subscription, error)
 }
 
 // Store is the root database handle with lifecycle methods.

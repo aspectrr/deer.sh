@@ -10,7 +10,7 @@ docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v ${PWD}/..:/local \
   openapitools/openapi-generator-cli generate --skip-validate-spec \
-  -i /local/fluid-remote/docs/openapi.yaml \
+  -i /local/api/docs/openapi.yaml \
   -g python \
   -o /local/sdk/fluid-py/ \
   -c /local/sdk/.openapi-generator/config.yaml \

@@ -16,6 +16,7 @@ type HostStream interface {
 // ConnectedHost represents a sandbox host that is actively connected via gRPC.
 type ConnectedHost struct {
 	HostID        string
+	OrgID         string
 	Hostname      string
 	Stream        HostStream
 	LastHeartbeat time.Time
@@ -36,7 +37,7 @@ func New() *Registry {
 }
 
 // Register adds or replaces a connected host in the registry.
-func (r *Registry) Register(hostID, hostname string, stream HostStream) error {
+func (r *Registry) Register(hostID, orgID, hostname string, stream HostStream) error {
 	if hostID == "" {
 		return fmt.Errorf("host ID must not be empty")
 	}
@@ -49,6 +50,7 @@ func (r *Registry) Register(hostID, hostname string, stream HostStream) error {
 
 	r.hosts[hostID] = &ConnectedHost{
 		HostID:        hostID,
+		OrgID:         orgID,
 		Hostname:      hostname,
 		Stream:        stream,
 		LastHeartbeat: time.Now(),
@@ -83,6 +85,20 @@ func (r *Registry) ListConnected() []*ConnectedHost {
 	return result
 }
 
+// ListConnectedByOrg returns connected hosts belonging to the given org.
+func (r *Registry) ListConnectedByOrg(orgID string) []*ConnectedHost {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []*ConnectedHost
+	for _, h := range r.hosts {
+		if h.OrgID == orgID {
+			result = append(result, h)
+		}
+	}
+	return result
+}
+
 // SetRegistration updates the registration info and heartbeat for a host.
 func (r *Registry) SetRegistration(hostID string, reg *fluidv1.HostRegistration) {
 	r.mu.Lock()
@@ -103,11 +119,14 @@ func (r *Registry) UpdateHeartbeat(hostID string) {
 }
 
 // SelectHostForImage finds a connected host that advertises the given base image.
-func (r *Registry) SelectHostForImage(baseImage string) (*ConnectedHost, error) {
+func (r *Registry) SelectHostForImage(baseImage, orgID string) (*ConnectedHost, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	for _, h := range r.hosts {
+		if orgID != "" && h.OrgID != orgID {
+			continue
+		}
 		if h.Registration == nil {
 			continue
 		}

@@ -23,8 +23,16 @@ from typing import Dict, List, Optional, Tuple, Union
 from fluid.api.access_api import AccessApi
 from fluid.api.ansible_api import AnsibleApi
 from fluid.api.ansible_playbooks_api import AnsiblePlaybooksApi
+from fluid.api.auth_api import AuthApi
+from fluid.api.billing_api import BillingApi
 from fluid.api.health_api import HealthApi
+from fluid.api.host_tokens_api import HostTokensApi
+from fluid.api.hosts_api import HostsApi
+from fluid.api.members_api import MembersApi
+from fluid.api.organizations_api import OrganizationsApi
 from fluid.api.sandbox_api import SandboxApi
+from fluid.api.sandboxes_api import SandboxesApi
+from fluid.api.source_vms_api import SourceVMsApi
 from fluid.api.vms_api import VMsApi
 from fluid.api_client import ApiClient
 from fluid.configuration import Configuration
@@ -32,12 +40,6 @@ from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_add
     GithubComAspectrrFluidShFluidRemoteInternalAnsibleAddTaskRequest
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_add_task_response import \
     GithubComAspectrrFluidShFluidRemoteInternalAnsibleAddTaskResponse
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_create_playbook_request import \
-    GithubComAspectrrFluidShFluidRemoteInternalAnsibleCreatePlaybookRequest
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_create_playbook_response import \
-    GithubComAspectrrFluidShFluidRemoteInternalAnsibleCreatePlaybookResponse
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_export_playbook_response import \
-    GithubComAspectrrFluidShFluidRemoteInternalAnsibleExportPlaybookResponse
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_get_playbook_response import \
     GithubComAspectrrFluidShFluidRemoteInternalAnsibleGetPlaybookResponse
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_job import \
@@ -46,8 +48,6 @@ from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_job
     GithubComAspectrrFluidShFluidRemoteInternalAnsibleJobRequest
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_job_response import \
     GithubComAspectrrFluidShFluidRemoteInternalAnsibleJobResponse
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_list_playbooks_response import \
-    GithubComAspectrrFluidShFluidRemoteInternalAnsibleListPlaybooksResponse
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_reorder_tasks_request import \
     GithubComAspectrrFluidShFluidRemoteInternalAnsibleReorderTasksRequest
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_ansible_update_task_request import \
@@ -68,12 +68,8 @@ from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_discov
     GithubComAspectrrFluidShFluidRemoteInternalRestDiscoverIPResponse
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_get_sandbox_response import \
     GithubComAspectrrFluidShFluidRemoteInternalRestGetSandboxResponse
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_health_response import \
-    GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_inject_ssh_key_request import \
     GithubComAspectrrFluidShFluidRemoteInternalRestInjectSSHKeyRequest
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_list_sandbox_commands_response import \
-    GithubComAspectrrFluidShFluidRemoteInternalRestListSandboxCommandsResponse
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_list_sandboxes_response import \
     GithubComAspectrrFluidShFluidRemoteInternalRestListSandboxesResponse
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_list_vms_response import \
@@ -88,8 +84,6 @@ from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_snapsh
     GithubComAspectrrFluidShFluidRemoteInternalRestSnapshotRequest
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_snapshot_response import \
     GithubComAspectrrFluidShFluidRemoteInternalRestSnapshotResponse
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_start_sandbox_request import \
-    GithubComAspectrrFluidShFluidRemoteInternalRestStartSandboxRequest
 from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_start_sandbox_response import \
     GithubComAspectrrFluidShFluidRemoteInternalRestStartSandboxResponse
 from fluid.models.internal_rest_ca_public_key_response import \
@@ -116,6 +110,41 @@ from fluid.models.internal_rest_session_start_request import \
     InternalRestSessionStartRequest
 from fluid.models.internal_rest_session_start_response import \
     InternalRestSessionStartResponse
+from fluid.models.orchestrator_create_sandbox_request import \
+    OrchestratorCreateSandboxRequest
+from fluid.models.orchestrator_host_info import OrchestratorHostInfo
+from fluid.models.orchestrator_prepare_request import \
+    OrchestratorPrepareRequest
+from fluid.models.orchestrator_read_source_request import \
+    OrchestratorReadSourceRequest
+from fluid.models.orchestrator_run_command_request import \
+    OrchestratorRunCommandRequest
+from fluid.models.orchestrator_run_source_request import \
+    OrchestratorRunSourceRequest
+from fluid.models.orchestrator_snapshot_request import \
+    OrchestratorSnapshotRequest
+from fluid.models.orchestrator_snapshot_response import \
+    OrchestratorSnapshotResponse
+from fluid.models.orchestrator_source_command_result import \
+    OrchestratorSourceCommandResult
+from fluid.models.orchestrator_source_file_result import \
+    OrchestratorSourceFileResult
+from fluid.models.rest_add_member_request import RestAddMemberRequest
+from fluid.models.rest_auth_response import RestAuthResponse
+from fluid.models.rest_billing_response import RestBillingResponse
+from fluid.models.rest_calculator_request import RestCalculatorRequest
+from fluid.models.rest_calculator_response import RestCalculatorResponse
+from fluid.models.rest_create_host_token_request import \
+    RestCreateHostTokenRequest
+from fluid.models.rest_create_org_request import RestCreateOrgRequest
+from fluid.models.rest_host_token_response import RestHostTokenResponse
+from fluid.models.rest_login_request import RestLoginRequest
+from fluid.models.rest_member_response import RestMemberResponse
+from fluid.models.rest_org_response import RestOrgResponse
+from fluid.models.rest_register_request import RestRegisterRequest
+from fluid.models.rest_update_org_request import RestUpdateOrgRequest
+from fluid.models.store_command import StoreCommand
+from fluid.models.store_sandbox import StoreSandbox
 
 
 class AccessOperations:
@@ -393,27 +422,15 @@ class AnsiblePlaybooksOperations:
 
     def create_playbook(
         self,
-        become: Optional[bool] = None,
-        hosts: Optional[str] = None,
-        name: Optional[str] = None,
     ) -> GithubComAspectrrFluidShFluidRemoteInternalAnsibleCreatePlaybookResponse:
         """Create playbook
-
-        Args:
-            become: become
-            hosts: hosts
-            name: name
 
         Returns:
             GithubComAspectrrFluidShFluidRemoteInternalAnsibleCreatePlaybookResponse: Pydantic model with full IDE autocomplete.
             Call .model_dump() to convert to dict if needed.
         """
         request = (
-            GithubComAspectrrFluidShFluidRemoteInternalAnsibleCreatePlaybookRequest(
-                become=become,
-                hosts=hosts,
-                name=name,
-            )
+            GithubComAspectrrFluidShFluidRemoteInternalAnsibleCreatePlaybookRequest()
         )
         return self._api.create_playbook(request=request)
 
@@ -533,22 +550,474 @@ class AnsiblePlaybooksOperations:
         )
 
 
+class AuthOperations:
+    """Wrapper for AuthApi with simplified method signatures."""
+
+    def __init__(self, api: AuthApi):
+        self._api = api
+
+    def auth_github_callback_get(
+        self,
+        code: str,
+    ) -> None:
+        """GitHub OAuth callback
+
+        Args:
+            code: str
+        """
+        return self._api.auth_github_callback_get(code=code)
+
+    def auth_github_get(self) -> None:
+        """GitHub OAuth login"""
+        return self._api.auth_github_get()
+
+    def auth_google_callback_get(
+        self,
+        code: str,
+    ) -> None:
+        """Google OAuth callback
+
+        Args:
+            code: str
+        """
+        return self._api.auth_google_callback_get(code=code)
+
+    def auth_google_get(self) -> None:
+        """Google OAuth login"""
+        return self._api.auth_google_get()
+
+    def auth_login_post(
+        self,
+        email: Optional[str] = None,
+        password: Optional[str] = None,
+    ) -> RestAuthResponse:
+        """Log in
+
+        Args:
+            email: email
+            password: password
+
+        Returns:
+            RestAuthResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = RestLoginRequest(
+            email=email,
+            password=password,
+        )
+        return self._api.auth_login_post(request=request)
+
+    def auth_logout_post(self) -> Dict[str, str]:
+        """Log out
+
+        Returns:
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.auth_logout_post()
+
+    def auth_me_get(self) -> RestAuthResponse:
+        """Get current user
+
+        Returns:
+            RestAuthResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.auth_me_get()
+
+    def auth_register_post(
+        self,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        password: Optional[str] = None,
+    ) -> RestAuthResponse:
+        """Register a new user
+
+        Args:
+            display_name: display_name
+            email: email
+            password: password
+
+        Returns:
+            RestAuthResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = RestRegisterRequest(
+            display_name=display_name,
+            email=email,
+            password=password,
+        )
+        return self._api.auth_register_post(request=request)
+
+
+class BillingOperations:
+    """Wrapper for BillingApi with simplified method signatures."""
+
+    def __init__(self, api: BillingApi):
+        self._api = api
+
+    def billing_calculator_post(
+        self,
+        agent_hosts: Optional[int] = None,
+        concurrent_sandboxes: Optional[int] = None,
+        hours_per_month: Optional[Union[float, int]] = None,
+        source_vms: Optional[int] = None,
+    ) -> RestCalculatorResponse:
+        """Pricing calculator
+
+        Args:
+            agent_hosts: agent_hosts
+            concurrent_sandboxes: concurrent_sandboxes
+            hours_per_month: hours_per_month
+            source_vms: source_vms
+
+        Returns:
+            RestCalculatorResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = RestCalculatorRequest(
+            agent_hosts=agent_hosts,
+            concurrent_sandboxes=concurrent_sandboxes,
+            hours_per_month=hours_per_month,
+            source_vms=source_vms,
+        )
+        return self._api.billing_calculator_post(request=request)
+
+    def orgs_slug_billing_get(
+        self,
+        slug: str,
+    ) -> RestBillingResponse:
+        """Get billing info
+
+        Args:
+            slug: str
+
+        Returns:
+            RestBillingResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_billing_get(slug=slug)
+
+    def orgs_slug_billing_portal_post(
+        self,
+        slug: str,
+    ) -> Dict[str, str]:
+        """Billing portal
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_billing_portal_post(slug=slug)
+
+    def orgs_slug_billing_subscribe_post(
+        self,
+        slug: str,
+    ) -> Dict[str, str]:
+        """Subscribe
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_billing_subscribe_post(slug=slug)
+
+    def orgs_slug_billing_usage_get(
+        self,
+        slug: str,
+    ) -> Dict[str, object]:
+        """Get usage
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_billing_usage_get(slug=slug)
+
+    def webhooks_stripe_post(self) -> Dict[str, str]:
+        """Stripe webhook
+
+        Returns:
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.webhooks_stripe_post()
+
+
 class HealthOperations:
     """Wrapper for HealthApi with simplified method signatures."""
 
     def __init__(self, api: HealthApi):
         self._api = api
 
-    def get_health(
-        self,
-    ) -> GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse:
+    def health_get(self) -> Dict[str, str]:
         """Health check
 
         Returns:
-            GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse: Pydantic model with full IDE autocomplete.
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
             Call .model_dump() to convert to dict if needed.
         """
-        return self._api.get_health()
+        return self._api.health_get()
+
+
+class HostTokensOperations:
+    """Wrapper for HostTokensApi with simplified method signatures."""
+
+    def __init__(self, api: HostTokensApi):
+        self._api = api
+
+    def orgs_slug_hosts_tokens_get(
+        self,
+        slug: str,
+    ) -> Dict[str, object]:
+        """List host tokens
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_hosts_tokens_get(slug=slug)
+
+    def orgs_slug_hosts_tokens_post(
+        self,
+        slug: str,
+        name: Optional[str] = None,
+    ) -> RestHostTokenResponse:
+        """Create host token
+
+        Args:
+            slug: str
+            name: name
+
+        Returns:
+            RestHostTokenResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = RestCreateHostTokenRequest(
+            name=name,
+        )
+        return self._api.orgs_slug_hosts_tokens_post(slug=slug, request=request)
+
+    def orgs_slug_hosts_tokens_token_id_delete(
+        self,
+        slug: str,
+        token_id: str,
+    ) -> Dict[str, str]:
+        """Delete host token
+
+        Args:
+            slug: str
+            token_id: str
+
+        Returns:
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_hosts_tokens_token_id_delete(
+            slug=slug, token_id=token_id
+        )
+
+
+class HostsOperations:
+    """Wrapper for HostsApi with simplified method signatures."""
+
+    def __init__(self, api: HostsApi):
+        self._api = api
+
+    def orgs_slug_hosts_get(
+        self,
+        slug: str,
+    ) -> Dict[str, object]:
+        """List hosts
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_hosts_get(slug=slug)
+
+    def orgs_slug_hosts_host_id_get(
+        self,
+        slug: str,
+        host_id: str,
+    ) -> OrchestratorHostInfo:
+        """Get host
+
+        Args:
+            slug: str
+            host_id: str
+
+        Returns:
+            OrchestratorHostInfo: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_hosts_host_id_get(slug=slug, host_id=host_id)
+
+
+class MembersOperations:
+    """Wrapper for MembersApi with simplified method signatures."""
+
+    def __init__(self, api: MembersApi):
+        self._api = api
+
+    def orgs_slug_members_get(
+        self,
+        slug: str,
+    ) -> Dict[str, object]:
+        """List members
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_members_get(slug=slug)
+
+    def orgs_slug_members_member_id_delete(
+        self,
+        slug: str,
+        member_id: str,
+    ) -> Dict[str, str]:
+        """Remove member
+
+        Args:
+            slug: str
+            member_id: str
+
+        Returns:
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_members_member_id_delete(
+            slug=slug, member_id=member_id
+        )
+
+    def orgs_slug_members_post(
+        self,
+        slug: str,
+        email: Optional[str] = None,
+        role: Optional[str] = None,
+    ) -> RestMemberResponse:
+        """Add member
+
+        Args:
+            slug: str
+            email: email
+            role: role
+
+        Returns:
+            RestMemberResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = RestAddMemberRequest(
+            email=email,
+            role=role,
+        )
+        return self._api.orgs_slug_members_post(slug=slug, request=request)
+
+
+class OrganizationsOperations:
+    """Wrapper for OrganizationsApi with simplified method signatures."""
+
+    def __init__(self, api: OrganizationsApi):
+        self._api = api
+
+    def orgs_get(self) -> Dict[str, object]:
+        """List organizations
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_get()
+
+    def orgs_post(
+        self,
+        name: Optional[str] = None,
+        slug: Optional[str] = None,
+    ) -> RestOrgResponse:
+        """Create organization
+
+        Args:
+            name: name
+            slug: slug
+
+        Returns:
+            RestOrgResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = RestCreateOrgRequest(
+            name=name,
+            slug=slug,
+        )
+        return self._api.orgs_post(request=request)
+
+    def orgs_slug_delete(
+        self,
+        slug: str,
+    ) -> Dict[str, str]:
+        """Delete organization
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, str]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_delete(slug=slug)
+
+    def orgs_slug_get(
+        self,
+        slug: str,
+    ) -> RestOrgResponse:
+        """Get organization
+
+        Args:
+            slug: str
+
+        Returns:
+            RestOrgResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_get(slug=slug)
+
+    def orgs_slug_patch(
+        self,
+        slug: str,
+        name: Optional[str] = None,
+    ) -> RestOrgResponse:
+        """Update organization
+
+        Args:
+            slug: str
+            name: name
+
+        Returns:
+            RestOrgResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = RestUpdateOrgRequest(
+            name=name,
+        )
+        return self._api.orgs_slug_patch(slug=slug, request=request)
 
 
 class SandboxOperations:
@@ -714,7 +1183,7 @@ class SandboxOperations:
         Args:
             id: str
             public_key: required
-            username: required (explicit); typical: \
+            username: required (explicit); typical:
         """
         request = GithubComAspectrrFluidShFluidRemoteInternalRestInjectSSHKeyRequest(
             public_key=public_key,
@@ -816,7 +1285,7 @@ class SandboxOperations:
             env: optional
             private_key_path: optional; if empty, uses managed credentials (requires SSH CA)
             timeout_sec: optional; default from service config
-            user: optional; defaults to \
+            user: optional; defaults to
             request_timeout: HTTP request timeout in seconds. Can be a single float for total timeout, or a tuple (connect_timeout, read_timeout). For operations with wait_for_ip=True, set this to at least 180 seconds.
 
         Returns:
@@ -837,26 +1306,19 @@ class SandboxOperations:
     def start_sandbox(
         self,
         id: str,
-        wait_for_ip: Optional[bool] = None,
         request_timeout: Union[None, float, Tuple[float, float]] = None,
     ) -> GithubComAspectrrFluidShFluidRemoteInternalRestStartSandboxResponse:
         """Start sandbox
 
         Args:
             id: str
-            wait_for_ip: optional; default false. When True, consider setting request_timeout to accommodate IP discovery (server default is 120s)
             request_timeout: HTTP request timeout in seconds. Can be a single float for total timeout, or a tuple (connect_timeout, read_timeout). For operations with wait_for_ip=True, set this to at least 180 seconds.
 
         Returns:
             GithubComAspectrrFluidShFluidRemoteInternalRestStartSandboxResponse: Pydantic model with full IDE autocomplete.
             Call .model_dump() to convert to dict if needed.
         """
-        request = GithubComAspectrrFluidShFluidRemoteInternalRestStartSandboxRequest(
-            wait_for_ip=wait_for_ip,
-        )
-        return self._api.start_sandbox(
-            id=id, request=request, _request_timeout=request_timeout
-        )
+        return self._api.start_sandbox(id=id, _request_timeout=request_timeout)
 
     def stream_sandbox_activity(
         self,
@@ -868,6 +1330,340 @@ class SandboxOperations:
             id: str
         """
         return self._api.stream_sandbox_activity(id=id)
+
+
+class SandboxesOperations:
+    """Wrapper for SandboxesApi with simplified method signatures."""
+
+    def __init__(self, api: SandboxesApi):
+        self._api = api
+
+    def orgs_slug_sandboxes_get(
+        self,
+        slug: str,
+    ) -> Dict[str, object]:
+        """List sandboxes
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_sandboxes_get(slug=slug)
+
+    def orgs_slug_sandboxes_post(
+        self,
+        slug: str,
+        agent_id: Optional[str] = None,
+        base_image: Optional[str] = None,
+        memory_mb: Optional[int] = None,
+        name: Optional[str] = None,
+        network: Optional[str] = None,
+        org_id: Optional[str] = None,
+        source_vm: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        vcpus: Optional[int] = None,
+    ) -> StoreSandbox:
+        """Create sandbox
+
+        Args:
+            slug: str
+            agent_id: agent_id
+            base_image: base_image
+            memory_mb: memory_mb
+            name: name
+            network: network
+            org_id: org_id
+            source_vm: source_vm
+            ttl_seconds: ttl_seconds
+            vcpus: vcpus
+
+        Returns:
+            StoreSandbox: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = OrchestratorCreateSandboxRequest(
+            agent_id=agent_id,
+            base_image=base_image,
+            memory_mb=memory_mb,
+            name=name,
+            network=network,
+            org_id=org_id,
+            source_vm=source_vm,
+            ttl_seconds=ttl_seconds,
+            vcpus=vcpus,
+        )
+        return self._api.orgs_slug_sandboxes_post(slug=slug, request=request)
+
+    def orgs_slug_sandboxes_sandbox_id_commands_get(
+        self,
+        slug: str,
+        sandbox_id: str,
+    ) -> Dict[str, object]:
+        """List commands
+
+        Args:
+            slug: str
+            sandbox_id: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_sandboxes_sandbox_id_commands_get(
+            slug=slug, sandbox_id=sandbox_id
+        )
+
+    def orgs_slug_sandboxes_sandbox_id_delete(
+        self,
+        slug: str,
+        sandbox_id: str,
+    ) -> Dict[str, object]:
+        """Destroy sandbox
+
+        Args:
+            slug: str
+            sandbox_id: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_sandboxes_sandbox_id_delete(
+            slug=slug, sandbox_id=sandbox_id
+        )
+
+    def orgs_slug_sandboxes_sandbox_id_get(
+        self,
+        slug: str,
+        sandbox_id: str,
+    ) -> StoreSandbox:
+        """Get sandbox
+
+        Args:
+            slug: str
+            sandbox_id: str
+
+        Returns:
+            StoreSandbox: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_sandboxes_sandbox_id_get(
+            slug=slug, sandbox_id=sandbox_id
+        )
+
+    def orgs_slug_sandboxes_sandbox_id_run_post(
+        self,
+        slug: str,
+        sandbox_id: str,
+        command: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> StoreCommand:
+        """Run command
+
+        Args:
+            slug: str
+            sandbox_id: str
+            command: command
+            env: env
+            timeout_seconds: timeout_seconds
+
+        Returns:
+            StoreCommand: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = OrchestratorRunCommandRequest(
+            command=command,
+            env=env,
+            timeout_seconds=timeout_seconds,
+        )
+        return self._api.orgs_slug_sandboxes_sandbox_id_run_post(
+            slug=slug, sandbox_id=sandbox_id, request=request
+        )
+
+    def orgs_slug_sandboxes_sandbox_id_snapshot_post(
+        self,
+        slug: str,
+        sandbox_id: str,
+        name: Optional[str] = None,
+    ) -> OrchestratorSnapshotResponse:
+        """Create snapshot
+
+        Args:
+            slug: str
+            sandbox_id: str
+            name: name
+
+        Returns:
+            OrchestratorSnapshotResponse: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = OrchestratorSnapshotRequest(
+            name=name,
+        )
+        return self._api.orgs_slug_sandboxes_sandbox_id_snapshot_post(
+            slug=slug, sandbox_id=sandbox_id, request=request
+        )
+
+    def orgs_slug_sandboxes_sandbox_id_start_post(
+        self,
+        slug: str,
+        sandbox_id: str,
+    ) -> Dict[str, object]:
+        """Start sandbox
+
+        Args:
+            slug: str
+            sandbox_id: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_sandboxes_sandbox_id_start_post(
+            slug=slug, sandbox_id=sandbox_id
+        )
+
+    def orgs_slug_sandboxes_sandbox_id_stop_post(
+        self,
+        slug: str,
+        sandbox_id: str,
+    ) -> Dict[str, object]:
+        """Stop sandbox
+
+        Args:
+            slug: str
+            sandbox_id: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_sandboxes_sandbox_id_stop_post(
+            slug=slug, sandbox_id=sandbox_id
+        )
+
+    def orgs_slug_sandboxes_sandbox_idip_get(
+        self,
+        slug: str,
+        sandbox_id: str,
+    ) -> Dict[str, object]:
+        """Get sandbox IP
+
+        Args:
+            slug: str
+            sandbox_id: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_sandboxes_sandbox_idip_get(
+            slug=slug, sandbox_id=sandbox_id
+        )
+
+
+class SourceVMsOperations:
+    """Wrapper for SourceVMsApi with simplified method signatures."""
+
+    def __init__(self, api: SourceVMsApi):
+        self._api = api
+
+    def orgs_slug_sources_vm_prepare_post(
+        self,
+        slug: str,
+        vm: str,
+        ssh_key_path: Optional[str] = None,
+        ssh_user: Optional[str] = None,
+    ) -> Dict[str, object]:
+        """Prepare source VM
+
+        Args:
+            slug: str
+            vm: str
+            ssh_key_path: ssh_key_path
+            ssh_user: ssh_user
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = OrchestratorPrepareRequest(
+            ssh_key_path=ssh_key_path,
+            ssh_user=ssh_user,
+        )
+        return self._api.orgs_slug_sources_vm_prepare_post(
+            slug=slug, vm=vm, request=request
+        )
+
+    def orgs_slug_sources_vm_read_post(
+        self,
+        slug: str,
+        vm: str,
+        path: Optional[str] = None,
+    ) -> OrchestratorSourceFileResult:
+        """Read source file
+
+        Args:
+            slug: str
+            vm: str
+            path: path
+
+        Returns:
+            OrchestratorSourceFileResult: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = OrchestratorReadSourceRequest(
+            path=path,
+        )
+        return self._api.orgs_slug_sources_vm_read_post(
+            slug=slug, vm=vm, request=request
+        )
+
+    def orgs_slug_sources_vm_run_post(
+        self,
+        slug: str,
+        vm: str,
+        command: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> OrchestratorSourceCommandResult:
+        """Run source command
+
+        Args:
+            slug: str
+            vm: str
+            command: command
+            timeout_seconds: timeout_seconds
+
+        Returns:
+            OrchestratorSourceCommandResult: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        request = OrchestratorRunSourceRequest(
+            command=command,
+            timeout_seconds=timeout_seconds,
+        )
+        return self._api.orgs_slug_sources_vm_run_post(
+            slug=slug, vm=vm, request=request
+        )
+
+    def orgs_slug_vms_get(
+        self,
+        slug: str,
+    ) -> Dict[str, object]:
+        """List source VMs
+
+        Args:
+            slug: str
+
+        Returns:
+            Dict[str, object]: Pydantic model with full IDE autocomplete.
+            Call .model_dump() to convert to dict if needed.
+        """
+        return self._api.orgs_slug_vms_get(slug=slug)
 
 
 class VMsOperations:
@@ -932,8 +1728,16 @@ class Fluid:
         self._access: Optional[AccessOperations] = None
         self._ansible: Optional[AnsibleOperations] = None
         self._ansible_playbooks: Optional[AnsiblePlaybooksOperations] = None
+        self._auth: Optional[AuthOperations] = None
+        self._billing: Optional[BillingOperations] = None
         self._health: Optional[HealthOperations] = None
+        self._host_tokens: Optional[HostTokensOperations] = None
+        self._hosts: Optional[HostsOperations] = None
+        self._members: Optional[MembersOperations] = None
+        self._organizations: Optional[OrganizationsOperations] = None
         self._sandbox: Optional[SandboxOperations] = None
+        self._sandboxes: Optional[SandboxesOperations] = None
+        self._source_vms: Optional[SourceVMsOperations] = None
         self._vms: Optional[VMsOperations] = None
 
     @property
@@ -961,6 +1765,22 @@ class Fluid:
         return self._ansible_playbooks
 
     @property
+    def auth(self) -> AuthOperations:
+        """Access AuthApi operations."""
+        if self._auth is None:
+            api = AuthApi(api_client=self._main_api_client)
+            self._auth = AuthOperations(api)
+        return self._auth
+
+    @property
+    def billing(self) -> BillingOperations:
+        """Access BillingApi operations."""
+        if self._billing is None:
+            api = BillingApi(api_client=self._main_api_client)
+            self._billing = BillingOperations(api)
+        return self._billing
+
+    @property
     def health(self) -> HealthOperations:
         """Access HealthApi operations."""
         if self._health is None:
@@ -969,12 +1789,60 @@ class Fluid:
         return self._health
 
     @property
+    def host_tokens(self) -> HostTokensOperations:
+        """Access HostTokensApi operations."""
+        if self._host_tokens is None:
+            api = HostTokensApi(api_client=self._main_api_client)
+            self._host_tokens = HostTokensOperations(api)
+        return self._host_tokens
+
+    @property
+    def hosts(self) -> HostsOperations:
+        """Access HostsApi operations."""
+        if self._hosts is None:
+            api = HostsApi(api_client=self._main_api_client)
+            self._hosts = HostsOperations(api)
+        return self._hosts
+
+    @property
+    def members(self) -> MembersOperations:
+        """Access MembersApi operations."""
+        if self._members is None:
+            api = MembersApi(api_client=self._main_api_client)
+            self._members = MembersOperations(api)
+        return self._members
+
+    @property
+    def organizations(self) -> OrganizationsOperations:
+        """Access OrganizationsApi operations."""
+        if self._organizations is None:
+            api = OrganizationsApi(api_client=self._main_api_client)
+            self._organizations = OrganizationsOperations(api)
+        return self._organizations
+
+    @property
     def sandbox(self) -> SandboxOperations:
         """Access SandboxApi operations."""
         if self._sandbox is None:
             api = SandboxApi(api_client=self._main_api_client)
             self._sandbox = SandboxOperations(api)
         return self._sandbox
+
+    @property
+    def sandboxes(self) -> SandboxesOperations:
+        """Access SandboxesApi operations."""
+        if self._sandboxes is None:
+            api = SandboxesApi(api_client=self._main_api_client)
+            self._sandboxes = SandboxesOperations(api)
+        return self._sandboxes
+
+    @property
+    def source_vms(self) -> SourceVMsOperations:
+        """Access SourceVMsApi operations."""
+        if self._source_vms is None:
+            api = SourceVMsApi(api_client=self._main_api_client)
+            self._source_vms = SourceVMsOperations(api)
+        return self._source_vms
 
     @property
     def vms(self) -> VMsOperations:

@@ -47,19 +47,19 @@ func (c *Client) ExecuteTool(ctx context.Context, orgID, name string, args json.
 
 	// Source VM tools
 	case "list_vms":
-		return c.execListVMs(ctx)
+		return c.execListVMs(ctx, orgID)
 	case "prepare_source_vm":
-		return c.execPrepareSourceVM(ctx, params)
+		return c.execPrepareSourceVM(ctx, orgID, params)
 	case "run_source_command":
-		return c.execRunSourceCommand(ctx, params)
+		return c.execRunSourceCommand(ctx, orgID, params)
 	case "read_source_file":
-		return c.execReadSourceFile(ctx, params)
+		return c.execReadSourceFile(ctx, orgID, params)
 
 	// Host tools
 	case "list_hosts":
-		return c.execListHosts(ctx)
+		return c.execListHosts(ctx, orgID)
 	case "get_host":
-		return c.execGetHost(ctx, params)
+		return c.execGetHost(ctx, orgID, params)
 
 	// Playbook tools
 	case "create_playbook":
@@ -176,32 +176,32 @@ func (c *Client) execListCommands(ctx context.Context, params map[string]any) (s
 
 // --- Source VM tool executors ---
 
-func (c *Client) execListVMs(ctx context.Context) (string, error) {
-	vms, err := c.orchestrator.ListVMs(ctx)
+func (c *Client) execListVMs(ctx context.Context, orgID string) (string, error) {
+	vms, err := c.orchestrator.ListVMs(ctx, orgID)
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(map[string]any{"vms": vms, "count": len(vms)})
 }
 
-func (c *Client) execPrepareSourceVM(ctx context.Context, params map[string]any) (string, error) {
-	result, err := c.orchestrator.PrepareSourceVM(ctx, strParam(params, "vm_name"), strParam(params, "ssh_user"), strParam(params, "key_path"))
+func (c *Client) execPrepareSourceVM(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	result, err := c.orchestrator.PrepareSourceVM(ctx, orgID, strParam(params, "vm_name"), strParam(params, "ssh_user"), strParam(params, "key_path"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(result)
 }
 
-func (c *Client) execRunSourceCommand(ctx context.Context, params map[string]any) (string, error) {
-	result, err := c.orchestrator.RunSourceCommand(ctx, strParam(params, "vm_name"), strParam(params, "command"), intParam(params, "timeout_seconds"))
+func (c *Client) execRunSourceCommand(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	result, err := c.orchestrator.RunSourceCommand(ctx, orgID, strParam(params, "vm_name"), strParam(params, "command"), intParam(params, "timeout_seconds"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(result)
 }
 
-func (c *Client) execReadSourceFile(ctx context.Context, params map[string]any) (string, error) {
-	result, err := c.orchestrator.ReadSourceFile(ctx, strParam(params, "vm_name"), strParam(params, "path"))
+func (c *Client) execReadSourceFile(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	result, err := c.orchestrator.ReadSourceFile(ctx, orgID, strParam(params, "vm_name"), strParam(params, "path"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
@@ -210,16 +210,16 @@ func (c *Client) execReadSourceFile(ctx context.Context, params map[string]any) 
 
 // --- Host tool executors ---
 
-func (c *Client) execListHosts(ctx context.Context) (string, error) {
-	hosts, err := c.orchestrator.ListHosts(ctx)
+func (c *Client) execListHosts(ctx context.Context, orgID string) (string, error) {
+	hosts, err := c.orchestrator.ListHosts(ctx, orgID)
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(map[string]any{"hosts": hosts, "count": len(hosts)})
 }
 
-func (c *Client) execGetHost(ctx context.Context, params map[string]any) (string, error) {
-	host, err := c.orchestrator.GetHost(ctx, strParam(params, "host_id"))
+func (c *Client) execGetHost(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	host, err := c.orchestrator.GetHost(ctx, strParam(params, "host_id"), orgID)
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}

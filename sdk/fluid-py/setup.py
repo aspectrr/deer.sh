@@ -8,7 +8,7 @@ setup(
     version="0.1.0",
     author="Collin Pfeifer",
     author_email="cpfeifer@madcactus.org",
-    description="API for managing AI Agent VM sandboxes using libvirt",
+    description="API for managing sandboxes, organizations, billing, and hosts",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/aspectrr/fluid.sh",

@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/google/uuid"
 	"google.golang.org/grpc"
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/agent"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/daemon"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/id"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/image"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/janitor"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/microvm"
@@ -65,7 +65,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	// Ensure host ID
 	if cfg.HostID == "" {
-		cfg.HostID = uuid.NewString()[:8]
+		cfg.HostID = id.GenerateRaw()
 		_ = config.Save(cfgPath, cfg)
 		logger.Info("generated host ID", "host_id", cfg.HostID)
 	}

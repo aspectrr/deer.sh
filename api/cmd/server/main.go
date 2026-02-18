@@ -21,6 +21,7 @@ import (
 	postgresStore "github.com/aspectrr/fluid.sh/api/internal/store/postgres"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // @title          Fluid API
@@ -68,12 +69,28 @@ func main() {
 	reg := registry.New()
 
 	// 3. Initialize gRPC server with host token auth.
+	grpcOpts := []grpc.ServerOption{
+		grpc.StreamInterceptor(auth.HostTokenStreamInterceptor(st)),
+	}
+	if cfg.GRPC.TLSCertFile != "" && cfg.GRPC.TLSKeyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(cfg.GRPC.TLSCertFile, cfg.GRPC.TLSKeyFile)
+		if err != nil {
+			logger.Error("failed to load gRPC TLS credentials", "error", err)
+			os.Exit(1)
+		}
+		grpcOpts = append([]grpc.ServerOption{grpc.Creds(creds)}, grpcOpts...)
+		logger.Info("gRPC TLS enabled")
+	} else {
+		logger.Warn("gRPC server running WITHOUT TLS - host bearer tokens will be sent in plaintext")
+	}
+
 	grpcSrv, err := grpcServer.NewServer(
 		cfg.GRPC.Address,
 		reg,
 		st,
 		logger,
-		grpc.StreamInterceptor(auth.HostTokenStreamInterceptor(st)),
+		cfg.Orchestrator.HeartbeatTimeout,
+		grpcOpts...,
 	)
 	if err != nil {
 		logger.Error("failed to initialize gRPC server", "error", err)
@@ -87,6 +104,7 @@ func main() {
 		grpcSrv.Handler(),
 		logger,
 		cfg.Orchestrator.DefaultTTL,
+		cfg.Orchestrator.HeartbeatTimeout,
 	)
 
 	// 5. Initialize agent client (optional - works without API key).

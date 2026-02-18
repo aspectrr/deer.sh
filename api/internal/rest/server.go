@@ -1,13 +1,12 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 
+	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
-
-	_ "github.com/aspectrr/fluid.sh/api/docs"
 
 	"github.com/aspectrr/fluid.sh/api/internal/agent"
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
@@ -15,15 +14,6 @@ import (
 	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
-
-// swaggerError is the error response model for swagger documentation.
-//
-//nolint:unused // referenced by swag godoc annotations
-type swaggerError struct {
-	Error   string `json:"error"`
-	Code    int    `json:"code"`
-	Details string `json:"details,omitempty"`
-}
 
 type Server struct {
 	Router       *chi.Mux
@@ -55,9 +45,27 @@ func (s *Server) routes() *chi.Mux {
 
 	// Public routes
 	r.Get("/v1/health", s.handleHealth)
-	r.Get("/v1/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/v1/swagger/doc.json"),
-	))
+
+	if s.cfg.API.EnableDocs {
+		r.Get("/v1/docs", func(w http.ResponseWriter, r *http.Request) {
+			html, err := scalar.ApiReferenceHTML(&scalar.Options{
+				SpecURL: "/v1/docs/openapi.json",
+				CustomOptions: scalar.CustomOptions{
+					PageTitle: "Fluid API Reference",
+				},
+				DarkMode: true,
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = fmt.Fprintln(w, html)
+		})
+		r.Get("/v1/docs/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "docs/swagger.json")
+		})
+	}
 
 	// Auth routes (public)
 	r.Route("/v1/auth", func(r chi.Router) {

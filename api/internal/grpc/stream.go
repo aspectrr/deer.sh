@@ -10,6 +10,7 @@ import (
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
+	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	"github.com/aspectrr/fluid.sh/api/internal/registry"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
@@ -18,9 +19,10 @@ import (
 type StreamHandler struct {
 	fluidv1.UnimplementedHostServiceServer
 
-	registry *registry.Registry
-	store    store.Store
-	logger   *slog.Logger
+	registry         *registry.Registry
+	store            store.Store
+	logger           *slog.Logger
+	heartbeatTimeout time.Duration
 
 	// pendingRequests maps request_id -> response channel.
 	pendingRequests sync.Map // map[string]chan *fluidv1.HostMessage
@@ -34,14 +36,16 @@ func NewStreamHandler(
 	reg *registry.Registry,
 	st store.Store,
 	logger *slog.Logger,
+	heartbeatTimeout time.Duration,
 ) *StreamHandler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &StreamHandler{
-		registry: reg,
-		store:    st,
-		logger:   logger.With("component", "stream-handler"),
+		registry:         reg,
+		store:            st,
+		logger:           logger.With("component", "stream-handler"),
+		heartbeatTimeout: heartbeatTimeout,
 	}
 }
 
@@ -59,8 +63,9 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 
 	hostID := reg.GetHostId()
 	hostname := reg.GetHostname()
+	orgID := auth.OrgIDFromContext(stream.Context())
 
-	logger := h.logger.With("host_id", hostID, "hostname", hostname)
+	logger := h.logger.With("host_id", hostID, "hostname", hostname, "org_id", orgID)
 	logger.Info("host connecting", "version", reg.GetVersion())
 
 	// Send RegistrationAck.
@@ -78,14 +83,14 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	}
 
 	// Register host.
-	if err := h.registry.Register(hostID, hostname, stream); err != nil {
+	if err := h.registry.Register(hostID, orgID, hostname, stream); err != nil {
 		return fmt.Errorf("register host: %w", err)
 	}
 	h.registry.SetRegistration(hostID, reg)
 	h.streams.Store(hostID, stream)
 
 	// Persist or update host in the database.
-	h.persistHostRegistration(stream.Context(), hostID, reg)
+	h.persistHostRegistration(stream.Context(), hostID, orgID, reg)
 
 	logger.Info("host registered",
 		"total_cpus", reg.GetTotalCpus(),
@@ -218,26 +223,27 @@ func (h *StreamHandler) monitorHeartbeat(ctx context.Context, hostID string, log
 			if !ok {
 				return
 			}
-			if time.Since(host.LastHeartbeat) > 90*time.Second {
+			if time.Since(host.LastHeartbeat) > h.heartbeatTimeout {
 				logger.Warn("host heartbeat overdue",
 					"last_heartbeat", host.LastHeartbeat,
-					"overdue_by", time.Since(host.LastHeartbeat)-90*time.Second,
+					"overdue_by", time.Since(host.LastHeartbeat)-h.heartbeatTimeout,
 				)
 			}
 		}
 	}
 }
 
-func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID string, reg *fluidv1.HostRegistration) {
+func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID, orgID string, reg *fluidv1.HostRegistration) {
 	existing, err := h.store.GetHost(ctx, hostID)
 	if err != nil {
-		host := hostFromRegistration(hostID, reg)
+		host := hostFromRegistration(hostID, orgID, reg)
 		if createErr := h.store.CreateHost(ctx, host); createErr != nil {
 			h.logger.Error("failed to create host in store", "host_id", hostID, "error", createErr)
 		}
 		return
 	}
 
+	existing.OrgID = orgID
 	existing.Hostname = reg.GetHostname()
 	existing.Version = reg.GetVersion()
 	existing.TotalCPUs = reg.GetTotalCpus()
@@ -275,7 +281,7 @@ func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID stri
 	}
 }
 
-func hostFromRegistration(hostID string, reg *fluidv1.HostRegistration) *store.Host {
+func hostFromRegistration(hostID, orgID string, reg *fluidv1.HostRegistration) *store.Host {
 	sourceVMs := make(store.SourceVMSlice, 0, len(reg.GetSourceVms()))
 	for _, vm := range reg.GetSourceVms() {
 		sourceVMs = append(sourceVMs, store.SourceVMJSON{
@@ -296,6 +302,7 @@ func hostFromRegistration(hostID string, reg *fluidv1.HostRegistration) *store.H
 
 	return &store.Host{
 		ID:                hostID,
+		OrgID:             orgID,
 		Hostname:          reg.GetHostname(),
 		Version:           reg.GetVersion(),
 		TotalCPUs:         reg.GetTotalCpus(),

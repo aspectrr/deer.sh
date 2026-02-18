@@ -9,8 +9,8 @@ import (
 
 // SelectHost picks the best connected host for a sandbox that needs the given
 // base image. Filters by image availability, resources, and health.
-func SelectHost(reg *registry.Registry, baseImage string) (*registry.ConnectedHost, error) {
-	hosts := reg.ListConnected()
+func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeout time.Duration) (*registry.ConnectedHost, error) {
+	hosts := reg.ListConnectedByOrg(orgID)
 	if len(hosts) == 0 {
 		return nil, fmt.Errorf("no connected hosts")
 	}
@@ -34,7 +34,7 @@ func SelectHost(reg *registry.Registry, baseImage string) (*registry.ConnectedHo
 			continue
 		}
 
-		if now.Sub(h.LastHeartbeat) > 90*time.Second {
+		if now.Sub(h.LastHeartbeat) > heartbeatTimeout {
 			continue
 		}
 
@@ -51,8 +51,8 @@ func SelectHost(reg *registry.Registry, baseImage string) (*registry.ConnectedHo
 }
 
 // SelectHostForSourceVM picks a connected host that has the given source VM.
-func SelectHostForSourceVM(reg *registry.Registry, vmName string) (*registry.ConnectedHost, error) {
-	hosts := reg.ListConnected()
+func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbeatTimeout time.Duration) (*registry.ConnectedHost, error) {
+	hosts := reg.ListConnectedByOrg(orgID)
 	if len(hosts) == 0 {
 		return nil, fmt.Errorf("no connected hosts")
 	}
@@ -64,7 +64,7 @@ func SelectHostForSourceVM(reg *registry.Registry, vmName string) (*registry.Con
 			continue
 		}
 
-		if now.Sub(h.LastHeartbeat) > 90*time.Second {
+		if now.Sub(h.LastHeartbeat) > heartbeatTimeout {
 			continue
 		}
 

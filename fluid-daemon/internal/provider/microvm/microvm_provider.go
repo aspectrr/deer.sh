@@ -11,12 +11,12 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/id"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/image"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/microvm"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/network"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sourcevm"
-	"github.com/google/uuid"
 )
 
 // Provider implements provider.SandboxProvider for QEMU microVMs.
@@ -197,7 +197,7 @@ func (p *Provider) CreateSnapshot(_ context.Context, sandboxID, name string) (*p
 		return nil, fmt.Errorf("microVM manager not available")
 	}
 
-	snapshotID := "SNP-" + uuid.New().String()[:8]
+	snapshotID := id.Generate("SNP-")
 	return &provider.SnapshotResult{
 		SnapshotID:   snapshotID,
 		SnapshotName: name,

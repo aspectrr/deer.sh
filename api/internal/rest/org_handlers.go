@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
+	"github.com/aspectrr/fluid.sh/api/internal/id"
 	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
@@ -82,7 +82,7 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 	}
 
 	org := &store.Organization{
-		ID:      "ORG-" + uuid.New().String()[:8],
+		ID:      id.Generate("ORG-"),
 		Name:    req.Name,
 		Slug:    slug,
 		OwnerID: user.ID,
@@ -93,7 +93,7 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		member := &store.OrgMember{
-			ID:     "MBR-" + uuid.New().String()[:8],
+			ID:     id.Generate("MBR-"),
 			OrgID:  org.ID,
 			UserID: user.ID,
 			Role:   store.OrgRoleOwner,
@@ -416,7 +416,7 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newMember := &store.OrgMember{
-		ID:     "MBR-" + uuid.New().String()[:8],
+		ID:     id.Generate("MBR-"),
 		OrgID:  org.ID,
 		UserID: targetUser.ID,
 		Role:   role,

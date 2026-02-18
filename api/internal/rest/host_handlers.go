@@ -7,10 +7,10 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
+	"github.com/aspectrr/fluid.sh/api/internal/id"
 	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
@@ -28,12 +28,12 @@ import (
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts [get]
 func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
 
-	hosts, err := s.orchestrator.ListHosts(r.Context())
+	hosts, err := s.orchestrator.ListHosts(r.Context(), org.ID)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to list hosts"))
 		return
@@ -58,13 +58,13 @@ func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts/{hostID} [get]
 func (s *Server) handleGetHost(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
 
 	hostID := chi.URLParam(r, "hostID")
-	host, err := s.orchestrator.GetHost(r.Context(), hostID)
+	host, err := s.orchestrator.GetHost(r.Context(), hostID, org.ID)
 	if err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("host not found or not connected"))
 		return
@@ -132,7 +132,7 @@ func (s *Server) handleCreateHostToken(w http.ResponseWriter, r *http.Request) {
 	rawToken := hex.EncodeToString(rawBytes)
 
 	token := &store.HostToken{
-		ID:        "HTK-" + uuid.New().String()[:8],
+		ID:        id.Generate("HTK-"),
 		OrgID:     org.ID,
 		Name:      req.Name,
 		TokenHash: auth.HashToken(rawToken),

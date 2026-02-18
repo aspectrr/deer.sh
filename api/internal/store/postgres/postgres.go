@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgconn"
@@ -118,6 +119,7 @@ func (UsageRecordModel) TableName() string { return "usage_records" }
 
 type HostModel struct {
 	ID                string              `gorm:"column:id;primaryKey"`
+	OrgID             string              `gorm:"column:org_id;not null;index"`
 	Hostname          string              `gorm:"column:hostname;not null"`
 	Version           string              `gorm:"column:version"`
 	TotalCPUs         int32               `gorm:"column:total_cpus;not null;default:0"`
@@ -848,6 +850,7 @@ func (s *postgresStore) ListUsageRecords(ctx context.Context, orgID string, from
 func hostToModel(h *store.Host) *HostModel {
 	return &HostModel{
 		ID:                h.ID,
+		OrgID:             h.OrgID,
 		Hostname:          h.Hostname,
 		Version:           h.Version,
 		TotalCPUs:         h.TotalCPUs,
@@ -869,6 +872,7 @@ func hostToModel(h *store.Host) *HostModel {
 func hostFromModel(m *HostModel) *store.Host {
 	return &store.Host{
 		ID:                m.ID,
+		OrgID:             m.OrgID,
 		Hostname:          m.Hostname,
 		Version:           m.Version,
 		TotalCPUs:         m.TotalCPUs,
@@ -1465,8 +1469,12 @@ func (s *postgresStore) CreateAgentMessage(ctx context.Context, msg *store.Agent
 		return mapDBError(err)
 	}
 	// Update conversation updated_at
-	s.db.WithContext(ctx).Model(&AgentConversationModel{}).Where("id = ?", msg.ConversationID).
-		Update("updated_at", time.Now().UTC())
+	if err := s.db.WithContext(ctx).Model(&AgentConversationModel{}).
+		Where("id = ?", msg.ConversationID).
+		Update("updated_at", time.Now().UTC()).Error; err != nil {
+		slog.Warn("failed to update conversation updated_at",
+			"conversation_id", msg.ConversationID, "error", err)
+	}
 	return nil
 }
 
@@ -1630,4 +1638,30 @@ func (s *postgresStore) GetOrganizationByStripeCustomerID(ctx context.Context, c
 		return nil, mapDBError(err)
 	}
 	return orgFromModel(&model), nil
+}
+
+// --- Model Meter stubs ---
+
+func (s *postgresStore) GetModelMeter(_ context.Context, _ string) (*store.ModelMeter, error) {
+	return nil, store.ErrNotFound
+}
+
+func (s *postgresStore) CreateModelMeter(_ context.Context, _ *store.ModelMeter) error {
+	return nil
+}
+
+func (s *postgresStore) GetOrgModelSubscription(_ context.Context, _, _ string) (*store.OrgModelSubscription, error) {
+	return nil, store.ErrNotFound
+}
+
+func (s *postgresStore) CreateOrgModelSubscription(_ context.Context, _ *store.OrgModelSubscription) error {
+	return nil
+}
+
+func (s *postgresStore) SumTokenUsage(_ context.Context, _ string, _, _ time.Time) (float64, error) {
+	return 0, nil
+}
+
+func (s *postgresStore) ListActiveSubscriptions(_ context.Context) ([]*store.Subscription, error) {
+	return nil, nil
 }

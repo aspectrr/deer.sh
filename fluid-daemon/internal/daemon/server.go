@@ -16,7 +16,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshconfig"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/state"
 
-	"github.com/google/uuid"
+	genid "github.com/aspectrr/fluid.sh/fluid-daemon/internal/id"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -50,7 +50,7 @@ func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCo
 
 	sandboxID := req.GetSandboxId()
 	if sandboxID == "" {
-		sandboxID = "sbx-" + uuid.NewString()[:8]
+		sandboxID = genid.Generate("sbx-")
 	}
 
 	vcpus := int(req.GetVcpus())
@@ -264,7 +264,7 @@ func (s *Server) RunCommand(ctx context.Context, req *fluidv1.RunCommandCommand)
 
 	// Record command in state
 	cmdRecord := &state.Command{
-		ID:         uuid.NewString()[:8],
+		ID:         genid.GenerateRaw(),
 		SandboxID:  id,
 		Command:    req.GetCommand(),
 		Stdout:     result.Stdout,

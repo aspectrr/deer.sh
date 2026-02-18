@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"time"
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
@@ -32,6 +33,7 @@ func NewServer(
 	reg *registry.Registry,
 	st store.Store,
 	logger *slog.Logger,
+	heartbeatTimeout time.Duration,
 	opts ...grpc.ServerOption,
 ) (*Server, error) {
 	if logger == nil {
@@ -45,7 +47,7 @@ func NewServer(
 
 	gs := grpc.NewServer(opts...)
 
-	handler := NewStreamHandler(reg, st, logger)
+	handler := NewStreamHandler(reg, st, logger, heartbeatTimeout)
 	fluidv1.RegisterHostServiceServer(gs, handler)
 
 	s := &Server{

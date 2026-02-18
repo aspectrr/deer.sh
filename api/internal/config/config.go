@@ -19,7 +19,9 @@ type Config struct {
 }
 
 type GRPCConfig struct {
-	Address string
+	Address     string
+	TLSCertFile string
+	TLSKeyFile  string
 }
 
 type OrchestratorConfig struct {
@@ -33,6 +35,7 @@ type APIConfig struct {
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
 	ShutdownTimeout time.Duration
+	EnableDocs      bool
 }
 
 type DatabaseConfig struct {
@@ -101,6 +104,7 @@ func Load() *Config {
 			WriteTimeout:    envDuration("API_WRITE_TIMEOUT", 120*time.Second),
 			IdleTimeout:     envDuration("API_IDLE_TIMEOUT", 120*time.Second),
 			ShutdownTimeout: envDuration("API_SHUTDOWN_TIMEOUT", 20*time.Second),
+			EnableDocs:      envBool("API_ENABLE_DOCS", true),
 		},
 		Database: DatabaseConfig{
 			URL:             envOr("DATABASE_URL", "postgresql://fluid:fluid@localhost:5432/fluid_web"),
@@ -123,7 +127,9 @@ func Load() *Config {
 			},
 		},
 		GRPC: GRPCConfig{
-			Address: envOr("GRPC_ADDR", ":9090"),
+			Address:     envOr("GRPC_ADDR", ":9090"),
+			TLSCertFile: os.Getenv("GRPC_TLS_CERT_FILE"),
+			TLSKeyFile:  os.Getenv("GRPC_TLS_KEY_FILE"),
 		},
 		Orchestrator: OrchestratorConfig{
 			HeartbeatTimeout: envDuration("ORCHESTRATOR_HEARTBEAT_TIMEOUT", 90*time.Second),

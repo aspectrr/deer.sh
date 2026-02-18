@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/id"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider"
-	"github.com/google/uuid"
 )
 
 // Provider implements provider.SandboxProvider for Proxmox LXC containers.
@@ -239,7 +239,7 @@ func (p *Provider) CreateSnapshot(ctx context.Context, sandboxID, name string) (
 	}
 
 	return &provider.SnapshotResult{
-		SnapshotID:   "SNP-" + uuid.New().String()[:8],
+		SnapshotID:   id.Generate("SNP-"),
 		SnapshotName: name,
 	}, nil
 }

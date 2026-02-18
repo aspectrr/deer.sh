@@ -8,10 +8,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
+	"github.com/aspectrr/fluid.sh/api/internal/id"
 	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
@@ -83,7 +82,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := &store.User{
-		ID:           "USR-" + uuid.New().String()[:8],
+		ID:           id.Generate("USR-"),
 		Email:        req.Email,
 		DisplayName:  req.DisplayName,
 		PasswordHash: hash,
@@ -466,7 +465,7 @@ func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID
 	if errors.Is(err, store.ErrNotFound) {
 		// Create new user
 		user = &store.User{
-			ID:            "USR-" + uuid.New().String()[:8],
+			ID:            id.Generate("USR-"),
 			Email:         email,
 			DisplayName:   name,
 			AvatarURL:     avatarURL,
@@ -479,7 +478,7 @@ func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID
 
 	// Link OAuth account to user
 	oauthAccount := &store.OAuthAccount{
-		ID:           "OA-" + uuid.New().String()[:8],
+		ID:           id.Generate("OA-"),
 		UserID:       user.ID,
 		Provider:     provider,
 		ProviderID:   providerID,

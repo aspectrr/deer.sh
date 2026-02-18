@@ -1,12 +1,12 @@
 [project]
 name = "fluid"
 version = "0.1.0"
-description = "fluid-remote API"
+description = "Fluid API"
 authors = [
   {name = "OpenAPI Generator Community",email = "team@openapitools.org"},
 ]
 readme = "README.md"
-keywords = ["OpenAPI", "OpenAPI-Generator", "fluid-remote API"]
+keywords = ["OpenAPI", "OpenAPI-Generator", "Fluid API"]
 requires-python = ">=3.9"
 
 dependencies = [

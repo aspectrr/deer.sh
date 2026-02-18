@@ -1,17 +1,17 @@
 # coding: utf-8
 
 """
-    fluid-remote API
-    API for managing AI Agent VM sandboxes using libvirt
+    Fluid API
+    API for managing sandboxes, organizations, billing, and hosts
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from pydantic import StrictStr
+
 from fluid.api_client import ApiClient, RequestSerialized
 from fluid.api_response import ApiResponse
 from fluid.exceptions import ApiException
-from fluid.models.github_com_aspectrr_fluid_sh_fluid_remote_internal_rest_health_response import \
-    GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse
 
 
 class HealthApi:
@@ -22,17 +22,17 @@ class HealthApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
-    def get_health(
+    def health_get(
         self,
         _request_timeout: Union[None, float, Tuple[float, float]] = None,
         _request_auth: Optional[Dict[str, Any]] = None,
         _content_type: Optional[str] = None,
         _headers: Optional[Dict[str, Any]] = None,
         _host_index: int = 0,
-    ) -> GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse:
+    ) -> Dict[str, str]:
         """Health check
 
-        Returns service health status
+        Returns API health status
 
         :param _request_timeout: Timeout setting for this request. If one
                                  number is provided, it will be the total request
@@ -50,7 +50,7 @@ class HealthApi:
         :return: Returns the result object.
         """
 
-        _param = self._get_health_serialize(
+        _param = self._health_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -58,7 +58,7 @@ class HealthApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse",
+            "200": "Dict[str, str]",
         }
         response_data = self.api_client.call_api(
             *_param, _request_timeout=_request_timeout
@@ -69,17 +69,17 @@ class HealthApi:
             response_types_map=_response_types_map,
         ).data
 
-    def get_health_with_http_info(
+    def health_get_with_http_info(
         self,
         _request_timeout: Union[None, float, Tuple[float, float]] = None,
         _request_auth: Optional[Dict[str, Any]] = None,
         _content_type: Optional[str] = None,
         _headers: Optional[Dict[str, Any]] = None,
         _host_index: int = 0,
-    ) -> ApiResponse[GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse]:
+    ) -> ApiResponse[Dict[str, str]]:
         """Health check
 
-        Returns service health status
+        Returns API health status
 
         :param _request_timeout: Timeout setting for this request. If one
                                  number is provided, it will be the total request
@@ -97,7 +97,7 @@ class HealthApi:
         :return: Returns the result object with HTTP info.
         """
 
-        _param = self._get_health_serialize(
+        _param = self._health_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -105,7 +105,7 @@ class HealthApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse",
+            "200": "Dict[str, str]",
         }
         response_data = self.api_client.call_api(
             *_param, _request_timeout=_request_timeout
@@ -116,7 +116,7 @@ class HealthApi:
             response_types_map=_response_types_map,
         )
 
-    def get_health_without_preload_content(
+    def health_get_without_preload_content(
         self,
         _request_timeout: Union[None, float, Tuple[float, float]] = None,
         _request_auth: Optional[Dict[str, Any]] = None,
@@ -126,7 +126,7 @@ class HealthApi:
     ) -> Any:
         """Health check
 
-        Returns service health status
+        Returns API health status
 
         :param _request_timeout: Timeout setting for this request. If one
                                  number is provided, it will be the total request
@@ -144,7 +144,7 @@ class HealthApi:
         :return: Returns the result object without preloading content.
         """
 
-        _param = self._get_health_serialize(
+        _param = self._health_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -152,14 +152,14 @@ class HealthApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GithubComAspectrrFluidShFluidRemoteInternalRestHealthResponse",
+            "200": "Dict[str, str]",
         }
         response_data = self.api_client.call_api(
             *_param, _request_timeout=_request_timeout
         )
         return response_data.response
 
-    def _get_health_serialize(
+    def _health_get_serialize(
         self,
         _request_auth: Optional[Dict[str, Any]],
         _content_type: Optional[str],
@@ -198,7 +198,7 @@ class HealthApi:
 
         return self.api_client.param_serialize(
             method="GET",
-            resource_path="/v1/health",
+            resource_path="/health",
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

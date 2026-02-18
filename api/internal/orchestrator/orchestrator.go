@@ -5,15 +5,13 @@ package orchestrator
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
+	"github.com/aspectrr/fluid.sh/api/internal/id"
 	"github.com/aspectrr/fluid.sh/api/internal/registry"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 
@@ -28,11 +26,12 @@ type HostSender interface {
 
 // Orchestrator coordinates sandbox lifecycle operations across connected hosts.
 type Orchestrator struct {
-	registry   *registry.Registry
-	store      store.Store
-	sender     HostSender
-	logger     *slog.Logger
-	defaultTTL time.Duration
+	registry         *registry.Registry
+	store            store.Store
+	sender           HostSender
+	logger           *slog.Logger
+	defaultTTL       time.Duration
+	heartbeatTimeout time.Duration
 }
 
 // New creates an Orchestrator.
@@ -42,16 +41,18 @@ func New(
 	sender HostSender,
 	logger *slog.Logger,
 	defaultTTL time.Duration,
+	heartbeatTimeout time.Duration,
 ) *Orchestrator {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &Orchestrator{
-		registry:   reg,
-		store:      st,
-		sender:     sender,
-		logger:     logger.With("component", "orchestrator"),
-		defaultTTL: defaultTTL,
+		registry:         reg,
+		store:            st,
+		sender:           sender,
+		logger:           logger.With("component", "orchestrator"),
+		defaultTTL:       defaultTTL,
+		heartbeatTimeout: heartbeatTimeout,
 	}
 }
 
@@ -62,17 +63,17 @@ func New(
 // CreateSandbox selects a host, sends a CreateSandboxCommand over the gRPC
 // stream, waits for the SandboxCreated response, and persists the sandbox.
 func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*store.Sandbox, error) {
-	sandboxID := generateSandboxID()
+	sandboxID := id.Generate("SBX-")
 
 	baseImage := req.BaseImage
 	if baseImage == "" && req.SourceVM != "" {
 		baseImage = req.SourceVM
 	}
 
-	host, err := SelectHost(o.registry, baseImage)
+	host, err := SelectHost(o.registry, baseImage, req.OrgID, o.heartbeatTimeout)
 	if err != nil {
 		if req.SourceVM != "" {
-			host, err = SelectHostForSourceVM(o.registry, req.SourceVM)
+			host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout)
 			if err != nil {
 				return nil, fmt.Errorf("select host: %w", err)
 			}
@@ -442,8 +443,8 @@ func (o *Orchestrator) ListCommands(ctx context.Context, sandboxID string) ([]*s
 // ---------------------------------------------------------------------------
 
 // ListHosts returns info about all connected hosts.
-func (o *Orchestrator) ListHosts(ctx context.Context) ([]*HostInfo, error) {
-	connected := o.registry.ListConnected()
+func (o *Orchestrator) ListHosts(ctx context.Context, orgID string) ([]*HostInfo, error) {
+	connected := o.registry.ListConnectedByOrg(orgID)
 	result := make([]*HostInfo, 0, len(connected))
 
 	for _, h := range connected {
@@ -472,9 +473,12 @@ func (o *Orchestrator) ListHosts(ctx context.Context) ([]*HostInfo, error) {
 }
 
 // GetHost returns info about a specific connected host.
-func (o *Orchestrator) GetHost(ctx context.Context, id string) (*HostInfo, error) {
+func (o *Orchestrator) GetHost(ctx context.Context, id, orgID string) (*HostInfo, error) {
 	h, ok := o.registry.GetHost(id)
 	if !ok {
+		return nil, fmt.Errorf("host %s not found or not connected", id)
+	}
+	if h.OrgID != orgID {
 		return nil, fmt.Errorf("host %s not found or not connected", id)
 	}
 
@@ -504,8 +508,8 @@ func (o *Orchestrator) GetHost(ctx context.Context, id string) (*HostInfo, error
 // ---------------------------------------------------------------------------
 
 // ListVMs aggregates source VMs from all connected hosts.
-func (o *Orchestrator) ListVMs(ctx context.Context) ([]*VMInfo, error) {
-	connected := o.registry.ListConnected()
+func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, error) {
+	connected := o.registry.ListConnectedByOrg(orgID)
 	var result []*VMInfo
 
 	for _, h := range connected {
@@ -554,8 +558,8 @@ func (o *Orchestrator) ListVMs(ctx context.Context) ([]*VMInfo, error) {
 }
 
 // PrepareSourceVM sends a prepare command to the host that owns the source VM.
-func (o *Orchestrator) PrepareSourceVM(ctx context.Context, vmName, sshUser, keyPath string) (any, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName)
+func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUser, keyPath string) (any, error) {
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -589,8 +593,8 @@ func (o *Orchestrator) PrepareSourceVM(ctx context.Context, vmName, sshUser, key
 }
 
 // ValidateSourceVM sends a validate command to the host that owns the source VM.
-func (o *Orchestrator) ValidateSourceVM(ctx context.Context, vmName string) (any, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName)
+func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName string) (any, error) {
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -622,8 +626,8 @@ func (o *Orchestrator) ValidateSourceVM(ctx context.Context, vmName string) (any
 }
 
 // RunSourceCommand executes a read-only command on a source VM via the host.
-func (o *Orchestrator) RunSourceCommand(ctx context.Context, vmName, command string, timeoutSec int) (*SourceCommandResult, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName)
+func (o *Orchestrator) RunSourceCommand(ctx context.Context, orgID, vmName, command string, timeoutSec int) (*SourceCommandResult, error) {
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -666,8 +670,8 @@ func (o *Orchestrator) RunSourceCommand(ctx context.Context, vmName, command str
 }
 
 // ReadSourceFile reads a file from a source VM via the host.
-func (o *Orchestrator) ReadSourceFile(ctx context.Context, vmName, path string) (*SourceFileResult, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName)
+func (o *Orchestrator) ReadSourceFile(ctx context.Context, orgID, vmName, path string) (*SourceFileResult, error) {
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -708,8 +712,8 @@ func (o *Orchestrator) ReadSourceFile(ctx context.Context, vmName, path string) 
 // ---------------------------------------------------------------------------
 
 // DiscoverSourceHosts sends SSH config to a connected daemon for parsing and probing.
-func (o *Orchestrator) DiscoverSourceHosts(ctx context.Context, sshConfigContent string) ([]*DiscoveredHost, error) {
-	connected := o.registry.ListConnected()
+func (o *Orchestrator) DiscoverSourceHosts(ctx context.Context, orgID, sshConfigContent string) ([]*DiscoveredHost, error) {
+	connected := o.registry.ListConnectedByOrg(orgID)
 	if len(connected) == 0 {
 		return nil, fmt.Errorf("no connected daemon hosts available for discovery")
 	}
@@ -757,16 +761,4 @@ func (o *Orchestrator) DiscoverSourceHosts(ctx context.Context, sshConfigContent
 	}
 
 	return discovered, nil
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func generateSandboxID() string {
-	b := make([]byte, 4)
-	if _, err := rand.Read(b); err != nil {
-		return "SBX-" + strings.ReplaceAll(uuid.New().String()[:8], "-", "")
-	}
-	return "SBX-" + hex.EncodeToString(b)
 }

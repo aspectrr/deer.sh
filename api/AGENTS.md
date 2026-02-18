@@ -41,7 +41,6 @@ api/
     rest/                   # REST API handlers
     store/                  # PostgreSQL store
   Makefile
-  init-db.sql              # Database schema
 ```
 
 ## Quick Start
@@ -82,8 +81,7 @@ sudo -u postgres psql -c "CREATE DATABASE fluid;"
 sudo -u postgres psql -c "CREATE USER fluid WITH PASSWORD 'fluid';"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE fluid TO fluid;"
 
-# Schema is auto-migrated on startup, or manually:
-psql -U fluid -d fluid -f init-db.sql
+# Schema is auto-migrated on startup via GORM AutoMigrate
 ```
 
 ## Development
