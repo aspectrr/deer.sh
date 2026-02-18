@@ -248,8 +248,14 @@ func (s *Server) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 		serverError.RespondError(w, http.StatusNotImplemented, fmt.Errorf("GitHub OAuth not configured"))
 		return
 	}
+	state, err := auth.GenerateOAuthState()
+	if err != nil {
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate oauth state"))
+		return
+	}
+	auth.SetOAuthStateCookie(w, state, r.TLS != nil)
 	cfg := auth.GitHubOAuthConfig(s.cfg.Auth.GitHub.ClientID, s.cfg.Auth.GitHub.ClientSecret, s.cfg.Auth.GitHub.RedirectURL)
-	url := cfg.AuthCodeURL("state")
+	url := cfg.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
@@ -257,12 +263,19 @@ func (s *Server) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 // @Summary      GitHub OAuth callback
 // @Description  Handle GitHub OAuth callback, create or link user, set session cookie, and redirect to dashboard
 // @Tags         Auth
-// @Param        code  query  string  true  "OAuth authorization code"
-// @Success      302   "Redirect to dashboard"
-// @Failure      400   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Param        code   query  string  true  "OAuth authorization code"
+// @Param        state  query  string  true  "OAuth CSRF state parameter"
+// @Success      302    "Redirect to dashboard"
+// @Failure      400    {object}  swaggerError
+// @Failure      500    {object}  swaggerError
 // @Router       /auth/github/callback [get]
 func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
+	if err := auth.ValidateOAuthState(r); err != nil {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid oauth state: %w", err))
+		return
+	}
+	auth.ClearOAuthStateCookie(w)
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("missing code parameter"))
@@ -313,8 +326,14 @@ func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 		serverError.RespondError(w, http.StatusNotImplemented, fmt.Errorf("google OAuth not configured"))
 		return
 	}
+	state, err := auth.GenerateOAuthState()
+	if err != nil {
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate oauth state"))
+		return
+	}
+	auth.SetOAuthStateCookie(w, state, r.TLS != nil)
 	cfg := auth.GoogleOAuthConfig(s.cfg.Auth.Google.ClientID, s.cfg.Auth.Google.ClientSecret, s.cfg.Auth.Google.RedirectURL)
-	url := cfg.AuthCodeURL("state")
+	url := cfg.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
@@ -322,12 +341,19 @@ func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 // @Summary      Google OAuth callback
 // @Description  Handle Google OAuth callback, create or link user, set session cookie, and redirect to dashboard
 // @Tags         Auth
-// @Param        code  query  string  true  "OAuth authorization code"
-// @Success      302   "Redirect to dashboard"
-// @Failure      400   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Param        code   query  string  true  "OAuth authorization code"
+// @Param        state  query  string  true  "OAuth CSRF state parameter"
+// @Success      302    "Redirect to dashboard"
+// @Failure      400    {object}  swaggerError
+// @Failure      500    {object}  swaggerError
 // @Router       /auth/google/callback [get]
 func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+	if err := auth.ValidateOAuthState(r); err != nil {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid oauth state: %w", err))
+		return
+	}
+	auth.ClearOAuthStateCookie(w)
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("missing code parameter"))
