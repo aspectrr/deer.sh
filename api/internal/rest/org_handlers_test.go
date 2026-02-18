@@ -372,7 +372,7 @@ func TestHandleRemoveMember(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ms := &mockStore{}
 		setupOrgMembership(ms)
-		ms.DeleteOrgMemberFn = func(_ context.Context, id string) error {
+		ms.DeleteOrgMemberFn = func(_ context.Context, orgID, id string) error {
 			return nil
 		}
 		s := newTestServer(ms, nil)
@@ -415,6 +415,27 @@ func TestHandleRemoveMember(t *testing.T) {
 
 		if rr.Code != http.StatusForbidden {
 			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("IDOR cross-org member deletion returns 404", func(t *testing.T) {
+		ms := &mockStore{}
+		setupOrgMembership(ms)
+		// DeleteOrgMember scopes by org_id: member exists in another org but not in testOrg
+		ms.DeleteOrgMemberFn = func(_ context.Context, orgID, id string) error {
+			if orgID == testOrg.ID {
+				return store.ErrNotFound
+			}
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		req := authenticatedRequest(ms, "DELETE", "/v1/orgs/test-org/members/MBR-other-org", nil)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 for cross-org IDOR, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 }

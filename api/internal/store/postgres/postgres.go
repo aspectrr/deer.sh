@@ -768,8 +768,8 @@ func (s *postgresStore) ListOrgMembers(ctx context.Context, orgID string) ([]*st
 	return out, nil
 }
 
-func (s *postgresStore) DeleteOrgMember(ctx context.Context, id string) error {
-	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&OrgMemberModel{})
+func (s *postgresStore) DeleteOrgMember(ctx context.Context, orgID, id string) error {
+	res := s.db.WithContext(ctx).Where("id = ? AND org_id = ?", id, orgID).Delete(&OrgMemberModel{})
 	if res.Error != nil {
 		return mapDBError(res.Error)
 	}

@@ -69,7 +69,7 @@ func (m *mockStore) GetOrgMember(context.Context, string, string) (*store.OrgMem
 func (m *mockStore) ListOrgMembers(context.Context, string) ([]*store.OrgMember, error) {
 	return nil, nil
 }
-func (m *mockStore) DeleteOrgMember(context.Context, string) error { return nil }
+func (m *mockStore) DeleteOrgMember(context.Context, string, string) error { return nil }
 
 func (m *mockStore) CreateSubscription(context.Context, *store.Subscription) error { return nil }
 func (m *mockStore) GetSubscriptionByOrg(context.Context, string) (*store.Subscription, error) {

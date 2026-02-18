@@ -105,7 +105,7 @@ func (m *mockDataStore) GetOrgMember(context.Context, string, string) (*store.Or
 func (m *mockDataStore) ListOrgMembers(context.Context, string) ([]*store.OrgMember, error) {
 	return nil, nil
 }
-func (m *mockDataStore) DeleteOrgMember(context.Context, string) error { return nil }
+func (m *mockDataStore) DeleteOrgMember(context.Context, string, string) error { return nil }
 
 // Subscription
 func (m *mockDataStore) CreateSubscription(context.Context, *store.Subscription) error { return nil }

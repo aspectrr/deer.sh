@@ -468,7 +468,7 @@ type DataStore interface {
 	CreateOrgMember(ctx context.Context, m *OrgMember) error
 	GetOrgMember(ctx context.Context, orgID, userID string) (*OrgMember, error)
 	ListOrgMembers(ctx context.Context, orgID string) ([]*OrgMember, error)
-	DeleteOrgMember(ctx context.Context, id string) error
+	DeleteOrgMember(ctx context.Context, orgID, id string) error
 
 	// Subscription
 	CreateSubscription(ctx context.Context, sub *Subscription) error

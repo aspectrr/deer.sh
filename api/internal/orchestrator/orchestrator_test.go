@@ -42,7 +42,7 @@ type mockStore struct {
 	CreateOrgMemberFn func(ctx context.Context, m *store.OrgMember) error
 	GetOrgMemberFn    func(ctx context.Context, orgID, userID string) (*store.OrgMember, error)
 	ListOrgMembersFn  func(ctx context.Context, orgID string) ([]*store.OrgMember, error)
-	DeleteOrgMemberFn func(ctx context.Context, id string) error
+	DeleteOrgMemberFn func(ctx context.Context, orgID, id string) error
 
 	CreateSubscriptionFn   func(ctx context.Context, sub *store.Subscription) error
 	GetSubscriptionByOrgFn func(ctx context.Context, orgID string) (*store.Subscription, error)
@@ -268,9 +268,9 @@ func (m *mockStore) ListOrgMembers(ctx context.Context, orgID string) ([]*store.
 	m.p("ListOrgMembers")
 	return nil, nil
 }
-func (m *mockStore) DeleteOrgMember(ctx context.Context, id string) error {
+func (m *mockStore) DeleteOrgMember(ctx context.Context, orgID, id string) error {
 	if m.DeleteOrgMemberFn != nil {
-		return m.DeleteOrgMemberFn(ctx, id)
+		return m.DeleteOrgMemberFn(ctx, orgID, id)
 	}
 	m.p("DeleteOrgMember")
 	return nil

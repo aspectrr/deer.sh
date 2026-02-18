@@ -473,7 +473,7 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.store.DeleteOrgMember(r.Context(), memberID); err != nil {
+	if err := s.store.DeleteOrgMember(r.Context(), org.ID, memberID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("member not found"))
 			return

@@ -106,7 +106,7 @@ func (m *mockStore) GetOrgMember(context.Context, string, string) (*store.OrgMem
 func (m *mockStore) ListOrgMembers(context.Context, string) ([]*store.OrgMember, error) {
 	panic("mockStore: ListOrgMembers not implemented")
 }
-func (m *mockStore) DeleteOrgMember(context.Context, string) error {
+func (m *mockStore) DeleteOrgMember(context.Context, string, string) error {
 	panic("mockStore: DeleteOrgMember not implemented")
 }
 
