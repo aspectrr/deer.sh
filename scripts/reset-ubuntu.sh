@@ -1,7 +1,7 @@
 #!/bin/bash
 # reset-ubuntu.sh
 #
-# Resets the Ubuntu host to contain ONLY the specified test-vm-{INDEX}.
+# Resets the Ubuntu host to contain ONLY test-vm-{INDEX} and sandbox-host-{INDEX}.
 # WARN: This will delete ALL other VMs on the system to ensure a clean state.
 #
 # Usage: sudo ./reset-ubuntu.sh [VM_INDEX] [--ssh-users-file <path>]
@@ -41,7 +41,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 VM_INDEX="${VM_INDEX:-1}"
-VM_NAME="test-vm-${VM_INDEX}"
 
 set -euo pipefail
 
@@ -81,7 +80,7 @@ if ! command -v virsh &> /dev/null || ! command -v virt-install &> /dev/null; th
     exit 1
 fi
 
-log_warn "This script will DESTROY ALL VMs on this host and recreate '${VM_NAME}'."
+log_warn "This script will DESTROY ALL VMs on this host and recreate test-vm-${VM_INDEX} + sandbox-host-${VM_INDEX}."
 
 # ============================================================================
 # STEP 1: Ensure default network is active
@@ -132,6 +131,7 @@ rm -rf /var/lib/libvirt/images/cloud-init/* 2>/dev/null || true
 # Clean up old VM disks (except base images)
 log_info "Cleaning up old VM disks..."
 rm -f /var/lib/libvirt/images/test-vm-*.qcow2 2>/dev/null || true
+rm -f /var/lib/libvirt/images/sandbox-host-*.qcow2 2>/dev/null || true
 rm -f /var/lib/libvirt/images/sbx-*.qcow2 2>/dev/null || true
 
 # Clean up sandbox work directories
@@ -150,9 +150,9 @@ virsh net-start default > /dev/null 2>&1 || true
 log_success "DHCP leases flushed."
 
 # ============================================================================
-# STEP 3: Create Test VM (Ubuntu 22.04 Cloud Image)
+# STEP 3: Create Test VMs (Ubuntu 22.04 Cloud Image)
 # ============================================================================
-log_info "Creating fresh Ubuntu test VM '${VM_NAME}'..."
+log_info "Creating fresh test VMs..."
 
 IMAGE_DIR="/var/lib/libvirt/images"
 CLOUD_INIT_DIR="${IMAGE_DIR}/cloud-init"
@@ -177,71 +177,7 @@ else
     log_info "Base image already exists at $BASE_IMAGE_PATH"
 fi
 
-# 2. Create Disk for this VM (Copy-on-Write)
-VM_DISK="${IMAGE_DIR}/${VM_NAME}.qcow2"
-log_info "Creating VM disk: $VM_DISK"
-if [[ -f "$VM_DISK" ]]; then
-    rm -f "$VM_DISK"
-fi
-qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$VM_DISK" 10G
-
-# 3. Create Cloud-Init Config with proper network configuration
-# Store in persistent location so VM can access it on reboot
-SEED_DIR="${CLOUD_INIT_DIR}/${VM_NAME}"
-mkdir -p "$SEED_DIR"
-
-USER_DATA="${SEED_DIR}/user-data"
-META_DATA="${SEED_DIR}/meta-data"
-NETWORK_CONFIG="${SEED_DIR}/network-config"
-
-# Generate a unique instance-id for this VM
-INSTANCE_ID="${VM_NAME}-$(date +%s)"
-
-log_info "Creating cloud-init configuration with network settings..."
-
-# User-data: password, SSH, guest agent
-# NOTE: Network config is in separate network-config file, not here
-# Having it in both places can cause conflicts
-cat > "$USER_DATA" <<EOF
-#cloud-config
-password: ubuntu
-chpasswd: { expire: False }
-ssh_pwauth: True
-EOF
-
-# Add SSH users from file if provided
-if [[ -n "$SSH_USERS_FILE" ]] && [[ -f "$SSH_USERS_FILE" ]]; then
-    echo "" >> "$USER_DATA"
-    echo "users:" >> "$USER_DATA"
-    echo "  - default" >> "$USER_DATA"
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "$line" ]] && continue
-        [[ "$line" =~ ^#.*$ ]] && continue
-        username="${line%% *}"
-        pubkey="${line#* }"
-        cat >> "$USER_DATA" <<EOF
-  - name: ${username}
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    shell: /bin/bash
-    ssh_authorized_keys:
-      - ${pubkey}
-EOF
-    done < "$SSH_USERS_FILE"
-fi
-
-cat >> "$USER_DATA" <<EOF
-
-# Install and enable guest agent for better VM management
-packages:
-  - qemu-guest-agent
-
-# Enable guest agent on boot
-runcmd:
-  - systemctl enable qemu-guest-agent
-  - systemctl start qemu-guest-agent
-EOF
-
-# Add SSH public keys to KVM host for proxy jump access
+# Add SSH public keys to KVM host for proxy jump access (once, not per VM)
 if [[ -n "$SSH_USERS_FILE" ]] && [[ -f "$SSH_USERS_FILE" ]]; then
     log_info "Adding SSH public keys to KVM host authorized_keys..."
     HOST_SSH_DIR="/root/.ssh"
@@ -261,15 +197,94 @@ if [[ -n "$SSH_USERS_FILE" ]] && [[ -f "$SSH_USERS_FILE" ]]; then
     done < "$SSH_USERS_FILE"
 fi
 
-# Meta-data: unique instance-id is CRITICAL for cloud-init to run on clones
-cat > "$META_DATA" <<EOF
-instance-id: ${INSTANCE_ID}
-local-hostname: ${VM_NAME}
+# Arrays to track created VMs for summary
+CREATED_VM_NAMES=()
+CREATED_VM_IPS=()
+CREATED_VM_MACS=()
+CREATED_VM_DISKS=()
+
+# ============================================================================
+# create_vm: Create a single VM with cloud-init, wait for IP, verify network
+#
+# Arguments:
+#   $1 - vm_name (e.g. "test-vm-1")
+#   $2 - vm_index (numeric, for MAC generation)
+#   $3 - mac_prefix (e.g. "52:54:00" or "52:54:01")
+# ============================================================================
+create_vm() {
+    local vm_name="$1"
+    local vm_index="$2"
+    local mac_prefix="$3"
+
+    log_info "Creating VM '${vm_name}'..."
+
+    # Create Disk (Copy-on-Write)
+    local vm_disk="${IMAGE_DIR}/${vm_name}.qcow2"
+    log_info "Creating VM disk: $vm_disk"
+    if [[ -f "$vm_disk" ]]; then
+        rm -f "$vm_disk"
+    fi
+    qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE_PATH" "$vm_disk" 10G
+
+    # Create Cloud-Init Config
+    local seed_dir="${CLOUD_INIT_DIR}/${vm_name}"
+    mkdir -p "$seed_dir"
+
+    local user_data="${seed_dir}/user-data"
+    local meta_data="${seed_dir}/meta-data"
+    local network_config="${seed_dir}/network-config"
+    local instance_id="${vm_name}-$(date +%s)"
+
+    log_info "Creating cloud-init configuration for '${vm_name}'..."
+
+    # User-data: password, SSH, guest agent
+    cat > "$user_data" <<EOF
+#cloud-config
+password: ubuntu
+chpasswd: { expire: False }
+ssh_pwauth: True
 EOF
 
-# Network-config (NoCloud v2 format) - explicit network configuration
-# Use 'name: en*' to match interface names (ens3, enp1s0, etc.) - more reliable than driver matching
-cat > "$NETWORK_CONFIG" <<EOF
+    # Add SSH users from file if provided
+    if [[ -n "$SSH_USERS_FILE" ]] && [[ -f "$SSH_USERS_FILE" ]]; then
+        echo "" >> "$user_data"
+        echo "users:" >> "$user_data"
+        echo "  - default" >> "$user_data"
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" ]] && continue
+            [[ "$line" =~ ^#.*$ ]] && continue
+            local username="${line%% *}"
+            local pubkey="${line#* }"
+            cat >> "$user_data" <<EOF
+  - name: ${username}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${pubkey}
+EOF
+        done < "$SSH_USERS_FILE"
+    fi
+
+    cat >> "$user_data" <<EOF
+
+# Install and enable guest agent for better VM management
+packages:
+  - qemu-guest-agent
+
+# Enable guest agent on boot
+runcmd:
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+EOF
+
+    # Meta-data: unique instance-id is CRITICAL for cloud-init to run on clones
+    cat > "$meta_data" <<EOF
+instance-id: ${instance_id}
+local-hostname: ${vm_name}
+EOF
+
+    # Network-config (NoCloud v2 format)
+    cat > "$network_config" <<EOF
 version: 2
 ethernets:
   id0:
@@ -278,91 +293,95 @@ ethernets:
     dhcp4: true
 EOF
 
-log_success "Cloud-init config files created."
+    log_success "Cloud-init config files created for '${vm_name}'."
 
-# 4. Install/Boot VM using virt-install's native --cloud-init option
-# This uses SMBIOS to hint the datasource, which is more reliable than manual ISO
-log_info "Booting VM with virt-install --cloud-init..."
+    # Generate a deterministic MAC address based on VM index
+    local mac_suffix
+    mac_suffix=$(printf '%02x:%02x:%02x' $((vm_index / 256 / 256 % 256)) $((vm_index / 256 % 256)) $((vm_index % 256)))
+    local mac_address="${mac_prefix}:${mac_suffix}"
 
-# Generate a deterministic MAC address based on VM index to avoid conflicts
-# Using the QEMU/KVM prefix 52:54:00
-MAC_SUFFIX=$(printf '%02x:%02x:%02x' $((VM_INDEX / 256 / 256 % 256)) $((VM_INDEX / 256 % 256)) $((VM_INDEX % 256)))
-MAC_ADDRESS="52:54:00:${MAC_SUFFIX}"
+    log_info "Using MAC address: ${mac_address}"
 
-log_info "Using MAC address: ${MAC_ADDRESS}"
+    # Boot VM with virt-install
+    log_info "Booting VM '${vm_name}' with virt-install --cloud-init..."
 
-virt-install \
-    --name "${VM_NAME}" \
-    --memory 2048 \
-    --vcpus 2 \
-    --disk "${VM_DISK},device=disk,bus=virtio" \
-    --cloud-init user-data="${USER_DATA}",meta-data="${META_DATA}",network-config="${NETWORK_CONFIG}" \
-    --os-variant ubuntu22.04 \
-    --import \
-    --noautoconsole \
-    --graphics none \
-    --console pty,target_type=serial \
-    --network network=default,model=virtio,mac="${MAC_ADDRESS}"
+    virt-install \
+        --name "${vm_name}" \
+        --memory 2048 \
+        --vcpus 2 \
+        --disk "${vm_disk},device=disk,bus=virtio" \
+        --cloud-init user-data="${user_data}",meta-data="${meta_data}",network-config="${network_config}" \
+        --os-variant ubuntu22.04 \
+        --import \
+        --noautoconsole \
+        --graphics none \
+        --console pty,target_type=serial \
+        --network network=default,model=virtio,mac="${mac_address}"
 
-log_success "VM '${VM_NAME}' started!"
+    log_success "VM '${vm_name}' started!"
 
-# ============================================================================
-# STEP 4: Wait for VM to get IP address
-# ============================================================================
-log_info "Waiting for VM to obtain IP address (this may take 30-60 seconds)..."
+    # Wait for VM to get IP address
+    log_info "Waiting for '${vm_name}' to obtain IP address (this may take 30-60 seconds)..."
 
-MAX_WAIT=180
-WAIT_INTERVAL=5
-ELAPSED=0
-VM_IP=""
+    local max_wait=180
+    local wait_interval=5
+    local elapsed=0
+    local vm_ip=""
 
-while [[ $ELAPSED -lt $MAX_WAIT ]]; do
-    # Try to get IP from DHCP leases
-    VM_IP=$(virsh domifaddr "${VM_NAME}" --source lease 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1 || true)
+    while [[ $elapsed -lt $max_wait ]]; do
+        vm_ip=$(virsh domifaddr "${vm_name}" --source lease 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1 || true)
 
-    if [[ -n "$VM_IP" ]]; then
-        log_success "VM '${VM_NAME}' obtained IP address: ${VM_IP}"
-        break
+        if [[ -n "$vm_ip" ]]; then
+            log_success "VM '${vm_name}' obtained IP address: ${vm_ip}"
+            break
+        fi
+
+        log_info "Waiting for '${vm_name}' IP... (${elapsed}s / ${max_wait}s)"
+        sleep $wait_interval
+        elapsed=$((elapsed + wait_interval))
+    done
+
+    if [[ -z "$vm_ip" ]]; then
+        log_warn "VM '${vm_name}' did not obtain IP address within ${max_wait} seconds."
+        log_warn "Troubleshooting steps:"
+        log_warn "  1. Check VM is running: virsh list --all"
+        log_warn "  2. Check network interface: virsh domiflist ${vm_name}"
+        log_warn "  3. Check DHCP leases: virsh net-dhcp-leases default"
+        log_warn "  4. Access VM console: virsh console ${vm_name} (login: ubuntu/ubuntu)"
+        log_warn "  5. Inside VM, check: ip addr show; cloud-init status"
     fi
 
-    log_info "Waiting for IP... (${ELAPSED}s / ${MAX_WAIT}s)"
-    sleep $WAIT_INTERVAL
-    ELAPSED=$((ELAPSED + WAIT_INTERVAL))
-done
+    # Verify VM network interface
+    log_info "Verifying '${vm_name}' network configuration..."
 
-if [[ -z "$VM_IP" ]]; then
-    log_warn "VM did not obtain IP address within ${MAX_WAIT} seconds."
-    log_warn "This may indicate a network configuration issue."
-    log_warn "Troubleshooting steps:"
-    log_warn "  1. Check VM is running: virsh list --all"
-    log_warn "  2. Check network interface: virsh domiflist ${VM_NAME}"
-    log_warn "  3. Check DHCP leases: virsh net-dhcp-leases default"
-    log_warn "  4. Access VM console: virsh console ${VM_NAME} (login: ubuntu/ubuntu)"
-    log_warn "  5. Inside VM, check: ip addr show; cloud-init status"
-fi
+    local vm_mac
+    vm_mac=$(virsh domiflist "${vm_name}" 2>/dev/null | grep -oE '([0-9a-f]{2}:){5}[0-9a-f]{2}' | head -1 || true)
+    if [[ -n "$vm_mac" ]]; then
+        log_success "VM '${vm_name}' MAC address: ${vm_mac}"
+    else
+        log_warn "Could not determine MAC address for '${vm_name}'"
+    fi
 
-# ============================================================================
-# STEP 5: Verify VM network interface
-# ============================================================================
-log_info "Verifying VM network configuration..."
+    local iface
+    iface=$(virsh domiflist "${vm_name}" 2>/dev/null | awk 'NR>2 && $1 != "" {print $1}' | head -1 || true)
+    if [[ -n "$iface" ]]; then
+        log_info "Network interface: ${iface}"
+        virsh domifstat "${vm_name}" "${iface}" 2>/dev/null || true
+    fi
 
-# Check MAC address
-VM_MAC=$(virsh domiflist "${VM_NAME}" 2>/dev/null | grep -oE '([0-9a-f]{2}:){5}[0-9a-f]{2}' | head -1 || true)
-if [[ -n "$VM_MAC" ]]; then
-    log_success "VM MAC address: ${VM_MAC}"
-else
-    log_warn "Could not determine VM MAC address"
-fi
+    # Track results for summary
+    CREATED_VM_NAMES+=("$vm_name")
+    CREATED_VM_IPS+=("$vm_ip")
+    CREATED_VM_MACS+=("$vm_mac")
+    CREATED_VM_DISKS+=("$vm_disk")
+}
 
-# Check interface stats
-IFACE=$(virsh domiflist "${VM_NAME}" 2>/dev/null | awk 'NR>2 && $1 != "" {print $1}' | head -1 || true)
-if [[ -n "$IFACE" ]]; then
-    log_info "Network interface: ${IFACE}"
-    virsh domifstat "${VM_NAME}" "${IFACE}" 2>/dev/null || true
-fi
+# Create both VMs
+create_vm "test-vm-${VM_INDEX}" "$VM_INDEX" "52:54:00"
+create_vm "sandbox-host-${VM_INDEX}" "$VM_INDEX" "52:54:01"
 
 # ============================================================================
-# STEP 6: Final Summary
+# STEP 4: Final Summary
 # ============================================================================
 echo ""
 echo "============================================================================"
@@ -372,17 +391,21 @@ echo ""
 echo "Reset Summary:"
 echo "  - All previous VMs destroyed and undefined"
 echo "  - Cloud-init data cleaned up"
-echo "  - Test VM: '${VM_NAME}' has been created and started"
-echo "  - VM Disk: ${VM_DISK}"
+echo ""
+for i in "${!CREATED_VM_NAMES[@]}"; do
+    echo "  VM: '${CREATED_VM_NAMES[$i]}'"
+    echo "    - Disk: ${CREATED_VM_DISKS[$i]}"
+    if [[ -n "${CREATED_VM_MACS[$i]}" ]]; then
+        echo "    - MAC Address: ${CREATED_VM_MACS[$i]}"
+    fi
+    if [[ -n "${CREATED_VM_IPS[$i]}" ]]; then
+        echo "    - IP Address: ${CREATED_VM_IPS[$i]}"
+    else
+        echo "    - IP Address: (pending - check with 'virsh domifaddr ${CREATED_VM_NAMES[$i]} --source lease')"
+    fi
+done
+echo ""
 echo "  - Cloud-Init: virt-install --cloud-init (native injection)"
-if [[ -n "$VM_MAC" ]]; then
-    echo "  - MAC Address: ${VM_MAC}"
-fi
-if [[ -n "$VM_IP" ]]; then
-    echo "  - IP Address: ${VM_IP}"
-else
-    echo "  - IP Address: (pending - check with 'virsh domifaddr ${VM_NAME} --source lease')"
-fi
 echo "  - Login: ubuntu / ubuntu (password)"
 if [[ -n "$SSH_USERS_FILE" ]] && [[ -f "$SSH_USERS_FILE" ]]; then
     echo "  - SSH Users:"
@@ -396,20 +419,26 @@ fi
 echo ""
 echo "Useful commands:"
 echo "  virsh list --all                          # List all VMs"
-echo "  virsh domifaddr ${VM_NAME} --source lease # Get VM IP"
-echo "  virsh console ${VM_NAME}                  # Access VM console"
-echo "  ssh ubuntu@${VM_IP:-<IP>}                 # SSH to VM (password: ubuntu)"
+for i in "${!CREATED_VM_NAMES[@]}"; do
+    echo "  virsh domifaddr ${CREATED_VM_NAMES[$i]} --source lease # Get ${CREATED_VM_NAMES[$i]} IP"
+done
 echo ""
 
-# Verify the VM is in a good state for cloning
-log_info "Validating VM is ready for use as sandbox source..."
+# Verify the VMs are in a good state for cloning
+log_info "Validating VMs are ready for use as sandbox sources..."
 
-if [[ -n "$VM_IP" ]] && [[ -n "$VM_MAC" ]]; then
-    log_success "VM '${VM_NAME}' is ready for use as a sandbox source!"
-    log_success "You can now create sandboxes with: fluid create --source-vm=${VM_NAME}"
-else
-    log_warn "VM may not be fully ready. Please verify:"
-    log_warn "  - VM has IP: virsh domifaddr ${VM_NAME} --source lease"
-    log_warn "  - VM has MAC: virsh domiflist ${VM_NAME}"
-    log_warn "  - Run validation: fluid validate ${VM_NAME}"
+ALL_READY=true
+for i in "${!CREATED_VM_NAMES[@]}"; do
+    if [[ -n "${CREATED_VM_IPS[$i]}" ]] && [[ -n "${CREATED_VM_MACS[$i]}" ]]; then
+        log_success "VM '${CREATED_VM_NAMES[$i]}' is ready for use as a sandbox source!"
+    else
+        log_warn "VM '${CREATED_VM_NAMES[$i]}' may not be fully ready. Please verify:"
+        log_warn "  - VM has IP: virsh domifaddr ${CREATED_VM_NAMES[$i]} --source lease"
+        log_warn "  - VM has MAC: virsh domiflist ${CREATED_VM_NAMES[$i]}"
+        ALL_READY=false
+    fi
+done
+
+if [[ "$ALL_READY" == true ]]; then
+    log_success "All VMs are ready!"
 fi
