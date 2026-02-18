@@ -66,6 +66,9 @@ func (m *mockStore) CreateOrgMember(context.Context, *store.OrgMember) error { r
 func (m *mockStore) GetOrgMember(context.Context, string, string) (*store.OrgMember, error) {
 	return nil, nil
 }
+func (m *mockStore) GetOrgMemberByID(context.Context, string, string) (*store.OrgMember, error) {
+	return nil, nil
+}
 func (m *mockStore) ListOrgMembers(context.Context, string) ([]*store.OrgMember, error) {
 	return nil, nil
 }

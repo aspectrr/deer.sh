@@ -417,7 +417,10 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 				CurrentPeriodStart:   time.Now().UTC(),
 				CurrentPeriodEnd:     time.Now().UTC().AddDate(0, 1, 0),
 			}
-			_ = s.store.CreateSubscription(r.Context(), sub)
+			if err := s.store.CreateSubscription(r.Context(), sub); err != nil {
+				serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create subscription"))
+				return
+			}
 		}
 
 	case "customer.subscription.updated":
@@ -425,21 +428,18 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
 			break
 		}
-		existing, err := s.store.GetSubscriptionByOrg(r.Context(), "")
-		if err != nil {
-			// Try to find by stripe subscription ID - fallback to customer lookup
-			if sub.Customer != nil {
-				org, err := s.store.GetOrganizationByStripeCustomerID(r.Context(), sub.Customer.ID)
-				if err != nil {
-					break
-				}
-				existing, err = s.store.GetSubscriptionByOrg(r.Context(), org.ID)
-				if err != nil {
-					break
-				}
-			} else {
+		var existing *store.Subscription
+		if sub.Customer != nil {
+			org, err := s.store.GetOrganizationByStripeCustomerID(r.Context(), sub.Customer.ID)
+			if err != nil {
 				break
 			}
+			existing, err = s.store.GetSubscriptionByOrg(r.Context(), org.ID)
+			if err != nil {
+				break
+			}
+		} else {
+			break
 		}
 		existing.Status = store.SubscriptionStatus(sub.Status)
 		_ = s.store.UpdateSubscription(r.Context(), existing)

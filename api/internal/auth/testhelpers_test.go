@@ -103,6 +103,9 @@ func (m *mockStore) CreateOrgMember(context.Context, *store.OrgMember) error {
 func (m *mockStore) GetOrgMember(context.Context, string, string) (*store.OrgMember, error) {
 	panic("mockStore: GetOrgMember not implemented")
 }
+func (m *mockStore) GetOrgMemberByID(context.Context, string, string) (*store.OrgMember, error) {
+	panic("mockStore: GetOrgMemberByID not implemented")
+}
 func (m *mockStore) ListOrgMembers(context.Context, string) ([]*store.OrgMember, error) {
 	panic("mockStore: ListOrgMembers not implemented")
 }

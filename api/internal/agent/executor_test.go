@@ -102,6 +102,9 @@ func (m *mockDataStore) CreateOrgMember(context.Context, *store.OrgMember) error
 func (m *mockDataStore) GetOrgMember(context.Context, string, string) (*store.OrgMember, error) {
 	return nil, nil
 }
+func (m *mockDataStore) GetOrgMemberByID(context.Context, string, string) (*store.OrgMember, error) {
+	return nil, nil
+}
 func (m *mockDataStore) ListOrgMembers(context.Context, string) ([]*store.OrgMember, error) {
 	return nil, nil
 }
@@ -418,6 +421,9 @@ func TestExecuteTool_CreatePlaybook(t *testing.T) {
 func TestExecuteTool_DeletePlaybook(t *testing.T) {
 	var deletedID string
 	ms := &mockDataStore{
+		GetPlaybookFn: func(_ context.Context, id string) (*store.Playbook, error) {
+			return &store.Playbook{ID: id, OrgID: "org-1"}, nil
+		},
 		DeletePlaybookFn: func(_ context.Context, id string) error {
 			deletedID = id
 			return nil
@@ -478,6 +484,9 @@ func TestExecuteTool_ListPlaybooks(t *testing.T) {
 func TestExecuteTool_AddPlaybookTask(t *testing.T) {
 	var capturedTask *store.PlaybookTask
 	ms := &mockDataStore{
+		GetPlaybookFn: func(_ context.Context, id string) (*store.Playbook, error) {
+			return &store.Playbook{ID: id, OrgID: "org-1"}, nil
+		},
 		ListPlaybookTasksFn: func(_ context.Context, _ string) ([]*store.PlaybookTask, error) {
 			return nil, nil // empty tasks list
 		},

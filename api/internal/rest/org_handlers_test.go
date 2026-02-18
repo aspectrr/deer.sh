@@ -372,6 +372,14 @@ func TestHandleRemoveMember(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ms := &mockStore{}
 		setupOrgMembership(ms)
+		ms.GetOrgMemberByIDFn = func(_ context.Context, orgID, memberID string) (*store.OrgMember, error) {
+			return &store.OrgMember{
+				ID:     memberID,
+				OrgID:  orgID,
+				UserID: "USR-target",
+				Role:   store.OrgRoleMember,
+			}, nil
+		}
 		ms.DeleteOrgMemberFn = func(_ context.Context, orgID, id string) error {
 			return nil
 		}
@@ -421,7 +429,13 @@ func TestHandleRemoveMember(t *testing.T) {
 	t.Run("IDOR cross-org member deletion returns 404", func(t *testing.T) {
 		ms := &mockStore{}
 		setupOrgMembership(ms)
-		// DeleteOrgMember scopes by org_id: member exists in another org but not in testOrg
+		// GetOrgMemberByID scopes by org_id: member exists in another org but not in testOrg
+		ms.GetOrgMemberByIDFn = func(_ context.Context, orgID, memberID string) (*store.OrgMember, error) {
+			if orgID == testOrg.ID {
+				return nil, store.ErrNotFound
+			}
+			return &store.OrgMember{ID: memberID, OrgID: orgID, Role: store.OrgRoleMember}, nil
+		}
 		ms.DeleteOrgMemberFn = func(_ context.Context, orgID, id string) error {
 			if orgID == testOrg.ID {
 				return store.ErrNotFound

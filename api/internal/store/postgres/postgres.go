@@ -756,6 +756,14 @@ func (s *postgresStore) GetOrgMember(ctx context.Context, orgID, userID string) 
 	return memberFromModel(&model), nil
 }
 
+func (s *postgresStore) GetOrgMemberByID(ctx context.Context, orgID, memberID string) (*store.OrgMember, error) {
+	var model OrgMemberModel
+	if err := s.db.WithContext(ctx).Where("id = ? AND org_id = ?", memberID, orgID).First(&model).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	return memberFromModel(&model), nil
+}
+
 func (s *postgresStore) ListOrgMembers(ctx context.Context, orgID string) ([]*store.OrgMember, error) {
 	var models []OrgMemberModel
 	if err := s.db.WithContext(ctx).Where("org_id = ?", orgID).Find(&models).Error; err != nil {

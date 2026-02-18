@@ -261,6 +261,10 @@ func (m *mockStore) GetOrgMember(ctx context.Context, orgID, userID string) (*st
 	m.p("GetOrgMember")
 	return nil, nil
 }
+func (m *mockStore) GetOrgMemberByID(ctx context.Context, orgID, memberID string) (*store.OrgMember, error) {
+	m.p("GetOrgMemberByID")
+	return nil, nil
+}
 func (m *mockStore) ListOrgMembers(ctx context.Context, orgID string) ([]*store.OrgMember, error) {
 	if m.ListOrgMembersFn != nil {
 		return m.ListOrgMembersFn(ctx, orgID)

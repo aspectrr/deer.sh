@@ -36,13 +36,18 @@ type orgResponse struct {
 
 func toOrgResponse(o *store.Organization) *orgResponse {
 	return &orgResponse{
-		ID:               o.ID,
-		Name:             o.Name,
-		Slug:             o.Slug,
-		OwnerID:          o.OwnerID,
-		StripeCustomerID: o.StripeCustomerID,
-		CreatedAt:        o.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:        o.ID,
+		Name:      o.Name,
+		Slug:      o.Slug,
+		OwnerID:   o.OwnerID,
+		CreatedAt: o.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
+}
+
+func toOrgResponseForOwner(o *store.Organization) *orgResponse {
+	r := toOrgResponse(o)
+	r.StripeCustomerID = o.StripeCustomerID
+	return r
 }
 
 // handleCreateOrg godoc
@@ -110,7 +115,7 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = serverJSON.RespondJSON(w, http.StatusCreated, toOrgResponse(org))
+	_ = serverJSON.RespondJSON(w, http.StatusCreated, toOrgResponseForOwner(org))
 }
 
 // --- List Orgs ---
@@ -172,13 +177,17 @@ func (s *Server) handleGetOrg(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check membership
-	_, err = s.store.GetOrgMember(r.Context(), org.ID, user.ID)
+	member, err := s.store.GetOrgMember(r.Context(), org.ID, user.ID)
 	if err != nil {
 		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("not a member of this organization"))
 		return
 	}
 
-	_ = serverJSON.RespondJSON(w, http.StatusOK, toOrgResponse(org))
+	if member.Role == store.OrgRoleOwner {
+		_ = serverJSON.RespondJSON(w, http.StatusOK, toOrgResponseForOwner(org))
+	} else {
+		_ = serverJSON.RespondJSON(w, http.StatusOK, toOrgResponse(org))
+	}
 }
 
 // --- Update Org ---
@@ -470,6 +479,21 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 	callerMember, err := s.store.GetOrgMember(r.Context(), org.ID, user.ID)
 	if err != nil || (callerMember.Role != store.OrgRoleOwner && callerMember.Role != store.OrgRoleAdmin) {
 		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("insufficient permissions"))
+		return
+	}
+
+	// Prevent removing the org owner
+	targetMember, err := s.store.GetOrgMemberByID(r.Context(), org.ID, memberID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("member not found"))
+			return
+		}
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to get member"))
+		return
+	}
+	if targetMember.Role == store.OrgRoleOwner {
+		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("cannot remove the organization owner"))
 		return
 	}
 

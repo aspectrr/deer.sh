@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
@@ -14,6 +15,8 @@ import (
 	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
+
+var oauthHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 // handleHealth godoc
 // @Summary      Health check
@@ -290,13 +293,13 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch user info from GitHub
-	ghUser, err := fetchGitHubUser(r.Context(), token.AccessToken)
+	ghUser, emailVerified, err := fetchGitHubUser(r.Context(), token.AccessToken)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to fetch GitHub user: %w", err))
 		return
 	}
 
-	user, err := s.findOrCreateOAuthUser(r.Context(), "github", fmt.Sprintf("%d", ghUser.ID), ghUser.Email, ghUser.Name, ghUser.AvatarURL, token.AccessToken, token.RefreshToken)
+	user, err := s.findOrCreateOAuthUser(r.Context(), "github", fmt.Sprintf("%d", ghUser.ID), ghUser.Email, ghUser.Name, ghUser.AvatarURL, token.AccessToken, token.RefreshToken, emailVerified)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to process OAuth user: %w", err))
 		return
@@ -373,7 +376,7 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.findOrCreateOAuthUser(r.Context(), "google", gUser.ID, gUser.Email, gUser.Name, gUser.Picture, token.AccessToken, token.RefreshToken)
+	user, err := s.findOrCreateOAuthUser(r.Context(), "google", gUser.ID, gUser.Email, gUser.Name, gUser.Picture, token.AccessToken, token.RefreshToken, gUser.EmailVerified)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to process OAuth user: %w", err))
 		return
@@ -398,70 +401,98 @@ type githubUserInfo struct {
 	AvatarURL string `json:"avatar_url"`
 }
 
-func fetchGitHubUser(ctx context.Context, accessToken string) (*githubUserInfo, error) {
+func fetchGitHubUser(ctx context.Context, accessToken string) (*githubUserInfo, bool, error) {
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("GitHub user API returned status %d", resp.StatusCode)
+	}
 	body, _ := io.ReadAll(resp.Body)
 	var user githubUserInfo
 	if err := json.Unmarshal(body, &user); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	// Fetch primary email if not set
+	emailVerified := false
 	if user.Email == "" {
-		user.Email, _ = fetchGitHubPrimaryEmail(ctx, accessToken)
+		email, verified, err := fetchGitHubPrimaryEmail(ctx, accessToken)
+		if err == nil {
+			user.Email = email
+			emailVerified = verified
+		}
+	} else {
+		// Email from /user endpoint - check verification via emails API
+		_, verified, err := fetchGitHubPrimaryEmail(ctx, accessToken)
+		if err == nil {
+			emailVerified = verified
+		}
 	}
 
-	return &user, nil
+	return &user, emailVerified, nil
 }
 
-func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
+func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, bool, error) {
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user/emails", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return "", false, fmt.Errorf("GitHub emails API returned status %d", resp.StatusCode)
+	}
 	body, _ := io.ReadAll(resp.Body)
 	var emails []struct {
-		Email   string `json:"email"`
-		Primary bool   `json:"primary"`
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
 	}
 	if err := json.Unmarshal(body, &emails); err != nil {
-		return "", err
+		return "", false, err
 	}
+	// Prefer verified+primary
+	for _, e := range emails {
+		if e.Primary && e.Verified {
+			return e.Email, true, nil
+		}
+	}
+	// Fall back to any primary
 	for _, e := range emails {
 		if e.Primary {
-			return e.Email, nil
+			return e.Email, e.Verified, nil
 		}
 	}
 	if len(emails) > 0 {
-		return emails[0].Email, nil
+		return emails[0].Email, emails[0].Verified, nil
 	}
-	return "", fmt.Errorf("no email found")
+	return "", false, fmt.Errorf("no email found")
 }
 
 type googleUserInfo struct {
-	ID      string `json:"sub"`
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Picture string `json:"picture"`
+	ID            string `json:"sub"`
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	Picture       string `json:"picture"`
+	EmailVerified bool   `json:"email_verified"`
 }
 
 func fetchGoogleUser(ctx context.Context, accessToken string) (*googleUserInfo, error) {
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://www.googleapis.com/oauth2/v3/userinfo", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("google userinfo API returned status %d", resp.StatusCode)
+	}
 	body, _ := io.ReadAll(resp.Body)
 	var user googleUserInfo
 	if err := json.Unmarshal(body, &user); err != nil {
@@ -470,7 +501,7 @@ func fetchGoogleUser(ctx context.Context, accessToken string) (*googleUserInfo, 
 	return &user, nil
 }
 
-func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID, email, name, avatarURL, accessToken, refreshToken string) (*store.User, error) {
+func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID, email, name, avatarURL, accessToken, refreshToken string, emailVerified bool) (*store.User, error) {
 	// Check if OAuth account exists
 	oa, err := s.store.GetOAuthAccount(ctx, provider, providerID)
 	if err == nil {
@@ -495,7 +526,7 @@ func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID
 			Email:         email,
 			DisplayName:   name,
 			AvatarURL:     avatarURL,
-			EmailVerified: true,
+			EmailVerified: emailVerified,
 		}
 		if err := s.store.CreateUser(ctx, user); err != nil {
 			return nil, err

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
@@ -177,27 +178,36 @@ func envOr(key, fallback string) string {
 
 func envInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			slog.Warn("invalid integer for env var, using default", "key", key, "value", v, "default", fallback)
+			return fallback
 		}
+		return n
 	}
 	return fallback
 }
 
 func envBool(key string, fallback bool) bool {
 	if v := os.Getenv(key); v != "" {
-		if b, err := strconv.ParseBool(v); err == nil {
-			return b
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			slog.Warn("invalid boolean for env var, using default", "key", key, "value", v, "default", fallback)
+			return fallback
 		}
+		return b
 	}
 	return fallback
 }
 
 func envDuration(key string, fallback time.Duration) time.Duration {
 	if v := os.Getenv(key); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			return d
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			slog.Warn("invalid duration for env var, using default", "key", key, "value", v, "default", fallback)
+			return fallback
 		}
+		return d
 	}
 	return fallback
 }

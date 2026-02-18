@@ -29,21 +29,21 @@ func (c *Client) ExecuteTool(ctx context.Context, orgID, name string, args json.
 	case "list_sandboxes":
 		return c.execListSandboxes(ctx, orgID)
 	case "get_sandbox":
-		return c.execGetSandbox(ctx, params)
+		return c.execGetSandbox(ctx, orgID, params)
 	case "destroy_sandbox":
-		return c.execDestroySandbox(ctx, params)
+		return c.execDestroySandbox(ctx, orgID, params)
 	case "start_sandbox":
-		return c.execStartSandbox(ctx, params)
+		return c.execStartSandbox(ctx, orgID, params)
 	case "stop_sandbox":
-		return c.execStopSandbox(ctx, params)
+		return c.execStopSandbox(ctx, orgID, params)
 	case "run_command":
-		return c.execRunCommand(ctx, params)
+		return c.execRunCommand(ctx, orgID, params)
 	case "get_sandbox_ip":
-		return c.execGetSandboxIP(ctx, params)
+		return c.execGetSandboxIP(ctx, orgID, params)
 	case "create_snapshot":
-		return c.execCreateSnapshot(ctx, params)
+		return c.execCreateSnapshot(ctx, orgID, params)
 	case "list_commands":
-		return c.execListCommands(ctx, params)
+		return c.execListCommands(ctx, orgID, params)
 
 	// Source VM tools
 	case "list_vms":
@@ -65,19 +65,19 @@ func (c *Client) ExecuteTool(ctx context.Context, orgID, name string, args json.
 	case "create_playbook":
 		return c.execCreatePlaybook(ctx, orgID, params)
 	case "update_playbook":
-		return c.execUpdatePlaybook(ctx, params)
+		return c.execUpdatePlaybook(ctx, orgID, params)
 	case "delete_playbook":
-		return c.execDeletePlaybook(ctx, params)
+		return c.execDeletePlaybook(ctx, orgID, params)
 	case "list_playbooks":
 		return c.execListPlaybooks(ctx, orgID)
 	case "add_playbook_task":
-		return c.execAddPlaybookTask(ctx, params)
+		return c.execAddPlaybookTask(ctx, orgID, params)
 	case "update_playbook_task":
-		return c.execUpdatePlaybookTask(ctx, params)
+		return c.execUpdatePlaybookTask(ctx, orgID, params)
 	case "delete_playbook_task":
-		return c.execDeletePlaybookTask(ctx, params)
+		return c.execDeletePlaybookTask(ctx, orgID, params)
 	case "reorder_playbook_tasks":
-		return c.execReorderPlaybookTasks(ctx, params)
+		return c.execReorderPlaybookTasks(ctx, orgID, params)
 
 	default:
 		return jsonResult(map[string]string{"error": "unknown tool: " + name})
@@ -110,15 +110,18 @@ func (c *Client) execListSandboxes(ctx context.Context, orgID string) (string, e
 	return jsonResult(map[string]any{"sandboxes": sandboxes, "count": len(sandboxes)})
 }
 
-func (c *Client) execGetSandbox(ctx context.Context, params map[string]any) (string, error) {
-	sandbox, err := c.orchestrator.GetSandbox(ctx, strParam(params, "sandbox_id"))
+func (c *Client) execGetSandbox(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	sandbox, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(sandbox)
 }
 
-func (c *Client) execDestroySandbox(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execDestroySandbox(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	err := c.orchestrator.DestroySandbox(ctx, strParam(params, "sandbox_id"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
@@ -126,7 +129,10 @@ func (c *Client) execDestroySandbox(ctx context.Context, params map[string]any) 
 	return jsonResult(map[string]any{"destroyed": true, "sandbox_id": strParam(params, "sandbox_id")})
 }
 
-func (c *Client) execStartSandbox(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execStartSandbox(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	err := c.orchestrator.StartSandbox(ctx, strParam(params, "sandbox_id"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
@@ -134,7 +140,10 @@ func (c *Client) execStartSandbox(ctx context.Context, params map[string]any) (s
 	return jsonResult(map[string]any{"started": true, "sandbox_id": strParam(params, "sandbox_id")})
 }
 
-func (c *Client) execStopSandbox(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execStopSandbox(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	err := c.orchestrator.StopSandbox(ctx, strParam(params, "sandbox_id"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
@@ -142,7 +151,10 @@ func (c *Client) execStopSandbox(ctx context.Context, params map[string]any) (st
 	return jsonResult(map[string]any{"stopped": true, "sandbox_id": strParam(params, "sandbox_id")})
 }
 
-func (c *Client) execRunCommand(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execRunCommand(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	result, err := c.orchestrator.RunCommand(ctx, strParam(params, "sandbox_id"), strParam(params, "command"), intParam(params, "timeout_seconds"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
@@ -150,15 +162,18 @@ func (c *Client) execRunCommand(ctx context.Context, params map[string]any) (str
 	return jsonResult(result)
 }
 
-func (c *Client) execGetSandboxIP(ctx context.Context, params map[string]any) (string, error) {
-	sandbox, err := c.orchestrator.GetSandbox(ctx, strParam(params, "sandbox_id"))
+func (c *Client) execGetSandboxIP(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	sandbox, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(map[string]any{"sandbox_id": sandbox.ID, "ip_address": sandbox.IPAddress})
 }
 
-func (c *Client) execCreateSnapshot(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execCreateSnapshot(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	result, err := c.orchestrator.CreateSnapshot(ctx, strParam(params, "sandbox_id"), strParam(params, "name"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
@@ -166,7 +181,10 @@ func (c *Client) execCreateSnapshot(ctx context.Context, params map[string]any) 
 	return jsonResult(result)
 }
 
-func (c *Client) execListCommands(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execListCommands(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkSandboxOrg(ctx, orgID, strParam(params, "sandbox_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	commands, err := c.orchestrator.ListCommands(ctx, strParam(params, "sandbox_id"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
@@ -241,8 +259,8 @@ func (c *Client) execCreatePlaybook(ctx context.Context, orgID string, params ma
 	return jsonResult(pb)
 }
 
-func (c *Client) execUpdatePlaybook(ctx context.Context, params map[string]any) (string, error) {
-	pb, err := c.store.GetPlaybook(ctx, strParam(params, "playbook_id"))
+func (c *Client) execUpdatePlaybook(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	pb, err := c.checkPlaybookOrg(ctx, orgID, strParam(params, "playbook_id"))
 	if err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
@@ -258,7 +276,10 @@ func (c *Client) execUpdatePlaybook(ctx context.Context, params map[string]any) 
 	return jsonResult(pb)
 }
 
-func (c *Client) execDeletePlaybook(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execDeletePlaybook(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkPlaybookOrg(ctx, orgID, strParam(params, "playbook_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	if err := c.store.DeletePlaybook(ctx, strParam(params, "playbook_id")); err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
@@ -273,7 +294,11 @@ func (c *Client) execListPlaybooks(ctx context.Context, orgID string) (string, e
 	return jsonResult(map[string]any{"playbooks": playbooks, "count": len(playbooks)})
 }
 
-func (c *Client) execAddPlaybookTask(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execAddPlaybookTask(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkPlaybookOrg(ctx, orgID, strParam(params, "playbook_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
+
 	paramsJSON := "{}"
 	if p, ok := params["params"]; ok {
 		b, _ := json.Marshal(p)
@@ -298,9 +323,12 @@ func (c *Client) execAddPlaybookTask(ctx context.Context, params map[string]any)
 	return jsonResult(task)
 }
 
-func (c *Client) execUpdatePlaybookTask(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execUpdatePlaybookTask(ctx context.Context, orgID string, params map[string]any) (string, error) {
 	task, err := c.store.GetPlaybookTask(ctx, strParam(params, "task_id"))
 	if err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
+	if _, err := c.checkPlaybookOrg(ctx, orgID, task.PlaybookID); err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	if name := strParam(params, "name"); name != "" {
@@ -319,14 +347,24 @@ func (c *Client) execUpdatePlaybookTask(ctx context.Context, params map[string]a
 	return jsonResult(task)
 }
 
-func (c *Client) execDeletePlaybookTask(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execDeletePlaybookTask(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	task, err := c.store.GetPlaybookTask(ctx, strParam(params, "task_id"))
+	if err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
+	if _, err := c.checkPlaybookOrg(ctx, orgID, task.PlaybookID); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	if err := c.store.DeletePlaybookTask(ctx, strParam(params, "task_id")); err != nil {
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(map[string]any{"deleted": true, "task_id": strParam(params, "task_id")})
 }
 
-func (c *Client) execReorderPlaybookTasks(ctx context.Context, params map[string]any) (string, error) {
+func (c *Client) execReorderPlaybookTasks(ctx context.Context, orgID string, params map[string]any) (string, error) {
+	if _, err := c.checkPlaybookOrg(ctx, orgID, strParam(params, "playbook_id")); err != nil {
+		return jsonResult(map[string]string{"error": err.Error()})
+	}
 	var taskIDs []string
 	if ids, ok := params["task_ids"]; ok {
 		if arr, ok := ids.([]any); ok {
@@ -341,6 +379,30 @@ func (c *Client) execReorderPlaybookTasks(ctx context.Context, params map[string
 		return jsonResult(map[string]string{"error": err.Error()})
 	}
 	return jsonResult(map[string]any{"reordered": true})
+}
+
+// --- Org ownership checks ---
+
+func (c *Client) checkSandboxOrg(ctx context.Context, orgID, sandboxID string) (*store.Sandbox, error) {
+	sandbox, err := c.orchestrator.GetSandbox(ctx, sandboxID)
+	if err != nil {
+		return nil, err
+	}
+	if sandbox.OrgID != orgID {
+		return nil, fmt.Errorf("sandbox does not belong to this organization")
+	}
+	return sandbox, nil
+}
+
+func (c *Client) checkPlaybookOrg(ctx context.Context, orgID, playbookID string) (*store.Playbook, error) {
+	pb, err := c.store.GetPlaybook(ctx, playbookID)
+	if err != nil {
+		return nil, err
+	}
+	if pb.OrgID != orgID {
+		return nil, fmt.Errorf("playbook does not belong to this organization")
+	}
+	return pb, nil
 }
 
 // --- Helpers ---

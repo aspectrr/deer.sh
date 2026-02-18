@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -41,10 +42,16 @@ func main() {
 	logger := setupLogger(cfg.Logging.Level, cfg.Logging.Format)
 	slog.SetDefault(logger)
 
+	redactedDB := cfg.Database.URL
+	if u, err := url.Parse(cfg.Database.URL); err == nil && u.User != nil {
+		u.User = url.UserPassword("***", "***")
+		redactedDB = u.String()
+	}
+
 	logger.Info("starting fluid API",
 		"rest_addr", cfg.API.Addr,
 		"grpc_addr", cfg.GRPC.Address,
-		"db", cfg.Database.URL,
+		"db", redactedDB,
 	)
 
 	// 1. Initialize shared Postgres store.

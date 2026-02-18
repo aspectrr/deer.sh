@@ -558,7 +558,7 @@ func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, er
 }
 
 // PrepareSourceVM sends a prepare command to the host that owns the source VM.
-func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUser, keyPath string) (any, error) {
+func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUser, keyPath string) (*fluidv1.SourceVMPrepared, error) {
 	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
 	if err != nil {
 		return nil, err
@@ -593,7 +593,7 @@ func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUs
 }
 
 // ValidateSourceVM sends a validate command to the host that owns the source VM.
-func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName string) (any, error) {
+func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName string) (*fluidv1.SourceVMValidation, error) {
 	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
 	if err != nil {
 		return nil, err

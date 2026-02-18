@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -111,7 +112,7 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	go h.monitorHeartbeat(ctx, hostID, logger)
+	go h.monitorHeartbeat(ctx, cancel, hostID, logger)
 
 	// Cleanup on disconnect.
 	defer func() {
@@ -224,9 +225,12 @@ func (h *StreamHandler) GetStream(hostID string) (fluidv1.HostService_ConnectSer
 	return v.(fluidv1.HostService_ConnectServer), true
 }
 
-func (h *StreamHandler) monitorHeartbeat(ctx context.Context, hostID string, logger *slog.Logger) {
+func (h *StreamHandler) monitorHeartbeat(ctx context.Context, cancel context.CancelFunc, hostID string, logger *slog.Logger) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+
+	consecutiveMisses := 0
+	const maxMisses = 3
 
 	for {
 		select {
@@ -238,10 +242,19 @@ func (h *StreamHandler) monitorHeartbeat(ctx context.Context, hostID string, log
 				return
 			}
 			if time.Since(host.LastHeartbeat) > h.heartbeatTimeout {
+				consecutiveMisses++
 				logger.Warn("host heartbeat overdue",
 					"last_heartbeat", host.LastHeartbeat,
 					"overdue_by", time.Since(host.LastHeartbeat)-h.heartbeatTimeout,
+					"consecutive_misses", consecutiveMisses,
 				)
+				if consecutiveMisses >= maxMisses {
+					logger.Error("host heartbeat missed too many times, disconnecting", "consecutive_misses", consecutiveMisses)
+					cancel()
+					return
+				}
+			} else {
+				consecutiveMisses = 0
 			}
 		}
 	}
@@ -250,6 +263,10 @@ func (h *StreamHandler) monitorHeartbeat(ctx context.Context, hostID string, log
 func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID, orgID string, reg *fluidv1.HostRegistration) {
 	existing, err := h.store.GetHost(ctx, hostID)
 	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			h.logger.Error("failed to look up host in store", "host_id", hostID, "error", err)
+			return
+		}
 		host := hostFromRegistration(hostID, orgID, reg)
 		if createErr := h.store.CreateHost(ctx, host); createErr != nil {
 			h.logger.Error("failed to create host in store", "host_id", hostID, "error", createErr)

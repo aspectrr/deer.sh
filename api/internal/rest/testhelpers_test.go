@@ -48,10 +48,11 @@ type mockStore struct {
 	DeleteOrganizationFn      func(ctx context.Context, id string) error
 
 	// OrgMember
-	CreateOrgMemberFn func(ctx context.Context, m *store.OrgMember) error
-	GetOrgMemberFn    func(ctx context.Context, orgID, userID string) (*store.OrgMember, error)
-	ListOrgMembersFn  func(ctx context.Context, orgID string) ([]*store.OrgMember, error)
-	DeleteOrgMemberFn func(ctx context.Context, orgID, id string) error
+	CreateOrgMemberFn  func(ctx context.Context, m *store.OrgMember) error
+	GetOrgMemberFn     func(ctx context.Context, orgID, userID string) (*store.OrgMember, error)
+	GetOrgMemberByIDFn func(ctx context.Context, orgID, memberID string) (*store.OrgMember, error)
+	ListOrgMembersFn   func(ctx context.Context, orgID string) ([]*store.OrgMember, error)
+	DeleteOrgMemberFn  func(ctx context.Context, orgID, id string) error
 
 	// Subscription
 	CreateSubscriptionFn   func(ctx context.Context, sub *store.Subscription) error
@@ -287,6 +288,13 @@ func (m *mockStore) GetOrgMember(ctx context.Context, orgID, userID string) (*st
 		return m.GetOrgMemberFn(ctx, orgID, userID)
 	}
 	m.call("GetOrgMember")
+	return nil, nil
+}
+func (m *mockStore) GetOrgMemberByID(ctx context.Context, orgID, memberID string) (*store.OrgMember, error) {
+	if m.GetOrgMemberByIDFn != nil {
+		return m.GetOrgMemberByIDFn(ctx, orgID, memberID)
+	}
+	m.call("GetOrgMemberByID")
 	return nil, nil
 }
 func (m *mockStore) ListOrgMembers(ctx context.Context, orgID string) ([]*store.OrgMember, error) {
