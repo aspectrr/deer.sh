@@ -55,6 +55,10 @@ func (s *Server) handleCreateSandbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		s.telemetry.Track(user.ID, "sandbox_created", map[string]any{"org_id": org.ID, "source_vm": req.SourceVM})
+	}
+
 	_ = serverJSON.RespondJSON(w, http.StatusCreated, sandbox)
 }
 
@@ -157,6 +161,10 @@ func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to destroy sandbox", "sandbox_id", sandboxID, "error", err)
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to destroy sandbox"))
 		return
+	}
+
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		s.telemetry.Track(user.ID, "sandbox_destroyed", map[string]any{"org_id": org.ID})
 	}
 
 	_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]any{

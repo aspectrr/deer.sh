@@ -30,7 +30,7 @@ const (
 	timeoutPrepareVM      = 5 * time.Minute
 	timeoutDiscoverHosts  = 2 * time.Minute
 	timeoutReadFile       = 30 * time.Second
-	commandTimeoutBuffer  = 30 // seconds added to user-specified timeout
+	commandTimeoutBuffer  = 30 * time.Second
 )
 
 // HostSender abstracts the ability to send a ControlMessage to a specific host
@@ -95,7 +95,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	host, err := SelectHost(o.registry, baseImage, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
 	if err != nil {
 		if req.SourceVM != "" {
-			host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout)
+			host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
 			if err != nil {
 				return nil, fmt.Errorf("select host: %w", err)
 			}
@@ -311,7 +311,7 @@ func (o *Orchestrator) RunCommand(ctx context.Context, sandboxID, command string
 
 	startedAt := time.Now()
 
-	resp, err := o.sender.SendAndWait(sandbox.HostID, cmd, time.Duration(timeoutSec+commandTimeoutBuffer)*time.Second)
+	resp, err := o.sender.SendAndWait(sandbox.HostID, cmd, time.Duration(timeoutSec)*time.Second+commandTimeoutBuffer)
 	if err != nil {
 		return nil, fmt.Errorf("run command on host %s: %w", sandbox.HostID, err)
 	}
@@ -348,6 +348,13 @@ func (o *Orchestrator) StartSandbox(ctx context.Context, sandboxID string) error
 	sandbox, err := o.store.GetSandbox(ctx, sandboxID)
 	if err != nil {
 		return fmt.Errorf("get sandbox: %w", err)
+	}
+
+	if sandbox.State == store.SandboxStateRunning {
+		return fmt.Errorf("sandbox is already running")
+	}
+	if sandbox.State == store.SandboxStateDestroyed {
+		return fmt.Errorf("sandbox is destroyed")
 	}
 
 	reqID := uuid.New().String()
@@ -387,6 +394,13 @@ func (o *Orchestrator) StopSandbox(ctx context.Context, sandboxID string) error 
 	sandbox, err := o.store.GetSandbox(ctx, sandboxID)
 	if err != nil {
 		return fmt.Errorf("get sandbox: %w", err)
+	}
+
+	if sandbox.State == store.SandboxStateStopped {
+		return fmt.Errorf("sandbox is already stopped")
+	}
+	if sandbox.State == store.SandboxStateDestroyed {
+		return fmt.Errorf("sandbox is destroyed")
 	}
 
 	reqID := uuid.New().String()
@@ -595,13 +609,16 @@ func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, er
 		})
 	}
 
+	// g.Wait always returns nil because goroutines handle errors internally
+	// (log warning + fall back to cached registration data). Partial results
+	// are returned intentionally.
 	_ = g.Wait()
 	return result, nil
 }
 
 // PrepareSourceVM sends a prepare command to the host that owns the source VM.
 func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUser, keyPath string) (*fluidv1.SourceVMPrepared, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -636,7 +653,7 @@ func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUs
 
 // ValidateSourceVM sends a validate command to the host that owns the source VM.
 func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName string) (*fluidv1.SourceVMValidation, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +686,7 @@ func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName strin
 
 // RunSourceCommand executes a read-only command on a source VM via the host.
 func (o *Orchestrator) RunSourceCommand(ctx context.Context, orgID, vmName, command string, timeoutSec int) (*SourceCommandResult, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -690,7 +707,7 @@ func (o *Orchestrator) RunSourceCommand(ctx context.Context, orgID, vmName, comm
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(host.HostID, cmd, time.Duration(timeoutSec+commandTimeoutBuffer)*time.Second)
+	resp, err := o.sender.SendAndWait(host.HostID, cmd, time.Duration(timeoutSec)*time.Second+commandTimeoutBuffer)
 	if err != nil {
 		return nil, fmt.Errorf("run source command on host %s: %w", host.HostID, err)
 	}
@@ -713,7 +730,7 @@ func (o *Orchestrator) RunSourceCommand(ctx context.Context, orgID, vmName, comm
 
 // ReadSourceFile reads a file from a source VM via the host.
 func (o *Orchestrator) ReadSourceFile(ctx context.Context, orgID, vmName, path string) (*SourceFileResult, error) {
-	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout)
+	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout, 0, 0)
 	if err != nil {
 		return nil, err
 	}

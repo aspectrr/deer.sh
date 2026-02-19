@@ -52,7 +52,9 @@ func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeou
 }
 
 // SelectHostForSourceVM picks a connected host that has the given source VM.
-func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbeatTimeout time.Duration) (registry.ConnectedHost, error) {
+// When requiredCPUs or requiredMemoryMB are non-zero, hosts without sufficient
+// resources are skipped (used as CreateSandbox fallback).
+func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbeatTimeout time.Duration, requiredCPUs int32, requiredMemoryMB int32) (registry.ConnectedHost, error) {
 	hosts := reg.ListConnectedByOrg(orgID)
 	if len(hosts) == 0 {
 		return registry.ConnectedHost{}, fmt.Errorf("no connected hosts")
@@ -66,6 +68,13 @@ func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbe
 		}
 
 		if now.Sub(h.LastHeartbeat) > heartbeatTimeout {
+			continue
+		}
+
+		if requiredCPUs > 0 && h.Registration.GetAvailableCpus() < requiredCPUs {
+			continue
+		}
+		if requiredMemoryMB > 0 && h.Registration.GetAvailableMemoryMb() < int64(requiredMemoryMB) {
 			continue
 		}
 

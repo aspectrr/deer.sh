@@ -30,7 +30,6 @@ import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AppPlaybooksRouteImport } from './routes/_app/playbooks'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
-import { Route as AppAgentsRouteImport } from './routes/_app/agents'
 import { Route as PublicBlogIndexRouteImport } from './routes/_public/blog/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppBillingIndexRouteImport } from './routes/_app/billing/index'
@@ -141,11 +140,6 @@ const AppBillingRoute = AppBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAgentsRoute = AppAgentsRouteImport.update({
-  id: '/agents',
-  path: '/agents',
-  getParentRoute: () => AppRoute,
-} as any)
 const PublicBlogIndexRoute = PublicBlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',
@@ -185,7 +179,6 @@ const AppBillingCalculatorRoute = AppBillingCalculatorRouteImport.update({
 export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
   '/onboarding': typeof OnboardingRoute
-  '/agents': typeof AppAgentsRoute
   '/billing': typeof AppBillingRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
   '/playbooks': typeof AppPlaybooksRoute
@@ -212,7 +205,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
-  '/agents': typeof AppAgentsRoute
   '/dashboard': typeof AppDashboardRoute
   '/playbooks': typeof AppPlaybooksRoute
   '/login': typeof AuthLoginRoute
@@ -243,7 +235,6 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteWithChildren
   '/docs': typeof DocsRouteWithChildren
   '/onboarding': typeof OnboardingRoute
-  '/_app/agents': typeof AppAgentsRoute
   '/_app/billing': typeof AppBillingRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/playbooks': typeof AppPlaybooksRoute
@@ -273,7 +264,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/docs'
     | '/onboarding'
-    | '/agents'
     | '/billing'
     | '/dashboard'
     | '/playbooks'
@@ -300,7 +290,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
-    | '/agents'
     | '/dashboard'
     | '/playbooks'
     | '/login'
@@ -330,7 +319,6 @@ export interface FileRouteTypes {
     | '/_public'
     | '/docs'
     | '/onboarding'
-    | '/_app/agents'
     | '/_app/billing'
     | '/_app/dashboard'
     | '/_app/playbooks'
@@ -513,13 +501,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBillingRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/agents': {
-      id: '/_app/agents'
-      path: '/agents'
-      fullPath: '/agents'
-      preLoaderRoute: typeof AppAgentsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_public/blog/': {
       id: '/_public/blog/'
       path: '/blog'
@@ -585,7 +566,6 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
 const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
 
 interface AppRouteChildren {
-  AppAgentsRoute: typeof AppAgentsRoute
   AppBillingRoute: typeof AppBillingRouteWithChildren
   AppDashboardRoute: typeof AppDashboardRoute
   AppPlaybooksRoute: typeof AppPlaybooksRoute
@@ -595,7 +575,6 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAgentsRoute: AppAgentsRoute,
   AppBillingRoute: AppBillingRouteWithChildren,
   AppDashboardRoute: AppDashboardRoute,
   AppPlaybooksRoute: AppPlaybooksRoute,

@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { PostHogProvider } from './lib/posthog'
 import './index.css'
 
 // Import the generated route tree
@@ -29,7 +30,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <PostHogProvider router={router}>
+        <RouterProvider router={router} />
+      </PostHogProvider>
     </QueryClientProvider>
   </StrictMode>
 )

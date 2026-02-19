@@ -5,7 +5,7 @@ import { axios } from '~/lib/axios'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Button } from '~/components/ui/button'
-import { ModelSelector } from '~/components/model-selector'
+// import { ModelSelector } from '~/components/model-selector'
 
 export const Route = createFileRoute('/_app/billing/calculator')({
   component: CalculatorPage,
@@ -32,8 +32,8 @@ function CalculatorPage() {
   const [sandboxes, setSandboxes] = useState(2)
   const [sourceVMs, setSourceVMs] = useState(5)
   const [agentHosts, setAgentHosts] = useState(2)
-  const [estimatedTokens, setEstimatedTokens] = useState(0)
-  const [tokenModel, setTokenModel] = useState('anthropic/claude-sonnet-4')
+  // const [estimatedTokens, setEstimatedTokens] = useState(0)
+  // const [tokenModel, setTokenModel] = useState('anthropic/claude-sonnet-4')
 
   const calculate = useMutation({
     mutationFn: async () => {
@@ -41,8 +41,8 @@ function CalculatorPage() {
         concurrent_sandboxes: sandboxes,
         source_vms: sourceVMs,
         agent_hosts: agentHosts,
-        estimated_tokens: estimatedTokens,
-        model: tokenModel,
+        // estimated_tokens: estimatedTokens,
+        // model: tokenModel,
       })
       return res.data as CalculatorResult
     },
@@ -107,7 +107,7 @@ function CalculatorPage() {
             <p className="text-muted-foreground text-[10px]">Free tier: 1</p>
           </div>
 
-          <div className="space-y-1">
+          {/*<div className="space-y-1">
             <Label className="text-xs">Estimated LLM Output Tokens / Month</Label>
             <Input
               type="number"
@@ -125,7 +125,7 @@ function CalculatorPage() {
             <Label className="text-xs">Agent Model</Label>
             <ModelSelector value={tokenModel} onChange={setTokenModel} />
           </div>
-
+*/}
           <Button
             className="w-full bg-blue-500 text-xs text-black hover:bg-blue-400"
             onClick={() => calculate.mutate()}
@@ -192,7 +192,7 @@ function CalculatorPage() {
               <p>Concurrent Sandbox: $50.00/month</p>
               <p>Source VM: $5.00/month</p>
               <p>Fluid Daemon: $10.00/month</p>
-              <p>Tokens: pass-through cost + 5% upcharge (100k/mo free)</p>
+              {/*<p>Tokens: pass-through cost + 5% upcharge (100k/mo free)</p>*/}
             </div>
           </div>
         </div>

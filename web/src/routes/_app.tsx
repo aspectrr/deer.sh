@@ -7,8 +7,8 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Bot,
-  BookOpen,
+  // Bot,
+  // BookOpen,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -24,8 +24,8 @@ export const Route = createFileRoute('/_app')({
 
 const navItems = [
   { to: '/dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/agents' as const, label: 'Agents', icon: Bot },
-  { to: '/playbooks' as const, label: 'Playbooks', icon: BookOpen },
+  // { to: '/agents' as const, label: 'Agents', icon: Bot },
+  // { to: '/playbooks' as const, label: 'Playbooks', icon: BookOpen },
   { to: '/billing' as const, label: 'Billing', icon: CreditCard },
   { to: '/settings' as const, label: 'Settings', icon: Settings },
 ]

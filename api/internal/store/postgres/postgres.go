@@ -1635,10 +1635,25 @@ func (s *postgresStore) CreatePlaybookTask(ctx context.Context, task *store.Play
 	now := time.Now().UTC()
 	task.CreatedAt = now
 	task.UpdatedAt = now
-	if err := s.db.WithContext(ctx).Create(taskToModel(task)).Error; err != nil {
-		return mapDBError(err)
-	}
-	return nil
+
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var maxOrder *int
+		if err := tx.Model(&PlaybookTaskModel{}).
+			Where("playbook_id = ?", task.PlaybookID).
+			Select("MAX(sort_order)").
+			Scan(&maxOrder).Error; err != nil {
+			return mapDBError(err)
+		}
+		if maxOrder != nil {
+			task.SortOrder = *maxOrder + 1
+		} else {
+			task.SortOrder = 0
+		}
+		if err := tx.Create(taskToModel(task)).Error; err != nil {
+			return mapDBError(err)
+		}
+		return nil
+	})
 }
 
 func (s *postgresStore) GetPlaybookTask(ctx context.Context, id string) (*store.PlaybookTask, error) {

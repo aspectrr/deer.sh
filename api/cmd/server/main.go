@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aspectrr/fluid.sh/api/docs"
 	"github.com/aspectrr/fluid.sh/api/internal/agent"
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	"github.com/aspectrr/fluid.sh/api/internal/config"
@@ -20,6 +21,7 @@ import (
 	"github.com/aspectrr/fluid.sh/api/internal/rest"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 	postgresStore "github.com/aspectrr/fluid.sh/api/internal/store/postgres"
+	"github.com/aspectrr/fluid.sh/api/internal/telemetry"
 
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
@@ -131,8 +133,12 @@ func main() {
 		logger.Warn("OPENROUTER_API_KEY not set, agent chat disabled")
 	}
 
-	// 6. Initialize REST server.
-	srv := rest.NewServer(st, cfg, orch, agentClient)
+	// 6. Initialize telemetry.
+	tel := telemetry.New(cfg.PostHog.APIKey, cfg.PostHog.Endpoint)
+	defer tel.Close()
+
+	// 7. Initialize REST server.
+	srv := rest.NewServer(st, cfg, orch, agentClient, tel, docs.SwaggerJSON)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.API.Addr,
@@ -143,7 +149,7 @@ func main() {
 		IdleTimeout:       cfg.API.IdleTimeout,
 	}
 
-	// 6. Start gRPC server in background.
+	// 8. Start gRPC server in background.
 	grpcErrCh := make(chan error, 1)
 	go func() {
 		logger.Info("gRPC server listening", "addr", cfg.GRPC.Address)
@@ -152,7 +158,7 @@ func main() {
 		}
 	}()
 
-	// 7. Start REST server in background.
+	// 9. Start REST server in background.
 	httpErrCh := make(chan error, 1)
 	go func() {
 		logger.Info("HTTP server listening", "addr", cfg.API.Addr)
@@ -161,7 +167,7 @@ func main() {
 		}
 	}()
 
-	// 8. Wait for signal or error.
+	// 10. Wait for signal or error.
 	select {
 	case <-ctx.Done():
 		logger.Info("shutdown signal received")
@@ -171,7 +177,7 @@ func main() {
 		logger.Error("HTTP server error", "error", err)
 	}
 
-	// 9. Graceful shutdown: stop HTTP first (drain in-flight requests),
+	// 11. Graceful shutdown: stop HTTP first (drain in-flight requests),
 	// then stop gRPC so streaming daemons stay connected during drain.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.API.ShutdownTimeout)
 	defer cancel()

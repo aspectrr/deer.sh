@@ -14,6 +14,7 @@ import (
 	"github.com/aspectrr/fluid.sh/api/internal/config"
 	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/fluid.sh/api/internal/telemetry"
 )
 
 type Server struct {
@@ -22,16 +23,23 @@ type Server struct {
 	cfg          *config.Config
 	orchestrator *orchestrator.Orchestrator
 	agentClient  *agent.Client
+	telemetry    telemetry.Service
 	logger       *slog.Logger
+	swaggerJSON  []byte
 }
 
-func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrator, agentClient *agent.Client) *Server {
+func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrator, agentClient *agent.Client, tel telemetry.Service, swaggerJSON []byte) *Server {
+	if tel == nil {
+		tel = &telemetry.NoopService{}
+	}
 	s := &Server{
 		store:        st,
 		cfg:          cfg,
 		orchestrator: orch,
 		agentClient:  agentClient,
+		telemetry:    tel,
 		logger:       slog.Default().With("component", "rest"),
+		swaggerJSON:  swaggerJSON,
 	}
 	s.Router = s.routes()
 	return s
@@ -66,7 +74,8 @@ func (s *Server) routes() *chi.Mux {
 			_, _ = fmt.Fprintln(w, html)
 		})
 		r.Get("/v1/docs/openapi.json", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "docs/swagger.json")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(s.swaggerJSON)
 		})
 	}
 
@@ -75,11 +84,14 @@ func (s *Server) routes() *chi.Mux {
 		r.With(rateLimitByIP(0.1, 5)).Post("/register", s.handleRegister)
 		r.With(rateLimitByIP(0.2, 10)).Post("/login", s.handleLogin)
 
-		// OAuth
-		r.Get("/github", s.handleGitHubLogin)
-		r.Get("/github/callback", s.handleGitHubCallback)
-		r.Get("/google", s.handleGoogleLogin)
-		r.Get("/google/callback", s.handleGoogleCallback)
+		// OAuth (rate-limited)
+		r.Group(func(r chi.Router) {
+			r.Use(rateLimitByIP(0.5, 10))
+			r.Get("/github", s.handleGitHubLogin)
+			r.Get("/github/callback", s.handleGitHubCallback)
+			r.Get("/google", s.handleGoogleLogin)
+			r.Get("/google/callback", s.handleGoogleCallback)
+		})
 
 		// Protected auth routes
 		r.Group(func(r chi.Router) {
@@ -191,6 +203,7 @@ func corsMiddleware(frontendURL string) func(http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Max-Age", "86400")
+			w.Header().Add("Vary", "Origin")
 
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

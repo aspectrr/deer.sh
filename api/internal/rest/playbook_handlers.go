@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
 	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
@@ -44,6 +45,11 @@ func (s *Server) handleCreatePlaybook(w http.ResponseWriter, r *http.Request) {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create playbook"))
 		return
 	}
+
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		s.telemetry.Track(user.ID, "playbook_created", map[string]any{"org_id": org.ID})
+	}
+
 	_ = serverJSON.RespondJSON(w, http.StatusCreated, pb)
 }
 
@@ -190,12 +196,9 @@ func (s *Server) handleCreatePlaybookTask(w http.ResponseWriter, r *http.Request
 		paramsStr = string(req.Params)
 	}
 
-	tasks, _ := s.store.ListPlaybookTasks(r.Context(), playbookID)
-
 	task := &store.PlaybookTask{
 		ID:         uuid.New().String(),
 		PlaybookID: playbookID,
-		SortOrder:  len(tasks),
 		Name:       req.Name,
 		Module:     req.Module,
 		Params:     paramsStr,

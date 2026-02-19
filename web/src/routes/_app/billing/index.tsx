@@ -1,14 +1,12 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { axios } from '~/lib/axios'
+import { useOrg } from '~/lib/org'
 import { Button } from '~/components/ui/button'
 import { Zap, CreditCard, Building2, Calculator } from 'lucide-react'
 export const Route = createFileRoute('/_app/billing/')({
   component: BillingPage,
 })
-
-// TODO: get org slug from context/route params
-const orgSlug = 'default'
 
 interface FreeTier {
   max_concurrent_sandboxes: number
@@ -32,6 +30,13 @@ interface BillingData {
 
 function BillingPage() {
   const navigate = useNavigate()
+  const { org } = useOrg()
+
+  if (!org) {
+    return <p className="text-muted-foreground text-xs">No organization selected.</p>
+  }
+
+  const orgSlug = org.slug
   const {
     data: billing,
     isLoading,

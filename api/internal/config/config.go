@@ -19,6 +19,12 @@ type Config struct {
 	Agent        AgentConfig
 	Orchestrator OrchestratorConfig
 	Logging      LoggingConfig
+	PostHog      PostHogConfig
+}
+
+type PostHogConfig struct {
+	APIKey   string
+	Endpoint string
 }
 
 type GRPCConfig struct {
@@ -183,6 +189,10 @@ func Load() *Config {
 		Logging: LoggingConfig{
 			Level:  envOr("LOG_LEVEL", "info"),
 			Format: envOr("LOG_FORMAT", "text"),
+		},
+		PostHog: PostHogConfig{
+			APIKey:   os.Getenv("POSTHOG_API_KEY"),
+			Endpoint: envOr("POSTHOG_ENDPOINT", "https://nautilus.fluid.sh"),
 		},
 	}
 }

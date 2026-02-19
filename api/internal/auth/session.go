@@ -62,7 +62,7 @@ func SetSessionCookie(w http.ResponseWriter, token string, ttl time.Duration, se
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 		MaxAge:   int(ttl.Seconds()),
 	})
 }

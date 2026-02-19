@@ -185,6 +185,8 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.telemetry.Track(user.ID, "billing_subscribed", map[string]any{"org_id": org.ID})
+
 	_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{
 		"checkout_url": sess.URL,
 	})

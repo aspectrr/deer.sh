@@ -115,6 +115,8 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.telemetry.Track(user.ID, "org_created", map[string]any{"org_slug": slug})
+
 	_ = serverJSON.RespondJSON(w, http.StatusCreated, toOrgResponseForOwner(org))
 }
 

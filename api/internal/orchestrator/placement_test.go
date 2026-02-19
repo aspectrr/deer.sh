@@ -177,7 +177,7 @@ func TestSelectHostForSourceVM_Success(t *testing.T) {
 		AvailableMemoryMb: 8192,
 	})
 
-	h, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second)
+	h, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second, 0, 0)
 	if err != nil {
 		t.Fatalf("SelectHostForSourceVM: unexpected error: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestSelectHostForSourceVM_NoMatch(t *testing.T) {
 		},
 	})
 
-	_, err := SelectHostForSourceVM(r, "nonexistent-vm", "org-1", 90*time.Second)
+	_, err := SelectHostForSourceVM(r, "nonexistent-vm", "org-1", 90*time.Second, 0, 0)
 	if err == nil {
 		t.Fatal("SelectHostForSourceVM: expected error when no host has the source VM")
 	}
@@ -203,7 +203,7 @@ func TestSelectHostForSourceVM_NoMatch(t *testing.T) {
 
 func TestSelectHostForSourceVM_NoHosts(t *testing.T) {
 	r := registry.New()
-	_, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second)
+	_, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second, 0, 0)
 	if err == nil {
 		t.Fatal("SelectHostForSourceVM: expected error when no hosts are connected")
 	}
@@ -221,7 +221,7 @@ func TestSelectHostForSourceVM_StaleHeartbeat(t *testing.T) {
 	// Use a heartbeat timeout of 1ms and sleep to ensure staleness.
 	time.Sleep(5 * time.Millisecond)
 
-	_, err := SelectHostForSourceVM(r, "web-server", "org-1", time.Millisecond)
+	_, err := SelectHostForSourceVM(r, "web-server", "org-1", time.Millisecond, 0, 0)
 	if err == nil {
 		t.Fatal("SelectHostForSourceVM: expected error when host heartbeat is stale")
 	}
@@ -232,7 +232,7 @@ func TestSelectHostForSourceVM_NilRegistration(t *testing.T) {
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
 	// No SetRegistration.
 
-	_, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second)
+	_, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second, 0, 0)
 	if err == nil {
 		t.Fatal("SelectHostForSourceVM: expected error when host has nil registration")
 	}
@@ -247,7 +247,7 @@ func TestSelectHostForSourceVM_FiltersByOrg(t *testing.T) {
 		},
 	})
 
-	_, err := SelectHostForSourceVM(r, "web-server", "org-other", 90*time.Second)
+	_, err := SelectHostForSourceVM(r, "web-server", "org-other", 90*time.Second, 0, 0)
 	if err == nil {
 		t.Fatal("SelectHostForSourceVM: expected error when no hosts belong to the org")
 	}
@@ -275,7 +275,7 @@ func TestSelectHost_FallbackToSourceVM(t *testing.T) {
 	}
 
 	// But SelectHostForSourceVM should succeed because host has the source VM
-	h, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second)
+	h, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second, 0, 0)
 	if err != nil {
 		t.Fatalf("SelectHostForSourceVM: unexpected error: %v", err)
 	}

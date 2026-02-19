@@ -9,12 +9,10 @@ import (
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
 
-type contextKey string
-
-const userContextKey contextKey = "user"
+type userKey struct{}
 
 func UserFromContext(ctx context.Context) *store.User {
-	u, _ := ctx.Value(userContextKey).(*store.User)
+	u, _ := ctx.Value(userKey{}).(*store.User)
 	return u
 }
 
@@ -42,7 +40,7 @@ func RequireAuth(st store.Store) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), userContextKey, user)
+			ctx := context.WithValue(r.Context(), userKey{}, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

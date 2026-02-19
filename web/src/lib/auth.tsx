@@ -1,6 +1,7 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axios } from './axios'
+import { usePostHog } from './posthog'
 
 interface User {
   id: string
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
+  const posthog = usePostHog()
 
   const { data, isLoading } = useQuery({
     queryKey: ['auth', 'me'],
@@ -32,8 +34,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000,
   })
 
+  useEffect(() => {
+    if (data) {
+      posthog.identify(data.id, {
+        email: data.email,
+        display_name: data.display_name,
+      })
+    }
+  }, [data, posthog])
+
   const logout = async () => {
     await axios.post('/v1/auth/logout')
+    posthog.reset()
     queryClient.setQueryData(['auth', 'me'], null)
     queryClient.invalidateQueries({ queryKey: ['auth'] })
   }

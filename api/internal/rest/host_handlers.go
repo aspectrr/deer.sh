@@ -143,6 +143,10 @@ func (s *Server) handleCreateHostToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		s.telemetry.Track(user.ID, "host_token_created", map[string]any{"org_id": org.ID})
+	}
+
 	_ = serverJSON.RespondJSON(w, http.StatusCreated, hostTokenResponse{
 		ID:        token.ID,
 		Name:      token.Name,

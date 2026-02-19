@@ -33,6 +33,7 @@ type MeterManager struct {
 	logger     *slog.Logger
 	mu         sync.Mutex
 	orgMu      sync.Map // map[string]*sync.Mutex - per-org lock for free tier calculation
+	subItemMu  sync.Map // map[string]*sync.Mutex - per-org:model lock for subscription items
 }
 
 // NewMeterManager creates a new MeterManager.
@@ -68,6 +69,12 @@ func (mm *MeterManager) orgLock(orgID string) *sync.Mutex {
 	return v.(*sync.Mutex)
 }
 
+// subItemLock returns a per-org:model mutex for subscription item creation.
+func (mm *MeterManager) subItemLock(orgID, modelID string) *sync.Mutex {
+	v, _ := mm.subItemMu.LoadOrStore(orgID+":"+modelID, &sync.Mutex{})
+	return v.(*sync.Mutex)
+}
+
 var nonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)
 
 // sanitizeEventName converts a model ID like "anthropic/claude-sonnet-4" to "anthropic_claude_sonnet_4".
@@ -96,6 +103,9 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 	if err == nil {
 		return existing, nil
 	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("get model meter: %w", err)
+	}
 
 	// Look up model pricing
 	var inputCostPerToken, outputCostPerToken float64
@@ -117,6 +127,9 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 	sanitized := sanitizeEventName(modelID)
 
 	// Track created Stripe objects for rollback on partial failure.
+	// NOTE: Stripe billing meters cannot be deleted or deactivated via API.
+	// If a partial failure occurs after meters are created, orphaned meters
+	// may remain in Stripe. These are harmless but should be cleaned up manually.
 	var createdProductID string
 	var createdPriceIDs []string
 	rollback := func() {
@@ -257,6 +270,19 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 // EnsureOrgSubscriptionItems adds subscription items for a model to an org's subscription.
 func (mm *MeterManager) EnsureOrgSubscriptionItems(ctx context.Context, orgID, modelID string) error {
 	_, err := mm.store.GetOrgModelSubscription(ctx, orgID, modelID)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("get org model subscription: %w", err)
+	}
+
+	mu := mm.subItemLock(orgID, modelID)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Double-check after acquiring lock
+	_, err = mm.store.GetOrgModelSubscription(ctx, orgID, modelID)
 	if err == nil {
 		return nil
 	}

@@ -3,6 +3,7 @@ package rest
 import (
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,7 +20,9 @@ func rateLimitByIP(rps float64, burst int) func(http.Handler) http.Handler {
 	var mu sync.Mutex
 	limiters := make(map[string]*ipLimiter)
 
-	// Periodically clean up stale entries.
+	// Periodically clean up stale entries. This goroutine is intentionally
+	// process-scoped: rateLimitByIP is called at startup and lives for the
+	// lifetime of the server, so no shutdown mechanism is needed.
 	go func() {
 		for {
 			time.Sleep(time.Minute)
@@ -35,9 +38,18 @@ func rateLimitByIP(rps float64, burst int) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+			ip := r.Header.Get("X-Real-IP")
 			if ip == "" {
-				ip = r.RemoteAddr
+				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+					ip, _, _ = strings.Cut(xff, ",")
+					ip = strings.TrimSpace(ip)
+				}
+			}
+			if ip == "" {
+				ip, _, _ = net.SplitHostPort(r.RemoteAddr)
+				if ip == "" {
+					ip = r.RemoteAddr
+				}
 			}
 
 			mu.Lock()

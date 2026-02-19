@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
@@ -84,6 +85,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Email = strings.ToLower(req.Email)
+
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to hash password"))
@@ -113,6 +116,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
+
+	s.telemetry.Track(user.ID, "user_registered", map[string]any{"provider": "password"})
 
 	_ = serverJSON.RespondJSON(w, http.StatusCreated, authResponse{
 		User: &userResponse{
@@ -156,6 +161,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Email = strings.ToLower(req.Email)
+
 	user, err := s.store.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -183,6 +190,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
+
+	s.telemetry.Track(user.ID, "user_logged_in", map[string]any{"provider": "password"})
 
 	_ = serverJSON.RespondJSON(w, http.StatusOK, authResponse{
 		User: &userResponse{
@@ -318,6 +327,7 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
+	s.telemetry.Track(user.ID, "user_logged_in", map[string]any{"provider": "github"})
 	http.Redirect(w, r, s.cfg.Frontend.URL+"/dashboard", http.StatusFound)
 }
 
@@ -395,6 +405,7 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth.SetSessionCookie(w, rawToken, s.cfg.Auth.SessionTTL, s.cfg.Auth.SecureCookies)
+	s.telemetry.Track(user.ID, "user_logged_in", map[string]any{"provider": "google"})
 	http.Redirect(w, r, s.cfg.Frontend.URL+"/dashboard", http.StatusFound)
 }
 
@@ -508,6 +519,8 @@ func fetchGoogleUser(ctx context.Context, accessToken string) (*googleUserInfo, 
 }
 
 func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID, email, name, avatarURL, accessToken, refreshToken string, emailVerified bool) (*store.User, error) {
+	email = strings.ToLower(email)
+
 	// Check if OAuth account exists
 	oa, err := s.store.GetOAuthAccount(ctx, provider, providerID)
 	if err == nil {

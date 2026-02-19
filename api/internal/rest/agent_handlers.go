@@ -37,6 +37,8 @@ func (s *Server) handleAgentChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.telemetry.Track(user.ID, "agent_chat_sent", map[string]any{"org_id": org.ID, "model": req.Model})
+
 	s.agentClient.StreamChat(r.Context(), w, org.ID, user.ID, req)
 }
 

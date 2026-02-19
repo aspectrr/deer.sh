@@ -791,7 +791,7 @@ func newTestServer(ms *mockStore, cfg *config.Config) *Server {
 	reg := registry.New()
 	sender := &mockHostSender{}
 	orch := orchestrator.New(reg, ms, sender, nil, cfg.Orchestrator.DefaultTTL, cfg.Orchestrator.HeartbeatTimeout)
-	return NewServer(ms, cfg, orch, nil)
+	return NewServer(ms, cfg, orch, nil, nil, nil)
 }
 
 // newTestServerWithSender creates a Server with a custom HostSender
@@ -801,7 +801,7 @@ func newTestServerWithSender(ms *mockStore, sender *mockHostSender, cfg *config.
 	}
 	reg := registry.New()
 	orch := orchestrator.New(reg, ms, sender, nil, cfg.Orchestrator.DefaultTTL, cfg.Orchestrator.HeartbeatTimeout)
-	return NewServer(ms, cfg, orch, nil)
+	return NewServer(ms, cfg, orch, nil, nil, nil)
 }
 
 // ---------------------------------------------------------------------------
