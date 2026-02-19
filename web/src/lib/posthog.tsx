@@ -22,6 +22,7 @@ export function PostHogProvider({
   router,
 }: {
   children: ReactNode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   router: Router<any, any, any>
 }) {
   useEffect(() => {

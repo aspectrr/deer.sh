@@ -31,12 +31,8 @@ interface BillingData {
 function BillingPage() {
   const navigate = useNavigate()
   const { org } = useOrg()
+  const orgSlug = org?.slug ?? ''
 
-  if (!org) {
-    return <p className="text-muted-foreground text-xs">No organization selected.</p>
-  }
-
-  const orgSlug = org.slug
   const {
     data: billing,
     isLoading,
@@ -48,6 +44,7 @@ function BillingPage() {
       const res = await axios.get(`/v1/orgs/${orgSlug}/billing`)
       return res.data as BillingData
     },
+    enabled: !!orgSlug,
   })
 
   const subscribe = useMutation({
@@ -75,6 +72,10 @@ function BillingPage() {
       }
     },
   })
+
+  if (!org) {
+    return <p className="text-muted-foreground text-xs">No organization selected.</p>
+  }
 
   const plan = billing?.plan || 'free'
   const freeTier = billing?.free_tier
