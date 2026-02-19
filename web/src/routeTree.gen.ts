@@ -29,7 +29,6 @@ import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AppPlaybooksRouteImport } from './routes/_app/playbooks'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
-import { Route as AppCalculatorRouteImport } from './routes/_app/calculator'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
 import { Route as AppAgentsRouteImport } from './routes/_app/agents'
 import { Route as PublicBlogIndexRouteImport } from './routes/_public/blog/index'
@@ -137,11 +136,6 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
-const AppCalculatorRoute = AppCalculatorRouteImport.update({
-  id: '/calculator',
-  path: '/calculator',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppBillingRoute = AppBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
@@ -193,7 +187,6 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/agents': typeof AppAgentsRoute
   '/billing': typeof AppBillingRouteWithChildren
-  '/calculator': typeof AppCalculatorRoute
   '/dashboard': typeof AppDashboardRoute
   '/playbooks': typeof AppPlaybooksRoute
   '/login': typeof AuthLoginRoute
@@ -220,7 +213,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/agents': typeof AppAgentsRoute
-  '/calculator': typeof AppCalculatorRoute
   '/dashboard': typeof AppDashboardRoute
   '/playbooks': typeof AppPlaybooksRoute
   '/login': typeof AuthLoginRoute
@@ -253,7 +245,6 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/_app/agents': typeof AppAgentsRoute
   '/_app/billing': typeof AppBillingRouteWithChildren
-  '/_app/calculator': typeof AppCalculatorRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/playbooks': typeof AppPlaybooksRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -284,7 +275,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/agents'
     | '/billing'
-    | '/calculator'
     | '/dashboard'
     | '/playbooks'
     | '/login'
@@ -311,7 +301,6 @@ export interface FileRouteTypes {
   to:
     | '/onboarding'
     | '/agents'
-    | '/calculator'
     | '/dashboard'
     | '/playbooks'
     | '/login'
@@ -343,7 +332,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/_app/agents'
     | '/_app/billing'
-    | '/_app/calculator'
     | '/_app/dashboard'
     | '/_app/playbooks'
     | '/_auth/login'
@@ -518,13 +506,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/calculator': {
-      id: '/_app/calculator'
-      path: '/calculator'
-      fullPath: '/calculator'
-      preLoaderRoute: typeof AppCalculatorRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/billing': {
       id: '/_app/billing'
       path: '/billing'
@@ -601,14 +582,11 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
   AppBillingIndexRoute: AppBillingIndexRoute,
 }
 
-const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(
-  AppBillingRouteChildren,
-)
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
 
 interface AppRouteChildren {
   AppAgentsRoute: typeof AppAgentsRoute
   AppBillingRoute: typeof AppBillingRouteWithChildren
-  AppCalculatorRoute: typeof AppCalculatorRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppPlaybooksRoute: typeof AppPlaybooksRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
@@ -619,7 +597,6 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAgentsRoute: AppAgentsRoute,
   AppBillingRoute: AppBillingRouteWithChildren,
-  AppCalculatorRoute: AppCalculatorRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppPlaybooksRoute: AppPlaybooksRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
@@ -653,8 +630,7 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicBlogIndexRoute: PublicBlogIndexRoute,
 }
 
-const PublicRouteWithChildren =
-  PublicRoute._addFileChildren(PublicRouteChildren)
+const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
 
 interface DocsRouteChildren {
   DocsApiRoute: typeof DocsApiRoute

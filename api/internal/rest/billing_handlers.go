@@ -277,12 +277,11 @@ func (s *Server) handleGetUsage(w http.ResponseWriter, r *http.Request) {
 // --- Calculator (public) ---
 
 type calculatorRequest struct {
-	ConcurrentSandboxes int     `json:"concurrent_sandboxes"`
-	SourceVMs           int     `json:"source_vms"`
-	AgentHosts          int     `json:"agent_hosts"`
-	HoursPerMonth       float64 `json:"hours_per_month"`
-	EstimatedTokens     int     `json:"estimated_tokens"`
-	Model               string  `json:"model"`
+	ConcurrentSandboxes int    `json:"concurrent_sandboxes"`
+	SourceVMs           int    `json:"source_vms"`
+	AgentHosts          int    `json:"agent_hosts"`
+	EstimatedTokens     int    `json:"estimated_tokens"`
+	Model               string `json:"model"`
 }
 
 type calculatorResponse struct {
@@ -311,9 +310,25 @@ func (s *Server) handleCalculator(w http.ResponseWriter, r *http.Request) {
 	}
 
 	prices := s.cfg.Billing.Prices
-	sandboxCost := float64(req.ConcurrentSandboxes) * req.HoursPerMonth * float64(prices.SandboxHourCents) / 100.0
-	sourceVMCost := float64(req.SourceVMs) * float64(prices.SourceVMMonthly) / 100.0
-	agentHostCost := float64(req.AgentHosts) * float64(prices.AgentHostMonthly) / 100.0
+	freeTier := s.cfg.Billing.FreeTier
+
+	// Apply free tier deductions (min 0 billable)
+	billableSandboxes := req.ConcurrentSandboxes - freeTier.MaxConcurrentSandboxes
+	if billableSandboxes < 0 {
+		billableSandboxes = 0
+	}
+	billableSourceVMs := req.SourceVMs - freeTier.MaxSourceVMs
+	if billableSourceVMs < 0 {
+		billableSourceVMs = 0
+	}
+	billableAgentHosts := req.AgentHosts - freeTier.MaxAgentHosts
+	if billableAgentHosts < 0 {
+		billableAgentHosts = 0
+	}
+
+	sandboxCost := float64(billableSandboxes) * float64(prices.SandboxMonthlyCents) / 100.0
+	sourceVMCost := float64(billableSourceVMs) * float64(prices.SourceVMMonthly) / 100.0
+	agentHostCost := float64(billableAgentHosts) * float64(prices.AgentHostMonthly) / 100.0
 
 	// Token cost calculation
 	var tokenCost float64
@@ -337,14 +352,14 @@ func (s *Server) handleCalculator(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		markup := 1.005 // 0.5% markup
+		markup := 1.05 // 5% markup
 		tokenCost = float64(billable) * costPer1K / 1000.0 * markup
 		tb = &tokenBreakdown{
 			EstimatedTokens: req.EstimatedTokens,
 			FreeTokens:      freeTokens,
 			BillableTokens:  billable,
 			CostPerToken:    costPer1K / 1000.0,
-			Markup:          0.5,
+			Markup:          5.0,
 		}
 	}
 

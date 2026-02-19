@@ -76,9 +76,9 @@ type BillingConfig struct {
 }
 
 type PriceConfig struct {
-	SandboxHourCents int
-	SourceVMMonthly  int
-	AgentHostMonthly int
+	SandboxMonthlyCents int
+	SourceVMMonthly     int
+	AgentHostMonthly    int
 }
 
 type FreeTierConfig struct {
@@ -163,9 +163,9 @@ func Load() *Config {
 			StripePublishableKey: os.Getenv("STRIPE_PUBLISHABLE_KEY"),
 			StripePriceID:        os.Getenv("STRIPE_PRICE_ID"),
 			Prices: PriceConfig{
-				SandboxHourCents: envInt("BILLING_SANDBOX_HOUR_CENTS", 5),
-				SourceVMMonthly:  envInt("BILLING_SOURCE_VM_MONTHLY_CENTS", 500),
-				AgentHostMonthly: envInt("BILLING_AGENT_HOST_MONTHLY_CENTS", 1000),
+				SandboxMonthlyCents: envInt("BILLING_SANDBOX_MONTHLY_CENTS", 5000),
+				SourceVMMonthly:     envInt("BILLING_SOURCE_VM_MONTHLY_CENTS", 500),
+				AgentHostMonthly:    envInt("BILLING_AGENT_HOST_MONTHLY_CENTS", 1000),
 			},
 			FreeTier: FreeTierConfig{
 				MaxConcurrentSandboxes: envInt("BILLING_FREE_TIER_MAX_SANDBOXES", 1),

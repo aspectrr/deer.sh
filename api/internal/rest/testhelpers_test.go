@@ -730,9 +730,9 @@ func testConfig() *config.Config {
 		},
 		Billing: config.BillingConfig{
 			Prices: config.PriceConfig{
-				SandboxHourCents: 5,
-				SourceVMMonthly:  500,
-				AgentHostMonthly: 1000,
+				SandboxMonthlyCents: 5000,
+				SourceVMMonthly:     500,
+				AgentHostMonthly:    1000,
 			},
 			FreeTier: config.FreeTierConfig{
 				MaxConcurrentSandboxes: 1,

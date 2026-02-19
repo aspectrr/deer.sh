@@ -1893,8 +1893,10 @@ components:
           type: integer
         concurrent_sandboxes:
           type: integer
-        hours_per_month:
-          type: number
+        estimated_tokens:
+          type: integer
+        model:
+          type: string
         source_vms:
           type: integer
       type: object

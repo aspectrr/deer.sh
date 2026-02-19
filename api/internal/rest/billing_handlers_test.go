@@ -112,9 +112,8 @@ func TestHandleCalculator(t *testing.T) {
 
 	body := bytes.NewBufferString(`{
 		"concurrent_sandboxes": 2,
-		"source_vms": 3,
-		"agent_hosts": 1,
-		"hours_per_month": 100
+		"source_vms": 5,
+		"agent_hosts": 2
 	}`)
 
 	rr := httptest.NewRecorder()
@@ -131,26 +130,26 @@ func TestHandleCalculator(t *testing.T) {
 		t.Fatalf("failed to parse JSON: %v", err)
 	}
 
-	// SandboxCost: 2 sandboxes * 100 hours * 5 cents / 100 = $10.00
-	expectedSandboxCost := 10.0
+	// SandboxCost: (2 - 1 free) * 5000 cents / 100 = $50.00
+	expectedSandboxCost := 50.0
 	if resp.SandboxCost != expectedSandboxCost {
 		t.Fatalf("expected sandbox_cost=%v, got %v", expectedSandboxCost, resp.SandboxCost)
 	}
 
-	// SourceVMCost: 3 * 500 cents / 100 = $15.00
-	expectedSourceVMCost := 15.0
+	// SourceVMCost: (5 - 3 free) * 500 cents / 100 = $10.00
+	expectedSourceVMCost := 10.0
 	if resp.SourceVMCost != expectedSourceVMCost {
 		t.Fatalf("expected source_vm_cost=%v, got %v", expectedSourceVMCost, resp.SourceVMCost)
 	}
 
-	// AgentHostCost: 1 * 1000 cents / 100 = $10.00
+	// AgentHostCost: (2 - 1 free) * 1000 cents / 100 = $10.00
 	expectedAgentHostCost := 10.0
 	if resp.AgentHostCost != expectedAgentHostCost {
 		t.Fatalf("expected agent_host_cost=%v, got %v", expectedAgentHostCost, resp.AgentHostCost)
 	}
 
-	// Total: 10 + 15 + 10 = 35.00
-	expectedTotal := 35.0
+	// Total: 50 + 10 + 10 = 70.00
+	expectedTotal := 70.0
 	if resp.TotalMonthly != expectedTotal {
 		t.Fatalf("expected total_monthly=%v, got %v", expectedTotal, resp.TotalMonthly)
 	}
@@ -169,7 +168,6 @@ func TestHandleCalculatorWithTokens(t *testing.T) {
 		"concurrent_sandboxes": 0,
 		"source_vms": 0,
 		"agent_hosts": 0,
-		"hours_per_month": 0,
 		"estimated_tokens": 200000,
 		"model": "anthropic/claude-sonnet-4"
 	}`)

@@ -1,13 +1,14 @@
 import { createFileRoute, Outlet, Navigate, Link, useLocation } from '@tanstack/react-router'
 import { useAuth } from '~/lib/auth'
+import { OrgProvider, useOrg } from '~/lib/org'
 import {
   LayoutDashboard,
   CreditCard,
-  Calculator,
   Settings,
   LogOut,
   ChevronDown,
   Bot,
+  BookOpen,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -24,14 +25,13 @@ export const Route = createFileRoute('/_app')({
 const navItems = [
   { to: '/dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
   { to: '/agents' as const, label: 'Agents', icon: Bot },
+  { to: '/playbooks' as const, label: 'Playbooks', icon: BookOpen },
   { to: '/billing' as const, label: 'Billing', icon: CreditCard },
-  { to: '/calculator' as const, label: 'Calculator', icon: Calculator },
   { to: '/settings' as const, label: 'Settings', icon: Settings },
 ]
 
 function AppLayout() {
   const { user, isAuthenticated, isLoading, logout } = useAuth()
-  const location = useLocation()
 
   if (isLoading) {
     return (
@@ -43,6 +43,35 @@ function AppLayout() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />
+  }
+
+  return (
+    <OrgProvider>
+      <AppShell user={user} logout={logout} />
+    </OrgProvider>
+  )
+}
+
+function AppShell({
+  user,
+  logout,
+}: {
+  user: { display_name: string; email: string } | null
+  logout: () => Promise<void>
+}) {
+  const { organizations, isLoading: orgsLoading } = useOrg()
+  const location = useLocation()
+
+  if (orgsLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="text-muted-foreground text-sm">Loading...</div>
+      </div>
+    )
+  }
+
+  if (organizations.length === 0) {
+    return <Navigate to="/onboarding" />
   }
 
   return (
