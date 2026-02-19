@@ -85,10 +85,11 @@ func (m *mockStore) ListUsageRecords(context.Context, string, time.Time, time.Ti
 	return nil, nil
 }
 
-func (m *mockStore) CreateHost(context.Context, *store.Host) error        { return nil }
-func (m *mockStore) GetHost(context.Context, string) (*store.Host, error) { return nil, nil }
-func (m *mockStore) ListHosts(context.Context) ([]store.Host, error)      { return nil, nil }
-func (m *mockStore) UpdateHost(context.Context, *store.Host) error        { return nil }
+func (m *mockStore) CreateHost(context.Context, *store.Host) error                { return nil }
+func (m *mockStore) GetHost(context.Context, string) (*store.Host, error)         { return nil, nil }
+func (m *mockStore) ListHosts(context.Context) ([]store.Host, error)              { return nil, nil }
+func (m *mockStore) ListHostsByOrg(context.Context, string) ([]store.Host, error) { return nil, nil }
+func (m *mockStore) UpdateHost(context.Context, *store.Host) error                { return nil }
 func (m *mockStore) UpdateHostHeartbeat(context.Context, string, int32, int64, int64) error {
 	return nil
 }

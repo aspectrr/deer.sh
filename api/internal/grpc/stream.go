@@ -237,6 +237,13 @@ func (h *StreamHandler) GetStream(hostID string) (fluidv1.HostService_ConnectSer
 	return v.(fluidv1.HostService_ConnectServer), true
 }
 
+// monitorHeartbeat checks for heartbeat timeouts on a connected host.
+//
+// Timing: the check interval is heartbeatTimeout/3 (default 90s/3 = 30s).
+// A disconnect requires 3 consecutive misses, so the effective disconnect
+// window is ~2-3 minutes after the last successful heartbeat. This
+// intentional buffer tolerates transient network issues. For tighter SLAs,
+// reduce ORCHESTRATOR_HEARTBEAT_TIMEOUT.
 func (h *StreamHandler) monitorHeartbeat(ctx context.Context, cancel context.CancelFunc, hostID string, logger *slog.Logger) {
 	interval := h.heartbeatTimeout / 3
 	if interval < 10*time.Second {

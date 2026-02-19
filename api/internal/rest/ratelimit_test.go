@@ -1,13 +1,14 @@
 package rest
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
 func TestRateLimitByIP_AllowsBurst(t *testing.T) {
-	handler := rateLimitByIP(1, 3)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := rateLimitByIP(1, 3, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -23,7 +24,7 @@ func TestRateLimitByIP_AllowsBurst(t *testing.T) {
 }
 
 func TestRateLimitByIP_RejectsAfterBurst(t *testing.T) {
-	handler := rateLimitByIP(0.001, 2)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := rateLimitByIP(0.001, 2, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -49,7 +50,7 @@ func TestRateLimitByIP_RejectsAfterBurst(t *testing.T) {
 }
 
 func TestRateLimitByIP_DifferentIPsIndependent(t *testing.T) {
-	handler := rateLimitByIP(0.001, 1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := rateLimitByIP(0.001, 1, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -78,5 +79,98 @@ func TestRateLimitByIP_DifferentIPsIndependent(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("IP B first: got %d, want %d", rr.Code, http.StatusOK)
+	}
+}
+
+func TestRateLimitByIP_SpoofedHeaderIgnoredWithoutTrustedProxy(t *testing.T) {
+	handler := rateLimitByIP(0.001, 1, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// First request with spoofed X-Forwarded-For - should use RemoteAddr
+	req := httptest.NewRequest("POST", "/test", nil)
+	req.RemoteAddr = "10.0.0.1:9999"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: got %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	// Second request from same RemoteAddr but different spoofed header -
+	// should still be rate-limited because we use RemoteAddr, not the header
+	req = httptest.NewRequest("POST", "/test", nil)
+	req.RemoteAddr = "10.0.0.1:9999"
+	req.Header.Set("X-Forwarded-For", "5.6.7.8")
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("spoofed header should not bypass rate limit: got %d, want %d", rr.Code, http.StatusTooManyRequests)
+	}
+}
+
+func TestRateLimitByIP_HeaderHonoredFromTrustedProxy(t *testing.T) {
+	_, proxyNet, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{proxyNet}
+
+	handler := rateLimitByIP(0.001, 1, trusted)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Request from trusted proxy with X-Forwarded-For
+	req := httptest.NewRequest("POST", "/test", nil)
+	req.RemoteAddr = "10.0.0.1:9999"
+	req.Header.Set("X-Forwarded-For", "203.0.113.50")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: got %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	// Second request from same proxy but different real client - should be allowed
+	req = httptest.NewRequest("POST", "/test", nil)
+	req.RemoteAddr = "10.0.0.1:9999"
+	req.Header.Set("X-Forwarded-For", "203.0.113.51")
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("different client via proxy: got %d, want %d", rr.Code, http.StatusOK)
+	}
+}
+
+func TestRateLimitByIP_XRealIPHonoredFromTrustedProxy(t *testing.T) {
+	_, proxyNet, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{proxyNet}
+
+	handler := rateLimitByIP(0.001, 1, trusted)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Request from trusted proxy with X-Real-IP (takes priority over XFF)
+	req := httptest.NewRequest("POST", "/test", nil)
+	req.RemoteAddr = "10.0.0.1:9999"
+	req.Header.Set("X-Real-IP", "203.0.113.50")
+	req.Header.Set("X-Forwarded-For", "203.0.113.99")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: got %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	// Same X-Real-IP should be rate-limited
+	req = httptest.NewRequest("POST", "/test", nil)
+	req.RemoteAddr = "10.0.0.1:9999"
+	req.Header.Set("X-Real-IP", "203.0.113.50")
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("same client via X-Real-IP: got %d, want %d", rr.Code, http.StatusTooManyRequests)
+	}
+}
+
+func TestParseCIDRs(t *testing.T) {
+	nets := parseCIDRs([]string{"10.0.0.0/8", "192.168.1.1", "invalid", "::1"})
+	if len(nets) != 3 {
+		t.Fatalf("expected 3 valid CIDRs, got %d", len(nets))
 	}
 }

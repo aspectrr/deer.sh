@@ -484,6 +484,7 @@ type DataStore interface {
 	CreateHost(ctx context.Context, host *Host) error
 	GetHost(ctx context.Context, hostID string) (*Host, error)
 	ListHosts(ctx context.Context) ([]Host, error)
+	ListHostsByOrg(ctx context.Context, orgID string) ([]Host, error)
 	UpdateHost(ctx context.Context, host *Host) error
 	UpdateHostHeartbeat(ctx context.Context, hostID string, availCPUs int32, availMemMB int64, availDiskMB int64) error
 

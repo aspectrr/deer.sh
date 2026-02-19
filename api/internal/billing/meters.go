@@ -31,7 +31,7 @@ type MeterManager struct {
 	markup     float64
 	freeTokens int
 	logger     *slog.Logger
-	mu         sync.Mutex
+	meterMu    sync.Map // map[string]*sync.Mutex - per-model lock for EnsureModelMeter
 	orgMu      sync.Map // map[string]*sync.Mutex - per-org lock for free tier calculation
 	subItemMu  sync.Map // map[string]*sync.Mutex - per-org:model lock for subscription items
 }
@@ -61,6 +61,12 @@ func NewMeterManager(
 		freeTokens: freeTokens,
 		logger:     logger.With("component", "billing"),
 	}
+}
+
+// meterLock returns a per-model mutex for EnsureModelMeter, creating one if needed.
+func (mm *MeterManager) meterLock(modelID string) *sync.Mutex {
+	v, _ := mm.meterMu.LoadOrStore(modelID, &sync.Mutex{})
+	return v.(*sync.Mutex)
 }
 
 // orgLock returns a per-org mutex, creating one if needed.
@@ -95,8 +101,9 @@ func (mm *MeterManager) EnsureModelMeter(ctx context.Context, modelID string) (*
 		return nil, fmt.Errorf("get model meter: %w", err)
 	}
 
-	mm.mu.Lock()
-	defer mm.mu.Unlock()
+	mu := mm.meterLock(modelID)
+	mu.Lock()
+	defer mu.Unlock()
 
 	// Double-check after acquiring lock
 	existing, err = mm.store.GetModelMeter(ctx, modelID)
@@ -413,6 +420,11 @@ func (mm *MeterManager) ReportUsage(ctx context.Context, orgID, modelID string, 
 
 	thisChat := float64(inputTokens + outputTokens)
 	prevTotal := cumulative - thisChat // usage before this chat (already recorded by the time we get here)
+	if prevTotal < 0 {
+		mm.logger.Warn("free tier: cumulative < thisChat, clamping prevTotal to 0",
+			"org_id", orgID, "cumulative", cumulative, "this_chat", thisChat)
+		prevTotal = 0
+	}
 
 	var billableInput, billableOutput int
 	freeTokens := float64(mm.freeTokens)

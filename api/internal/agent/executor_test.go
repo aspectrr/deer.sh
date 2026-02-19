@@ -127,7 +127,10 @@ func (m *mockDataStore) ListUsageRecords(context.Context, string, time.Time, tim
 func (m *mockDataStore) CreateHost(context.Context, *store.Host) error        { return nil }
 func (m *mockDataStore) GetHost(context.Context, string) (*store.Host, error) { return nil, nil }
 func (m *mockDataStore) ListHosts(context.Context) ([]store.Host, error)      { return nil, nil }
-func (m *mockDataStore) UpdateHost(context.Context, *store.Host) error        { return nil }
+func (m *mockDataStore) ListHostsByOrg(context.Context, string) ([]store.Host, error) {
+	return nil, nil
+}
+func (m *mockDataStore) UpdateHost(context.Context, *store.Host) error { return nil }
 func (m *mockDataStore) UpdateHostHeartbeat(context.Context, string, int32, int64, int64) error {
 	return nil
 }

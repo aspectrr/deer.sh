@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 
@@ -562,13 +563,19 @@ func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, er
 	var mu sync.Mutex
 	var result []*VMInfo
 
-	g, _ := errgroup.WithContext(ctx)
+	g, gCtx := errgroup.WithContext(ctx)
 	for _, h := range connected {
 		if h.Registration == nil {
 			continue
 		}
 
 		g.Go(func() error {
+			select {
+			case <-gCtx.Done():
+				return gCtx.Err()
+			default:
+			}
+
 			reqID := uuid.New().String()
 			cmd := &fluidv1.ControlMessage{
 				RequestId: reqID,
@@ -777,7 +784,12 @@ func (o *Orchestrator) DiscoverSourceHosts(ctx context.Context, orgID, sshConfig
 		return nil, fmt.Errorf("no connected daemon hosts available for discovery")
 	}
 
-	// Pick the first connected host to do the probing
+	// Sort by HostID for deterministic host selection across calls.
+	sort.Slice(connected, func(i, j int) bool {
+		return connected[i].HostID < connected[j].HostID
+	})
+
+	// Pick the first connected host (by HostID sort order) to do the probing
 	host := connected[0]
 
 	reqID := uuid.New().String()

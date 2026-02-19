@@ -146,7 +146,10 @@ func (m *tickerMockStore) ListUsageRecords(context.Context, string, time.Time, t
 func (m *tickerMockStore) CreateHost(context.Context, *store.Host) error        { return nil }
 func (m *tickerMockStore) GetHost(context.Context, string) (*store.Host, error) { return nil, nil }
 func (m *tickerMockStore) ListHosts(context.Context) ([]store.Host, error)      { return nil, nil }
-func (m *tickerMockStore) UpdateHost(context.Context, *store.Host) error        { return nil }
+func (m *tickerMockStore) ListHostsByOrg(context.Context, string) ([]store.Host, error) {
+	return nil, nil
+}
+func (m *tickerMockStore) UpdateHost(context.Context, *store.Host) error { return nil }
 func (m *tickerMockStore) UpdateHostHeartbeat(context.Context, string, int32, int64, int64) error {
 	return nil
 }

@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { StepTracker } from '~/components/docs/step-tracker'
 import { TerminalBlock } from '~/components/docs/terminal-block'
 import { CodeBlock } from '~/components/docs/code-block'
@@ -11,6 +11,16 @@ export const Route = createFileRoute('/docs/mcp')({
 })
 
 const claudeConfig = `{
+  "mcpServers": {
+    "fluid": {
+      "command": "fluid",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}`
+
+const codexConfig = `{
   "mcpServers": {
     "fluid": {
       "command": "fluid",
@@ -68,6 +78,20 @@ function McpPage() {
         storageKey="mcp"
         steps={[
           {
+            title: 'Install the CLI',
+            content: (
+              <>
+                <p>
+                  Install the fluid CLI before configuring MCP. Follow the{' '}
+                  <Link to="/docs/quickstart" className="text-blue-400 underline">
+                    quickstart guide
+                  </Link>{' '}
+                  to get set up.
+                </p>
+              </>
+            ),
+          },
+          {
             title: 'Start the MCP server',
             content: (
               <>
@@ -84,36 +108,18 @@ function McpPage() {
             ),
           },
           {
-            title: 'Configure Claude Code',
+            title: 'Configure',
             content: (
               <>
-                <p>Add the fluid MCP server to your Claude Code configuration:</p>
-                <CodeBlock code={claudeConfig} lang="json" filename="~/.claude/settings.json" />
-                <p>Restart Claude Code to pick up the change.</p>
-              </>
-            ),
-          },
-          {
-            title: 'Configure Cursor',
-            content: (
-              <>
-                <p>Add the fluid MCP server to your Cursor project config:</p>
-                <CodeBlock code={cursorConfig} lang="json" filename=".cursor/mcp.json" />
-                <p>Restart Cursor to activate the MCP tools.</p>
-              </>
-            ),
-          },
-          {
-            title: 'Configure Windsurf',
-            content: (
-              <>
-                <p>Add the fluid MCP server to your Windsurf configuration:</p>
+                <p>Add the fluid MCP server to your editor of choice:</p>
                 <CodeBlock
-                  code={cursorConfig}
+                  code={claudeConfig}
                   lang="json"
-                  filename="~/.codeium/windsurf/mcp_config.json"
+                  filename="Claude Code: ~/.claude/settings.json"
                 />
-                <p>Restart Windsurf to activate the MCP tools.</p>
+                <CodeBlock code={codexConfig} lang="json" filename="Codex: ~/.codex/config.json" />
+                <CodeBlock code={cursorConfig} lang="json" filename="Cursor: .cursor/mcp.json" />
+                <p>Restart your editor to pick up the change.</p>
               </>
             ),
           },

@@ -14,22 +14,27 @@ export function DocsHeader() {
   return (
     <>
       <header className="border-border sticky top-0 z-40 flex h-12 items-center justify-between border-b bg-black px-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 p-4">
           <button
             className="text-muted-foreground hover:text-foreground md:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
-          <Link to="/docs/quickstart" className="font-logo text-sm font-extrabold text-white">
+          <Link to="/dashboard" className="font-logo text-lg font-extrabold text-white">
             fluid.sh
           </Link>
-          <span className="text-muted-foreground text-[10px]">/</span>
-          <span className="text-muted-foreground text-xs">docs</span>
+          <span className="text-muted-foreground text-sm">/</span>
+          <Link
+            to="/docs/quickstart"
+            className="text-muted-foreground text-sm transition-colors hover:text-white"
+          >
+            docs
+          </Link>
         </div>
         <div className="flex items-center gap-2">
           <a
-            href="https://github.com/fluid-sh/fluid"
+            href="https://github.com/aspectrr/fluid.sh"
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground p-1.5"

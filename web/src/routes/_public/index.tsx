@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { ScriptedDemo } from '~/components/landing/scripted-demo'
 import { ArchitectureAnimation } from '~/components/landing/architecture-animation'
 import type { DiagramPhase } from '~/lib/diagram-phases'
+import { useAuth } from '~/lib/auth'
 
 export const Route = createFileRoute('/_public/')({
   component: LandingPage,
@@ -61,6 +62,7 @@ const installTabs = [
 ] as const
 
 function LandingPage() {
+  const { isAuthenticated } = useAuth()
   const [activeTab, setActiveTab] = useState<string>('go')
   const [diagramPhase, setDiagramPhase] = useState<DiagramPhase>('idle')
   const workflowRef = useRef<HTMLDivElement>(null)
@@ -117,7 +119,7 @@ function LandingPage() {
                 <span className="text-blue-400">$</span> fluid.sh
               </h1>
             </div>
-            <div className="flex gap-6 font-mono text-sm text-neutral-400">
+            <div className="flex items-center gap-6 font-mono text-sm text-neutral-400">
               <Link to="/blog" className="transition-colors hover:text-neutral-200">
                 Blog
               </Link>
@@ -137,6 +139,12 @@ function LandingPage() {
               >
                 Discord
               </a>
+              <Link
+                to={isAuthenticated ? '/dashboard' : '/login'}
+                className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+              >
+                {isAuthenticated ? 'Dashboard' : 'Login'}
+              </Link>
             </div>
           </div>
           <p className="mt-2 text-neutral-400">Claude Code for Linux Servers</p>

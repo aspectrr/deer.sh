@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '~/lib/utils'
-import { Button } from '~/components/ui/button'
 
-interface Step {
+export interface Step {
   title: string
   content: ReactNode
 }
@@ -120,11 +119,6 @@ export function StepTracker({
     }
   }, [progressEndpoint, sessionCode, markComplete])
 
-  const resetProgress = () => {
-    setCompletedSteps(new Set())
-    setExpandedStep(0)
-  }
-
   const allComplete = completedSteps.size === steps.length
 
   return (
@@ -133,14 +127,6 @@ export function StepTracker({
         <span className="text-muted-foreground text-[10px]">
           {completedSteps.size}/{steps.length} completed
         </span>
-        {completedSteps.size > 0 && (
-          <button
-            onClick={resetProgress}
-            className="text-muted-foreground hover:text-foreground text-[10px] transition-colors"
-          >
-            Reset
-          </button>
-        )}
       </div>
 
       {sessionCode && (
@@ -173,19 +159,33 @@ export function StepTracker({
             return (
               <div key={i}>
                 <button
-                  onClick={() => setExpandedStep(isExpanded ? -1 : i)}
+                  onClick={() => {
+                    if (isExpanded) {
+                      setExpandedStep(-1)
+                    } else {
+                      setExpandedStep(i)
+                      // Bidirectional: mark 0..i-1 complete, unmark i and beyond
+                      setCompletedSteps(() => {
+                        const next = new Set<number>()
+                        for (let j = 0; j < i; j++) {
+                          next.add(j)
+                        }
+                        return next
+                      })
+                    }
+                  }}
                   className="group flex w-full items-center gap-3 py-1.5 text-left"
                 >
                   {/* Dot */}
                   <div
                     className={cn(
                       'relative z-10 flex h-[15px] w-[15px] shrink-0 items-center justify-center',
-                      isComplete && 'bg-green-400/20',
+                      isComplete && 'bg-blue-400/20',
                       isCurrent && 'shadow-[0_0_8px_2px_rgba(96,165,250,0.6)]'
                     )}
                   >
                     {isComplete ? (
-                      <Check className="h-2.5 w-2.5 text-green-400" />
+                      <Check className="h-2.5 w-2.5 text-blue-400" />
                     ) : (
                       <div
                         className={cn('h-2 w-2', isCurrent ? 'bg-blue-400' : 'bg-neutral-700')}
@@ -216,16 +216,6 @@ export function StepTracker({
                 {isExpanded && (
                   <div className="ml-[27px] pb-3">
                     <div className="docs-prose">{step.content}</div>
-                    {!isComplete && !progressEndpoint && (
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={() => markComplete(i)}
-                        className="mt-3"
-                      >
-                        Mark complete
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>
@@ -235,8 +225,8 @@ export function StepTracker({
       </div>
 
       {allComplete && (
-        <div className="mt-4 border border-green-400/20 bg-green-400/5 p-3">
-          <p className="text-xs text-green-400">All steps complete.</p>
+        <div className="mt-4 border border-blue-400/20 bg-blue-400/5 p-3">
+          <p className="text-xs text-blue-400">All steps complete.</p>
         </div>
       )}
     </div>

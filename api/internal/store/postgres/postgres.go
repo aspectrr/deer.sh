@@ -1058,6 +1058,18 @@ func (s *postgresStore) ListHosts(ctx context.Context) ([]store.Host, error) {
 	return out, nil
 }
 
+func (s *postgresStore) ListHostsByOrg(ctx context.Context, orgID string) ([]store.Host, error) {
+	var models []HostModel
+	if err := s.db.WithContext(ctx).Where("org_id = ?", orgID).Find(&models).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	out := make([]store.Host, 0, len(models))
+	for i := range models {
+		out = append(out, *hostFromModel(&models[i]))
+	}
+	return out, nil
+}
+
 func (s *postgresStore) UpdateHost(ctx context.Context, host *store.Host) error {
 	host.UpdatedAt = time.Now().UTC()
 	res := s.db.WithContext(ctx).Model(&HostModel{}).Where("id = ?", host.ID).

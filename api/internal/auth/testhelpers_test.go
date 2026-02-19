@@ -145,6 +145,9 @@ func (m *mockStore) GetHost(context.Context, string) (*store.Host, error) {
 func (m *mockStore) ListHosts(context.Context) ([]store.Host, error) {
 	panic("mockStore: ListHosts not implemented")
 }
+func (m *mockStore) ListHostsByOrg(context.Context, string) ([]store.Host, error) {
+	panic("mockStore: ListHostsByOrg not implemented")
+}
 func (m *mockStore) UpdateHost(context.Context, *store.Host) error {
 	panic("mockStore: UpdateHost not implemented")
 }

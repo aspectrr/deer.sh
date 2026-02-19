@@ -1,10 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { StepTracker } from '~/components/docs/step-tracker'
 import { TerminalBlock } from '~/components/docs/terminal-block'
 import { CodeBlock } from '~/components/docs/code-block'
 import { Callout } from '~/components/docs/callout'
 import { PrevNext } from '~/components/docs/prev-next'
+import { DaemonConnectionStatus } from '~/components/daemon-connection-status'
+import { useAuth } from '~/lib/auth'
+import { axios } from '~/lib/axios'
 
 export const Route = createFileRoute('/docs/daemon')({
   component: DaemonPage,
@@ -51,8 +55,17 @@ WantedBy=multi-user.target
 `
 
 function DaemonPage() {
-  const [showScript, setShowScript] = useState(false)
   const [showSource, setShowSource] = useState(false)
+  const { isAuthenticated } = useAuth()
+  const { data: orgsData } = useQuery({
+    queryKey: ['orgs'],
+    queryFn: async () => {
+      const res = await axios.get('/v1/orgs')
+      return res.data as { organizations: Array<{ slug: string }> }
+    },
+    enabled: isAuthenticated,
+  })
+  const orgSlug = orgsData?.organizations[0]?.slug
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
@@ -69,23 +82,6 @@ function DaemonPage() {
 
       {/* Alternative install methods (collapsed) */}
       <div className="mb-6 space-y-2">
-        <button
-          onClick={() => setShowScript(!showScript)}
-          className="text-xs text-blue-400 transition-colors hover:text-blue-300"
-        >
-          {showScript ? 'Hide' : 'Show'} install script method
-        </button>
-        {showScript && (
-          <div className="border-border border bg-neutral-900/30 p-4">
-            <p className="mb-2 text-xs text-neutral-400">
-              Quick install (not recommended for production):
-            </p>
-            <TerminalBlock
-              lines={[{ command: 'curl -fsSL https://fluid.sh/install.sh | bash -s -- --daemon' }]}
-            />
-          </div>
-        )}
-        <br />
         <button
           onClick={() => setShowSource(!showSource)}
           className="text-xs text-blue-400 transition-colors hover:text-blue-300"
@@ -329,6 +325,8 @@ function DaemonPage() {
           },
         ]}
       />
+
+      {orgSlug && <DaemonConnectionStatus orgSlug={orgSlug} />}
 
       <PrevNext />
     </div>

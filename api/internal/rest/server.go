@@ -54,6 +54,8 @@ func (s *Server) routes() *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware(s.cfg.Frontend.URL))
 
+	trustedNets := parseCIDRs(s.cfg.API.TrustedProxies)
+
 	// Public routes
 	r.Get("/v1/health", s.handleHealth)
 
@@ -81,12 +83,12 @@ func (s *Server) routes() *chi.Mux {
 
 	// Auth routes (public)
 	r.Route("/v1/auth", func(r chi.Router) {
-		r.With(rateLimitByIP(0.1, 5)).Post("/register", s.handleRegister)
-		r.With(rateLimitByIP(0.2, 10)).Post("/login", s.handleLogin)
+		r.With(rateLimitByIP(0.1, 5, trustedNets)).Post("/register", s.handleRegister)
+		r.With(rateLimitByIP(0.2, 10, trustedNets)).Post("/login", s.handleLogin)
 
 		// OAuth (rate-limited)
 		r.Group(func(r chi.Router) {
-			r.Use(rateLimitByIP(0.5, 10))
+			r.Use(rateLimitByIP(0.5, 10, trustedNets))
 			r.Get("/github", s.handleGitHubLogin)
 			r.Get("/github/callback", s.handleGitHubCallback)
 			r.Get("/google", s.handleGoogleLogin)

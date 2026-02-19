@@ -15,8 +15,63 @@ type ipLimiter struct {
 	lastSeen time.Time
 }
 
+// parseCIDRs parses a slice of CIDR strings into net.IPNet values.
+// Invalid entries are silently skipped.
+func parseCIDRs(cidrs []string) []*net.IPNet {
+	var nets []*net.IPNet
+	for _, c := range cidrs {
+		_, ipNet, err := net.ParseCIDR(c)
+		if err != nil {
+			// Try as bare IP by appending /32 or /128.
+			ip := net.ParseIP(c)
+			if ip == nil {
+				continue
+			}
+			bits := 32
+			if ip.To4() == nil {
+				bits = 128
+			}
+			ipNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}
+		}
+		nets = append(nets, ipNet)
+	}
+	return nets
+}
+
+// clientIP extracts the real client IP from a request. Proxy headers
+// (X-Real-IP, X-Forwarded-For) are only trusted when RemoteAddr falls
+// within one of the trustedProxies CIDRs.
+func clientIP(r *http.Request, trustedProxies []*net.IPNet) string {
+	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if remoteIP == "" {
+		remoteIP = r.RemoteAddr
+	}
+
+	if len(trustedProxies) > 0 {
+		parsed := net.ParseIP(remoteIP)
+		if parsed != nil {
+			for _, cidr := range trustedProxies {
+				if cidr.Contains(parsed) {
+					if xri := r.Header.Get("X-Real-IP"); xri != "" {
+						return xri
+					}
+					if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+						ip, _, _ := strings.Cut(xff, ",")
+						return strings.TrimSpace(ip)
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return remoteIP
+}
+
 // rateLimitByIP returns middleware that rate-limits requests per client IP.
-func rateLimitByIP(rps float64, burst int) func(http.Handler) http.Handler {
+// Proxy headers are only trusted when the direct connection comes from a
+// trustedProxies CIDR.
+func rateLimitByIP(rps float64, burst int, trustedProxies []*net.IPNet) func(http.Handler) http.Handler {
 	var mu sync.Mutex
 	limiters := make(map[string]*ipLimiter)
 
@@ -38,19 +93,7 @@ func rateLimitByIP(rps float64, burst int) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := r.Header.Get("X-Real-IP")
-			if ip == "" {
-				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-					ip, _, _ = strings.Cut(xff, ",")
-					ip = strings.TrimSpace(ip)
-				}
-			}
-			if ip == "" {
-				ip, _, _ = net.SplitHostPort(r.RemoteAddr)
-				if ip == "" {
-					ip = r.RemoteAddr
-				}
-			}
+			ip := clientIP(r, trustedProxies)
 
 			mu.Lock()
 			l, ok := limiters[ip]

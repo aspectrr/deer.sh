@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useAuth } from '~/lib/auth'
 import { Box, Server, Monitor, Zap } from 'lucide-react'
+import { StepTracker } from '~/components/docs/step-tracker'
+import { quickstartSteps } from '~/components/docs/quickstart-steps'
 
 export const Route = createFileRoute('/_app/dashboard')({
   component: DashboardPage,
@@ -47,27 +49,40 @@ function DashboardPage() {
         <p className="text-muted-foreground text-xs">Welcome back, {user?.display_name}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className={`border-border hover:${stat.borderColor} border bg-neutral-900/50 p-4 transition-all duration-300`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-xs">{stat.label}</span>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </div>
-            <div className="mt-2 text-lg font-medium text-white">{stat.value}</div>
-          </div>
-        ))}
-      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="border-border border bg-neutral-900/50 p-6">
+          <h3 className="mb-4 text-xs font-medium text-white">Getting Started</h3>
+          <StepTracker
+            storageKey="dashboard-quickstart"
+            steps={quickstartSteps}
+            progressEndpoint="/v1/docs-progress"
+          />
+        </div>
 
-      <div className="border-border border bg-neutral-900/50 p-6">
-        <h3 className="text-xs font-medium text-white">Recent Activity</h3>
-        <div className="text-muted-foreground mt-4 flex items-center justify-center py-8 text-xs">
-          <div className="text-center">
-            <p>No recent activity</p>
-            <p className="mt-1 text-[10px]">Create a sandbox to get started</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className={`border-border hover:${stat.borderColor} border bg-neutral-900/50 p-4 transition-all duration-300`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs">{stat.label}</span>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+                <div className="mt-2 text-lg font-medium text-white">{stat.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-border border bg-neutral-900/50 p-6">
+            <h3 className="text-xs font-medium text-white">Recent Activity</h3>
+            <div className="text-muted-foreground mt-4 flex items-center justify-center py-8 text-xs">
+              <div className="text-center">
+                <p>No recent activity</p>
+                <p className="mt-1 text-[10px]">Create a sandbox to get started</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

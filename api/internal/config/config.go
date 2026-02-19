@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -28,9 +29,10 @@ type PostHogConfig struct {
 }
 
 type GRPCConfig struct {
-	Address     string
-	TLSCertFile string
-	TLSKeyFile  string
+	Address       string
+	TLSCertFile   string
+	TLSKeyFile    string
+	AllowInsecure bool
 }
 
 type OrchestratorConfig struct {
@@ -45,6 +47,7 @@ type APIConfig struct {
 	IdleTimeout     time.Duration
 	ShutdownTimeout time.Duration
 	EnableDocs      bool
+	TrustedProxies  []string
 }
 
 type DatabaseConfig struct {
@@ -117,6 +120,9 @@ func (c *Config) Validate() error {
 	if u, err := url.Parse(c.Frontend.URL); err != nil || u.Scheme == "" {
 		return fmt.Errorf("FRONTEND_URL must be a valid URL")
 	}
+	if c.GRPC.TLSCertFile == "" && c.GRPC.TLSKeyFile == "" && !c.GRPC.AllowInsecure {
+		return fmt.Errorf("gRPC TLS not configured; set GRPC_TLS_CERT_FILE/GRPC_TLS_KEY_FILE or GRPC_ALLOW_INSECURE=true")
+	}
 	return nil
 }
 
@@ -128,7 +134,8 @@ func Load() *Config {
 			WriteTimeout:    envDuration("API_WRITE_TIMEOUT", 120*time.Second),
 			IdleTimeout:     envDuration("API_IDLE_TIMEOUT", 120*time.Second),
 			ShutdownTimeout: envDuration("API_SHUTDOWN_TIMEOUT", 20*time.Second),
-			EnableDocs:      envBool("API_ENABLE_DOCS", true),
+			EnableDocs:      envBool("API_ENABLE_DOCS", false),
+			TrustedProxies:  envStringSlice("TRUSTED_PROXIES"),
 		},
 		Database: DatabaseConfig{
 			URL:             os.Getenv("DATABASE_URL"),
@@ -152,9 +159,10 @@ func Load() *Config {
 			},
 		},
 		GRPC: GRPCConfig{
-			Address:     envOr("GRPC_ADDR", ":9090"),
-			TLSCertFile: os.Getenv("GRPC_TLS_CERT_FILE"),
-			TLSKeyFile:  os.Getenv("GRPC_TLS_KEY_FILE"),
+			Address:       envOr("GRPC_ADDR", ":9090"),
+			TLSCertFile:   os.Getenv("GRPC_TLS_CERT_FILE"),
+			TLSKeyFile:    os.Getenv("GRPC_TLS_KEY_FILE"),
+			AllowInsecure: envBool("GRPC_ALLOW_INSECURE", false),
 		},
 		Orchestrator: OrchestratorConfig{
 			HeartbeatTimeout: envDuration("ORCHESTRATOR_HEARTBEAT_TIMEOUT", 90*time.Second),
@@ -238,4 +246,19 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return d
 	}
 	return fallback
+}
+
+func envStringSlice(key string) []string {
+	v := os.Getenv(key)
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }

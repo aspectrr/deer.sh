@@ -338,6 +338,9 @@ func (m *mockStore) ListHosts(ctx context.Context) ([]store.Host, error) {
 	m.p("ListHosts")
 	return nil, nil
 }
+func (m *mockStore) ListHostsByOrg(_ context.Context, _ string) ([]store.Host, error) {
+	return nil, nil
+}
 func (m *mockStore) UpdateHost(ctx context.Context, host *store.Host) error {
 	if m.UpdateHostFn != nil {
 		return m.UpdateHostFn(ctx, host)
