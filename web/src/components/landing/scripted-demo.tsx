@@ -12,7 +12,9 @@ export function ScriptedDemo({ onPhase }: ScriptedDemoProps) {
   const engineRef = useRef<ScriptedDemoEngine | null>(null)
   const [visible, setVisible] = useState(false)
   const onPhaseRef = useRef(onPhase)
-  onPhaseRef.current = onPhase
+  useEffect(() => {
+    onPhaseRef.current = onPhase
+  }, [onPhase])
 
   useEffect(() => {
     // Trigger fade-in on mount

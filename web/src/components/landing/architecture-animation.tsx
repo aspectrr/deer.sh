@@ -383,15 +383,15 @@ function BrailleSpinner({
   const [frame, setFrame] = useState(0)
 
   useEffect(() => {
-    if (!active) {
-      setFrame(0)
-      return
-    }
+    if (!active) return
     if (prefersReducedMotion) return
     const id = setInterval(() => {
       setFrame((f) => (f + 1) % SPINNER_FRAMES.length)
     }, 300)
-    return () => clearInterval(id)
+    return () => {
+      clearInterval(id)
+      setFrame(0)
+    }
   }, [active])
 
   return (
