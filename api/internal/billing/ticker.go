@@ -127,31 +127,37 @@ func (rt *ResourceTicker) reportForOrg(ctx context.Context, orgID string) {
 
 	// Create local usage records
 	if runningSandboxes > 0 {
-		_ = rt.store.CreateUsageRecord(ctx, &store.UsageRecord{
+		if err := rt.store.CreateUsageRecord(ctx, &store.UsageRecord{
 			ID:           uuid.New().String(),
 			OrgID:        orgID,
 			ResourceType: "sandbox_hour",
 			Quantity:     float64(runningSandboxes),
 			RecordedAt:   now,
-		})
+		}); err != nil {
+			rt.logger.Warn("failed to create usage record", "type", "sandbox_hour", "org_id", orgID, "error", err)
+		}
 	}
 	if sourceVMCount > 0 {
-		_ = rt.store.CreateUsageRecord(ctx, &store.UsageRecord{
+		if err := rt.store.CreateUsageRecord(ctx, &store.UsageRecord{
 			ID:           uuid.New().String(),
 			OrgID:        orgID,
 			ResourceType: "source_vm",
 			Quantity:     float64(sourceVMCount),
 			RecordedAt:   now,
-		})
+		}); err != nil {
+			rt.logger.Warn("failed to create usage record", "type", "source_vm", "org_id", orgID, "error", err)
+		}
 	}
 	if daemonCount > 0 {
-		_ = rt.store.CreateUsageRecord(ctx, &store.UsageRecord{
+		if err := rt.store.CreateUsageRecord(ctx, &store.UsageRecord{
 			ID:           uuid.New().String(),
 			OrgID:        orgID,
 			ResourceType: "agent_host",
 			Quantity:     float64(daemonCount),
 			RecordedAt:   now,
-		})
+		}); err != nil {
+			rt.logger.Warn("failed to create usage record", "type", "agent_host", "org_id", orgID, "error", err)
+		}
 	}
 
 	rt.logger.Debug("billing tick completed",

@@ -139,7 +139,7 @@ func (s *Server) handleGetSandbox(w http.ResponseWriter, r *http.Request) {
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID} [delete]
 func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
-	org, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgRole(w, r, store.OrgRoleAdmin)
 	if !ok {
 		return
 	}
@@ -476,4 +476,26 @@ func (s *Server) resolveOrgMembership(w http.ResponseWriter, r *http.Request) (*
 	}
 
 	return org, member, true
+}
+
+// resolveOrgRole resolves org membership and checks the member has at least the given role.
+func (s *Server) resolveOrgRole(w http.ResponseWriter, r *http.Request, minRole store.OrgRole) (*store.Organization, *store.OrgMember, bool) {
+	org, member, ok := s.resolveOrgMembership(w, r)
+	if !ok {
+		return nil, nil, false
+	}
+	if !hasMinRole(member.Role, minRole) {
+		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("insufficient permissions"))
+		return nil, nil, false
+	}
+	return org, member, true
+}
+
+func hasMinRole(role, minRole store.OrgRole) bool {
+	ranks := map[store.OrgRole]int{
+		store.OrgRoleOwner:  3,
+		store.OrgRoleAdmin:  2,
+		store.OrgRoleMember: 1,
+	}
+	return ranks[role] >= ranks[minRole]
 }

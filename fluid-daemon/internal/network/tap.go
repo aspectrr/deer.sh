@@ -42,13 +42,14 @@ func DestroyTAP(ctx context.Context, tapName string) error {
 }
 
 // TAPName generates a TAP device name from a sandbox ID.
-// Uses the first 6 characters of the sandbox ID (after any prefix).
+// Uses the first 9 characters of the sandbox ID (after any prefix).
+// Stays within Linux 15-char interface name limit: "fl-" + 9 = 12.
 func TAPName(sandboxID string) string {
 	id := strings.TrimPrefix(sandboxID, "SBX-")
-	if len(id) > 6 {
-		id = id[:6]
+	if len(id) > 9 {
+		id = id[:9]
 	}
-	return "fluid-" + strings.ToLower(id)
+	return "fl-" + strings.ToLower(id)
 }
 
 func runCmd(ctx context.Context, name string, args ...string) error {

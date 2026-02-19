@@ -49,7 +49,7 @@ func TestSetSessionCookie(t *testing.T) {
 
 func TestClearSessionCookie(t *testing.T) {
 	w := httptest.NewRecorder()
-	ClearSessionCookie(w)
+	ClearSessionCookie(w, true)
 
 	resp := w.Result()
 	cookies := resp.Cookies()

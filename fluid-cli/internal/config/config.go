@@ -34,6 +34,13 @@ type ControlPlaneConfig struct {
 	// DaemonAddress is the gRPC endpoint for direct daemon access (e.g., "localhost:9091").
 	// When set, the CLI calls the daemon directly instead of using local providers.
 	DaemonAddress string `yaml:"daemon_address"`
+
+	// DaemonInsecure skips TLS verification for the daemon gRPC connection.
+	// Defaults to true for backward compatibility.
+	DaemonInsecure bool `yaml:"daemon_insecure"`
+
+	// DaemonCAFile is the path to a CA certificate for verifying the daemon's TLS cert.
+	DaemonCAFile string `yaml:"daemon_ca_file"`
 }
 
 // ProxmoxConfig holds Proxmox VE API settings.
@@ -133,6 +140,9 @@ func DefaultConfig() *Config {
 
 	return &Config{
 		Provider: "libvirt",
+		ControlPlane: ControlPlaneConfig{
+			DaemonInsecure: true,
+		},
 		Proxmox: ProxmoxConfig{
 			VerifySSL: true,
 			CloneMode: "full",

@@ -9,10 +9,10 @@ func TestTAPName(t *testing.T) {
 		sandboxID string
 		want      string
 	}{
-		{"SBX-abc123def", "fluid-abc123"},
-		{"SBX-xyz", "fluid-xyz"},
-		{"abc123def456", "fluid-abc123"},
-		{"short", "fluid-short"},
+		{"SBX-abc123def", "fl-abc123def"},
+		{"SBX-xyz", "fl-xyz"},
+		{"abc123def456", "fl-abc123def"},
+		{"short", "fl-short"},
 	}
 
 	for _, tt := range tests {

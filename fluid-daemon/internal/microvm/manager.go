@@ -304,6 +304,17 @@ func (m *Manager) Stop(ctx context.Context, sandboxID string, force bool) error 
 		return fmt.Errorf("signal process %d: %w", info.PID, err)
 	}
 
+	// Wait briefly for the process to exit.
+	done := make(chan struct{})
+	go func() {
+		_, _ = proc.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+	}
+
 	info.State = StateStopped
 	m.logger.Info("microVM stopped", "sandbox_id", sandboxID, "pid", info.PID, "force", force)
 	return nil
@@ -348,8 +359,8 @@ func (m *Manager) Destroy(ctx context.Context, sandboxID string) error {
 
 // Get returns info about a sandbox.
 func (m *Manager) Get(sandboxID string) (*SandboxInfo, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	info, ok := m.vms[sandboxID]
 	if !ok {

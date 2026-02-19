@@ -13,9 +13,15 @@ import (
 func generateSessionCode() string {
 	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	b := make([]byte, 6)
-	_, _ = rand.Read(b)
 	for i := range b {
-		b[i] = chars[int(b[i])%len(chars)]
+		for {
+			_, _ = rand.Read(b[i : i+1])
+			idx := int(b[i])
+			if idx < 256-(256%len(chars)) {
+				b[i] = chars[idx%len(chars)]
+				break
+			}
+		}
 	}
 	return string(b)
 }

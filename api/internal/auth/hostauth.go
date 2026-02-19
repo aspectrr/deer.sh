@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 
@@ -58,8 +59,8 @@ func HostTokenStreamInterceptor(st store.Store) grpc.StreamServerInterceptor {
 
 		raw := vals[0]
 		// Strip "Bearer " prefix if present.
-		if len(raw) > 7 && raw[:7] == "Bearer " {
-			raw = raw[7:]
+		if after, found := strings.CutPrefix(raw, "Bearer "); found {
+			raw = after
 		}
 
 		hash := HashToken(raw)
@@ -74,6 +75,18 @@ func HostTokenStreamInterceptor(st store.Store) grpc.StreamServerInterceptor {
 		wrapped := &wrappedStream{ServerStream: ss, ctx: ctx}
 		return handler(srv, wrapped)
 	}
+}
+
+// WithTokenID returns a context carrying the given token ID.
+// Exported for use in tests that bypass the interceptor.
+func WithTokenID(ctx context.Context, tokenID string) context.Context {
+	return context.WithValue(ctx, hostTokenIDKey{}, tokenID)
+}
+
+// WithOrgID returns a context carrying the given org ID.
+// Exported for use in tests that bypass the interceptor.
+func WithOrgID(ctx context.Context, orgID string) context.Context {
+	return context.WithValue(ctx, hostOrgKey{}, orgID)
 }
 
 // wrappedStream overrides Context() to return an enriched context.

@@ -142,8 +142,6 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stripe.Key = s.cfg.Billing.StripeSecretKey
-
 	// Create or reuse Stripe customer
 	customerID := org.StripeCustomerID
 	if customerID == "" {
@@ -220,8 +218,6 @@ func (s *Server) handleBillingPortal(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
-	stripe.Key = s.cfg.Billing.StripeSecretKey
 
 	params := &stripe.BillingPortalSessionParams{
 		Customer:  stripe.String(org.StripeCustomerID),
@@ -354,7 +350,10 @@ func (s *Server) handleCalculator(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		markup := 1.05 // 5% markup
+		markup := s.cfg.Billing.BillingMarkup
+		if markup == 0 {
+			markup = 1.05
+		}
 		tokenCost = float64(billable) * costPer1K / 1000.0 * markup
 		tb = &tokenBreakdown{
 			EstimatedTokens: req.EstimatedTokens,
@@ -400,8 +399,6 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stripe.Key = s.cfg.Billing.StripeSecretKey
-
 	body, err := io.ReadAll(io.LimitReader(r.Body, 65536))
 	if err != nil {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("failed to read body"))
@@ -421,9 +418,16 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if sess.Customer != nil {
+			if sess.Subscription == nil {
+				break
+			}
 			org, err := s.store.GetOrganizationByStripeCustomerID(r.Context(), sess.Customer.ID)
 			if err != nil {
 				break
+			}
+			// Idempotency: check if subscription already exists
+			if _, err := s.store.GetSubscriptionByStripeID(r.Context(), sess.Subscription.ID); err == nil {
+				break // already processed
 			}
 			sub := &store.Subscription{
 				ID:                   uuid.New().String(),
@@ -458,7 +462,13 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		} else {
 			break
 		}
-		existing.Status = store.SubscriptionStatus(sub.Status)
+		newStatus := store.SubscriptionStatus(sub.Status)
+		switch newStatus {
+		case store.SubStatusActive, store.SubStatusPastDue, store.SubStatusCancelled:
+			existing.Status = newStatus
+		default:
+			existing.Status = store.SubStatusPastDue
+		}
 		_ = s.store.UpdateSubscription(r.Context(), existing)
 
 	case "customer.subscription.deleted":

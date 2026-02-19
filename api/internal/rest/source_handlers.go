@@ -73,7 +73,7 @@ func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.orchestrator.PrepareSourceVM(r.Context(), org.ID, vm, req.SSHUser, req.SSHKeyPath)
 	if err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to prepare source VM: %s", err.Error()))
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to prepare source VM"))
 		return
 	}
 
@@ -117,7 +117,7 @@ func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) 
 
 	result, err := s.orchestrator.RunSourceCommand(r.Context(), org.ID, vm, req.Command, req.TimeoutSec)
 	if err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to run source command: %s", err.Error()))
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to run source command"))
 		return
 	}
 
@@ -161,7 +161,7 @@ func (s *Server) handleReadSourceFile(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.orchestrator.ReadSourceFile(r.Context(), org.ID, vm, req.Path)
 	if err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to read source file: %s", err.Error()))
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to read source file"))
 		return
 	}
 

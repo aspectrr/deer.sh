@@ -430,11 +430,12 @@ type SourceHost struct {
 // HostToken is a bearer token that a sandbox host uses to authenticate its
 // gRPC connection. Tokens are scoped to an organization.
 type HostToken struct {
-	ID        string    `json:"id"`
-	OrgID     string    `json:"org_id"`
-	Name      string    `json:"name"`
-	TokenHash string    `json:"-"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string     `json:"id"`
+	OrgID     string     `json:"org_id"`
+	Name      string     `json:"name"`
+	TokenHash string     `json:"-"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // DataStore declares data operations.
@@ -475,6 +476,7 @@ type DataStore interface {
 	CreateSubscription(ctx context.Context, sub *Subscription) error
 	GetSubscriptionByOrg(ctx context.Context, orgID string) (*Subscription, error)
 	UpdateSubscription(ctx context.Context, sub *Subscription) error
+	GetSubscriptionByStripeID(ctx context.Context, stripeSubID string) (*Subscription, error)
 
 	// Usage
 	CreateUsageRecord(ctx context.Context, rec *UsageRecord) error
@@ -547,6 +549,10 @@ type DataStore interface {
 	CreateOrgModelSubscription(ctx context.Context, s *OrgModelSubscription) error
 	SumTokenUsage(ctx context.Context, orgID string, from, to time.Time) (float64, error)
 	ListActiveSubscriptions(ctx context.Context) ([]*Subscription, error)
+
+	// Advisory locks (multi-instance safety)
+	AcquireAdvisoryLock(ctx context.Context, key int64) error
+	ReleaseAdvisoryLock(ctx context.Context, key int64) error
 }
 
 // Store is the root database handle with lifecycle methods.

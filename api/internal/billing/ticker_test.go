@@ -244,6 +244,11 @@ func (m *tickerMockStore) SumTokenUsage(context.Context, string, time.Time, time
 func (m *tickerMockStore) ListActiveSubscriptions(context.Context) ([]*store.Subscription, error) {
 	return nil, nil
 }
+func (m *tickerMockStore) GetSubscriptionByStripeID(context.Context, string) (*store.Subscription, error) {
+	return nil, nil
+}
+func (m *tickerMockStore) AcquireAdvisoryLock(context.Context, int64) error { return nil }
+func (m *tickerMockStore) ReleaseAdvisoryLock(context.Context, int64) error { return nil }
 
 // ---------------------------------------------------------------------------
 // mockHostStream - minimal HostStream for registry.Register

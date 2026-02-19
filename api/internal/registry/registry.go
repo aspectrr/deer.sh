@@ -120,3 +120,17 @@ func (r *Registry) UpdateHeartbeat(hostID string) {
 		h.LastHeartbeat = time.Now()
 	}
 }
+
+// UpdateResources updates the in-memory available CPU and memory for a host.
+func (r *Registry) UpdateResources(hostID string, cpus int32, memMB int64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	h, ok := r.hosts[hostID]
+	if !ok {
+		return
+	}
+	if h.Registration != nil {
+		h.Registration.AvailableCpus = cpus
+		h.Registration.AvailableMemoryMb = memMB
+	}
+}

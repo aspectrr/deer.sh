@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -30,11 +31,14 @@ func discoverIPLibvirt(ctx context.Context, macAddress, bridge string, timeout t
 	mac := strings.ToLower(macAddress)
 	deadline := time.Now().Add(timeout)
 
+	// Sanitize bridge name to prevent path traversal.
+	safeBridge := filepath.Base(bridge)
+
 	// Try common lease file locations
 	leaseFiles := []string{
 		"/var/lib/libvirt/dnsmasq/default.leases",
 		"/var/lib/libvirt/dnsmasq/virbr0.leases",
-		fmt.Sprintf("/var/lib/libvirt/dnsmasq/%s.leases", bridge),
+		fmt.Sprintf("/var/lib/libvirt/dnsmasq/%s.leases", safeBridge),
 	}
 
 	for time.Now().Before(deadline) {
@@ -129,7 +133,9 @@ func discoverIPDnsmasq(ctx context.Context, macAddress, bridge string, timeout t
 	mac := strings.ToLower(macAddress)
 	deadline := time.Now().Add(timeout)
 
-	leaseFile := fmt.Sprintf("/var/lib/fluid/dnsmasq/%s.leases", bridge)
+	// Sanitize bridge name to prevent path traversal.
+	safeBridge := filepath.Base(bridge)
+	leaseFile := fmt.Sprintf("/var/lib/fluid/dnsmasq/%s.leases", safeBridge)
 
 	for time.Now().Before(deadline) {
 		select {

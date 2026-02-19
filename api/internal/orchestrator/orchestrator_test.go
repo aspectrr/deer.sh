@@ -652,18 +652,23 @@ func (m *mockStore) ListActiveSubscriptions(ctx context.Context) ([]*store.Subsc
 	}
 	return nil, nil
 }
+func (m *mockStore) GetSubscriptionByStripeID(_ context.Context, _ string) (*store.Subscription, error) {
+	return nil, nil
+}
+func (m *mockStore) AcquireAdvisoryLock(_ context.Context, _ int64) error { return nil }
+func (m *mockStore) ReleaseAdvisoryLock(_ context.Context, _ int64) error { return nil }
 
 // ---------------------------------------------------------------------------
 // mockSender implements HostSender
 // ---------------------------------------------------------------------------
 
 type mockSender struct {
-	SendAndWaitFn func(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
+	SendAndWaitFn func(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
 }
 
-func (m *mockSender) SendAndWait(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+func (m *mockSender) SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 	if m.SendAndWaitFn != nil {
-		return m.SendAndWaitFn(hostID, msg, timeout)
+		return m.SendAndWaitFn(ctx, hostID, msg, timeout)
 	}
 	return nil, fmt.Errorf("mockSender.SendAndWait not configured")
 }
@@ -944,7 +949,7 @@ func TestCreateSandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
@@ -1036,7 +1041,7 @@ func TestCreateSandbox_SenderError(t *testing.T) {
 
 	ms := &mockStore{}
 	sender := &mockSender{
-		SendAndWaitFn: func(_ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			return nil, fmt.Errorf("connection lost")
 		},
 	}
@@ -1063,7 +1068,7 @@ func TestCreateSandbox_HostError(t *testing.T) {
 
 	ms := &mockStore{}
 	sender := &mockSender{
-		SendAndWaitFn: func(_ string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			return &fluidv1.HostMessage{
 				RequestId: msg.GetRequestId(),
 				Payload: &fluidv1.HostMessage_ErrorReport{
@@ -1103,7 +1108,7 @@ func TestCreateSandbox_Defaults(t *testing.T) {
 		},
 	}
 	sender := &mockSender{
-		SendAndWaitFn: func(_ string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			capturedCmd = msg.GetCreateSandbox()
 			return &fluidv1.HostMessage{
 				RequestId: msg.GetRequestId(),
@@ -1158,7 +1163,7 @@ func TestDestroySandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
@@ -1205,7 +1210,7 @@ func TestDestroySandbox_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			return nil, fmt.Errorf("timeout waiting for response")
 		},
 	}
@@ -1233,7 +1238,7 @@ func TestRunCommand_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
@@ -1287,7 +1292,7 @@ func TestRunCommand_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			return nil, fmt.Errorf("host unreachable")
 		},
 	}
@@ -1315,7 +1320,7 @@ func TestStartSandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
@@ -1375,7 +1380,7 @@ func TestStopSandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
@@ -1412,7 +1417,7 @@ func TestStopSandbox_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			return nil, fmt.Errorf("stream closed")
 		},
 	}
@@ -1435,7 +1440,7 @@ func TestCreateSnapshot_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
@@ -1478,7 +1483,7 @@ func TestCreateSnapshot_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 			return nil, fmt.Errorf("snapshot failed")
 		},
 	}

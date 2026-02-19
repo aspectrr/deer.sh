@@ -237,7 +237,7 @@ func TestHandleDestroySandbox(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 				return &fluidv1.HostMessage{
 					RequestId: msg.RequestId,
 					Payload: &fluidv1.HostMessage_SandboxDestroyed{
@@ -361,7 +361,7 @@ func TestHandleRunCommand(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 				return &fluidv1.HostMessage{
 					RequestId: msg.RequestId,
 					Payload: &fluidv1.HostMessage_CommandResult{
@@ -463,7 +463,7 @@ func TestHandleStartSandbox(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 				return &fluidv1.HostMessage{
 					RequestId: msg.RequestId,
 					Payload: &fluidv1.HostMessage_SandboxStarted{
@@ -559,7 +559,7 @@ func TestHandleStopSandbox(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 				return &fluidv1.HostMessage{
 					RequestId: msg.RequestId,
 					Payload: &fluidv1.HostMessage_SandboxStopped{
@@ -743,7 +743,7 @@ func TestHandleCreateSnapshot(t *testing.T) {
 			return nil, store.ErrNotFound
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 				return &fluidv1.HostMessage{
 					RequestId: msg.RequestId,
 					Payload: &fluidv1.HostMessage_SnapshotCreated{

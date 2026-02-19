@@ -55,6 +55,12 @@ type DaemonConfig struct {
 
 	// Enabled controls whether the daemon gRPC server starts.
 	Enabled bool `yaml:"enabled"`
+
+	// TLSCertFile is the path to the TLS certificate for the daemon gRPC server.
+	TLSCertFile string `yaml:"tls_cert_file"`
+
+	// TLSKeyFile is the path to the TLS key for the daemon gRPC server.
+	TLSKeyFile string `yaml:"tls_key_file"`
 }
 
 // LXCConfig configures LXC provider settings for Proxmox.
@@ -75,6 +81,9 @@ type LXCConfig struct {
 type ControlPlaneConfig struct {
 	// Address is the control plane gRPC endpoint (host:port).
 	Address string `yaml:"address"`
+
+	// Token is the authentication token for the control plane.
+	Token string `yaml:"token"`
 
 	// TLS configures mTLS for the connection.
 	CertFile string `yaml:"cert_file"`

@@ -44,6 +44,9 @@ func TestHandleDeleteSourceHost(t *testing.T) {
 	ms := &mockStore{}
 	setupOrgMembership(ms)
 	deleted := false
+	ms.GetSourceHostFn = func(_ context.Context, id string) (*store.SourceHost, error) {
+		return &store.SourceHost{ID: id, OrgID: testOrg.ID, Name: "host-1", Hostname: "192.168.1.10", Type: "libvirt"}, nil
+	}
 	ms.DeleteSourceHostFn = func(_ context.Context, id string) error {
 		if id == "sh-1" {
 			deleted = true

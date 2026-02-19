@@ -252,6 +252,11 @@ func (m *mockDataStore) CreateOrgModelSubscription(_ context.Context, _ *store.O
 func (m *mockDataStore) ListActiveSubscriptions(context.Context) ([]*store.Subscription, error) {
 	panic("unimplemented")
 }
+func (m *mockDataStore) GetSubscriptionByStripeID(context.Context, string) (*store.Subscription, error) {
+	panic("unimplemented")
+}
+func (m *mockDataStore) AcquireAdvisoryLock(context.Context, int64) error { panic("unimplemented") }
+func (m *mockDataStore) ReleaseAdvisoryLock(context.Context, int64) error { panic("unimplemented") }
 
 // ---------------------------------------------------------------------------
 // Tests for sanitizeEventName
@@ -404,5 +409,46 @@ func TestReportUsage_AllBillable(t *testing.T) {
 	// and did NOT return nil early.
 	if err == nil {
 		t.Fatal("expected non-nil error from Stripe API path, got nil")
+	}
+}
+
+func TestReportUsage_ExactlyAtFreeTierBoundary(t *testing.T) {
+	// Free tier is 1000 tokens. Cumulative usage (including this chat) equals
+	// exactly freeTokens. prevTotal = 1000 - 200 = 800, prevTotal + thisChat = 1000 <= 1000.
+	// All tokens should be free - ReportUsage returns nil without hitting Stripe.
+	ms := &mockDataStore{
+		org: &store.Organization{ID: "org-1", StripeCustomerID: "cus_123"},
+		sub: &store.Subscription{
+			Status:               store.SubStatusActive,
+			StripeSubscriptionID: "sub_123",
+		},
+		sumUsage: 1000, // cumulative == freeTokens exactly
+	}
+	mm := newTestMeterManager(ms, 1000)
+
+	err := mm.ReportUsage(context.Background(), "org-1", "anthropic/claude-sonnet-4", 120, 80)
+	if err != nil {
+		t.Fatalf("expected nil error at exact free tier boundary, got: %v", err)
+	}
+}
+
+func TestReportUsage_OneTokenOverFreeTier(t *testing.T) {
+	// Free tier is 1000 tokens. Cumulative is 1001, thisChat = 200.
+	// prevTotal = 1001 - 200 = 801, prevTotal + thisChat = 1001 > 1000.
+	// excess = 1001 - 1000 = 1 token billable. This hits the Stripe path.
+	ms := &mockDataStore{
+		org: &store.Organization{ID: "org-1", StripeCustomerID: "cus_123"},
+		sub: &store.Subscription{
+			Status:               store.SubStatusActive,
+			StripeSubscriptionID: "sub_123",
+		},
+		sumUsage: 1001, // one token over free tier
+	}
+	mm := newTestMeterManager(ms, 1000)
+
+	err := mm.ReportUsage(context.Background(), "org-1", "anthropic/claude-sonnet-4", 120, 80)
+	// Expect non-nil error from Stripe API (no valid key), confirming partial billing path was reached.
+	if err == nil {
+		t.Fatal("expected non-nil error from Stripe API path for 1 token over free tier, got nil")
 	}
 }

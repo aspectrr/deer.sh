@@ -696,18 +696,23 @@ func (m *mockStore) ListActiveSubscriptions(ctx context.Context) ([]*store.Subsc
 	}
 	return nil, nil
 }
+func (m *mockStore) GetSubscriptionByStripeID(_ context.Context, _ string) (*store.Subscription, error) {
+	return nil, nil
+}
+func (m *mockStore) AcquireAdvisoryLock(_ context.Context, _ int64) error { return nil }
+func (m *mockStore) ReleaseAdvisoryLock(_ context.Context, _ int64) error { return nil }
 
 // ---------------------------------------------------------------------------
 // mockHostSender implements orchestrator.HostSender
 // ---------------------------------------------------------------------------
 
 type mockHostSender struct {
-	SendAndWaitFn func(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
+	SendAndWaitFn func(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
 }
 
-func (m *mockHostSender) SendAndWait(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+func (m *mockHostSender) SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 	if m.SendAndWaitFn != nil {
-		return m.SendAndWaitFn(hostID, msg, timeout)
+		return m.SendAndWaitFn(ctx, hostID, msg, timeout)
 	}
 	return nil, fmt.Errorf("mockHostSender.SendAndWait not configured")
 }

@@ -12,7 +12,7 @@ import (
 
 func TestRequireAuth_NoCookie(t *testing.T) {
 	st := &mockStore{}
-	handler := RequireAuth(st)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := RequireAuth(st, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called")
 	}))
 
@@ -31,7 +31,7 @@ func TestRequireAuth_InvalidSession(t *testing.T) {
 			return nil, fmt.Errorf("session not found")
 		},
 	}
-	handler := RequireAuth(st)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := RequireAuth(st, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called")
 	}))
 
@@ -54,7 +54,7 @@ func TestRequireAuth_UserNotFound(t *testing.T) {
 			return nil, fmt.Errorf("user not found")
 		},
 	}
-	handler := RequireAuth(st)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := RequireAuth(st, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called")
 	}))
 
@@ -90,7 +90,7 @@ func TestRequireAuth_ValidSession(t *testing.T) {
 	}
 
 	var handlerCalled bool
-	handler := RequireAuth(st)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := RequireAuth(st, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handlerCalled = true
 		u := UserFromContext(r.Context())
 		if u == nil {

@@ -19,7 +19,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/aspectrr/fluid.sh/fluid/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid/internal/doctor"
+	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
 	"github.com/aspectrr/fluid.sh/fluid/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid/internal/setup"
 )
 
 // OnboardingStep represents the current step in onboarding
@@ -28,7 +31,11 @@ type OnboardingStep int
 const (
 	StepWelcome OnboardingStep = iota
 	StepInfraChoice
-	StepAddHosts // New step for adding remote hosts
+	StepAddHosts    // New step for adding remote hosts
+	StepSandboxHost // Where to install the daemon
+	StepDaemonSetupChoice
+	StepDaemonGuided
+	StepDaemonDoctor
 	StepConnectionTest
 	StepShowResources
 	StepAPIKey
@@ -101,6 +108,32 @@ type OnboardingModel struct {
 	demoCurrentTool  string
 	demoCurrentArgs  map[string]any
 
+	// Sandbox host state
+	sandboxHostIsLocal       bool
+	sandboxHostAddr          string
+	sandboxHostUser          string
+	sandboxHostPort          int
+	sandboxHostInputs        []textinput.Model // nil = choice mode, populated = input mode
+	sandboxHostFocus         int
+	sandboxHostVMs           []VMInfo // VMs fetched for "existing VM" selection
+	sandboxHostLoadingVMs    bool     // spinner while fetching VM list
+	sandboxHostSelectedVM    int      // index in sandboxHostVMs
+	sandboxHostDiscoveringIP bool     // spinner while getting VM IP
+	sandboxHostProxyJump     string   // "user@host" for SSH jump (empty = direct)
+	sandboxHostVMName        string   // display name of selected VM
+
+	// Daemon setup state
+	daemonSetupChoice      int // 0=guided, 1=docs
+	daemonDistro           setup.DistroInfo
+	daemonGuidedStep       int
+	daemonGuidedResults    []setup.StepResult
+	daemonGuidedRunning    bool
+	daemonGuidedPreviewing bool
+	daemonGuidedSteps      []setup.StepDef
+	daemonDoctorResults    []doctor.CheckResult
+	daemonDoctorRunning    bool
+	daemonDoctorComplete   bool
+
 	// Docs progress tracking
 	docsSetupCode string
 	docsAPIURL    string
@@ -143,9 +176,12 @@ func NewOnboardingModel(cfg *config.Config, configPath string) OnboardingModel {
 	ti.CharLimit = 100
 	ti.Width = 50
 
-	apiURL := "https://fluid.sh"
-	if cfg.ControlPlane.Address != "" {
-		apiURL = cfg.ControlPlane.Address
+	apiURL := os.Getenv("FLUID_API_URL")
+	if apiURL == "" {
+		apiURL = "https://fluid.sh"
+		if cfg.ControlPlane.Address != "" {
+			apiURL = cfg.ControlPlane.Address
+		}
 	}
 
 	return OnboardingModel{
@@ -201,6 +237,32 @@ type docsSessionRegisteredMsg struct {
 	err  error
 }
 
+type sandboxHostVMListDoneMsg struct {
+	vms []VMInfo
+	err error
+}
+
+type sandboxHostIPDoneMsg struct {
+	ip   string
+	user string // SSH user for the VM
+	jump string // proxy jump string (empty for local VMs)
+	name string // VM display name
+	err  error
+}
+
+type daemonDetectOSDoneMsg struct {
+	distro setup.DistroInfo
+	err    error
+}
+
+type daemonGuidedStepDoneMsg struct {
+	result setup.StepResult
+}
+
+type daemonDoctorDoneMsg struct {
+	results []doctor.CheckResult
+}
+
 type demoTickMsg struct{}
 
 func demoTickCmd() tea.Cmd {
@@ -222,6 +284,13 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.handleKeyPress(msg)
 			default:
 				// Let character input (including arrow keys, paste) fall through
+			}
+		} else if m.step == StepSandboxHost && len(m.sandboxHostInputs) > 0 {
+			switch msg.String() {
+			case "ctrl+c", "enter", "tab", "shift+tab", "esc":
+				return m.handleKeyPress(msg)
+			default:
+				// Let character input fall through
 			}
 		} else if m.step == StepAPIKey && !m.testing {
 			switch msg.String() {
@@ -253,7 +322,6 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case connectionTestDoneMsg:
 		m.testing = false
 		m.testResults = msg.results
-		m.postDocsProgress(1) // Step 1: Set up the daemon
 		m.step = StepShowResources
 		m.postDocsProgress(2) // Step 2: Launch the TUI
 		m.loadingVMs = true
@@ -307,6 +375,68 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.docsSetupCode = msg.code
 			m.postDocsProgress(0) // Step 0: Install CLI - they're running it
 		}
+
+	case daemonDetectOSDoneMsg:
+		m.testing = false
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			// Fall back to doctor screen
+			m.step = StepDaemonDoctor
+			m.daemonDoctorRunning = true
+			cmds = append(cmds, m.runDaemonDoctor())
+		} else {
+			m.daemonDistro = msg.distro
+			m.daemonGuidedSteps = setup.AllSteps(msg.distro)
+			m.daemonGuidedStep = 0
+			m.daemonGuidedResults = nil
+			m.step = StepDaemonGuided
+			// Show preview before running first step
+			m.daemonGuidedPreviewing = true
+		}
+
+	case daemonGuidedStepDoneMsg:
+		m.daemonGuidedRunning = false
+		m.daemonGuidedResults = append(m.daemonGuidedResults, msg.result)
+		m.daemonGuidedStep++
+		// If all steps done, advance to doctor
+		if m.daemonGuidedStep >= len(m.daemonGuidedSteps) {
+			m.step = StepDaemonDoctor
+			m.daemonDoctorRunning = true
+			cmds = append(cmds, m.runDaemonDoctor())
+		} else {
+			m.daemonGuidedPreviewing = true
+		}
+
+	case daemonDoctorDoneMsg:
+		m.daemonDoctorRunning = false
+		m.daemonDoctorComplete = true
+		m.daemonDoctorResults = msg.results
+
+	case sandboxHostVMListDoneMsg:
+		m.sandboxHostLoadingVMs = false
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			// Stay in choice mode
+			return m, nil
+		}
+		m.sandboxHostVMs = msg.vms
+		m.sandboxHostSelectedVM = 0
+
+	case sandboxHostIPDoneMsg:
+		m.sandboxHostDiscoveringIP = false
+		if msg.err != nil {
+			m.errorMsg = msg.err.Error()
+			// Stay in VM selection
+			return m, nil
+		}
+		m.sandboxHostAddr = msg.ip
+		m.sandboxHostUser = msg.user
+		m.sandboxHostPort = 22
+		m.sandboxHostProxyJump = msg.jump
+		m.sandboxHostVMName = msg.name
+		m.sandboxHostVMs = nil // clear VM list
+		m.step = StepDaemonSetupChoice
+		m.selectedOption = 0
 	}
 
 	// Update text input if on API key step
@@ -314,6 +444,17 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.textInput, cmd = m.textInput.Update(msg)
 		cmds = append(cmds, cmd)
+	}
+
+	// Update sandbox host inputs if on sandbox host step
+	if m.step == StepSandboxHost && len(m.sandboxHostInputs) > 0 {
+		for i := range m.sandboxHostInputs {
+			if i == m.sandboxHostFocus {
+				var cmd tea.Cmd
+				m.sandboxHostInputs[i], cmd = m.sandboxHostInputs[i].Update(msg)
+				cmds = append(cmds, cmd)
+			}
+		}
 	}
 
 	// Update host inputs if on add hosts step
@@ -343,6 +484,12 @@ func (m OnboardingModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
+		if m.step == StepSandboxHost && len(m.sandboxHostInputs) > 0 {
+			if m.sandboxHostInputs[m.sandboxHostFocus].Value() != "" {
+				m.sandboxHostInputs[m.sandboxHostFocus].SetValue("")
+				return m, nil
+			}
+		}
 		return m, tea.Quit
 
 	case "q":
@@ -359,9 +506,29 @@ func (m OnboardingModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.hostInputs[m.hostInputFocus].Focus()
 			return m, nil
 		}
+		if m.step == StepSandboxHost && len(m.sandboxHostInputs) > 0 {
+			m.sandboxHostInputs[m.sandboxHostFocus].Blur()
+			m.sandboxHostFocus = (m.sandboxHostFocus + 1) % len(m.sandboxHostInputs)
+			m.sandboxHostInputs[m.sandboxHostFocus].Focus()
+			return m, nil
+		}
+		if m.step == StepSandboxHost && len(m.sandboxHostVMs) > 0 && !m.sandboxHostDiscoveringIP {
+			if m.sandboxHostSelectedVM < len(m.sandboxHostVMs)-1 {
+				m.sandboxHostSelectedVM++
+			}
+			return m, nil
+		}
 		switch m.step {
 		case StepInfraChoice:
 			if m.selectedOption < 3 {
+				m.selectedOption++
+			}
+		case StepSandboxHost:
+			if m.selectedOption < 2 {
+				m.selectedOption++
+			}
+		case StepDaemonSetupChoice:
+			if m.selectedOption < 1 {
 				m.selectedOption++
 			}
 		case StepSourcePrepare:
@@ -385,10 +552,51 @@ func (m OnboardingModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.hostInputs[m.hostInputFocus].Focus()
 			return m, nil
 		}
-		if m.step == StepInfraChoice || m.step == StepSourcePrepare || m.step == StepOfferDemo {
+		if m.step == StepSandboxHost && len(m.sandboxHostInputs) > 0 {
+			m.sandboxHostInputs[m.sandboxHostFocus].Blur()
+			m.sandboxHostFocus--
+			if m.sandboxHostFocus < 0 {
+				m.sandboxHostFocus = len(m.sandboxHostInputs) - 1
+			}
+			m.sandboxHostInputs[m.sandboxHostFocus].Focus()
+			return m, nil
+		}
+		if m.step == StepSandboxHost && len(m.sandboxHostVMs) > 0 && !m.sandboxHostDiscoveringIP {
+			if m.sandboxHostSelectedVM > 0 {
+				m.sandboxHostSelectedVM--
+			}
+			return m, nil
+		}
+		if m.step == StepInfraChoice || m.step == StepSandboxHost || m.step == StepDaemonSetupChoice || m.step == StepSourcePrepare || m.step == StepOfferDemo {
 			if m.selectedOption > 0 {
 				m.selectedOption--
 			}
+		}
+
+	case "r":
+		// Retry doctor checks
+		if m.step == StepDaemonDoctor && m.daemonDoctorComplete && !m.daemonDoctorRunning {
+			m.daemonDoctorComplete = false
+			m.daemonDoctorRunning = true
+			m.daemonDoctorResults = nil
+			return m, m.runDaemonDoctor()
+		}
+
+	case "s":
+		// Skip current guided step
+		if m.step == StepDaemonGuided && !m.daemonGuidedRunning {
+			m.daemonGuidedResults = append(m.daemonGuidedResults, setup.StepResult{
+				Name:    m.daemonGuidedSteps[m.daemonGuidedStep].Name,
+				Skipped: true,
+				Success: false,
+			})
+			m.daemonGuidedStep++
+			if m.daemonGuidedStep >= len(m.daemonGuidedSteps) {
+				m.step = StepDaemonDoctor
+				m.daemonDoctorRunning = true
+				return m, m.runDaemonDoctor()
+			}
+			m.daemonGuidedPreviewing = true
 		}
 
 	case "ctrl+n":
@@ -433,14 +641,113 @@ func (m OnboardingModel) handleEnter() (tea.Model, tea.Cmd) {
 				return m, textinput.Blink
 			}
 		}
-		// Otherwise go directly to connection test
-		m.step = StepConnectionTest
-		m.testing = true
-		return m, tea.Batch(m.spinner.Tick, m.testConnections())
+		// Go to sandbox host step
+		m.step = StepSandboxHost
+		m.selectedOption = 0
+		return m, nil
 
 	case StepAddHosts:
 		// Save the configured hosts
 		m.saveHostInputs()
+		m.step = StepSandboxHost
+		m.selectedOption = 0
+		return m, nil
+
+	case StepSandboxHost:
+		if len(m.sandboxHostInputs) > 0 {
+			// Input mode: read values and advance
+			addr := strings.TrimSpace(m.sandboxHostInputs[0].Value())
+			if addr == "" {
+				return m, nil // require address
+			}
+			m.sandboxHostAddr = addr
+			m.sandboxHostUser = strings.TrimSpace(m.sandboxHostInputs[1].Value())
+			if m.sandboxHostUser == "" {
+				m.sandboxHostUser = "root"
+			}
+			portStr := strings.TrimSpace(m.sandboxHostInputs[2].Value())
+			if portStr != "" {
+				_, _ = fmt.Sscanf(portStr, "%d", &m.sandboxHostPort)
+			}
+			if m.sandboxHostPort == 0 {
+				m.sandboxHostPort = 22
+			}
+			m.sandboxHostInputs = nil
+			m.step = StepDaemonSetupChoice
+			m.selectedOption = 0
+			return m, nil
+		}
+		// VM selection mode
+		if len(m.sandboxHostVMs) > 0 && !m.sandboxHostDiscoveringIP {
+			selected := m.sandboxHostVMs[m.sandboxHostSelectedVM]
+			m.sandboxHostDiscoveringIP = true
+			return m, tea.Batch(m.spinner.Tick, m.discoverSandboxHostVMIP(selected))
+		}
+		// Choice mode
+		if m.selectedOption == 0 {
+			// Local
+			m.sandboxHostIsLocal = true
+			m.step = StepDaemonSetupChoice
+			m.selectedOption = 0
+			return m, nil
+		}
+		if m.selectedOption == 1 {
+			// Remote - show inputs
+			m.sandboxHostInputs = m.initSandboxHostInputs()
+			m.sandboxHostFocus = 0
+			m.sandboxHostInputs[0].Focus()
+			return m, textinput.Blink
+		}
+		// Existing VM - fetch VM list
+		m.sandboxHostLoadingVMs = true
+		return m, tea.Batch(m.spinner.Tick, m.listSandboxHostVMs())
+
+	case StepDaemonSetupChoice:
+		m.daemonSetupChoice = m.selectedOption
+		if m.selectedOption == 0 {
+			// Guided walkthrough: detect OS first
+			m.testing = true
+			return m, tea.Batch(m.spinner.Tick, m.detectDaemonOS())
+		}
+		// Docs path: open browser
+		openBrowser("https://fluid.sh/docs/daemon")
+		// Go directly to doctor to validate
+		m.step = StepDaemonDoctor
+		m.daemonDoctorRunning = false
+		m.daemonDoctorComplete = false
+		return m, nil
+
+	case StepDaemonGuided:
+		if m.daemonGuidedRunning {
+			return m, nil
+		}
+		if m.daemonGuidedPreviewing && m.daemonGuidedStep < len(m.daemonGuidedSteps) {
+			// Start execution from preview
+			m.daemonGuidedPreviewing = false
+			m.daemonGuidedRunning = true
+			return m, m.runDaemonGuidedStep()
+		}
+		// Run next step
+		if m.daemonGuidedStep < len(m.daemonGuidedSteps) {
+			m.daemonGuidedRunning = true
+			return m, m.runDaemonGuidedStep()
+		}
+		// All done, go to doctor
+		m.step = StepDaemonDoctor
+		m.daemonDoctorRunning = true
+		return m, m.runDaemonDoctor()
+
+	case StepDaemonDoctor:
+		if m.daemonDoctorRunning {
+			return m, nil
+		}
+		if !m.daemonDoctorComplete {
+			// First time landing here from docs path, run checks
+			m.daemonDoctorRunning = true
+			return m, m.runDaemonDoctor()
+		}
+		// Complete - advance to connection test
+		m.postDocsProgress(1) // Step 1: Set up the daemon
 		m.step = StepConnectionTest
 		m.testing = true
 		return m, tea.Batch(m.spinner.Tick, m.testConnections())
@@ -540,6 +847,14 @@ func (m OnboardingModel) View() string {
 		content = m.viewInfraChoice()
 	case StepAddHosts:
 		content = m.viewAddHosts()
+	case StepSandboxHost:
+		content = m.viewSandboxHost()
+	case StepDaemonSetupChoice:
+		content = m.viewDaemonSetupChoice()
+	case StepDaemonGuided:
+		content = m.viewDaemonGuided()
+	case StepDaemonDoctor:
+		content = m.viewDaemonDoctor()
 	case StepConnectionTest:
 		content = m.viewConnectionTest()
 	case StepShowResources:
@@ -560,6 +875,21 @@ func (m OnboardingModel) View() string {
 		content = m.viewWrapUp()
 	case StepComplete:
 		return ""
+	}
+
+	if m.docsSetupCode != "" {
+		codeLabel := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280")).
+			Render("Session: " + m.docsSetupCode)
+
+		topBar := lipgloss.NewStyle().
+			Width(m.width).
+			Align(lipgloss.Right).
+			PaddingRight(2).
+			Render(codeLabel)
+
+		placed := lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, content)
+		return topBar + "\n" + placed
 	}
 
 	return lipgloss.Place(
@@ -1029,6 +1359,359 @@ Need help?
 	return b.String()
 }
 
+func (m OnboardingModel) viewSandboxHost() string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#3B82F6")).
+		Render("Sandbox Host")
+
+	b.WriteString(title)
+	b.WriteString("\n\n")
+
+	// SSH input mode
+	if len(m.sandboxHostInputs) > 0 {
+		desc := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render(
+			"Enter your sandbox host details:",
+		)
+		b.WriteString(desc)
+		b.WriteString("\n\n")
+
+		labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Width(12)
+
+		b.WriteString(labelStyle.Render("  Address:"))
+		b.WriteString(" ")
+		b.WriteString(m.sandboxHostInputs[0].View())
+		b.WriteString("\n")
+
+		b.WriteString(labelStyle.Render("  SSH User:"))
+		b.WriteString(" ")
+		b.WriteString(m.sandboxHostInputs[1].View())
+		b.WriteString("\n")
+
+		b.WriteString(labelStyle.Render("  SSH Port:"))
+		b.WriteString(" ")
+		b.WriteString(m.sandboxHostInputs[2].View())
+		b.WriteString("\n\n")
+
+		help := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
+		b.WriteString(help.Render("Tab to navigate | Enter to continue"))
+		return b.String()
+	}
+
+	// Loading VMs spinner
+	if m.sandboxHostLoadingVMs {
+		b.WriteString(m.spinner.View())
+		b.WriteString(" Loading VMs from hosts...")
+		return b.String()
+	}
+
+	// VM selection mode
+	if len(m.sandboxHostVMs) > 0 && !m.sandboxHostDiscoveringIP {
+		desc := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render(
+			"Select a VM to use as the sandbox host:",
+		)
+		b.WriteString(desc)
+		b.WriteString("\n\n")
+
+		for i, vm := range m.sandboxHostVMs {
+			cursor := "  "
+			style := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
+			if i == m.sandboxHostSelectedVM {
+				cursor = "> "
+				style = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Bold(true)
+			}
+			label := vm.Name
+			if vm.Host != "" {
+				label += fmt.Sprintf(" (on %s)", vm.Host)
+			}
+			b.WriteString(cursor)
+			b.WriteString(style.Render(label))
+			b.WriteString("\n")
+		}
+
+		b.WriteString("\n")
+		help := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("Arrow keys to select | Enter to confirm")
+		b.WriteString(help)
+
+		if m.errorMsg != "" {
+			b.WriteString("\n\n")
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(m.errorMsg))
+		}
+		return b.String()
+	}
+
+	// Discovering IP spinner
+	if m.sandboxHostDiscoveringIP {
+		b.WriteString(m.spinner.View())
+		vmName := "VM"
+		if m.sandboxHostSelectedVM < len(m.sandboxHostVMs) {
+			vmName = m.sandboxHostVMs[m.sandboxHostSelectedVM].Name
+		}
+		b.WriteString(fmt.Sprintf(" Discovering IP for %s...", vmName))
+		return b.String()
+	}
+
+	// Choice mode
+	desc := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render(
+		"Where should the fluid-daemon be installed?\nThis is the host where sandbox VMs will be created and managed.",
+	)
+	b.WriteString(desc)
+	b.WriteString("\n\n")
+
+	options := []string{
+		"This machine (local)",
+		"A remote server (SSH)",
+		"An existing VM on a KVM host",
+	}
+
+	for i, opt := range options {
+		cursor := "  "
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
+		if i == m.selectedOption {
+			cursor = "> "
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Bold(true)
+		}
+		b.WriteString(cursor)
+		b.WriteString(style.Render(opt))
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	help := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("Use arrow keys to select, Enter to confirm")
+	b.WriteString(help)
+
+	if m.errorMsg != "" {
+		b.WriteString("\n\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(m.errorMsg))
+	}
+
+	return b.String()
+}
+
+func (m OnboardingModel) viewDaemonSetupChoice() string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#3B82F6")).
+		Render("Daemon Setup")
+
+	b.WriteString(title)
+	b.WriteString("\n\n")
+
+	desc := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render(
+		"The fluid daemon needs to be installed on your sandbox host(s).\nHow would you like to proceed?",
+	)
+	b.WriteString(desc)
+	b.WriteString("\n\n")
+
+	options := []string{
+		"Guided walkthrough (recommended)",
+		"I'll set it up myself (opens docs)",
+	}
+
+	for i, opt := range options {
+		cursor := "  "
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
+		if i == m.selectedOption {
+			cursor = "> "
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Bold(true)
+		}
+		b.WriteString(cursor)
+		b.WriteString(style.Render(opt))
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	help := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("Use arrow keys to select, Enter to confirm")
+	b.WriteString(help)
+
+	return b.String()
+}
+
+func (m OnboardingModel) viewDaemonGuided() string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#3B82F6")).
+		Render("Daemon Setup - Guided Walkthrough")
+
+	b.WriteString(title)
+	b.WriteString("\n\n")
+
+	// Show distro and target host info
+	if m.daemonDistro.Name != "" {
+		distroLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+			fmt.Sprintf("Detected: %s (%s)", m.daemonDistro.Name, m.daemonDistro.PkgManager),
+		)
+		b.WriteString(distroLabel)
+		b.WriteString("\n")
+	}
+	targetLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+		fmt.Sprintf("Target: %s", m.sandboxHostLabel()),
+	)
+	b.WriteString(targetLabel)
+	b.WriteString("\n\n")
+
+	// Show completed steps
+	for i, result := range m.daemonGuidedResults {
+		var icon, style string
+		if result.Skipped {
+			icon = "-"
+			style = "#6B7280"
+		} else if result.Success {
+			icon = "v"
+			style = "#10B981"
+		} else {
+			icon = "x"
+			style = "#EF4444"
+		}
+		line := lipgloss.NewStyle().Foreground(lipgloss.Color(style)).Render(
+			fmt.Sprintf("  %s  %s", icon, m.daemonGuidedSteps[i].Name),
+		)
+		b.WriteString(line)
+		if result.Skipped {
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(" (skipped)"))
+		}
+		if result.Error != "" {
+			b.WriteString("\n")
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(
+				fmt.Sprintf("     %s", result.Error),
+			))
+		}
+		b.WriteString("\n")
+	}
+
+	// Show current step
+	if m.daemonGuidedStep < len(m.daemonGuidedSteps) {
+		current := m.daemonGuidedSteps[m.daemonGuidedStep]
+		if m.daemonGuidedRunning {
+			b.WriteString(fmt.Sprintf("  %s %s...\n", m.spinner.View(), current.Description))
+		} else if m.daemonGuidedPreviewing {
+			// Preview mode: show step name and commands
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Bold(true).Render(
+				fmt.Sprintf("  >  %s", current.Name),
+			))
+			b.WriteString("\n")
+			if len(current.Commands) > 0 {
+				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+					"     Commands to execute (via sudo):",
+				))
+				b.WriteString("\n")
+				cmdStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
+				for _, cmd := range current.Commands {
+					b.WriteString(cmdStyle.Render(fmt.Sprintf("       $ %s", cmd)))
+					b.WriteString("\n")
+				}
+			}
+		} else {
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render(
+				fmt.Sprintf("  >  %s", current.Name),
+			))
+			b.WriteString("\n")
+		}
+
+		// Show remaining steps dimmed
+		for i := m.daemonGuidedStep + 1; i < len(m.daemonGuidedSteps); i++ {
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#4B5563")).Render(
+				fmt.Sprintf("     %s", m.daemonGuidedSteps[i].Name),
+			))
+			b.WriteString("\n")
+		}
+
+		b.WriteString("\n")
+		stepNum := m.daemonGuidedStep + 1
+		total := len(m.daemonGuidedSteps)
+		if m.daemonGuidedRunning {
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+				fmt.Sprintf("Step %d/%d", stepNum, total),
+			))
+		} else {
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+				fmt.Sprintf("Step %d/%d | Enter to execute | 's' to skip", stepNum, total),
+			))
+		}
+	}
+
+	return b.String()
+}
+
+func (m OnboardingModel) viewDaemonDoctor() string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#3B82F6")).
+		Render("Checking Daemon Health")
+
+	b.WriteString(title)
+	b.WriteString("\n\n")
+
+	if m.daemonDoctorRunning {
+		b.WriteString(m.spinner.View())
+		b.WriteString(" Running health checks...")
+		return b.String()
+	}
+
+	if !m.daemonDoctorComplete {
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render(
+			"Press Enter to check daemon health...",
+		))
+		return b.String()
+	}
+
+	passed := 0
+	failed := 0
+	for _, r := range m.daemonDoctorResults {
+		var icon, style string
+		if r.Passed {
+			passed++
+			icon = "v"
+			style = "#10B981"
+		} else {
+			failed++
+			icon = "x"
+			style = "#EF4444"
+		}
+		line := lipgloss.NewStyle().Foreground(lipgloss.Color(style)).Render(
+			fmt.Sprintf("  %s  %s", icon, r.Message),
+		)
+		b.WriteString(line)
+		b.WriteString("\n")
+		if !r.Passed && r.FixCmd != "" {
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+				fmt.Sprintf("     Fix: %s", r.FixCmd),
+			))
+			b.WriteString("\n")
+		}
+	}
+
+	b.WriteString("\n")
+	total := passed + failed
+	if failed == 0 {
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(
+			fmt.Sprintf("  %d/%d passed", passed, total),
+		))
+		b.WriteString("\n\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+			"Press Enter to continue...",
+		))
+	} else {
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(
+			fmt.Sprintf("  %d/%d passed, %d failed", passed, total, failed),
+		))
+		b.WriteString("\n\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(
+			"[r] Retry    [Enter] Continue anyway",
+		))
+	}
+
+	return b.String()
+}
+
 // viewAddHosts renders the host configuration view
 func (m OnboardingModel) viewAddHosts() string {
 	var b strings.Builder
@@ -1262,6 +1945,120 @@ func (m OnboardingModel) listVMs() tea.Cmd {
 		}
 
 		return vmListDoneMsg{vms: vms}
+	}
+}
+
+func (m OnboardingModel) listSandboxHostVMs() tea.Cmd {
+	return func() tea.Msg {
+		var vms []VMInfo
+
+		// Query local if InfraLocal or InfraBoth
+		if m.infraChoice == InfraLocal || m.infraChoice == InfraBoth {
+			cmd := exec.Command("virsh", "-c", "qemu:///system", "list", "--all", "--name")
+			output, err := cmd.Output()
+			if err == nil {
+				for _, name := range strings.Split(string(output), "\n") {
+					name = strings.TrimSpace(name)
+					if name != "" {
+						vms = append(vms, VMInfo{
+							Name:  name,
+							Host:  "local",
+							State: "available",
+						})
+					}
+				}
+			}
+		}
+
+		// Query remote hosts if InfraRemote or InfraBoth
+		if m.infraChoice == InfraRemote || m.infraChoice == InfraBoth {
+			for _, host := range m.cfg.Hosts {
+				uri := fmt.Sprintf("qemu+ssh://%s@%s/system", host.SSHUser, host.Address)
+				if host.SSHUser == "" {
+					uri = fmt.Sprintf("qemu+ssh://root@%s/system", host.Address)
+				}
+				cmd := exec.Command("virsh", "-c", uri, "list", "--all", "--name")
+				output, err := cmd.Output()
+				if err == nil {
+					for _, name := range strings.Split(string(output), "\n") {
+						name = strings.TrimSpace(name)
+						if name != "" {
+							vms = append(vms, VMInfo{
+								Name:  name,
+								Host:  host.Name,
+								State: "available",
+							})
+						}
+					}
+				}
+			}
+		}
+
+		if len(vms) == 0 {
+			return sandboxHostVMListDoneMsg{err: fmt.Errorf("no VMs found on configured hosts")}
+		}
+		return sandboxHostVMListDoneMsg{vms: vms}
+	}
+}
+
+func (m OnboardingModel) discoverSandboxHostVMIP(vm VMInfo) tea.Cmd {
+	return func() tea.Msg {
+		var uri, jump, sshUser string
+
+		if vm.Host == "" || vm.Host == "local" {
+			// Local VM
+			uri = "qemu:///system"
+			sshUser = "root"
+		} else {
+			// Remote VM - find the host config
+			var host *config.HostConfig
+			for i := range m.cfg.Hosts {
+				if m.cfg.Hosts[i].Name == vm.Host {
+					host = &m.cfg.Hosts[i]
+					break
+				}
+			}
+			if host == nil {
+				return sandboxHostIPDoneMsg{err: fmt.Errorf("host %q not found in config", vm.Host)}
+			}
+
+			hostUser := host.SSHUser
+			if hostUser == "" {
+				hostUser = "root"
+			}
+			uri = fmt.Sprintf("qemu+ssh://%s@%s/system", hostUser, host.Address)
+			jump = fmt.Sprintf("%s@%s", hostUser, host.Address)
+			sshUser = host.SSHVMUser
+			if sshUser == "" {
+				sshUser = "root"
+			}
+		}
+
+		// Try agent source first, then lease
+		ctx := context.Background()
+		cmd := exec.CommandContext(ctx, "virsh", "-c", uri, "domifaddr", vm.Name, "--source", "agent")
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+		if err := cmd.Run(); err != nil {
+			cmd = exec.CommandContext(ctx, "virsh", "-c", uri, "domifaddr", vm.Name, "--source", "lease")
+			stdout.Reset()
+			cmd.Stdout = &stdout
+			if err := cmd.Run(); err != nil {
+				return sandboxHostIPDoneMsg{err: fmt.Errorf("cannot discover IP: %v", err), name: vm.Name}
+			}
+		}
+
+		ip := parseIPFromVirshOutput(stdout.String())
+		if ip == "" {
+			return sandboxHostIPDoneMsg{err: fmt.Errorf("could not discover VM IP address"), name: vm.Name}
+		}
+
+		return sandboxHostIPDoneMsg{
+			ip:   ip,
+			user: sshUser,
+			jump: jump,
+			name: vm.Name,
+		}
 	}
 }
 
@@ -1561,6 +2358,111 @@ func (m OnboardingModel) advanceDemo() (tea.Model, tea.Cmd) {
 	})
 }
 
+// makeDaemonRunFunc creates the appropriate RunFunc for daemon commands
+// based on the sandbox host configuration.
+func (m OnboardingModel) makeDaemonRunFunc() hostexec.RunFunc {
+	if m.sandboxHostIsLocal {
+		return hostexec.NewLocal()
+	}
+	if m.sandboxHostAddr != "" {
+		user := m.sandboxHostUser
+		if user == "" {
+			user = "root"
+		}
+		port := m.sandboxHostPort
+		if port == 0 {
+			port = 22
+		}
+		if m.sandboxHostProxyJump != "" {
+			return hostexec.NewSSHWithJump(m.sandboxHostAddr, user, port, m.sandboxHostProxyJump)
+		}
+		return hostexec.NewSSH(m.sandboxHostAddr, user, port)
+	}
+	return hostexec.NewLocal()
+}
+
+// sandboxHostLabel returns a human-readable label for the target host.
+func (m OnboardingModel) sandboxHostLabel() string {
+	if m.sandboxHostIsLocal || m.sandboxHostAddr == "" {
+		return "local"
+	}
+	user := m.sandboxHostUser
+	if user == "" {
+		user = "root"
+	}
+	if m.sandboxHostVMName != "" {
+		return fmt.Sprintf("%s on %s (%s)", m.sandboxHostVMName, m.sandboxHostAddr, user)
+	}
+	return fmt.Sprintf("%s (%s)", m.sandboxHostAddr, user)
+}
+
+// initSandboxHostInputs creates the text inputs for remote sandbox host details.
+func (m OnboardingModel) initSandboxHostInputs() []textinput.Model {
+	addrInput := textinput.New()
+	addrInput.Placeholder = "192.168.1.50 or hostname"
+	addrInput.CharLimit = 100
+	addrInput.Width = 30
+
+	userInput := textinput.New()
+	userInput.Placeholder = "root"
+	userInput.CharLimit = 50
+	userInput.Width = 30
+
+	portInput := textinput.New()
+	portInput.Placeholder = "22"
+	portInput.CharLimit = 5
+	portInput.Width = 10
+
+	return []textinput.Model{addrInput, userInput, portInput}
+}
+
+func (m OnboardingModel) detectDaemonOS() tea.Cmd {
+	return func() tea.Msg {
+		run := m.makeDaemonRunFunc()
+		distro, err := setup.DetectOS(context.Background(), run)
+		return daemonDetectOSDoneMsg{distro: distro, err: err}
+	}
+}
+
+func (m OnboardingModel) runDaemonGuidedStep() tea.Cmd {
+	return func() tea.Msg {
+		if m.daemonGuidedStep >= len(m.daemonGuidedSteps) {
+			return daemonGuidedStepDoneMsg{result: setup.StepResult{Name: "done", Success: true}}
+		}
+
+		step := m.daemonGuidedSteps[m.daemonGuidedStep]
+		run := m.makeDaemonRunFunc()
+		sudoRun := hostexec.WithSudo(run)
+
+		result := setup.StepResult{Name: step.Name}
+
+		// Check if already done
+		done, err := step.Check(context.Background(), run)
+		if err == nil && done {
+			result.Skipped = true
+			result.Success = true
+			return daemonGuidedStepDoneMsg{result: result}
+		}
+
+		// Execute
+		if err := step.Execute(context.Background(), sudoRun); err != nil {
+			result.Error = err.Error()
+			return daemonGuidedStepDoneMsg{result: result}
+		}
+
+		result.Success = true
+		return daemonGuidedStepDoneMsg{result: result}
+	}
+}
+
+func (m OnboardingModel) runDaemonDoctor() tea.Cmd {
+	return func() tea.Msg {
+		run := m.makeDaemonRunFunc()
+		results := doctor.RunAll(context.Background(), run)
+		return daemonDoctorDoneMsg{results: results}
+	}
+}
+
 func openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -1571,37 +2473,41 @@ func openBrowser(url string) {
 	default:
 		cmd = exec.Command("xdg-open", url)
 	}
-	_ = cmd.Start()
+	_ = cmd.Run()
 }
 
 func (m OnboardingModel) registerDocsSession() tea.Cmd {
 	return func() tea.Msg {
+		docsURL := m.docsAPIURL + "/docs/quickstart"
+		var sessionCode string
+
+		// Try to register session - best effort
 		body := `{"storage_key":"quickstart"}`
 		apiURL := m.docsAPIURL + "/v1/docs-progress/register"
 		req, err := http.NewRequest("POST", apiURL, strings.NewReader(body))
-		if err != nil {
-			return docsSessionRegisteredMsg{err: err}
-		}
-		req.Header.Set("Content-Type", "application/json")
-		client := &http.Client{Timeout: 5 * time.Second}
-		resp, err := client.Do(req)
-		if err != nil {
-			return docsSessionRegisteredMsg{err: err}
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		var result struct {
-			SessionCode string `json:"session_code"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return docsSessionRegisteredMsg{err: err}
+		if err == nil {
+			req.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 5 * time.Second}
+			resp, err := client.Do(req)
+			if err == nil {
+				var result struct {
+					SessionCode string `json:"session_code"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
+					sessionCode = result.SessionCode
+				}
+				_ = resp.Body.Close()
+			}
 		}
 
-		if result.SessionCode != "" {
-			openBrowser("https://fluid.sh/docs/quickstart?code=" + result.SessionCode)
+		if sessionCode != "" {
+			docsURL += "?code=" + sessionCode
 		}
 
-		return docsSessionRegisteredMsg{code: result.SessionCode}
+		// Always open browser regardless of registration success
+		openBrowser(docsURL)
+
+		return docsSessionRegisteredMsg{code: sessionCode}
 	}
 }
 

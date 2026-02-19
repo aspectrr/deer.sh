@@ -33,6 +33,7 @@ func RunWithReconnect(ctx context.Context, logger *slog.Logger, connectFn connec
 		attempt++
 		logger.Info("connecting to control plane", "attempt", attempt)
 
+		connStart := time.Now()
 		err := connectFn(ctx)
 		if err == nil {
 			// Clean disconnect (e.g., context cancelled during serve).
@@ -46,6 +47,13 @@ func RunWithReconnect(ctx context.Context, logger *slog.Logger, connectFn connec
 
 		logger.Error("connection lost", "error", err, "attempt", attempt, "backoff", backoff)
 
+		// Reset backoff after a successful connection that lasted > 5 minutes.
+		// This means the connection was stable, so next failure should start
+		// with a short backoff.
+		if time.Since(connStart) > 5*time.Minute {
+			backoff = initialBackoff
+		}
+
 		// Wait with backoff before reconnecting.
 		select {
 		case <-ctx.Done():
@@ -58,9 +66,5 @@ func RunWithReconnect(ctx context.Context, logger *slog.Logger, connectFn connec
 			float64(backoff)*backoffFactor,
 			float64(maxBackoff),
 		))
-
-		// Reset backoff after a successful connection that lasted > 5 minutes.
-		// (This means the connection was stable, so next failure should start
-		// with a short backoff.)
 	}
 }

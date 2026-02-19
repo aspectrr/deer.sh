@@ -11,16 +11,17 @@ import (
 )
 
 type Config struct {
-	API          APIConfig
-	GRPC         GRPCConfig
-	Database     DatabaseConfig
-	Auth         AuthConfig
-	Frontend     FrontendConfig
-	Billing      BillingConfig
-	Agent        AgentConfig
-	Orchestrator OrchestratorConfig
-	Logging      LoggingConfig
-	PostHog      PostHogConfig
+	API           APIConfig
+	GRPC          GRPCConfig
+	Database      DatabaseConfig
+	Auth          AuthConfig
+	Frontend      FrontendConfig
+	Billing       BillingConfig
+	Agent         AgentConfig
+	Orchestrator  OrchestratorConfig
+	Logging       LoggingConfig
+	PostHog       PostHogConfig
+	EncryptionKey string
 }
 
 type PostHogConfig struct {
@@ -82,6 +83,7 @@ type BillingConfig struct {
 	StripePriceID        string
 	Prices               PriceConfig
 	FreeTier             FreeTierConfig
+	BillingMarkup        float64
 }
 
 type PriceConfig struct {
@@ -186,6 +188,7 @@ func Load() *Config {
 				MaxSourceVMs:           envInt("BILLING_FREE_TIER_MAX_SOURCE_VMS", 3),
 				MaxAgentHosts:          envInt("BILLING_FREE_TIER_MAX_AGENT_HOSTS", 1),
 			},
+			BillingMarkup: envFloat("BILLING_MARKUP", 1.05),
 		},
 		Agent: AgentConfig{
 			OpenRouterAPIKey:    os.Getenv("OPENROUTER_API_KEY"),
@@ -202,6 +205,7 @@ func Load() *Config {
 			APIKey:   os.Getenv("POSTHOG_API_KEY"),
 			Endpoint: envOr("POSTHOG_ENDPOINT", "https://nautilus.fluid.sh"),
 		},
+		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
 	}
 }
 
@@ -261,4 +265,16 @@ func envStringSlice(key string) []string {
 		}
 	}
 	return out
+}
+
+func envFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			slog.Warn("invalid float for env var, using default", "key", key, "value", v, "default", fallback)
+			return fallback
+		}
+		return f
+	}
+	return fallback
 }

@@ -22,7 +22,7 @@ import (
 
 type mockSender struct{}
 
-func (m *mockSender) SendAndWait(_ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+func (m *mockSender) SendAndWait(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
 	return nil, fmt.Errorf("mockSender not configured")
 }
 
@@ -296,6 +296,11 @@ func (m *mockDataStore) SumTokenUsage(context.Context, string, time.Time, time.T
 func (m *mockDataStore) ListActiveSubscriptions(context.Context) ([]*store.Subscription, error) {
 	return nil, nil
 }
+func (m *mockDataStore) GetSubscriptionByStripeID(context.Context, string) (*store.Subscription, error) {
+	return nil, nil
+}
+func (m *mockDataStore) AcquireAdvisoryLock(context.Context, int64) error { return nil }
+func (m *mockDataStore) ReleaseAdvisoryLock(context.Context, int64) error { return nil }
 
 // ---------------------------------------------------------------------------
 // Helper

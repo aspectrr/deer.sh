@@ -81,6 +81,9 @@ func (mm *MeterManager) subItemLock(orgID, modelID string) *sync.Mutex {
 	return v.(*sync.Mutex)
 }
 
+// Markup returns the configured billing markup multiplier.
+func (mm *MeterManager) Markup() float64 { return mm.markup }
+
 var nonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)
 
 // sanitizeEventName converts a model ID like "anthropic/claude-sonnet-4" to "anthropic_claude_sonnet_4".
@@ -323,6 +326,10 @@ func (mm *MeterManager) EnsureOrgSubscriptionItems(ctx context.Context, orgID, m
 		Price:        stripe.String(meter.StripeOutputPriceID),
 	})
 	if err != nil {
+		// Rollback: remove the input subscription item we just created
+		if _, delErr := stripeSubItem.Del(inputItem.ID, &stripe.SubscriptionItemParams{}); delErr != nil {
+			mm.logger.Warn("rollback: failed to delete input subscription item", "item_id", inputItem.ID, "error", delErr)
+		}
 		return fmt.Errorf("add output subscription item: %w", err)
 	}
 
@@ -380,6 +387,8 @@ func (mm *MeterManager) ReportResourceUsage(ctx context.Context, stripeCustomerI
 }
 
 // ReportUsage reports token usage to Stripe billing meters, respecting the free tier.
+// The caller MUST persist the usage record before calling ReportUsage, because
+// SumTokenUsage is expected to include the current chat's tokens in the cumulative total.
 func (mm *MeterManager) ReportUsage(ctx context.Context, orgID, modelID string, inputTokens, outputTokens int) error {
 	if inputTokens+outputTokens == 0 {
 		return nil
@@ -436,9 +445,10 @@ func (mm *MeterManager) ReportUsage(ctx context.Context, orgID, modelID string, 
 		return nil
 	} else {
 		excess := (prevTotal + thisChat) - freeTokens
+		totalBillable := int(math.Round(excess))
 		ratio := float64(inputTokens) / thisChat
-		billableInput = int(math.Round(excess * ratio))
-		billableOutput = int(excess) - billableInput
+		billableInput = int(math.Round(float64(totalBillable) * ratio))
+		billableOutput = totalBillable - billableInput
 		if billableOutput < 0 {
 			billableOutput = 0
 		}

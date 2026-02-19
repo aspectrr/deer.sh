@@ -93,7 +93,7 @@ type SubscriptionModel struct {
 	ID                   string    `gorm:"column:id;primaryKey"`
 	OrgID                string    `gorm:"column:org_id;index"`
 	Plan                 string    `gorm:"column:plan"`
-	StripeSubscriptionID string    `gorm:"column:stripe_subscription_id"`
+	StripeSubscriptionID string    `gorm:"column:stripe_subscription_id;uniqueIndex"`
 	StripePriceID        string    `gorm:"column:stripe_price_id"`
 	Status               string    `gorm:"column:status"`
 	CurrentPeriodStart   time.Time `gorm:"column:current_period_start"`
@@ -177,11 +177,12 @@ type CommandModel struct {
 func (CommandModel) TableName() string { return "commands" }
 
 type HostTokenModel struct {
-	ID        string    `gorm:"column:id;primaryKey"`
-	OrgID     string    `gorm:"column:org_id;not null;index"`
-	Name      string    `gorm:"column:name;not null"`
-	TokenHash string    `gorm:"column:token_hash;not null;uniqueIndex"`
-	CreatedAt time.Time `gorm:"column:created_at"`
+	ID        string     `gorm:"column:id;primaryKey"`
+	OrgID     string     `gorm:"column:org_id;not null;index"`
+	Name      string     `gorm:"column:name;not null"`
+	TokenHash string     `gorm:"column:token_hash;not null;uniqueIndex"`
+	ExpiresAt *time.Time `gorm:"column:expires_at"`
+	CreatedAt time.Time  `gorm:"column:created_at"`
 }
 
 func (HostTokenModel) TableName() string { return "host_tokens" }
@@ -861,6 +862,14 @@ func (s *postgresStore) UpdateSubscription(ctx context.Context, sub *store.Subsc
 	return nil
 }
 
+func (s *postgresStore) GetSubscriptionByStripeID(ctx context.Context, stripeSubID string) (*store.Subscription, error) {
+	var model SubscriptionModel
+	if err := s.db.WithContext(ctx).Where("stripe_subscription_id = ?", stripeSubID).First(&model).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	return subFromModel(&model), nil
+}
+
 // --- UsageRecord CRUD ---
 
 func (s *postgresStore) CreateUsageRecord(ctx context.Context, rec *store.UsageRecord) error {
@@ -1012,6 +1021,7 @@ func hostTokenToModel(t *store.HostToken) *HostTokenModel {
 		OrgID:     t.OrgID,
 		Name:      t.Name,
 		TokenHash: t.TokenHash,
+		ExpiresAt: t.ExpiresAt,
 		CreatedAt: t.CreatedAt,
 	}
 }
@@ -1022,6 +1032,7 @@ func hostTokenFromModel(m *HostTokenModel) *store.HostToken {
 		OrgID:     m.OrgID,
 		Name:      m.Name,
 		TokenHash: m.TokenHash,
+		ExpiresAt: m.ExpiresAt,
 		CreatedAt: m.CreatedAt,
 	}
 }
@@ -1366,7 +1377,7 @@ func (s *postgresStore) CreateHostToken(ctx context.Context, token *store.HostTo
 
 func (s *postgresStore) GetHostTokenByHash(ctx context.Context, hash string) (*store.HostToken, error) {
 	var model HostTokenModel
-	if err := s.db.WithContext(ctx).Where("token_hash = ?", hash).First(&model).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("token_hash = ? AND (expires_at IS NULL OR expires_at > ?)", hash, time.Now()).First(&model).Error; err != nil {
 		return nil, mapDBError(err)
 	}
 	return hostTokenFromModel(&model), nil
@@ -1835,7 +1846,7 @@ func (s *postgresStore) SumTokenUsage(ctx context.Context, orgID string, from, t
 	var total float64
 	err := s.db.WithContext(ctx).
 		Model(&UsageRecordModel{}).
-		Where("org_id = ? AND recorded_at >= ? AND recorded_at <= ?", orgID, from, to).
+		Where("org_id = ? AND recorded_at >= ? AND recorded_at <= ? AND resource_type = ?", orgID, from, to, "llm_token").
 		Select("COALESCE(SUM(quantity), 0)").
 		Scan(&total).Error
 	if err != nil {
@@ -1854,4 +1865,14 @@ func (s *postgresStore) ListActiveSubscriptions(ctx context.Context) ([]*store.S
 		out = append(out, subFromModel(&models[i]))
 	}
 	return out, nil
+}
+
+// --- Advisory Locks ---
+
+func (s *postgresStore) AcquireAdvisoryLock(ctx context.Context, key int64) error {
+	return s.db.WithContext(ctx).Exec("SELECT pg_advisory_lock(?)", key).Error
+}
+
+func (s *postgresStore) ReleaseAdvisoryLock(ctx context.Context, key int64) error {
+	return s.db.WithContext(ctx).Exec("SELECT pg_advisory_unlock(?)", key).Error
 }

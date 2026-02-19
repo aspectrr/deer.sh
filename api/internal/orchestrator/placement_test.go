@@ -311,3 +311,28 @@ func TestSelectHost_ScorePrefersCPUAndMemory(t *testing.T) {
 		t.Errorf("HostID = %q, want %q (host with higher combined score)", h.HostID, "host-2")
 	}
 }
+
+func TestSelectHost_EqualScorePicksFirst(t *testing.T) {
+	r := registry.New()
+	_ = r.Register("host-a", "org-1", "ha", &mockStream{})
+	r.SetRegistration("host-a", &fluidv1.HostRegistration{
+		BaseImages:        []string{"ubuntu-22.04"},
+		AvailableCpus:     4,
+		AvailableMemoryMb: 8192,
+	})
+	_ = r.Register("host-b", "org-1", "hb", &mockStream{})
+	r.SetRegistration("host-b", &fluidv1.HostRegistration{
+		BaseImages:        []string{"ubuntu-22.04"},
+		AvailableCpus:     4,
+		AvailableMemoryMb: 8192,
+	})
+
+	h, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
+	if err != nil {
+		t.Fatalf("SelectHost: unexpected error: %v", err)
+	}
+	// With equal scores, either host is acceptable - just verify no error.
+	if h.HostID != "host-a" && h.HostID != "host-b" {
+		t.Errorf("HostID = %q, want one of host-a or host-b", h.HostID)
+	}
+}

@@ -17,7 +17,7 @@ func UserFromContext(ctx context.Context) *store.User {
 }
 
 // RequireAuth is middleware that validates session cookie and loads user into context.
-func RequireAuth(st store.Store) func(http.Handler) http.Handler {
+func RequireAuth(st store.Store, secureCookies bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(SessionCookieName)
@@ -28,14 +28,14 @@ func RequireAuth(st store.Store) func(http.Handler) http.Handler {
 
 			sess, err := st.GetSession(r.Context(), HashSessionToken(cookie.Value))
 			if err != nil {
-				ClearSessionCookie(w)
+				ClearSessionCookie(w, secureCookies)
 				serverError.RespondError(w, http.StatusUnauthorized, fmt.Errorf("invalid or expired session"))
 				return
 			}
 
 			user, err := st.GetUser(r.Context(), sess.UserID)
 			if err != nil {
-				ClearSessionCookie(w)
+				ClearSessionCookie(w, secureCookies)
 				serverError.RespondError(w, http.StatusUnauthorized, fmt.Errorf("user not found"))
 				return
 			}

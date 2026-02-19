@@ -55,7 +55,7 @@ func (s *Server) handleDiscoverSourceHosts(w http.ResponseWriter, r *http.Reques
 	// Use the orchestrator to discover hosts via the daemon
 	results, err := s.orchestrator.DiscoverSourceHosts(r.Context(), org.ID, req.SSHConfigContent)
 	if err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("discovery failed: %s", err.Error()))
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("discovery failed"))
 		return
 	}
 
@@ -111,7 +111,7 @@ func (s *Server) handleConfirmSourceHosts(w http.ResponseWriter, r *http.Request
 		}
 
 		if err := s.store.CreateSourceHost(r.Context(), sh); err != nil {
-			serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("save source host %s: %s", h.Name, err.Error()))
+			serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to save source host"))
 			return
 		}
 		created = append(created, sh)
@@ -142,7 +142,7 @@ func (s *Server) handleListSourceHosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteSourceHost(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveOrgMembership(w, r)
+	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
 		return
 	}
@@ -153,8 +153,19 @@ func (s *Server) handleDeleteSourceHost(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Verify ownership
+	host, err := s.store.GetSourceHost(r.Context(), id)
+	if err != nil {
+		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("source host not found"))
+		return
+	}
+	if host.OrgID != org.ID {
+		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("source host not found"))
+		return
+	}
+
 	if err := s.store.DeleteSourceHost(r.Context(), id); err != nil {
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("delete source host: %s", err.Error()))
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete source host"))
 		return
 	}
 

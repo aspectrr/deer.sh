@@ -33,6 +33,10 @@ type StreamHandler struct {
 
 	// streamMu holds a per-host mutex to serialize stream.Send calls.
 	streamMu sync.Map // map[string]*sync.Mutex
+
+	// cancelFns maps host_id -> context.CancelFunc for the active connection.
+	// Used to cancel old connections when a host reconnects.
+	cancelFns sync.Map // map[string]context.CancelFunc
 }
 
 // NewStreamHandler creates a stream handler wired to the given dependencies.
@@ -76,9 +80,13 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	orgID := auth.OrgIDFromContext(stream.Context())
 	tokenID := auth.TokenIDFromContext(stream.Context())
 
+	if tokenID == "" {
+		return fmt.Errorf("missing token identity from auth context")
+	}
+
 	// Override daemon-supplied hostID with server-assigned identity derived
 	// from the authenticated token so a daemon cannot impersonate another host.
-	if tokenID != "" && hostID != tokenID {
+	if hostID != tokenID {
 		h.logger.Warn("daemon-supplied host_id differs from token, overriding",
 			"daemon_host_id", hostID, "token_id", tokenID)
 		hostID = tokenID
@@ -99,6 +107,11 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	}
 	if err := stream.Send(ack); err != nil {
 		return fmt.Errorf("send registration ack: %w", err)
+	}
+
+	// Cancel any existing connection for this host to avoid duplicate streams.
+	if oldCancel, loaded := h.cancelFns.LoadAndDelete(hostID); loaded {
+		oldCancel.(context.CancelFunc)()
 	}
 
 	// Store the stream before registering so it is available immediately
@@ -123,11 +136,13 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	// Spawn heartbeat monitor.
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
+	h.cancelFns.Store(hostID, cancel)
 
 	go h.monitorHeartbeat(ctx, cancel, hostID, logger)
 
 	// Cleanup on disconnect.
 	defer func() {
+		h.cancelFns.Delete(hostID)
 		h.registry.Unregister(hostID)
 		h.streams.Delete(hostID)
 		h.streamMu.Delete(hostID)
@@ -138,7 +153,7 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				logger.Info("host stream closed by peer")
 				return nil
 			}
@@ -155,13 +170,16 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 	case *fluidv1.HostMessage_Heartbeat:
 		hb := msg.GetHeartbeat()
 		h.registry.UpdateHeartbeat(hostID)
-		_ = h.store.UpdateHostHeartbeat(
+		if err := h.store.UpdateHostHeartbeat(
 			ctx,
 			hostID,
 			hb.GetAvailableCpus(),
 			hb.GetAvailableMemoryMb(),
 			hb.GetAvailableDiskMb(),
-		)
+		); err != nil {
+			h.logger.Warn("failed to update heartbeat", "host_id", hostID, "error", err)
+		}
+		h.registry.UpdateResources(hostID, hb.GetAvailableCpus(), hb.GetAvailableMemoryMb())
 
 	case *fluidv1.HostMessage_ResourceReport:
 		h.registry.UpdateHeartbeat(hostID)
@@ -195,8 +213,9 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 }
 
 // SendAndWait sends a ControlMessage to a specific host and blocks until the
-// host responds with a matching request_id or the timeout expires.
-func (h *StreamHandler) SendAndWait(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+// host responds with a matching request_id, the context is cancelled, or the
+// timeout expires.
+func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
 	streamVal, ok := h.streams.Load(hostID)
 	if !ok {
 		return nil, fmt.Errorf("host %s is not connected", hostID)
@@ -220,10 +239,15 @@ func (h *StreamHandler) SendAndWait(hostID string, msg *fluidv1.ControlMessage, 
 		return nil, fmt.Errorf("send to host %s: %w", hostID, err)
 	}
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	select {
 	case resp := <-respCh:
 		return resp, nil
-	case <-time.After(timeout):
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context cancelled waiting for response from host %s", hostID)
+	case <-timer.C:
 		return nil, fmt.Errorf("timeout waiting for response from host %s (request_id=%s)", hostID, reqID)
 	}
 }

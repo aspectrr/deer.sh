@@ -37,7 +37,7 @@ const (
 // HostSender abstracts the ability to send a ControlMessage to a specific host
 // and wait for a correlated response.
 type HostSender interface {
-	SendAndWait(hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
+	SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
 }
 
 // Orchestrator coordinates sandbox lifecycle operations across connected hosts.
@@ -81,9 +81,6 @@ func New(
 func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*store.Sandbox, error) {
 	sandboxID := id.Generate("SBX-")
 
-	// base_image is derived from source_vm - users never set it directly
-	baseImage := req.SourceVM
-
 	vcpus := int32(req.VCPUs)
 	if vcpus == 0 {
 		vcpus = 2
@@ -93,7 +90,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		memMB = 2048
 	}
 
-	host, err := SelectHost(o.registry, baseImage, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
+	host, err := SelectHost(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
 	if err != nil {
 		if req.SourceVM != "" {
 			host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
@@ -148,7 +145,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		Payload: &fluidv1.ControlMessage_CreateSandbox{
 			CreateSandbox: &fluidv1.CreateSandboxCommand{
 				SandboxId:            sandboxID,
-				BaseImage:            baseImage,
+				BaseImage:            req.SourceVM,
 				Name:                 name,
 				Vcpus:                vcpus,
 				MemoryMb:             memMB,
@@ -170,7 +167,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		"live", req.Live,
 	)
 
-	resp, err := o.sender.SendAndWait(host.HostID, cmd, timeoutCreateSandbox)
+	resp, err := o.sender.SendAndWait(ctx, host.HostID, cmd, timeoutCreateSandbox)
 	if err != nil {
 		return nil, fmt.Errorf("create sandbox on host %s: %w", host.HostID, err)
 	}
@@ -189,7 +186,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		HostID:     host.HostID,
 		Name:       created.GetName(),
 		AgentID:    req.AgentID,
-		BaseImage:  baseImage,
+		BaseImage:  req.SourceVM,
 		Bridge:     created.GetBridge(),
 		MACAddress: created.GetMacAddress(),
 		IPAddress:  created.GetIpAddress(),
@@ -202,8 +199,8 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 
 	if err := o.store.CreateSandbox(ctx, sandbox); err != nil {
 		// Compensating action: destroy the VM on the host to avoid orphan.
-		// SendAndWait is context-independent (uses only hostID + timeout),
-		// so this runs reliably even if the caller's context is cancelled.
+		// Uses context.Background() so this runs reliably even if the
+		// caller's context is cancelled.
 		o.logger.Warn("DB persist failed, issuing compensating destroy",
 			"sandbox_id", sandboxID, "host_id", host.HostID, "error", err)
 		compReqID := uuid.New().String()
@@ -215,7 +212,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 				},
 			},
 		}
-		if _, compErr := o.sender.SendAndWait(host.HostID, compCmd, timeoutDestroySandbox); compErr != nil {
+		if _, compErr := o.sender.SendAndWait(context.Background(), host.HostID, compCmd, timeoutDestroySandbox); compErr != nil {
 			o.logger.Error("compensating destroy failed - orphaned VM on host",
 				"sandbox_id", sandboxID, "host_id", host.HostID, "error", compErr)
 		}
@@ -267,7 +264,7 @@ func (o *Orchestrator) DestroySandbox(ctx context.Context, sandboxID string) err
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(sandbox.HostID, cmd, timeoutDestroySandbox)
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, timeoutDestroySandbox)
 	if err != nil {
 		return fmt.Errorf("destroy sandbox on host %s: %w", sandbox.HostID, err)
 	}
@@ -312,7 +309,7 @@ func (o *Orchestrator) RunCommand(ctx context.Context, sandboxID, command string
 
 	startedAt := time.Now()
 
-	resp, err := o.sender.SendAndWait(sandbox.HostID, cmd, time.Duration(timeoutSec)*time.Second+commandTimeoutBuffer)
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, time.Duration(timeoutSec)*time.Second+commandTimeoutBuffer)
 	if err != nil {
 		return nil, fmt.Errorf("run command on host %s: %w", sandbox.HostID, err)
 	}
@@ -368,7 +365,7 @@ func (o *Orchestrator) StartSandbox(ctx context.Context, sandboxID string) error
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(sandbox.HostID, cmd, timeoutStartStop)
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, timeoutStartStop)
 	if err != nil {
 		return fmt.Errorf("start sandbox on host %s: %w", sandbox.HostID, err)
 	}
@@ -414,7 +411,7 @@ func (o *Orchestrator) StopSandbox(ctx context.Context, sandboxID string) error 
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(sandbox.HostID, cmd, timeoutStartStop)
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, timeoutStartStop)
 	if err != nil {
 		return fmt.Errorf("stop sandbox on host %s: %w", sandbox.HostID, err)
 	}
@@ -453,7 +450,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, sandboxID, name strin
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(sandbox.HostID, cmd, timeoutSnapshot)
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, timeoutSnapshot)
 	if err != nil {
 		return nil, fmt.Errorf("create snapshot on host %s: %w", sandbox.HostID, err)
 	}
@@ -511,7 +508,9 @@ func (o *Orchestrator) ListHosts(ctx context.Context, orgID string) ([]*HostInfo
 		}
 
 		sandboxes, err := o.store.GetSandboxesByHostID(ctx, h.HostID)
-		if err == nil {
+		if err != nil {
+			o.logger.Warn("failed to get sandboxes for host", "host_id", h.HostID, "error", err)
+		} else {
 			info.ActiveSandboxes = len(sandboxes)
 		}
 
@@ -545,7 +544,9 @@ func (o *Orchestrator) GetHost(ctx context.Context, id, orgID string) (*HostInfo
 	}
 
 	sandboxes, err := o.store.GetSandboxesByHostID(ctx, h.HostID)
-	if err == nil {
+	if err != nil {
+		o.logger.Warn("failed to get sandboxes for host", "host_id", h.HostID, "error", err)
+	} else {
 		info.ActiveSandboxes = len(sandboxes)
 	}
 
@@ -564,6 +565,7 @@ func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, er
 	var result []*VMInfo
 
 	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
 	for _, h := range connected {
 		if h.Registration == nil {
 			continue
@@ -585,7 +587,7 @@ func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, er
 			}
 
 			var vms []*VMInfo
-			resp, err := o.sender.SendAndWait(h.HostID, cmd, timeoutListSources)
+			resp, err := o.sender.SendAndWait(gCtx, h.HostID, cmd, timeoutListSources)
 			if err != nil {
 				o.logger.Warn("failed to list VMs from host", "host_id", h.HostID, "error", err)
 				for _, vm := range h.Registration.GetSourceVms() {
@@ -642,7 +644,7 @@ func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUs
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(host.HostID, cmd, timeoutPrepareVM)
+	resp, err := o.sender.SendAndWait(ctx, host.HostID, cmd, timeoutPrepareVM)
 	if err != nil {
 		return nil, fmt.Errorf("prepare source VM on host %s: %w", host.HostID, err)
 	}
@@ -675,7 +677,7 @@ func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName strin
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(host.HostID, cmd, timeoutValidateVM)
+	resp, err := o.sender.SendAndWait(ctx, host.HostID, cmd, timeoutValidateVM)
 	if err != nil {
 		return nil, fmt.Errorf("validate source VM on host %s: %w", host.HostID, err)
 	}
@@ -714,7 +716,7 @@ func (o *Orchestrator) RunSourceCommand(ctx context.Context, orgID, vmName, comm
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(host.HostID, cmd, time.Duration(timeoutSec)*time.Second+commandTimeoutBuffer)
+	resp, err := o.sender.SendAndWait(ctx, host.HostID, cmd, time.Duration(timeoutSec)*time.Second+commandTimeoutBuffer)
 	if err != nil {
 		return nil, fmt.Errorf("run source command on host %s: %w", host.HostID, err)
 	}
@@ -753,7 +755,7 @@ func (o *Orchestrator) ReadSourceFile(ctx context.Context, orgID, vmName, path s
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(host.HostID, cmd, timeoutReadFile)
+	resp, err := o.sender.SendAndWait(ctx, host.HostID, cmd, timeoutReadFile)
 	if err != nil {
 		return nil, fmt.Errorf("read source file on host %s: %w", host.HostID, err)
 	}
@@ -802,7 +804,7 @@ func (o *Orchestrator) DiscoverSourceHosts(ctx context.Context, orgID, sshConfig
 		},
 	}
 
-	resp, err := o.sender.SendAndWait(host.HostID, cmd, timeoutDiscoverHosts)
+	resp, err := o.sender.SendAndWait(ctx, host.HostID, cmd, timeoutDiscoverHosts)
 	if err != nil {
 		return nil, fmt.Errorf("discover hosts via %s: %w", host.HostID, err)
 	}

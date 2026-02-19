@@ -10,6 +10,7 @@ import (
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
+	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	"github.com/aspectrr/fluid.sh/api/internal/registry"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 
@@ -186,6 +187,11 @@ func (m *mockStore) SumTokenUsage(context.Context, string, time.Time, time.Time)
 func (m *mockStore) ListActiveSubscriptions(context.Context) ([]*store.Subscription, error) {
 	return nil, nil
 }
+func (m *mockStore) GetSubscriptionByStripeID(context.Context, string) (*store.Subscription, error) {
+	return nil, nil
+}
+func (m *mockStore) AcquireAdvisoryLock(context.Context, int64) error { return nil }
+func (m *mockStore) ReleaseAdvisoryLock(context.Context, int64) error { return nil }
 
 // ---------------------------------------------------------------------------
 // mockConnectServer implements fluidv1.HostService_ConnectServer
@@ -234,7 +240,7 @@ func TestSendAndWait_HostNotConnected(t *testing.T) {
 		RequestId: "req-1",
 	}
 
-	_, err := handler.SendAndWait("nonexistent-host", msg, 5*time.Second)
+	_, err := handler.SendAndWait(context.Background(), "nonexistent-host", msg, 5*time.Second)
 	if err == nil {
 		t.Fatal("SendAndWait: expected error for disconnected host")
 	}
@@ -255,7 +261,7 @@ func TestSendAndWait_MissingRequestID(t *testing.T) {
 		RequestId: "", // Empty request ID.
 	}
 
-	_, err := handler.SendAndWait("host-1", msg, 5*time.Second)
+	_, err := handler.SendAndWait(context.Background(), "host-1", msg, 5*time.Second)
 	if err == nil {
 		t.Fatal("SendAndWait: expected error for empty request_id")
 	}
@@ -301,7 +307,7 @@ func TestSendAndWait_Success(t *testing.T) {
 		}
 	}()
 
-	resp, err := handler.SendAndWait("host-1", msg, 5*time.Second)
+	resp, err := handler.SendAndWait(context.Background(), "host-1", msg, 5*time.Second)
 	if err != nil {
 		t.Fatalf("SendAndWait: unexpected error: %v", err)
 	}
@@ -335,7 +341,7 @@ func TestSendAndWait_Timeout(t *testing.T) {
 	}
 
 	// Use a very short timeout; no response will come.
-	_, err := handler.SendAndWait("host-1", msg, 100*time.Millisecond)
+	_, err := handler.SendAndWait(context.Background(), "host-1", msg, 100*time.Millisecond)
 	if err == nil {
 		t.Fatal("SendAndWait: expected timeout error")
 	}
@@ -357,7 +363,7 @@ func TestSendAndWait_SendError(t *testing.T) {
 		RequestId: "req-fail",
 	}
 
-	_, err := handler.SendAndWait("host-1", msg, 5*time.Second)
+	_, err := handler.SendAndWait(context.Background(), "host-1", msg, 5*time.Second)
 	if err == nil {
 		t.Fatal("SendAndWait: expected error when stream Send fails")
 	}
@@ -377,7 +383,7 @@ func TestSendAndWait_CleansPendingOnTimeout(t *testing.T) {
 		RequestId: "req-cleanup",
 	}
 
-	_, _ = handler.SendAndWait("host-1", msg, 50*time.Millisecond)
+	_, _ = handler.SendAndWait(context.Background(), "host-1", msg, 50*time.Millisecond)
 
 	// After timeout, the pending request should be cleaned up via defer.
 	_, exists := handler.pendingRequests.Load("req-cleanup")
@@ -537,6 +543,7 @@ func TestConnect_SendAckError(t *testing.T) {
 			}},
 		},
 		sendErr: fmt.Errorf("broken pipe"),
+		ctx:     auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-1"),
 	}
 
 	err := handler.Connect(mock)
@@ -564,6 +571,7 @@ func TestConnect_SuccessfulRegistrationAndEOF(t *testing.T) {
 			}},
 			// No more messages - next Recv returns EOF.
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-1"),
 	}
 
 	err := handler.Connect(mock)
@@ -618,6 +626,7 @@ func TestConnect_PersistHostCreatesWhenNotFound(t *testing.T) {
 				},
 			}},
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-new"),
 	}
 
 	err := handler.Connect(mock)
@@ -655,6 +664,7 @@ func TestConnect_HeartbeatDispatch(t *testing.T) {
 			}},
 			// EOF after heartbeat.
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-hb"),
 	}
 
 	err := handler.Connect(mock)
@@ -706,6 +716,7 @@ func TestConnect_ResponseDispatch(t *testing.T) {
 			},
 			// EOF after response.
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-resp"),
 	}
 
 	err := handler.Connect(mock)
@@ -749,6 +760,7 @@ func TestConnect_ErrorReportDoesNotPanic(t *testing.T) {
 				},
 			}},
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-err"),
 	}
 
 	// Should not panic and should return nil on EOF.
@@ -779,6 +791,7 @@ func TestConnect_ResourceReportUpdatesHeartbeat(t *testing.T) {
 				},
 			}},
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-rr"),
 	}
 
 	err := handler.Connect(mock)
@@ -814,6 +827,7 @@ func TestConnect_MessageWithoutRequestIDDropped(t *testing.T) {
 				},
 			},
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-drop"),
 	}
 
 	// Should not panic; the message is silently dropped.
@@ -848,11 +862,39 @@ func TestConnect_UnmatchedRequestIDDropped(t *testing.T) {
 				},
 			},
 		},
+		ctx: auth.WithTokenID(auth.WithOrgID(context.Background(), "org-1"), "host-unmatched"),
 	}
 
 	// Should not panic; the response is logged as orphan and dropped.
 	err := handler.Connect(mock)
 	if err != nil {
 		t.Fatalf("Connect: unexpected error: %v", err)
+	}
+}
+
+func TestConnect_EmptyTokenID_Rejected(t *testing.T) {
+	reg := registry.New()
+	st := &connectTestStore{}
+	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
+
+	mock := &mockConnectServerQueued{
+		msgs: []*fluidv1.HostMessage{
+			{Payload: &fluidv1.HostMessage_Registration{
+				Registration: &fluidv1.HostRegistration{
+					HostId:   "host-1",
+					Hostname: "test-host",
+				},
+			}},
+		},
+		// No WithTokenID - context has empty token ID.
+		ctx: context.Background(),
+	}
+
+	err := handler.Connect(mock)
+	if err == nil {
+		t.Fatal("Connect: expected error when tokenID is empty")
+	}
+	if !strings.Contains(err.Error(), "missing token identity") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "missing token identity")
 	}
 }

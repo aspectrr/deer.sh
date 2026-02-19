@@ -97,7 +97,7 @@ func (s *Server) routes() *chi.Mux {
 
 		// Protected auth routes
 		r.Group(func(r chi.Router) {
-			r.Use(auth.RequireAuth(s.store))
+			r.Use(auth.RequireAuth(s.store, s.cfg.Auth.SecureCookies))
 			r.Post("/logout", s.handleLogout)
 			r.Get("/me", s.handleMe)
 		})
@@ -105,7 +105,7 @@ func (s *Server) routes() *chi.Mux {
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
-		r.Use(auth.RequireAuth(s.store))
+		r.Use(auth.RequireAuth(s.store, s.cfg.Auth.SecureCookies))
 
 		// Organizations
 		r.Route("/v1/orgs", func(r chi.Router) {

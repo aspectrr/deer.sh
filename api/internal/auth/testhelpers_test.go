@@ -310,3 +310,12 @@ func (m *mockStore) SumTokenUsage(context.Context, string, time.Time, time.Time)
 func (m *mockStore) ListActiveSubscriptions(context.Context) ([]*store.Subscription, error) {
 	panic("mockStore: ListActiveSubscriptions not implemented")
 }
+func (m *mockStore) GetSubscriptionByStripeID(context.Context, string) (*store.Subscription, error) {
+	panic("mockStore: GetSubscriptionByStripeID not implemented")
+}
+func (m *mockStore) AcquireAdvisoryLock(context.Context, int64) error {
+	panic("mockStore: AcquireAdvisoryLock not implemented")
+}
+func (m *mockStore) ReleaseAdvisoryLock(context.Context, int64) error {
+	panic("mockStore: ReleaseAdvisoryLock not implemented")
+}

@@ -45,6 +45,9 @@ type Client struct {
 	mu     sync.Mutex
 	stream fluidv1.HostService_ConnectClient
 	conn   *grpc.ClientConn
+
+	// sendMu serializes writes to the gRPC stream.
+	sendMu sync.Mutex
 }
 
 // Config holds configuration for the gRPC agent client.
@@ -86,6 +89,13 @@ func NewClient(
 		puller:     puller,
 		logger:     logger.With("component", "agent"),
 	}
+}
+
+// sendMessage serializes writes to the gRPC stream.
+func (c *Client) sendMessage(stream fluidv1.HostService_ConnectClient, msg *fluidv1.HostMessage) error {
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	return stream.Send(msg)
 }
 
 // Run connects to the control plane and runs the message loop. It reconnects
@@ -157,7 +167,7 @@ func (c *Client) register(stream fluidv1.HostService_ConnectClient) error {
 		"hostname", c.hostname,
 	)
 
-	if err := stream.Send(msg); err != nil {
+	if err := c.sendMessage(stream, msg); err != nil {
 		return fmt.Errorf("send registration: %w", err)
 	}
 
@@ -242,7 +252,7 @@ func (c *Client) heartbeatLoop(ctx context.Context, stream fluidv1.HostService_C
 				},
 			}
 
-			if err := stream.Send(msg); err != nil {
+			if err := c.sendMessage(stream, msg); err != nil {
 				c.logger.Error("send heartbeat failed", "error", err)
 				return
 			}
@@ -303,7 +313,7 @@ func (c *Client) handleCommand(ctx context.Context, stream fluidv1.HostService_C
 	}
 
 	if resp != nil {
-		if err := stream.Send(resp); err != nil {
+		if err := c.sendMessage(stream, resp); err != nil {
 			c.logger.Error("send response failed", "request_id", reqID, "error", err)
 		}
 	}
@@ -413,6 +423,7 @@ func (c *Client) handleDestroySandbox(ctx context.Context, reqID string, cmd *fl
 
 	if err := c.prov.DestroySandbox(ctx, sandboxID); err != nil {
 		c.logger.Error("destroy sandbox failed", "sandbox_id", sandboxID, "error", err)
+		return errorResponse(reqID, sandboxID, fmt.Sprintf("destroy failed: %s", err.Error()))
 	}
 
 	if err := c.localStore.DeleteSandbox(ctx, sandboxID); err != nil {

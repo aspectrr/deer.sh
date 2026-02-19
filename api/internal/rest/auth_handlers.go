@@ -85,6 +85,11 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Password) > 72 {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("password must be at most 72 characters"))
+		return
+	}
+
 	req.Email = strings.ToLower(req.Email)
 
 	hash, err := auth.HashPassword(req.Password)
@@ -219,7 +224,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		_ = s.store.DeleteSession(r.Context(), auth.HashSessionToken(cookie.Value))
 	}
-	auth.ClearSessionCookie(w)
+	auth.ClearSessionCookie(w, s.cfg.Auth.SecureCookies)
 	_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
 }
 
@@ -536,6 +541,11 @@ func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID
 	user, err := s.store.GetUserByEmail(ctx, email)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
+	}
+
+	// If user was found by email, refuse to link if OAuth email is not verified
+	if err == nil && !emailVerified {
+		return nil, fmt.Errorf("oauth email not verified, cannot link to existing account")
 	}
 
 	if errors.Is(err, store.ErrNotFound) {

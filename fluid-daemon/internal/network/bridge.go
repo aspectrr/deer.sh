@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"regexp"
 	"strings"
 )
+
+var validBridge = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // NetworkManager handles bridge resolution and TAP management.
 type NetworkManager struct {
@@ -35,25 +38,27 @@ func NewNetworkManager(defaultBridge string, bridgeMap map[string]string, dhcpMo
 // ResolveBridge determines which bridge to attach a sandbox's TAP to.
 // Priority: explicit request > source VM's network > default bridge.
 func (n *NetworkManager) ResolveBridge(ctx context.Context, sourceVMName, requestedNetwork string) (string, error) {
+	var bridge string
+
 	// 1. If explicit network requested, look up in bridge_map
 	if requestedNetwork != "" {
-		if bridge, ok := n.bridgeMap[requestedNetwork]; ok {
-			n.logger.Info("resolved bridge from requested network", "network", requestedNetwork, "bridge", bridge)
-			return bridge, nil
+		if b, ok := n.bridgeMap[requestedNetwork]; ok {
+			n.logger.Info("resolved bridge from requested network", "network", requestedNetwork, "bridge", b)
+			bridge = b
+		} else if strings.HasPrefix(requestedNetwork, "br") || strings.HasPrefix(requestedNetwork, "virbr") {
+			// If the requested network looks like a bridge name (not a libvirt network), use it directly
+			bridge = requestedNetwork
+		} else {
+			return "", fmt.Errorf("unknown network %q: not found in bridge_map", requestedNetwork)
 		}
-		// If the requested network looks like a bridge name (not a libvirt network), use it directly
-		if strings.HasPrefix(requestedNetwork, "br") || strings.HasPrefix(requestedNetwork, "virbr") {
-			return requestedNetwork, nil
-		}
-		return "", fmt.Errorf("unknown network %q: not found in bridge_map", requestedNetwork)
 	}
 
 	// 2. If source VM specified, query libvirt for its network
-	if sourceVMName != "" {
-		bridge, err := n.resolveFromSourceVM(ctx, sourceVMName)
-		if err == nil && bridge != "" {
-			n.logger.Info("resolved bridge from source VM", "source_vm", sourceVMName, "bridge", bridge)
-			return bridge, nil
+	if bridge == "" && sourceVMName != "" {
+		b, err := n.resolveFromSourceVM(ctx, sourceVMName)
+		if err == nil && b != "" {
+			n.logger.Info("resolved bridge from source VM", "source_vm", sourceVMName, "bridge", b)
+			bridge = b
 		}
 		if err != nil {
 			n.logger.Warn("failed to resolve bridge from source VM, using default",
@@ -62,8 +67,17 @@ func (n *NetworkManager) ResolveBridge(ctx context.Context, sourceVMName, reques
 	}
 
 	// 3. Fall back to default bridge
-	n.logger.Info("using default bridge", "bridge", n.defaultBridge)
-	return n.defaultBridge, nil
+	if bridge == "" {
+		bridge = n.defaultBridge
+		n.logger.Info("using default bridge", "bridge", bridge)
+	}
+
+	// Validate bridge name contains only safe characters.
+	if !validBridge.MatchString(bridge) {
+		return "", fmt.Errorf("invalid bridge name %q: must match [a-zA-Z0-9_-]+", bridge)
+	}
+
+	return bridge, nil
 }
 
 // resolveFromSourceVM queries virsh to determine which bridge a source VM is connected to.

@@ -210,7 +210,9 @@ func (s *Server) StartSandbox(ctx context.Context, req *fluidv1.StartSandboxComm
 		sb.State = result.State
 		sb.IPAddress = result.IPAddress
 		sb.UpdatedAt = time.Now().UTC()
-		_ = s.store.UpdateSandbox(ctx, sb)
+		if err := s.store.UpdateSandbox(ctx, sb); err != nil {
+			s.logger.Warn("failed to update sandbox state", "sandbox_id", id, "error", err)
+		}
 	}
 
 	return &fluidv1.SandboxStarted{
@@ -234,7 +236,9 @@ func (s *Server) StopSandbox(ctx context.Context, req *fluidv1.StopSandboxComman
 	if sb, err := s.store.GetSandbox(ctx, id); err == nil {
 		sb.State = "STOPPED"
 		sb.UpdatedAt = time.Now().UTC()
-		_ = s.store.UpdateSandbox(ctx, sb)
+		if err := s.store.UpdateSandbox(ctx, sb); err != nil {
+			s.logger.Warn("failed to update sandbox state", "sandbox_id", id, "error", err)
+		}
 	}
 
 	return &fluidv1.SandboxStopped{
