@@ -10,10 +10,12 @@ require (
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgconn v1.14.3
+	github.com/joho/godotenv v1.5.1
 	github.com/stripe/stripe-go/v82 v82.5.1
 	golang.org/x/crypto v0.46.0
 	golang.org/x/oauth2 v0.34.0
 	golang.org/x/sync v0.19.0
+	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.79.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1

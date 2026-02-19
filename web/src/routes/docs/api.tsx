@@ -18,7 +18,7 @@ function ApiPage() {
 
       <Callout type="info">
         The spec is loaded from the API server's Swagger endpoint. Requests are proxied to the
-        backend. Make sure the API server is running on port 8081.
+        backend. Make sure the API server is running on port 8080.
       </Callout>
 
       <ApiTester />

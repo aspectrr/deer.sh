@@ -19,7 +19,6 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - fluid-postgres-data:/var/lib/postgresql/data
-      - ./api/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     ports:
       - "5432:5432"
     restart: always
@@ -41,7 +40,7 @@ services:
     env_file:
       - ./api/.env
     environment:
-      - DATABASE_URL=${WEB_DATABASE_URL:-postgresql://fluid:fluid@postgres:5432/fluid_web}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://fluid:fluid@postgres:5432/fluid}
       - API_ADDR=${API_ADDR_WEB:-:8080}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - LOG_FORMAT=${LOG_FORMAT:-text}

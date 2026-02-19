@@ -61,7 +61,6 @@ async def main():
     # Create a unified client
     client = VirshSandbox(
         host="http://localhost:8080",
-        tmux_host="http://localhost:8081"  # Optional: separate host for tmux operations
     )
 
     # Create a sandbox with simple parameters - no request objects needed!
@@ -230,7 +229,3 @@ Endpoints do not require authorization.
 
 
 ## Author
-
-
-
-

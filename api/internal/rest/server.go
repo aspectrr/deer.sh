@@ -72,8 +72,8 @@ func (s *Server) routes() *chi.Mux {
 
 	// Auth routes (public)
 	r.Route("/v1/auth", func(r chi.Router) {
-		r.Post("/register", s.handleRegister)
-		r.Post("/login", s.handleLogin)
+		r.With(rateLimitByIP(0.1, 5)).Post("/register", s.handleRegister)
+		r.With(rateLimitByIP(0.2, 10)).Post("/login", s.handleLogin)
 
 		// OAuth
 		r.Get("/github", s.handleGitHubLogin)

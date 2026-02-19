@@ -9,21 +9,22 @@ import (
 
 // SelectHost picks the best connected host for a sandbox that needs the given
 // base image. Filters by image availability, resources, and health.
-func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeout time.Duration, requiredCPUs int32, requiredMemoryMB int32) (*registry.ConnectedHost, error) {
+func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeout time.Duration, requiredCPUs int32, requiredMemoryMB int32) (registry.ConnectedHost, error) {
 	hosts := reg.ListConnectedByOrg(orgID)
 	if len(hosts) == 0 {
-		return nil, fmt.Errorf("no connected hosts")
+		return registry.ConnectedHost{}, fmt.Errorf("no connected hosts")
 	}
 
 	now := time.Now()
 	var best *registry.ConnectedHost
 
-	for _, h := range hosts {
+	for i := range hosts {
+		h := &hosts[i]
 		if h.Registration == nil {
 			continue
 		}
 
-		if !hostHasImage(h, baseImage) {
+		if !hostHasImage(*h, baseImage) {
 			continue
 		}
 
@@ -38,23 +39,23 @@ func SelectHost(reg *registry.Registry, baseImage, orgID string, heartbeatTimeou
 			continue
 		}
 
-		if best == nil || h.Registration.GetAvailableMemoryMb() > best.Registration.GetAvailableMemoryMb() {
+		if best == nil || hostScore(*h) > hostScore(*best) {
 			best = h
 		}
 	}
 
 	if best == nil {
-		return nil, fmt.Errorf("no healthy host with image %q and sufficient resources", baseImage)
+		return registry.ConnectedHost{}, fmt.Errorf("no healthy host with image %q and sufficient resources", baseImage)
 	}
 
-	return best, nil
+	return *best, nil
 }
 
 // SelectHostForSourceVM picks a connected host that has the given source VM.
-func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbeatTimeout time.Duration) (*registry.ConnectedHost, error) {
+func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbeatTimeout time.Duration) (registry.ConnectedHost, error) {
 	hosts := reg.ListConnectedByOrg(orgID)
 	if len(hosts) == 0 {
-		return nil, fmt.Errorf("no connected hosts")
+		return registry.ConnectedHost{}, fmt.Errorf("no connected hosts")
 	}
 
 	now := time.Now()
@@ -75,10 +76,15 @@ func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbe
 		}
 	}
 
-	return nil, fmt.Errorf("no connected host has source VM %q", vmName)
+	return registry.ConnectedHost{}, fmt.Errorf("no connected host has source VM %q", vmName)
 }
 
-func hostHasImage(h *registry.ConnectedHost, baseImage string) bool {
+// hostScore computes a placement score considering both memory and CPU.
+func hostScore(h registry.ConnectedHost) float64 {
+	return float64(h.Registration.GetAvailableMemoryMb()) + float64(h.Registration.GetAvailableCpus())*1024
+}
+
+func hostHasImage(h registry.ConnectedHost, baseImage string) bool {
 	for _, img := range h.Registration.GetBaseImages() {
 		if img == baseImage {
 			return true

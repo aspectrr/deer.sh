@@ -65,35 +65,38 @@ func (r *Registry) Unregister(hostID string) {
 	delete(r.hosts, hostID)
 }
 
-// GetHost returns the connected host for the given ID, if present.
-func (r *Registry) GetHost(hostID string) (*ConnectedHost, bool) {
+// GetHost returns a value copy of the connected host for the given ID, if present.
+func (r *Registry) GetHost(hostID string) (ConnectedHost, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	h, ok := r.hosts[hostID]
-	return h, ok
+	if !ok {
+		return ConnectedHost{}, false
+	}
+	return *h, ok
 }
 
-// ListConnected returns a snapshot of all currently connected hosts.
-func (r *Registry) ListConnected() []*ConnectedHost {
+// ListConnected returns value copies of all currently connected hosts.
+func (r *Registry) ListConnected() []ConnectedHost {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	result := make([]*ConnectedHost, 0, len(r.hosts))
+	result := make([]ConnectedHost, 0, len(r.hosts))
 	for _, h := range r.hosts {
-		result = append(result, h)
+		result = append(result, *h)
 	}
 	return result
 }
 
-// ListConnectedByOrg returns connected hosts belonging to the given org.
-func (r *Registry) ListConnectedByOrg(orgID string) []*ConnectedHost {
+// ListConnectedByOrg returns value copies of connected hosts belonging to the given org.
+func (r *Registry) ListConnectedByOrg(orgID string) []ConnectedHost {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var result []*ConnectedHost
+	var result []ConnectedHost
 	for _, h := range r.hosts {
 		if h.OrgID == orgID {
-			result = append(result, h)
+			result = append(result, *h)
 		}
 	}
 	return result

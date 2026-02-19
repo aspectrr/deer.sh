@@ -120,7 +120,7 @@ definitions:
   rest.authResponse:
     properties:
       user:
-        $ref: '#/definitions/rest.userResponse'
+        $ref: "#/definitions/rest.userResponse"
     type: object
   rest.createHostTokenRequest:
     properties:
@@ -265,7 +265,7 @@ definitions:
       source_vm:
         type: string
       state:
-        $ref: '#/definitions/store.SandboxState'
+        $ref: "#/definitions/store.SandboxState"
       tap_device:
         type: string
       ttl_seconds:
@@ -277,19 +277,19 @@ definitions:
     type: object
   store.SandboxState:
     enum:
-    - CREATING
-    - RUNNING
-    - STOPPED
-    - DESTROYED
-    - ERROR
+      - CREATING
+      - RUNNING
+      - STOPPED
+      - DESTROYED
+      - ERROR
     type: string
     x-enum-varnames:
-    - SandboxStateCreating
-    - SandboxStateRunning
-    - SandboxStateStopped
-    - SandboxStateDestroyed
-    - SandboxStateError
-host: localhost:8081
+      - SandboxStateCreating
+      - SandboxStateRunning
+      - SandboxStateStopped
+      - SandboxStateDestroyed
+      - SandboxStateError
+host: localhost:8080
 info:
   contact: {}
   description: API for managing sandboxes, organizations, billing, and hosts
@@ -305,34 +305,35 @@ paths:
         "501":
           description: Not Implemented
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       summary: GitHub OAuth login
       tags:
-      - Auth
+        - Auth
   /auth/github/callback:
     get:
-      description: Handle GitHub OAuth callback, create or link user, set session
+      description:
+        Handle GitHub OAuth callback, create or link user, set session
         cookie, and redirect to dashboard
       parameters:
-      - description: OAuth authorization code
-        in: query
-        name: code
-        required: true
-        type: string
+        - description: OAuth authorization code
+          in: query
+          name: code
+          required: true
+          type: string
       responses:
         "302":
           description: Redirect to dashboard
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       summary: GitHub OAuth callback
       tags:
-      - Auth
+        - Auth
   /auth/google:
     get:
       description: Redirect to Google OAuth authorization page
@@ -342,73 +343,74 @@ paths:
         "501":
           description: Not Implemented
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       summary: Google OAuth login
       tags:
-      - Auth
+        - Auth
   /auth/google/callback:
     get:
-      description: Handle Google OAuth callback, create or link user, set session
+      description:
+        Handle Google OAuth callback, create or link user, set session
         cookie, and redirect to dashboard
       parameters:
-      - description: OAuth authorization code
-        in: query
-        name: code
-        required: true
-        type: string
+        - description: OAuth authorization code
+          in: query
+          name: code
+          required: true
+          type: string
       responses:
         "302":
           description: Redirect to dashboard
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       summary: Google OAuth callback
       tags:
-      - Auth
+        - Auth
   /auth/login:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Authenticate with email and password, returns a session cookie
       parameters:
-      - description: Login credentials
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/rest.loginRequest'
+        - description: Login credentials
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/rest.loginRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/rest.authResponse'
+            $ref: "#/definitions/rest.authResponse"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       summary: Log in
       tags:
-      - Auth
+        - Auth
   /auth/logout:
     post:
       description: Invalidate the current session and clear the session cookie
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -417,68 +419,68 @@ paths:
               type: string
             type: object
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Log out
       tags:
-      - Auth
+        - Auth
   /auth/me:
     get:
       description: Return the currently authenticated user
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/rest.authResponse'
+            $ref: "#/definitions/rest.authResponse"
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Get current user
       tags:
-      - Auth
+        - Auth
   /auth/register:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Create a new user account and return a session cookie
       parameters:
-      - description: Registration details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/rest.registerRequest'
+        - description: Registration details
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/rest.registerRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/rest.authResponse'
+            $ref: "#/definitions/rest.authResponse"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       summary: Register a new user
       tags:
-      - Auth
+        - Auth
   /health:
     get:
       description: Returns API health status
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -488,12 +490,12 @@ paths:
             type: object
       summary: Health check
       tags:
-      - Health
+        - Health
   /orgs:
     get:
       description: List all organizations the current user belongs to
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -503,58 +505,58 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: List organizations
       tags:
-      - Organizations
+        - Organizations
     post:
       consumes:
-      - application/json
+        - application/json
       description: Create a new organization and add the current user as owner
       parameters:
-      - description: Organization details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/rest.createOrgRequest'
+        - description: Organization details
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/rest.createOrgRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/rest.orgResponse'
+            $ref: "#/definitions/rest.orgResponse"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Create organization
       tags:
-      - Organizations
+        - Organizations
   /orgs/{slug}:
     delete:
       description: Delete an organization (owner only)
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -565,107 +567,107 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Delete organization
       tags:
-      - Organizations
+        - Organizations
     get:
       description: Get organization details by slug
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/rest.orgResponse'
+            $ref: "#/definitions/rest.orgResponse"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Get organization
       tags:
-      - Organizations
+        - Organizations
     patch:
       consumes:
-      - application/json
+        - application/json
       description: Update organization details (owner or admin only)
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Fields to update
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/rest.updateOrgRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Fields to update
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/rest.updateOrgRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/rest.orgResponse'
+            $ref: "#/definitions/rest.orgResponse"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Update organization
       tags:
-      - Organizations
+        - Organizations
   /orgs/{slug}/hosts:
     get:
       description: List all connected sandbox hosts
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -675,65 +677,65 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: List hosts
       tags:
-      - Hosts
+        - Hosts
   /orgs/{slug}/hosts/{hostID}:
     get:
       description: Get details of a specific connected host
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Host ID
-        in: path
-        name: hostID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Host ID
+          in: path
+          name: hostID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/orchestrator.HostInfo'
+            $ref: "#/definitions/orchestrator.HostInfo"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Get host
       tags:
-      - Hosts
+        - Hosts
   /orgs/{slug}/hosts/tokens:
     get:
       description: List all host tokens for the organization
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -743,80 +745,80 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: List host tokens
       tags:
-      - Host Tokens
+        - Host Tokens
     post:
       consumes:
-      - application/json
+        - application/json
       description: Generate a new host authentication token (owner or admin only)
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Token details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/rest.createHostTokenRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Token details
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/rest.createHostTokenRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/rest.hostTokenResponse'
+            $ref: "#/definitions/rest.hostTokenResponse"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Create host token
       tags:
-      - Host Tokens
+        - Host Tokens
   /orgs/{slug}/hosts/tokens/{tokenID}:
     delete:
       description: Delete a host token (owner or admin only)
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Token ID
-        in: path
-        name: tokenID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Token ID
+          in: path
+          name: tokenID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -827,27 +829,27 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Delete host token
       tags:
-      - Host Tokens
+        - Host Tokens
   /orgs/{slug}/members:
     get:
       description: List all members of an organization
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -857,84 +859,84 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: List members
       tags:
-      - Members
+        - Members
     post:
       consumes:
-      - application/json
+        - application/json
       description: Add a user to an organization (owner or admin only)
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Member details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/rest.addMemberRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Member details
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/rest.addMemberRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/rest.memberResponse'
+            $ref: "#/definitions/rest.memberResponse"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Add member
       tags:
-      - Members
+        - Members
   /orgs/{slug}/members/{memberID}:
     delete:
       description: Remove a member from an organization (owner or admin only)
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Member ID
-        in: path
-        name: memberID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Member ID
+          in: path
+          name: memberID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -945,31 +947,31 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Remove member
       tags:
-      - Members
+        - Members
   /orgs/{slug}/sandboxes:
     get:
       description: List all sandboxes in the organization
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -979,81 +981,82 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: List sandboxes
       tags:
-      - Sandboxes
+        - Sandboxes
     post:
       consumes:
-      - application/json
-      description: Create a new sandbox in the organization from a source VM or base
+        - application/json
+      description:
+        Create a new sandbox in the organization from a source VM or base
         image
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox configuration
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/orchestrator.CreateSandboxRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox configuration
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/orchestrator.CreateSandboxRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/store.Sandbox'
+            $ref: "#/definitions/store.Sandbox"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Create sandbox
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sandboxes/{sandboxID}:
     delete:
       description: Destroy a sandbox and release its resources
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -1063,69 +1066,69 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Destroy sandbox
       tags:
-      - Sandboxes
+        - Sandboxes
     get:
       description: Get sandbox details by ID
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/store.Sandbox'
+            $ref: "#/definitions/store.Sandbox"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Get sandbox
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sandboxes/{sandboxID}/commands:
     get:
       description: List all commands executed in a sandbox
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -1135,36 +1138,36 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: List commands
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sandboxes/{sandboxID}/ip:
     get:
       description: Get the IP address of a sandbox
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -1174,132 +1177,132 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Get sandbox IP
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sandboxes/{sandboxID}/run:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Execute a command in a sandbox
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
-      - description: Command to run
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/orchestrator.RunCommandRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
+        - description: Command to run
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/orchestrator.RunCommandRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/store.Command'
+            $ref: "#/definitions/store.Command"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Run command
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sandboxes/{sandboxID}/snapshot:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Create a snapshot of a sandbox
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
-      - description: Snapshot details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/orchestrator.SnapshotRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
+        - description: Snapshot details
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/orchestrator.SnapshotRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/orchestrator.SnapshotResponse'
+            $ref: "#/definitions/orchestrator.SnapshotResponse"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Create snapshot
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sandboxes/{sandboxID}/start:
     post:
       description: Start a stopped sandbox
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -1309,36 +1312,36 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Start sandbox
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sandboxes/{sandboxID}/stop:
     post:
       description: Stop a running sandbox
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Sandbox ID
-        in: path
-        name: sandboxID
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Sandbox ID
+          in: path
+          name: sandboxID
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -1348,44 +1351,44 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Stop sandbox
       tags:
-      - Sandboxes
+        - Sandboxes
   /orgs/{slug}/sources/{vm}/prepare:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Prepare a source VM for sandbox cloning
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Source VM name
-        in: path
-        name: vm
-        required: true
-        type: string
-      - description: SSH credentials
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/orchestrator.PrepareRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Source VM name
+          in: path
+          name: vm
+          required: true
+          type: string
+        - description: SSH credentials
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/orchestrator.PrepareRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -1395,135 +1398,135 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Prepare source VM
       tags:
-      - Source VMs
+        - Source VMs
   /orgs/{slug}/sources/{vm}/read:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Read a file from a source VM
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Source VM name
-        in: path
-        name: vm
-        required: true
-        type: string
-      - description: File path
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/orchestrator.ReadSourceRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Source VM name
+          in: path
+          name: vm
+          required: true
+          type: string
+        - description: File path
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/orchestrator.ReadSourceRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/orchestrator.SourceFileResult'
+            $ref: "#/definitions/orchestrator.SourceFileResult"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Read source file
       tags:
-      - Source VMs
+        - Source VMs
   /orgs/{slug}/sources/{vm}/run:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Execute a read-only command on a source VM
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Source VM name
-        in: path
-        name: vm
-        required: true
-        type: string
-      - description: Command to run
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/orchestrator.RunSourceRequest'
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
+        - description: Source VM name
+          in: path
+          name: vm
+          required: true
+          type: string
+        - description: Command to run
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: "#/definitions/orchestrator.RunSourceRequest"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/orchestrator.SourceCommandResult'
+            $ref: "#/definitions/orchestrator.SourceCommandResult"
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: Run source command
       tags:
-      - Source VMs
+        - Source VMs
   /orgs/{slug}/vms:
     get:
       description: List all source VMs across connected hosts
       parameters:
-      - description: Organization slug
-        in: path
-        name: slug
-        required: true
-        type: string
+        - description: Organization slug
+          in: path
+          name: slug
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -1533,20 +1536,20 @@ paths:
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/rest.swaggerError'
+            $ref: "#/definitions/rest.swaggerError"
       security:
-      - CookieAuth: []
+        - CookieAuth: []
       summary: List source VMs
       tags:
-      - Source VMs
+        - Source VMs
 securityDefinitions:
   CookieAuth:
     in: cookie

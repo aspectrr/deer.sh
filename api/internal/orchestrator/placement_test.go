@@ -106,16 +106,12 @@ func TestSelectHost_StaleHeartbeat(t *testing.T) {
 		AvailableMemoryMb: 8192,
 	})
 
-	// Manually set the heartbeat to 2 minutes ago by directly accessing the host.
-	h, ok := r.GetHost("host-1")
-	if !ok {
-		t.Fatal("GetHost: host not found")
-	}
-	h.LastHeartbeat = time.Now().Add(-2 * time.Minute)
+	// Use a heartbeat timeout of 1ms and sleep to ensure staleness.
+	time.Sleep(5 * time.Millisecond)
 
-	_, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
+	_, err := SelectHost(r, "ubuntu-22.04", "org-1", time.Millisecond, 2, 2048)
 	if err == nil {
-		t.Fatal("SelectHost: expected error when host has stale heartbeat (>90s)")
+		t.Fatal("SelectHost: expected error when host has stale heartbeat")
 	}
 }
 
@@ -222,11 +218,10 @@ func TestSelectHostForSourceVM_StaleHeartbeat(t *testing.T) {
 		},
 	})
 
-	// Set heartbeat to stale (>90s).
-	h, _ := r.GetHost("host-1")
-	h.LastHeartbeat = time.Now().Add(-2 * time.Minute)
+	// Use a heartbeat timeout of 1ms and sleep to ensure staleness.
+	time.Sleep(5 * time.Millisecond)
 
-	_, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second)
+	_, err := SelectHostForSourceVM(r, "web-server", "org-1", time.Millisecond)
 	if err == nil {
 		t.Fatal("SelectHostForSourceVM: expected error when host heartbeat is stale")
 	}
@@ -255,5 +250,64 @@ func TestSelectHostForSourceVM_FiltersByOrg(t *testing.T) {
 	_, err := SelectHostForSourceVM(r, "web-server", "org-other", 90*time.Second)
 	if err == nil {
 		t.Fatal("SelectHostForSourceVM: expected error when no hosts belong to the org")
+	}
+}
+
+// TestSelectHost_FallbackToSourceVM verifies the orchestrator-level fallback:
+// SelectHost fails (no matching base image) but SelectHostForSourceVM succeeds
+// (host has the source VM).
+func TestSelectHost_FallbackToSourceVM(t *testing.T) {
+	r := registry.New()
+	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
+	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+		BaseImages:        []string{"centos-9"}, // Does NOT match "web-server"
+		AvailableCpus:     4,
+		AvailableMemoryMb: 8192,
+		SourceVms: []*fluidv1.SourceVMInfo{
+			{Name: "web-server", State: "running"},
+		},
+	})
+
+	// SelectHost should fail because base image "web-server" is not in BaseImages
+	_, err := SelectHost(r, "web-server", "org-1", 90*time.Second, 2, 2048)
+	if err == nil {
+		t.Fatal("SelectHost: expected error when base image doesn't match")
+	}
+
+	// But SelectHostForSourceVM should succeed because host has the source VM
+	h, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second)
+	if err != nil {
+		t.Fatalf("SelectHostForSourceVM: unexpected error: %v", err)
+	}
+	if h.HostID != "host-1" {
+		t.Errorf("HostID = %q, want %q", h.HostID, "host-1")
+	}
+}
+
+func TestSelectHost_ScorePrefersCPUAndMemory(t *testing.T) {
+	r := registry.New()
+	// Host 1: more memory but fewer CPUs
+	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
+	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+		BaseImages:        []string{"ubuntu-22.04"},
+		AvailableCpus:     2,
+		AvailableMemoryMb: 16384,
+	})
+	// Host 2: fewer memory but more CPUs
+	_ = r.Register("host-2", "org-1", "h2", &mockStream{})
+	r.SetRegistration("host-2", &fluidv1.HostRegistration{
+		BaseImages:        []string{"ubuntu-22.04"},
+		AvailableCpus:     16,
+		AvailableMemoryMb: 4096,
+	})
+
+	// host-1 score: 16384 + 2*1024 = 18432
+	// host-2 score: 4096 + 16*1024 = 20480
+	h, err := SelectHost(r, "ubuntu-22.04", "org-1", 90*time.Second, 2, 2048)
+	if err != nil {
+		t.Fatalf("SelectHost: unexpected error: %v", err)
+	}
+	if h.HostID != "host-2" {
+		t.Errorf("HostID = %q, want %q (host with higher combined score)", h.HostID, "host-2")
 	}
 }

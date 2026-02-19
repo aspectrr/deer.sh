@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/aspectrr/fluid.sh/api/internal/config"
+	"github.com/aspectrr/fluid.sh/api/internal/registry"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
 
@@ -15,6 +16,7 @@ import (
 type ResourceTicker struct {
 	store    store.DataStore
 	meter    *MeterManager
+	registry *registry.Registry
 	cfg      config.BillingConfig
 	freeTier config.FreeTierConfig
 	logger   *slog.Logger
@@ -25,6 +27,7 @@ type ResourceTicker struct {
 func NewResourceTicker(
 	st store.DataStore,
 	mm *MeterManager,
+	reg *registry.Registry,
 	cfg config.BillingConfig,
 	logger *slog.Logger,
 ) *ResourceTicker {
@@ -34,6 +37,7 @@ func NewResourceTicker(
 	return &ResourceTicker{
 		store:    st,
 		meter:    mm,
+		registry: reg,
 		cfg:      cfg,
 		freeTier: cfg.FreeTier,
 		logger:   logger.With("component", "billing-ticker"),
@@ -102,12 +106,8 @@ func (rt *ResourceTicker) reportForOrg(ctx context.Context, orgID string) {
 	}
 	sourceVMCount := len(sourceHosts)
 
-	// Count host tokens as proxy for connected daemons
-	hostTokens, err := rt.store.ListHostTokensByOrg(ctx, orgID)
-	if err != nil {
-		rt.logger.Warn("failed to list host tokens for billing", "error", err, "org_id", orgID)
-	}
-	daemonCount := len(hostTokens)
+	// Count actually connected daemons via registry
+	daemonCount := len(rt.registry.ListConnectedByOrg(orgID))
 
 	// Subtract free tier
 	billableSandboxes := int64(runningSandboxes - rt.freeTier.MaxConcurrentSandboxes)

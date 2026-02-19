@@ -23,7 +23,7 @@ function SandboxesPage() {
         Changes inside the sandbox never affect the source VM.
       </p>
 
-      <H2>MicroVM Path (QEMU/Firecracker)</H2>
+      <H2>MicroVM Path (QEMU)</H2>
 
       <H3>QCOW2 Overlay</H3>
       <p className="mb-3 text-xs text-neutral-400">
@@ -66,8 +66,7 @@ host-eth0
       </p>
 
       <Callout type="warning">
-        LXC sandboxes share the host kernel. For untrusted workloads, use the microVM path (QEMU or
-        Firecracker).
+        LXC sandboxes share the host kernel. For untrusted workloads, use the microVM path (QEMU).
       </Callout>
 
       <H2>SSH Access</H2>

@@ -60,7 +60,7 @@ class Configuration:
         ca_cert_data: Optional[Union[str, bytes]] = None,
     ) -> None:
         """Initialize configuration."""
-        self._base_path = "http://localhost:8081/v1" if host is None else host
+        self._base_path = "http://localhost:8080/v1" if host is None else host
         """Default Base url.
         """
 
@@ -361,7 +361,7 @@ class Configuration:
         """
         return [
             {
-                "url": "//localhost:8081/v1",
+                "url": "//localhost:8080/v1",
                 "description": "No description provided",
             }
         ]

@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FeatureCard } from '~/components/landing/feature-card'
-import { InteractiveDemo } from '~/components/landing/interactive-demo'
+import { ScriptedDemo } from '~/components/landing/scripted-demo'
+import { ArchitectureAnimation } from '~/components/landing/architecture-animation'
+import type { DiagramPhase } from '~/lib/diagram-phases'
 
 export const Route = createFileRoute('/_public/')({
   component: LandingPage,
@@ -61,6 +62,7 @@ const installTabs = [
 
 function LandingPage() {
   const [activeTab, setActiveTab] = useState<string>('go')
+  const [diagramPhase, setDiagramPhase] = useState<DiagramPhase>('idle')
   const workflowRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -137,11 +139,18 @@ function LandingPage() {
               </a>
             </div>
           </div>
-          <p className="mt-2 text-neutral-400">Claude Code for Debugging and Managing VMs.</p>
-          <p className="mt-2 text-neutral-400">
-            Fluid enables SREs, Platform Engineers, and DevOps Engineers to fix multiple issues at
-            once, expand their triage and enable more uptime across their production environment.
+          <p className="mt-2 text-neutral-400">Claude Code for Linux Servers</p>
+          <p className="my-2 text-neutral-400">
+            Fluid enables System Administrators, SREs, Platform Engineers, and DevOps Engineers to
+            diagnose issues on servers, run investigations, and fix problems safely with microVM
+            sandboxes.
           </p>
+        </div>
+        <div className="mx-auto mt-6 max-w-2xl">
+          <ScriptedDemo onPhase={setDiagramPhase} />
+          <ArchitectureAnimation phase={diagramPhase} />
+        </div>
+        <div className="mx-auto max-w-2xl">
           <p className="mt-6 text-neutral-400">Fluid works in four phases.</p>
 
           <h4 className="font-logo mt-2 text-lg tracking-tight">
@@ -178,21 +187,9 @@ function LandingPage() {
           <p className="my-2 text-neutral-400">
             This will install the <span className="text-blue-400">$</span>{' '}
             <span className="font-logo text-white">fluid.sh</span> terminal agent meant to be
-            installed on your local workstation.
+            installed on your local workstation. It will take you through daemon setup and
+            configuration.
           </p>
-          <p className="my-2 text-neutral-400">
-            If you are instead looking for the <span className="text-blue-400">$</span>{' '}
-            <span className="font-logo text-white">fluid.sh</span> agent api, to control thousands
-            of concurrent agents/sandboxes, navigate to the{' '}
-            <a
-              href="https://github.com/aspectrr/fluid.sh?tab=readme-ov-file#fluid-remote"
-              className="font-mono text-neutral-400"
-            >
-              readme
-            </a>
-            .
-          </p>
-
           {/* Install tabs */}
           <div className="mt-8 overflow-hidden rounded-lg bg-neutral-900">
             <div className="flex border-b border-neutral-800">
@@ -225,7 +222,7 @@ function LandingPage() {
           </div>
         </div>
       </header>
-
+      {/*
       <main className="px-6 pb-24">
         <div className="mx-auto max-w-2xl space-y-16">
           <section ref={workflowRef}>
@@ -253,17 +250,8 @@ function LandingPage() {
               />
             </div>
           </section>
-
-          <section>
-            <h2 className="mb-4 text-xl text-neutral-200">Try It</h2>
-            <p className="mb-6 text-neutral-400">
-              Interact with a live fluid.sh agent. Create sandboxes, run commands, and build
-              playbooks - right from your browser.
-            </p>
-            <InteractiveDemo />
-          </section>
         </div>
-      </main>
+      </main>*/}
     </>
   )
 }

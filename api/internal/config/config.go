@@ -117,7 +117,7 @@ func (c *Config) Validate() error {
 func Load() *Config {
 	return &Config{
 		API: APIConfig{
-			Addr:            envOr("API_ADDR", ":8081"),
+			Addr:            envOr("API_ADDR", ":8080"),
 			ReadTimeout:     envDuration("API_READ_TIMEOUT", 60*time.Second),
 			WriteTimeout:    envDuration("API_WRITE_TIMEOUT", 120*time.Second),
 			IdleTimeout:     envDuration("API_IDLE_TIMEOUT", 120*time.Second),
@@ -133,7 +133,7 @@ func Load() *Config {
 		},
 		Auth: AuthConfig{
 			SessionTTL:    envDuration("AUTH_SESSION_TTL", 720*time.Hour),
-			SecureCookies: envBool("AUTH_SECURE_COOKIES", false),
+			SecureCookies: envBool("AUTH_SECURE_COOKIES", true),
 			GitHub: OAuthProviderConfig{
 				ClientID:     os.Getenv("AUTH_GITHUB_CLIENT_ID"),
 				ClientSecret: os.Getenv("AUTH_GITHUB_CLIENT_SECRET"),

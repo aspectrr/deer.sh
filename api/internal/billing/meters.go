@@ -32,6 +32,7 @@ type MeterManager struct {
 	freeTokens int
 	logger     *slog.Logger
 	mu         sync.Mutex
+	orgMu      sync.Map // map[string]*sync.Mutex - per-org lock for free tier calculation
 }
 
 // NewMeterManager creates a new MeterManager.
@@ -59,6 +60,12 @@ func NewMeterManager(
 		freeTokens: freeTokens,
 		logger:     logger.With("component", "billing"),
 	}
+}
+
+// orgLock returns a per-org mutex, creating one if needed.
+func (mm *MeterManager) orgLock(orgID string) *sync.Mutex {
+	v, _ := mm.orgMu.LoadOrStore(orgID, &sync.Mutex{})
+	return v.(*sync.Mutex)
 }
 
 var nonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)
@@ -363,6 +370,12 @@ func (mm *MeterManager) ReportUsage(ctx context.Context, orgID, modelID string, 
 	if sub.Status != store.SubStatusActive || sub.StripeSubscriptionID == "" {
 		return nil
 	}
+
+	// Serialize free tier calculation + Stripe submission per org to prevent
+	// concurrent requests from double-counting free tier allowance.
+	omu := mm.orgLock(orgID)
+	omu.Lock()
+	defer omu.Unlock()
 
 	// Calculate free tier
 	now := time.Now().UTC()

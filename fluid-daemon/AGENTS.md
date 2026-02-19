@@ -22,7 +22,7 @@ control-plane
 ## Tech Stack
 
 - **Language**: Go
-- **VM Backend**: Firecracker / QEMU via libvirt
+- **VM Backend**: QEMU microVMs via libvirt
 - **State**: SQLite
 - **Networking**: Bridge + TAP devices
 - **SSH**: Internal CA with ephemeral certificates
@@ -70,7 +70,7 @@ Default config: `~/.config/fluid/daemon.yaml`
 listen:
   grpc: ":9091"
 
-backend: firecracker  # or "qemu"
+backend: qemu
 
 storage:
   images: /var/lib/fluid/images

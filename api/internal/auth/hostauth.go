@@ -14,11 +14,19 @@ import (
 )
 
 type hostOrgKey struct{}
+type hostTokenIDKey struct{}
 
 // OrgIDFromContext returns the org ID attached to a gRPC context by the
 // host token auth interceptor.
 func OrgIDFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(hostOrgKey{}).(string)
+	return v
+}
+
+// TokenIDFromContext returns the host token ID attached to a gRPC context by
+// the host token auth interceptor.
+func TokenIDFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(hostTokenIDKey{}).(string)
 	return v
 }
 
@@ -60,8 +68,9 @@ func HostTokenStreamInterceptor(st store.Store) grpc.StreamServerInterceptor {
 			return status.Error(codes.Unauthenticated, "invalid host token")
 		}
 
-		// Attach org_id to stream context.
+		// Attach org_id and token_id to stream context.
 		ctx := context.WithValue(ss.Context(), hostOrgKey{}, token.OrgID)
+		ctx = context.WithValue(ctx, hostTokenIDKey{}, token.ID)
 		wrapped := &wrappedStream{ServerStream: ss, ctx: ctx}
 		return handler(srv, wrapped)
 	}

@@ -66,7 +66,7 @@ export function ApiTester() {
         <p className="mb-1 text-xs text-amber-400">Could not load API spec</p>
         <p className="text-[10px] text-neutral-500">{error}</p>
         <p className="mt-1 text-[10px] text-neutral-500">
-          Make sure the API server is running on port 8081.
+          Make sure the API server is running on port 8080.
         </p>
       </div>
     )

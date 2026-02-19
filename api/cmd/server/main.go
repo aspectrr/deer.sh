@@ -21,6 +21,7 @@ import (
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 	postgresStore "github.com/aspectrr/fluid.sh/api/internal/store/postgres"
 
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -28,12 +29,15 @@ import (
 // @title          Fluid API
 // @version        1.0
 // @description    API for managing sandboxes, organizations, billing, and hosts
-// @host           localhost:8081
+// @host           localhost:8080
 // @BasePath       /v1
 // @securityDefinitions.apikey CookieAuth
 // @in             cookie
 // @name           session
 func main() {
+	// Load .env if present (no error if missing - production uses real env vars)
+	_ = godotenv.Load()
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 

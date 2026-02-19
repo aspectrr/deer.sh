@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/mail"
 	"time"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
@@ -74,9 +74,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic email format validation
-	at := strings.LastIndex(req.Email, "@")
-	if at < 1 || at >= len(req.Email)-1 || !strings.Contains(req.Email[at+1:], ".") {
+	if _, err := mail.ParseAddress(req.Email); err != nil {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid email format"))
 		return
 	}

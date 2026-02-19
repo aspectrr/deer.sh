@@ -74,6 +74,15 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	hostID := reg.GetHostId()
 	hostname := reg.GetHostname()
 	orgID := auth.OrgIDFromContext(stream.Context())
+	tokenID := auth.TokenIDFromContext(stream.Context())
+
+	// Override daemon-supplied hostID with server-assigned identity derived
+	// from the authenticated token so a daemon cannot impersonate another host.
+	if tokenID != "" && hostID != tokenID {
+		h.logger.Warn("daemon-supplied host_id differs from token, overriding",
+			"daemon_host_id", hostID, "token_id", tokenID)
+		hostID = tokenID
+	}
 
 	logger := h.logger.With("host_id", hostID, "hostname", hostname, "org_id", orgID)
 	logger.Info("host connecting", "version", reg.GetVersion())
@@ -294,50 +303,39 @@ func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID, org
 	existing.Status = store.HostStatusOnline
 	existing.LastHeartbeat = time.Now()
 
-	sourceVMs := make(store.SourceVMSlice, 0, len(reg.GetSourceVms()))
-	for _, vm := range reg.GetSourceVms() {
-		sourceVMs = append(sourceVMs, store.SourceVMJSON{
-			Name:      vm.GetName(),
-			State:     vm.GetState(),
-			IPAddress: vm.GetIpAddress(),
-			Prepared:  vm.GetPrepared(),
-		})
-	}
-	existing.SourceVMs = sourceVMs
-
-	bridges := make(store.BridgeSlice, 0, len(reg.GetBridges()))
-	for _, b := range reg.GetBridges() {
-		bridges = append(bridges, store.BridgeJSON{
-			Name:   b.GetName(),
-			Subnet: b.GetSubnet(),
-		})
-	}
-	existing.Bridges = bridges
+	existing.SourceVMs = sourceVMsFromProto(reg.GetSourceVms())
+	existing.Bridges = bridgesFromProto(reg.GetBridges())
 
 	if err := h.store.UpdateHost(ctx, existing); err != nil {
 		h.logger.Error("failed to update host in store", "host_id", hostID, "error", err)
 	}
 }
 
-func hostFromRegistration(hostID, orgID string, reg *fluidv1.HostRegistration) *store.Host {
-	sourceVMs := make(store.SourceVMSlice, 0, len(reg.GetSourceVms()))
-	for _, vm := range reg.GetSourceVms() {
-		sourceVMs = append(sourceVMs, store.SourceVMJSON{
+func sourceVMsFromProto(vms []*fluidv1.SourceVMInfo) store.SourceVMSlice {
+	result := make(store.SourceVMSlice, 0, len(vms))
+	for _, vm := range vms {
+		result = append(result, store.SourceVMJSON{
 			Name:      vm.GetName(),
 			State:     vm.GetState(),
 			IPAddress: vm.GetIpAddress(),
 			Prepared:  vm.GetPrepared(),
 		})
 	}
+	return result
+}
 
-	bridges := make(store.BridgeSlice, 0, len(reg.GetBridges()))
-	for _, b := range reg.GetBridges() {
-		bridges = append(bridges, store.BridgeJSON{
+func bridgesFromProto(bridges []*fluidv1.BridgeInfo) store.BridgeSlice {
+	result := make(store.BridgeSlice, 0, len(bridges))
+	for _, b := range bridges {
+		result = append(result, store.BridgeJSON{
 			Name:   b.GetName(),
 			Subnet: b.GetSubnet(),
 		})
 	}
+	return result
+}
 
+func hostFromRegistration(hostID, orgID string, reg *fluidv1.HostRegistration) *store.Host {
 	return &store.Host{
 		ID:                hostID,
 		OrgID:             orgID,
@@ -350,8 +348,8 @@ func hostFromRegistration(hostID, orgID string, reg *fluidv1.HostRegistration) *
 		AvailableMemoryMB: reg.GetAvailableMemoryMb(),
 		AvailableDiskMB:   reg.GetAvailableDiskMb(),
 		BaseImages:        reg.GetBaseImages(),
-		SourceVMs:         sourceVMs,
-		Bridges:           bridges,
+		SourceVMs:         sourceVMsFromProto(reg.GetSourceVms()),
+		Bridges:           bridgesFromProto(reg.GetBridges()),
 		Status:            store.HostStatusOnline,
 		LastHeartbeat:     time.Now(),
 	}

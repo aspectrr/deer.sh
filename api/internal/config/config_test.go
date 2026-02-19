@@ -138,8 +138,8 @@ func TestLoad_Defaults(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.API.Addr != ":8081" {
-		t.Errorf("expected API.Addr ':8081', got %q", cfg.API.Addr)
+	if cfg.API.Addr != ":8080" {
+		t.Errorf("expected API.Addr ':8080', got %q", cfg.API.Addr)
 	}
 	if cfg.API.ReadTimeout != 60*time.Second {
 		t.Errorf("expected API.ReadTimeout 60s, got %v", cfg.API.ReadTimeout)

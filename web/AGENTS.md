@@ -116,7 +116,7 @@ web/
 
 ## Development Workflow
 
-1. Start the backend services (API at `:8080`, tmux-client at `:8081`)
+1. Start the backend services (API at `:8080`)
 2. Run `bun run dev` to start the frontend dev server
 3. Changes to source files trigger hot module replacement
 4. Run `bun run generate-api` after backend API changes to update types

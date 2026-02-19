@@ -15,7 +15,7 @@ listen:
   grpc: ":9091"
 
 # Sandbox backend
-backend: firecracker  # or "qemu"
+backend: qemu
 
 # Storage paths
 storage:
