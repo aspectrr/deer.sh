@@ -166,6 +166,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Password) > 72 {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("password too long (max 72 characters)"))
+		return
+	}
+
 	req.Email = strings.ToLower(req.Email)
 
 	user, err := s.store.GetUserByEmail(r.Context(), req.Email)

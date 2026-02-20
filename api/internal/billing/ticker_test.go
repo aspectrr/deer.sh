@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/agent"
 	"github.com/aspectrr/fluid.sh/api/internal/config"
 	"github.com/aspectrr/fluid.sh/api/internal/registry"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
@@ -188,42 +187,7 @@ func (m *tickerMockStore) ListHostTokensByOrg(context.Context, string) ([]store.
 }
 func (m *tickerMockStore) DeleteHostToken(context.Context, string, string) error { return nil }
 
-func (m *tickerMockStore) CreateAgentConversation(context.Context, *store.AgentConversation) error {
-	return nil
-}
-func (m *tickerMockStore) GetAgentConversation(context.Context, string) (*store.AgentConversation, error) {
-	return nil, nil
-}
-func (m *tickerMockStore) ListAgentConversationsByOrg(context.Context, string) ([]*store.AgentConversation, error) {
-	return nil, nil
-}
-func (m *tickerMockStore) DeleteAgentConversation(context.Context, string) error { return nil }
-
-func (m *tickerMockStore) CreateAgentMessage(context.Context, *store.AgentMessage) error { return nil }
-func (m *tickerMockStore) ListAgentMessages(context.Context, string) ([]*store.AgentMessage, error) {
-	return nil, nil
-}
-
-func (m *tickerMockStore) CreatePlaybook(context.Context, *store.Playbook) error { return nil }
-func (m *tickerMockStore) GetPlaybook(context.Context, string) (*store.Playbook, error) {
-	return nil, nil
-}
-func (m *tickerMockStore) ListPlaybooksByOrg(context.Context, string) ([]*store.Playbook, error) {
-	return nil, nil
-}
-func (m *tickerMockStore) UpdatePlaybook(context.Context, *store.Playbook) error { return nil }
-func (m *tickerMockStore) DeletePlaybook(context.Context, string) error          { return nil }
-
-func (m *tickerMockStore) CreatePlaybookTask(context.Context, *store.PlaybookTask) error { return nil }
-func (m *tickerMockStore) GetPlaybookTask(context.Context, string) (*store.PlaybookTask, error) {
-	return nil, nil
-}
-func (m *tickerMockStore) ListPlaybookTasks(context.Context, string) ([]*store.PlaybookTask, error) {
-	return nil, nil
-}
-func (m *tickerMockStore) UpdatePlaybookTask(context.Context, *store.PlaybookTask) error { return nil }
-func (m *tickerMockStore) DeletePlaybookTask(context.Context, string) error              { return nil }
-func (m *tickerMockStore) ReorderPlaybookTasks(context.Context, string, []string) error  { return nil }
+// Agent/playbook mock methods removed - interface methods commented out in store.go
 
 func (m *tickerMockStore) GetOrganizationByStripeCustomerID(context.Context, string) (*store.Organization, error) {
 	return nil, nil
@@ -263,8 +227,7 @@ func (mockHostStream) Send(_ *fluidv1.ControlMessage) error { return nil }
 // ---------------------------------------------------------------------------
 
 func newTestTicker(st store.DataStore, freeTier config.FreeTierConfig) *ResourceTicker {
-	mc := agent.NewModelCache(time.Hour)
-	mm := NewMeterManager(st, mc, "", 1.2, 100000, nil)
+	mm := NewMeterManager(st, "", 1.2, nil)
 	reg := registry.New()
 	cfg := config.BillingConfig{
 		FreeTier: freeTier,
@@ -339,8 +302,7 @@ func TestReportForOrg_FreeTierSubtraction(t *testing.T) {
 	}
 
 	// Build the ticker with a registry that has 2 connected daemons for this org.
-	mc := agent.NewModelCache(time.Hour)
-	mm := NewMeterManager(ms, mc, "", 1.2, 100000, nil)
+	mm := NewMeterManager(ms, "", 1.2, nil)
 	reg := registry.New()
 	cfg := config.BillingConfig{FreeTier: freeTier}
 	rt := NewResourceTicker(ms, mm, reg, cfg, nil)

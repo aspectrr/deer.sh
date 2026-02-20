@@ -1,9 +1,13 @@
 package agent
 
+// Model caching tests - commented out, not yet ready for integration.
+/*
 import (
 	"testing"
 	"time"
 )
+
+// AvailableModels tests - commented out, function is in commented-out openrouter.go
 
 func TestAvailableModels_NonEmpty(t *testing.T) {
 	models := AvailableModels()
@@ -125,3 +129,4 @@ func TestModelCache_GetModels_ReturnsCopy(t *testing.T) {
 		t.Error("expected GetModels to return independent copies")
 	}
 }
+*/

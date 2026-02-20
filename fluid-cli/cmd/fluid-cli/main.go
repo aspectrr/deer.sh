@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/aspectrr/fluid.sh/fluid/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid/internal/doctor"
+	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
 	fluidmcp "github.com/aspectrr/fluid.sh/fluid/internal/mcp"
 	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store"
@@ -68,6 +70,68 @@ var mcpCmd = &cobra.Command{
 	},
 }
 
+var doctorCmd = &cobra.Command{
+	Use:   "doctor",
+	Short: "Check daemon setup on a host",
+	Long:  "Validate that the fluid-daemon is properly installed and configured on a sandbox host.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		hostName, _ := cmd.Flags().GetString("host")
+
+		configPath := cfgFile
+		if configPath == "" {
+			home, _ := os.UserHomeDir()
+			configPath = filepath.Join(home, ".fluid", "config.yaml")
+		}
+
+		loadedCfg, err := config.Load(configPath)
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+
+		ctx := context.Background()
+		var run hostexec.RunFunc
+
+		if hostName == "" || hostName == "localhost" {
+			run = hostexec.NewLocal()
+		} else {
+			// Find host in config
+			var found bool
+			for _, h := range loadedCfg.Hosts {
+				if h.Name == hostName {
+					user := h.SSHUser
+					if user == "" {
+						user = "root"
+					}
+					port := h.SSHPort
+					if port == 0 {
+						port = 22
+					}
+					run = hostexec.NewSSH(h.Address, user, port)
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("host %q not found in config", hostName)
+			}
+		}
+
+		useColor := os.Getenv("NO_COLOR") == ""
+		fmt.Println()
+		fmt.Println("  Checking daemon health...")
+		fmt.Println()
+
+		results := doctor.RunAll(ctx, run)
+		allPassed := doctor.PrintResults(results, os.Stdout, useColor)
+		fmt.Println()
+
+		if !allPassed {
+			os.Exit(1)
+		}
+		return nil
+	},
+}
+
 var updateCmd = &cobra.Command{
 	Use:     "update",
 	Aliases: []string{"upgrade"},
@@ -93,8 +157,10 @@ var updateCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.fluid/config.yaml)")
 	rootCmd.Flags().BoolP("version", "v", false, "print version")
+	doctorCmd.Flags().String("host", "", "host name from config (default: localhost)")
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(doctorCmd)
 }
 
 // runMCP launches the MCP server on stdio
@@ -209,7 +275,7 @@ func initServicesForMCPTUI(loadedCfg *config.Config, logger *slog.Logger) (sandb
 		daemonAddr = "localhost:9091"
 	}
 
-	svc, err := sandbox.NewRemoteService(daemonAddr)
+	svc, err := sandbox.NewRemoteService(daemonAddr, loadedCfg.ControlPlane)
 	if err != nil {
 		_ = st.Close()
 		return nil, nil, nil, fmt.Errorf("connect to daemon at %s: %w", daemonAddr, err)

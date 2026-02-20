@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/aspectrr/fluid.sh/api/internal/agent"
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	"github.com/aspectrr/fluid.sh/api/internal/config"
 	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
@@ -22,13 +21,12 @@ type Server struct {
 	store        store.Store
 	cfg          *config.Config
 	orchestrator *orchestrator.Orchestrator
-	agentClient  *agent.Client
 	telemetry    telemetry.Service
 	logger       *slog.Logger
 	swaggerJSON  []byte
 }
 
-func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrator, agentClient *agent.Client, tel telemetry.Service, swaggerJSON []byte) *Server {
+func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrator, tel telemetry.Service, swaggerJSON []byte) *Server {
 	if tel == nil {
 		tel = &telemetry.NoopService{}
 	}
@@ -36,7 +34,6 @@ func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrat
 		store:        st,
 		cfg:          cfg,
 		orchestrator: orch,
-		agentClient:  agentClient,
 		telemetry:    tel,
 		logger:       slog.Default().With("component", "rest"),
 		swaggerJSON:  swaggerJSON,
@@ -160,27 +157,27 @@ func (s *Server) routes() *chi.Mux {
 				r.Post("/sources/{vm}/run", s.handleRunSourceCommand)
 				r.Post("/sources/{vm}/read", s.handleReadSourceFile)
 
-				// Agent
-				r.Post("/agent/chat", s.handleAgentChat)
-				r.Get("/agent/conversations", s.handleListConversations)
-				r.Get("/agent/conversations/{conversationID}", s.handleGetConversation)
-				r.Get("/agent/conversations/{conversationID}/messages", s.handleListMessages)
-				r.Delete("/agent/conversations/{conversationID}", s.handleDeleteConversation)
-				r.Get("/agent/models", s.handleListModels)
+				// Agent - commented out, not yet ready for integration
+				// r.Post("/agent/chat", s.handleAgentChat)
+				// r.Get("/agent/conversations", s.handleListConversations)
+				// r.Get("/agent/conversations/{conversationID}", s.handleGetConversation)
+				// r.Get("/agent/conversations/{conversationID}/messages", s.handleListMessages)
+				// r.Delete("/agent/conversations/{conversationID}", s.handleDeleteConversation)
+				// r.Get("/agent/models", s.handleListModels)
 
-				// Playbooks
-				r.Post("/playbooks", s.handleCreatePlaybook)
-				r.Get("/playbooks", s.handleListPlaybooks)
-				r.Route("/playbooks/{playbookID}", func(r chi.Router) {
-					r.Get("/", s.handleGetPlaybook)
-					r.Patch("/", s.handleUpdatePlaybook)
-					r.Delete("/", s.handleDeletePlaybook)
-					r.Post("/tasks", s.handleCreatePlaybookTask)
-					r.Get("/tasks", s.handleListPlaybookTasks)
-					r.Put("/tasks/reorder", s.handleReorderPlaybookTasks)
-					r.Patch("/tasks/{taskID}", s.handleUpdatePlaybookTask)
-					r.Delete("/tasks/{taskID}", s.handleDeletePlaybookTask)
-				})
+				// Playbooks - commented out, not yet ready for integration
+				// r.Post("/playbooks", s.handleCreatePlaybook)
+				// r.Get("/playbooks", s.handleListPlaybooks)
+				// r.Route("/playbooks/{playbookID}", func(r chi.Router) {
+				// 	r.Get("/", s.handleGetPlaybook)
+				// 	r.Patch("/", s.handleUpdatePlaybook)
+				// 	r.Delete("/", s.handleDeletePlaybook)
+				// 	r.Post("/tasks", s.handleCreatePlaybookTask)
+				// 	r.Get("/tasks", s.handleListPlaybookTasks)
+				// 	r.Put("/tasks/reorder", s.handleReorderPlaybookTasks)
+				// 	r.Patch("/tasks/{taskID}", s.handleUpdatePlaybookTask)
+				// 	r.Delete("/tasks/{taskID}", s.handleDeletePlaybookTask)
+				// })
 			})
 		})
 	})

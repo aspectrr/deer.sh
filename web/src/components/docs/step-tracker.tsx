@@ -48,40 +48,75 @@ export function StepTracker({
     return steps.length - 1
   })
 
-  const [sessionCode] = useState<string | null>(() => {
-    if (!progressEndpoint) return null
-    return externalCode || generateSessionCode()
+  const sessionStorageKey = `fluid-docs-session-${storageKey}`
+
+  const [sessionState] = useState<{ code: string | null; restoredFromStorage: boolean }>(() => {
+    if (!progressEndpoint) return { code: null, restoredFromStorage: false }
+    if (externalCode) return { code: externalCode, restoredFromStorage: false }
+    try {
+      const saved = localStorage.getItem(sessionStorageKey)
+      if (saved) return { code: saved, restoredFromStorage: true }
+    } catch {
+      // localStorage unavailable
+    }
+    return { code: generateSessionCode(), restoredFromStorage: false }
   })
+  const sessionCode = sessionState.code
   const registeredRef = useRef(false)
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    localStorage.setItem(fullKey, JSON.stringify(Array.from(completedSteps)))
+    try {
+      localStorage.setItem(fullKey, JSON.stringify(Array.from(completedSteps)))
+    } catch {
+      // localStorage unavailable (e.g. private browsing mode)
+    }
   }, [completedSteps, fullKey])
+
+  // Persist session code to localStorage
+  useEffect(() => {
+    if (sessionCode) {
+      try {
+        localStorage.setItem(sessionStorageKey, sessionCode)
+      } catch {
+        // localStorage unavailable
+      }
+    }
+  }, [sessionCode, sessionStorageKey])
 
   const markComplete = useCallback(
     (index: number) => {
       setCompletedSteps((prev) => {
         const next = new Set(prev)
         next.add(index)
-        return next
-      })
-      setExpandedStep((current) => {
-        // Expand next incomplete step
+        // Expand next incomplete step using fresh state from the updater
+        let nextStep = -1
         for (let i = index + 1; i < steps.length; i++) {
-          if (!completedSteps.has(i) && i !== index) {
-            return i
+          if (!next.has(i)) {
+            nextStep = i
+            break
           }
         }
-        return current
+        if (nextStep >= 0) {
+          setExpandedStep(nextStep)
+        }
+        return next
       })
     },
-    [completedSteps, steps.length]
+    [steps.length]
   )
 
   // Register session when progressEndpoint is set (client-generated code only)
+  // Skip if code came from URL param or was restored from localStorage
   useEffect(() => {
-    if (!progressEndpoint || !sessionCode || externalCode || registeredRef.current) return
+    if (
+      !progressEndpoint ||
+      !sessionCode ||
+      externalCode ||
+      sessionState.restoredFromStorage ||
+      registeredRef.current
+    )
+      return
     registeredRef.current = true
 
     fetch(`${progressEndpoint}/register`, {
@@ -91,16 +126,27 @@ export function StepTracker({
     }).catch(() => {
       // Registration failed - polling won't find anything
     })
-  }, [progressEndpoint, storageKey, externalCode, sessionCode])
+  }, [progressEndpoint, storageKey, externalCode, sessionCode, sessionState.restoredFromStorage])
 
-  // Poll for progress when we have a session code
+  // Poll for progress when we have a session code (exponential backoff)
   useEffect(() => {
     if (!progressEndpoint || !sessionCode) return
 
-    pollingRef.current = setInterval(async () => {
+    let cancelled = false
+    let pollCount = 0
+    const MAX_POLLS = 200 // ~10 min max
+    const BASE_INTERVAL = 3000
+    const MAX_INTERVAL = 10000
+
+    const poll = async () => {
+      if (cancelled || pollCount >= MAX_POLLS) return
+      pollCount++
+
       try {
-        const res = await fetch(`${progressEndpoint}/progress?code=${sessionCode}`)
-        if (!res.ok) return
+        const res = await fetch(
+          `${progressEndpoint}/progress?code=${encodeURIComponent(sessionCode)}`
+        )
+        if (!res.ok) return scheduleNext()
         const data = (await res.json()) as { completed_steps: number[] }
         if (data.completed_steps && data.completed_steps.length > 0) {
           for (const stepIndex of data.completed_steps) {
@@ -110,11 +156,21 @@ export function StepTracker({
       } catch {
         // Polling error - silently ignore
       }
-    }, 3000)
+      scheduleNext()
+    }
+
+    const scheduleNext = () => {
+      if (cancelled || pollCount >= MAX_POLLS) return
+      const delay = Math.min(BASE_INTERVAL * Math.pow(1.1, pollCount), MAX_INTERVAL)
+      pollingRef.current = setTimeout(poll, delay)
+    }
+
+    pollingRef.current = setTimeout(poll, BASE_INTERVAL)
 
     return () => {
+      cancelled = true
       if (pollingRef.current) {
-        clearInterval(pollingRef.current)
+        clearTimeout(pollingRef.current)
       }
     }
   }, [progressEndpoint, sessionCode, markComplete])
@@ -148,7 +204,7 @@ export function StepTracker({
 
       <div className="relative">
         {/* Vertical line */}
-        <div className="absolute top-2 bottom-2 left-[7px] w-px bg-neutral-800" />
+        <div className="absolute top-2 bottom-2 left-1.75 w-px bg-neutral-800" />
 
         <div className="space-y-1">
           {steps.map((step, i) => {
@@ -179,7 +235,7 @@ export function StepTracker({
                   {/* Dot */}
                   <div
                     className={cn(
-                      'relative z-10 flex h-[15px] w-[15px] shrink-0 items-center justify-center',
+                      'relative z-10 flex h-3.75 w-3.75 shrink-0 items-center justify-center',
                       isComplete && 'bg-blue-400/20',
                       isCurrent && 'shadow-[0_0_8px_2px_rgba(96,165,250,0.6)]'
                     )}
@@ -214,7 +270,7 @@ export function StepTracker({
                 </button>
 
                 {isExpanded && (
-                  <div className="ml-[27px] pb-3">
+                  <div className="ml-6.75 pb-3">
                     <div className="docs-prose">{step.content}</div>
                   </div>
                 )}

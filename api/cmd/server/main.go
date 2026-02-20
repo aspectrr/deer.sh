@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/aspectrr/fluid.sh/api/docs"
-	"github.com/aspectrr/fluid.sh/api/internal/agent"
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	"github.com/aspectrr/fluid.sh/api/internal/config"
 	grpcServer "github.com/aspectrr/fluid.sh/api/internal/grpc"
@@ -71,6 +70,7 @@ func main() {
 		MaxIdleConns:    cfg.Database.MaxIdleConns,
 		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
 		AutoMigrate:     cfg.Database.AutoMigrate,
+		EncryptionKey:   cfg.EncryptionKey,
 	})
 	if err != nil {
 		logger.Error("failed to initialize store", "error", err)
@@ -124,21 +124,21 @@ func main() {
 		cfg.Orchestrator.HeartbeatTimeout,
 	)
 
-	// 5. Initialize agent client (optional - works without API key).
-	var agentClient *agent.Client
-	if cfg.Agent.OpenRouterAPIKey != "" {
-		agentClient = agent.NewClient(cfg.Agent, st, orch, logger)
-		logger.Info("agent client initialized", "model", cfg.Agent.DefaultModel)
-	} else {
-		logger.Warn("OPENROUTER_API_KEY not set, agent chat disabled")
-	}
+	// 5. Agent client - commented out, not yet ready for integration.
+	// var agentClient *agent.Client
+	// if cfg.Agent.OpenRouterAPIKey != "" {
+	// 	agentClient = agent.NewClient(cfg.Agent, st, orch, logger)
+	// 	logger.Info("agent client initialized", "model", cfg.Agent.DefaultModel)
+	// } else {
+	// 	logger.Warn("OPENROUTER_API_KEY not set, agent chat disabled")
+	// }
 
 	// 6. Initialize telemetry.
 	tel := telemetry.New(cfg.PostHog.APIKey, cfg.PostHog.Endpoint)
 	defer tel.Close()
 
 	// 7. Initialize REST server.
-	srv := rest.NewServer(st, cfg, orch, agentClient, tel, docs.SwaggerJSON)
+	srv := rest.NewServer(st, cfg, orch, tel, docs.SwaggerJSON)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.API.Addr,

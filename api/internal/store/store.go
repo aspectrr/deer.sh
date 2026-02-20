@@ -23,6 +23,7 @@ type Config struct {
 	MaxIdleConns    int           `json:"max_idle_conns"`
 	ConnMaxLifetime time.Duration `json:"conn_max_lifetime"`
 	AutoMigrate     bool          `json:"auto_migrate"`
+	EncryptionKey   string        `json:"-"`
 }
 
 type ListOptions struct {
@@ -325,6 +326,8 @@ type Command struct {
 	EndedAt    time.Time `json:"ended_at"`
 }
 
+// Agent conversation and playbook types - commented out, not yet ready for integration.
+/*
 // AgentConversation represents a chat conversation with the AI agent.
 type AgentConversation struct {
 	ID        string    `json:"id"`
@@ -380,6 +383,7 @@ type PlaybookTask struct {
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
+*/
 
 // ModelMeter tracks Stripe meter/price objects for a specific LLM model.
 type ModelMeter struct {
@@ -516,30 +520,30 @@ type DataStore interface {
 	ListHostTokensByOrg(ctx context.Context, orgID string) ([]HostToken, error)
 	DeleteHostToken(ctx context.Context, orgID, id string) error
 
-	// Agent Conversations
-	CreateAgentConversation(ctx context.Context, conv *AgentConversation) error
-	GetAgentConversation(ctx context.Context, id string) (*AgentConversation, error)
-	ListAgentConversationsByOrg(ctx context.Context, orgID string) ([]*AgentConversation, error)
-	DeleteAgentConversation(ctx context.Context, id string) error
+	// Agent Conversations - commented out, not yet ready for integration
+	// CreateAgentConversation(ctx context.Context, conv *AgentConversation) error
+	// GetAgentConversation(ctx context.Context, id string) (*AgentConversation, error)
+	// ListAgentConversationsByOrg(ctx context.Context, orgID string) ([]*AgentConversation, error)
+	// DeleteAgentConversation(ctx context.Context, id string) error
 
-	// Agent Messages
-	CreateAgentMessage(ctx context.Context, msg *AgentMessage) error
-	ListAgentMessages(ctx context.Context, conversationID string) ([]*AgentMessage, error)
+	// Agent Messages - commented out, not yet ready for integration
+	// CreateAgentMessage(ctx context.Context, msg *AgentMessage) error
+	// ListAgentMessages(ctx context.Context, conversationID string) ([]*AgentMessage, error)
 
-	// Playbooks
-	CreatePlaybook(ctx context.Context, pb *Playbook) error
-	GetPlaybook(ctx context.Context, id string) (*Playbook, error)
-	ListPlaybooksByOrg(ctx context.Context, orgID string) ([]*Playbook, error)
-	UpdatePlaybook(ctx context.Context, pb *Playbook) error
-	DeletePlaybook(ctx context.Context, id string) error
+	// Playbooks - commented out, not yet ready for integration
+	// CreatePlaybook(ctx context.Context, pb *Playbook) error
+	// GetPlaybook(ctx context.Context, id string) (*Playbook, error)
+	// ListPlaybooksByOrg(ctx context.Context, orgID string) ([]*Playbook, error)
+	// UpdatePlaybook(ctx context.Context, pb *Playbook) error
+	// DeletePlaybook(ctx context.Context, id string) error
 
-	// Playbook Tasks
-	CreatePlaybookTask(ctx context.Context, task *PlaybookTask) error
-	GetPlaybookTask(ctx context.Context, id string) (*PlaybookTask, error)
-	ListPlaybookTasks(ctx context.Context, playbookID string) ([]*PlaybookTask, error)
-	UpdatePlaybookTask(ctx context.Context, task *PlaybookTask) error
-	DeletePlaybookTask(ctx context.Context, id string) error
-	ReorderPlaybookTasks(ctx context.Context, playbookID string, taskIDs []string) error
+	// Playbook Tasks - commented out, not yet ready for integration
+	// CreatePlaybookTask(ctx context.Context, task *PlaybookTask) error
+	// GetPlaybookTask(ctx context.Context, id string) (*PlaybookTask, error)
+	// ListPlaybookTasks(ctx context.Context, playbookID string) ([]*PlaybookTask, error)
+	// UpdatePlaybookTask(ctx context.Context, task *PlaybookTask) error
+	// DeletePlaybookTask(ctx context.Context, id string) error
+	// ReorderPlaybookTasks(ctx context.Context, playbookID string, taskIDs []string) error
 
 	// Billing helpers
 	GetOrganizationByStripeCustomerID(ctx context.Context, customerID string) (*Organization, error)

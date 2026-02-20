@@ -1,5 +1,8 @@
 package rest
 
+// Agent handlers - commented out, not yet ready for integration.
+
+/*
 import (
 	"errors"
 	"fmt"
@@ -156,3 +159,4 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 		"models": agent.AvailableModels(),
 	})
 }
+*/

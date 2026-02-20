@@ -19,10 +19,16 @@ export async function getHighlighter(): Promise<HighlighterCore> {
       import('shiki/langs/proto.mjs'),
     ],
     engine: createOnigurumaEngine(import('shiki/wasm')),
-  }).then((h) => {
-    highlighter = h
-    return h
   })
+    .then((h) => {
+      highlighter = h
+      return h
+    })
+    .catch((err) => {
+      // Reset so subsequent calls retry initialization
+      loading = null
+      throw err
+    })
 
   return loading
 }

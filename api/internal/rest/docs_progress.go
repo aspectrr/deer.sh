@@ -2,6 +2,7 @@ package rest
 
 import (
 	"crypto/rand"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -72,6 +73,11 @@ func (s *Server) handleDocsProgressRegister(w http.ResponseWriter, r *http.Reque
 	code := generateSessionCode()
 
 	docsProgress.mu.Lock()
+	if len(docsProgress.sessions) >= 10000 {
+		docsProgress.mu.Unlock()
+		serverError.RespondError(w, http.StatusServiceUnavailable, fmt.Errorf("too many active sessions"))
+		return
+	}
 	docsProgress.sessions[code] = &docsSession{
 		StorageKey:     req.StorageKey,
 		CompletedSteps: make(map[int]bool),
@@ -94,7 +100,7 @@ func (s *Server) handleDocsProgressComplete(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if req.SessionCode == "" {
-		serverError.RespondError(w, http.StatusBadRequest, nil)
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("session code is required"))
 		return
 	}
 
@@ -106,7 +112,7 @@ func (s *Server) handleDocsProgressComplete(w http.ResponseWriter, r *http.Reque
 	docsProgress.mu.Unlock()
 
 	if !ok {
-		serverError.RespondError(w, http.StatusNotFound, nil)
+		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("session not found"))
 		return
 	}
 
@@ -120,7 +126,7 @@ type progressResponse struct {
 func (s *Server) handleDocsProgressGet(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		serverError.RespondError(w, http.StatusBadRequest, nil)
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("code is required"))
 		return
 	}
 

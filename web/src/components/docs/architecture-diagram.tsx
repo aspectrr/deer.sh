@@ -11,7 +11,7 @@ function TierBox({ label, sublabel, items, highlight }: TierBoxProps) {
   return (
     <div
       className={cn(
-        'min-w-[200px] border p-4',
+        'min-w-50 border p-4',
         highlight ? 'border-blue-400/40 bg-blue-400/5' : 'border-border bg-neutral-900'
       )}
     >
@@ -40,10 +40,10 @@ function Arrow({ label }: { label: string }) {
     <div className="flex flex-col items-center justify-center px-2 py-4 md:px-4 md:py-0">
       <div className="mb-1 text-[10px] text-neutral-500">{label}</div>
       <div className="relative hidden h-px w-12 bg-neutral-700 md:block">
-        <div className="absolute top-[-3px] right-0 border-t-[3px] border-r-0 border-b-[3px] border-l-[5px] border-transparent border-l-neutral-700" />
+        <div className="-top-0.7 absolute right-0 border-t-[3px] border-r-0 border-b-[3px] border-l-[5px] border-transparent border-l-neutral-700" />
       </div>
       <div className="relative h-6 w-px bg-neutral-700 md:hidden">
-        <div className="absolute bottom-0 left-[-3px] border-t-[5px] border-r-[3px] border-b-0 border-l-[3px] border-transparent border-t-neutral-700" />
+        <div className="absolute bottom-0 -left-0.75 border-t-[5px] border-r-[3px] border-b-0 border-l-[3px] border-transparent border-t-neutral-700" />
       </div>
     </div>
   )

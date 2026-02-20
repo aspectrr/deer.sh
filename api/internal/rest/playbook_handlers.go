@@ -1,5 +1,8 @@
 package rest
 
+// Playbook handlers - commented out, not yet ready for integration.
+
+/*
 import (
 	"encoding/json"
 	"fmt"
@@ -359,3 +362,4 @@ func (s *Server) handleReorderPlaybookTasks(w http.ResponseWriter, r *http.Reque
 	}
 	_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]any{"reordered": true})
 }
+*/

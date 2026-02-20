@@ -2,11 +2,16 @@ package sandbox
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/aspectrr/fluid.sh/fluid/internal/config"
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -17,9 +22,42 @@ type RemoteService struct {
 }
 
 // NewRemoteService dials the daemon gRPC endpoint and returns a Service.
-func NewRemoteService(addr string) (*RemoteService, error) {
+// It uses TLS configuration from the ControlPlaneConfig:
+//   - If DaemonCAFile is set, use it to verify the daemon's TLS cert
+//   - If DaemonInsecure is false and no CA file, use the system cert pool
+//   - Only use insecure credentials when DaemonInsecure is explicitly true
+func NewRemoteService(addr string, cpCfg config.ControlPlaneConfig) (*RemoteService, error) {
+	var creds credentials.TransportCredentials
+
+	switch {
+	case cpCfg.DaemonCAFile != "":
+		// Use the specified CA certificate
+		caCert, err := os.ReadFile(cpCfg.DaemonCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("read daemon CA file %s: %w", cpCfg.DaemonCAFile, err)
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse daemon CA certificate from %s", cpCfg.DaemonCAFile)
+		}
+		creds = credentials.NewTLS(&tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
+		})
+
+	case cpCfg.DaemonInsecure:
+		// Explicitly insecure - no TLS
+		creds = insecure.NewCredentials()
+
+	default:
+		// Use system cert pool
+		creds = credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
+		})
+	}
+
 	conn, err := grpc.NewClient(addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("dial daemon at %s: %w", addr, err)

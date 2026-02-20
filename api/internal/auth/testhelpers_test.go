@@ -224,68 +224,68 @@ func (m *mockStore) DeleteHostToken(context.Context, string, string) error {
 	panic("mockStore: DeleteHostToken not implemented")
 }
 
-// ---- Agent Conversations ----
+// // ---- Agent Conversations ----
 
-func (m *mockStore) CreateAgentConversation(context.Context, *store.AgentConversation) error {
-	panic("mockStore: CreateAgentConversation not implemented")
-}
-func (m *mockStore) GetAgentConversation(context.Context, string) (*store.AgentConversation, error) {
-	panic("mockStore: GetAgentConversation not implemented")
-}
-func (m *mockStore) ListAgentConversationsByOrg(context.Context, string) ([]*store.AgentConversation, error) {
-	panic("mockStore: ListAgentConversationsByOrg not implemented")
-}
-func (m *mockStore) DeleteAgentConversation(context.Context, string) error {
-	panic("mockStore: DeleteAgentConversation not implemented")
-}
+// func (m *mockStore) CreateAgentConversation(context.Context, *store.AgentConversation) error {
+// 	panic("mockStore: CreateAgentConversation not implemented")
+// }
+// func (m *mockStore) GetAgentConversation(context.Context, string) (*store.AgentConversation, error) {
+// 	panic("mockStore: GetAgentConversation not implemented")
+// }
+// func (m *mockStore) ListAgentConversationsByOrg(context.Context, string) ([]*store.AgentConversation, error) {
+// 	panic("mockStore: ListAgentConversationsByOrg not implemented")
+// }
+// func (m *mockStore) DeleteAgentConversation(context.Context, string) error {
+// 	panic("mockStore: DeleteAgentConversation not implemented")
+// }
 
-// ---- Agent Messages ----
+// // ---- Agent Messages ----
 
-func (m *mockStore) CreateAgentMessage(context.Context, *store.AgentMessage) error {
-	panic("mockStore: CreateAgentMessage not implemented")
-}
-func (m *mockStore) ListAgentMessages(context.Context, string) ([]*store.AgentMessage, error) {
-	panic("mockStore: ListAgentMessages not implemented")
-}
+// func (m *mockStore) CreateAgentMessage(context.Context, *store.AgentMessage) error {
+// 	panic("mockStore: CreateAgentMessage not implemented")
+// }
+// func (m *mockStore) ListAgentMessages(context.Context, string) ([]*store.AgentMessage, error) {
+// 	panic("mockStore: ListAgentMessages not implemented")
+// }
 
-// ---- Playbooks ----
+// // ---- Playbooks ----
 
-func (m *mockStore) CreatePlaybook(context.Context, *store.Playbook) error {
-	panic("mockStore: CreatePlaybook not implemented")
-}
-func (m *mockStore) GetPlaybook(context.Context, string) (*store.Playbook, error) {
-	panic("mockStore: GetPlaybook not implemented")
-}
-func (m *mockStore) ListPlaybooksByOrg(context.Context, string) ([]*store.Playbook, error) {
-	panic("mockStore: ListPlaybooksByOrg not implemented")
-}
-func (m *mockStore) UpdatePlaybook(context.Context, *store.Playbook) error {
-	panic("mockStore: UpdatePlaybook not implemented")
-}
-func (m *mockStore) DeletePlaybook(context.Context, string) error {
-	panic("mockStore: DeletePlaybook not implemented")
-}
+// func (m *mockStore) CreatePlaybook(context.Context, *store.Playbook) error {
+// 	panic("mockStore: CreatePlaybook not implemented")
+// }
+// func (m *mockStore) GetPlaybook(context.Context, string) (*store.Playbook, error) {
+// 	panic("mockStore: GetPlaybook not implemented")
+// }
+// func (m *mockStore) ListPlaybooksByOrg(context.Context, string) ([]*store.Playbook, error) {
+// 	panic("mockStore: ListPlaybooksByOrg not implemented")
+// }
+// func (m *mockStore) UpdatePlaybook(context.Context, *store.Playbook) error {
+// 	panic("mockStore: UpdatePlaybook not implemented")
+// }
+// func (m *mockStore) DeletePlaybook(context.Context, string) error {
+// 	panic("mockStore: DeletePlaybook not implemented")
+// }
 
-// ---- Playbook Tasks ----
+// // ---- Playbook Tasks ----
 
-func (m *mockStore) CreatePlaybookTask(context.Context, *store.PlaybookTask) error {
-	panic("mockStore: CreatePlaybookTask not implemented")
-}
-func (m *mockStore) GetPlaybookTask(context.Context, string) (*store.PlaybookTask, error) {
-	panic("mockStore: GetPlaybookTask not implemented")
-}
-func (m *mockStore) ListPlaybookTasks(context.Context, string) ([]*store.PlaybookTask, error) {
-	panic("mockStore: ListPlaybookTasks not implemented")
-}
-func (m *mockStore) UpdatePlaybookTask(context.Context, *store.PlaybookTask) error {
-	panic("mockStore: UpdatePlaybookTask not implemented")
-}
-func (m *mockStore) DeletePlaybookTask(context.Context, string) error {
-	panic("mockStore: DeletePlaybookTask not implemented")
-}
-func (m *mockStore) ReorderPlaybookTasks(context.Context, string, []string) error {
-	panic("mockStore: ReorderPlaybookTasks not implemented")
-}
+// func (m *mockStore) CreatePlaybookTask(context.Context, *store.PlaybookTask) error {
+// 	panic("mockStore: CreatePlaybookTask not implemented")
+// }
+// func (m *mockStore) GetPlaybookTask(context.Context, string) (*store.PlaybookTask, error) {
+// 	panic("mockStore: GetPlaybookTask not implemented")
+// }
+// func (m *mockStore) ListPlaybookTasks(context.Context, string) ([]*store.PlaybookTask, error) {
+// 	panic("mockStore: ListPlaybookTasks not implemented")
+// }
+// func (m *mockStore) UpdatePlaybookTask(context.Context, *store.PlaybookTask) error {
+// 	panic("mockStore: UpdatePlaybookTask not implemented")
+// }
+// func (m *mockStore) DeletePlaybookTask(context.Context, string) error {
+// 	panic("mockStore: DeletePlaybookTask not implemented")
+// }
+// func (m *mockStore) ReorderPlaybookTasks(context.Context, string, []string) error {
+// 	panic("mockStore: ReorderPlaybookTasks not implemented")
+// }
 
 // ---- Billing helpers ----
 

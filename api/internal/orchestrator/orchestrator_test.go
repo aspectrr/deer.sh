@@ -79,26 +79,7 @@ type mockStore struct {
 	ListHostTokensByOrgFn func(ctx context.Context, orgID string) ([]store.HostToken, error)
 	DeleteHostTokenFn     func(ctx context.Context, orgID, id string) error
 
-	CreateAgentConversationFn     func(ctx context.Context, conv *store.AgentConversation) error
-	GetAgentConversationFn        func(ctx context.Context, id string) (*store.AgentConversation, error)
-	ListAgentConversationsByOrgFn func(ctx context.Context, orgID string) ([]*store.AgentConversation, error)
-	DeleteAgentConversationFn     func(ctx context.Context, id string) error
-
-	CreateAgentMessageFn func(ctx context.Context, msg *store.AgentMessage) error
-	ListAgentMessagesFn  func(ctx context.Context, conversationID string) ([]*store.AgentMessage, error)
-
-	CreatePlaybookFn     func(ctx context.Context, pb *store.Playbook) error
-	GetPlaybookFn        func(ctx context.Context, id string) (*store.Playbook, error)
-	ListPlaybooksByOrgFn func(ctx context.Context, orgID string) ([]*store.Playbook, error)
-	UpdatePlaybookFn     func(ctx context.Context, pb *store.Playbook) error
-	DeletePlaybookFn     func(ctx context.Context, id string) error
-
-	CreatePlaybookTaskFn   func(ctx context.Context, task *store.PlaybookTask) error
-	GetPlaybookTaskFn      func(ctx context.Context, id string) (*store.PlaybookTask, error)
-	ListPlaybookTasksFn    func(ctx context.Context, playbookID string) ([]*store.PlaybookTask, error)
-	UpdatePlaybookTaskFn   func(ctx context.Context, task *store.PlaybookTask) error
-	DeletePlaybookTaskFn   func(ctx context.Context, id string) error
-	ReorderPlaybookTasksFn func(ctx context.Context, playbookID string, taskIDs []string) error
+	// Agent/playbook fields removed - interface methods commented out in store.go
 
 	GetOrganizationByStripeCustomerIDFn func(ctx context.Context, customerID string) (*store.Organization, error)
 	GetModelMeterFn                     func(ctx context.Context, modelID string) (*store.ModelMeter, error)
@@ -486,128 +467,7 @@ func (m *mockStore) DeleteHostToken(ctx context.Context, orgID, id string) error
 	return nil
 }
 
-func (m *mockStore) CreateAgentConversation(ctx context.Context, conv *store.AgentConversation) error {
-	if m.CreateAgentConversationFn != nil {
-		return m.CreateAgentConversationFn(ctx, conv)
-	}
-	m.p("CreateAgentConversation")
-	return nil
-}
-func (m *mockStore) GetAgentConversation(ctx context.Context, id string) (*store.AgentConversation, error) {
-	if m.GetAgentConversationFn != nil {
-		return m.GetAgentConversationFn(ctx, id)
-	}
-	m.p("GetAgentConversation")
-	return nil, nil
-}
-func (m *mockStore) ListAgentConversationsByOrg(ctx context.Context, orgID string) ([]*store.AgentConversation, error) {
-	if m.ListAgentConversationsByOrgFn != nil {
-		return m.ListAgentConversationsByOrgFn(ctx, orgID)
-	}
-	m.p("ListAgentConversationsByOrg")
-	return nil, nil
-}
-func (m *mockStore) DeleteAgentConversation(ctx context.Context, id string) error {
-	if m.DeleteAgentConversationFn != nil {
-		return m.DeleteAgentConversationFn(ctx, id)
-	}
-	m.p("DeleteAgentConversation")
-	return nil
-}
-
-func (m *mockStore) CreateAgentMessage(ctx context.Context, msg *store.AgentMessage) error {
-	if m.CreateAgentMessageFn != nil {
-		return m.CreateAgentMessageFn(ctx, msg)
-	}
-	m.p("CreateAgentMessage")
-	return nil
-}
-func (m *mockStore) ListAgentMessages(ctx context.Context, conversationID string) ([]*store.AgentMessage, error) {
-	if m.ListAgentMessagesFn != nil {
-		return m.ListAgentMessagesFn(ctx, conversationID)
-	}
-	m.p("ListAgentMessages")
-	return nil, nil
-}
-
-func (m *mockStore) CreatePlaybook(ctx context.Context, pb *store.Playbook) error {
-	if m.CreatePlaybookFn != nil {
-		return m.CreatePlaybookFn(ctx, pb)
-	}
-	m.p("CreatePlaybook")
-	return nil
-}
-func (m *mockStore) GetPlaybook(ctx context.Context, id string) (*store.Playbook, error) {
-	if m.GetPlaybookFn != nil {
-		return m.GetPlaybookFn(ctx, id)
-	}
-	m.p("GetPlaybook")
-	return nil, nil
-}
-func (m *mockStore) ListPlaybooksByOrg(ctx context.Context, orgID string) ([]*store.Playbook, error) {
-	if m.ListPlaybooksByOrgFn != nil {
-		return m.ListPlaybooksByOrgFn(ctx, orgID)
-	}
-	m.p("ListPlaybooksByOrg")
-	return nil, nil
-}
-func (m *mockStore) UpdatePlaybook(ctx context.Context, pb *store.Playbook) error {
-	if m.UpdatePlaybookFn != nil {
-		return m.UpdatePlaybookFn(ctx, pb)
-	}
-	m.p("UpdatePlaybook")
-	return nil
-}
-func (m *mockStore) DeletePlaybook(ctx context.Context, id string) error {
-	if m.DeletePlaybookFn != nil {
-		return m.DeletePlaybookFn(ctx, id)
-	}
-	m.p("DeletePlaybook")
-	return nil
-}
-
-func (m *mockStore) CreatePlaybookTask(ctx context.Context, task *store.PlaybookTask) error {
-	if m.CreatePlaybookTaskFn != nil {
-		return m.CreatePlaybookTaskFn(ctx, task)
-	}
-	m.p("CreatePlaybookTask")
-	return nil
-}
-func (m *mockStore) GetPlaybookTask(ctx context.Context, id string) (*store.PlaybookTask, error) {
-	if m.GetPlaybookTaskFn != nil {
-		return m.GetPlaybookTaskFn(ctx, id)
-	}
-	m.p("GetPlaybookTask")
-	return nil, nil
-}
-func (m *mockStore) ListPlaybookTasks(ctx context.Context, playbookID string) ([]*store.PlaybookTask, error) {
-	if m.ListPlaybookTasksFn != nil {
-		return m.ListPlaybookTasksFn(ctx, playbookID)
-	}
-	m.p("ListPlaybookTasks")
-	return nil, nil
-}
-func (m *mockStore) UpdatePlaybookTask(ctx context.Context, task *store.PlaybookTask) error {
-	if m.UpdatePlaybookTaskFn != nil {
-		return m.UpdatePlaybookTaskFn(ctx, task)
-	}
-	m.p("UpdatePlaybookTask")
-	return nil
-}
-func (m *mockStore) DeletePlaybookTask(ctx context.Context, id string) error {
-	if m.DeletePlaybookTaskFn != nil {
-		return m.DeletePlaybookTaskFn(ctx, id)
-	}
-	m.p("DeletePlaybookTask")
-	return nil
-}
-func (m *mockStore) ReorderPlaybookTasks(ctx context.Context, playbookID string, taskIDs []string) error {
-	if m.ReorderPlaybookTasksFn != nil {
-		return m.ReorderPlaybookTasksFn(ctx, playbookID, taskIDs)
-	}
-	m.p("ReorderPlaybookTasks")
-	return nil
-}
+// Agent/playbook mock methods removed - interface methods commented out in store.go
 
 func (m *mockStore) GetOrganizationByStripeCustomerID(ctx context.Context, customerID string) (*store.Organization, error) {
 	if m.GetOrganizationByStripeCustomerIDFn != nil {

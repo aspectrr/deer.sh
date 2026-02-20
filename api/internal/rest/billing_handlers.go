@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"time"
@@ -275,29 +276,17 @@ func (s *Server) handleGetUsage(w http.ResponseWriter, r *http.Request) {
 // --- Calculator (public) ---
 
 type calculatorRequest struct {
-	ConcurrentSandboxes int    `json:"concurrent_sandboxes"`
-	SourceVMs           int    `json:"source_vms"`
-	AgentHosts          int    `json:"agent_hosts"`
-	EstimatedTokens     int    `json:"estimated_tokens"`
-	Model               string `json:"model"`
+	ConcurrentSandboxes int `json:"concurrent_sandboxes"`
+	SourceVMs           int `json:"source_vms"`
+	AgentHosts          int `json:"agent_hosts"`
 }
 
 type calculatorResponse struct {
-	SandboxCost    float64         `json:"sandbox_cost"`
-	SourceVMCost   float64         `json:"source_vm_cost"`
-	AgentHostCost  float64         `json:"agent_host_cost"`
-	TokenCost      float64         `json:"token_cost"`
-	TokenBreakdown *tokenBreakdown `json:"token_breakdown,omitempty"`
-	TotalMonthly   float64         `json:"total_monthly"`
-	Currency       string          `json:"currency"`
-}
-
-type tokenBreakdown struct {
-	EstimatedTokens int     `json:"estimated_tokens"`
-	FreeTokens      int     `json:"free_tokens"`
-	BillableTokens  int     `json:"billable_tokens"`
-	CostPerToken    float64 `json:"cost_per_token"`
-	Markup          float64 `json:"markup_percent"`
+	SandboxCost   float64 `json:"sandbox_cost"`
+	SourceVMCost  float64 `json:"source_vm_cost"`
+	AgentHostCost float64 `json:"agent_host_cost"`
+	TotalMonthly  float64 `json:"total_monthly"`
+	Currency      string  `json:"currency"`
 }
 
 func (s *Server) handleCalculator(w http.ResponseWriter, r *http.Request) {
@@ -328,67 +317,15 @@ func (s *Server) handleCalculator(w http.ResponseWriter, r *http.Request) {
 	sourceVMCost := float64(billableSourceVMs) * float64(prices.SourceVMMonthly) / 100.0
 	agentHostCost := float64(billableAgentHosts) * float64(prices.AgentHostMonthly) / 100.0
 
-	// Token cost calculation
-	var tokenCost float64
-	var tb *tokenBreakdown
-	freeTokens := s.cfg.Agent.FreeTokensPerMonth
-
-	if req.EstimatedTokens > 0 {
-		billable := req.EstimatedTokens - freeTokens
-		if billable < 0 {
-			billable = 0
-		}
-
-		// Default cost per 1k tokens (use model pricing if specified)
-		costPer1K := 0.003 // default: Claude Sonnet input rate
-		if req.Model != "" {
-			for _, m := range modelPricing {
-				if m.id == req.Model {
-					costPer1K = (m.inputCostPer1K + m.outputCostPer1K) / 2
-					break
-				}
-			}
-		}
-
-		markup := s.cfg.Billing.BillingMarkup
-		if markup == 0 {
-			markup = 1.05
-		}
-		tokenCost = float64(billable) * costPer1K / 1000.0 * markup
-		tb = &tokenBreakdown{
-			EstimatedTokens: req.EstimatedTokens,
-			FreeTokens:      freeTokens,
-			BillableTokens:  billable,
-			CostPerToken:    costPer1K / 1000.0,
-			Markup:          5.0,
-		}
-	}
-
-	total := sandboxCost + sourceVMCost + agentHostCost + tokenCost
+	total := sandboxCost + sourceVMCost + agentHostCost
 
 	_ = serverJSON.RespondJSON(w, http.StatusOK, calculatorResponse{
-		SandboxCost:    math.Round(sandboxCost*100) / 100,
-		SourceVMCost:   math.Round(sourceVMCost*100) / 100,
-		AgentHostCost:  math.Round(agentHostCost*100) / 100,
-		TokenCost:      math.Round(tokenCost*100) / 100,
-		TokenBreakdown: tb,
-		TotalMonthly:   math.Round(total*100) / 100,
-		Currency:       "USD",
+		SandboxCost:   math.Round(sandboxCost*100) / 100,
+		SourceVMCost:  math.Round(sourceVMCost*100) / 100,
+		AgentHostCost: math.Round(agentHostCost*100) / 100,
+		TotalMonthly:  math.Round(total*100) / 100,
+		Currency:      "USD",
 	})
-}
-
-type modelPrice struct {
-	id              string
-	inputCostPer1K  float64
-	outputCostPer1K float64
-}
-
-var modelPricing = []modelPrice{
-	{"anthropic/claude-sonnet-4", 0.003, 0.015},
-	{"anthropic/claude-haiku-4", 0.0008, 0.004},
-	{"openai/gpt-4o", 0.0025, 0.01},
-	{"openai/gpt-4o-mini", 0.00015, 0.0006},
-	{"google/gemini-2.5-pro", 0.00125, 0.01},
 }
 
 // --- Stripe Webhook ---
@@ -415,14 +352,17 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	case "checkout.session.completed":
 		var sess stripe.CheckoutSession
 		if err := json.Unmarshal(event.Data.Raw, &sess); err != nil {
+			slog.Error("webhook: unmarshal checkout session", "error", err)
 			break
 		}
 		if sess.Customer != nil {
 			if sess.Subscription == nil {
+				slog.Warn("webhook: checkout session has no subscription")
 				break
 			}
 			org, err := s.store.GetOrganizationByStripeCustomerID(r.Context(), sess.Customer.ID)
 			if err != nil {
+				slog.Error("webhook: lookup org by stripe customer", "error", err)
 				break
 			}
 			// Idempotency: check if subscription already exists
@@ -447,16 +387,19 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	case "customer.subscription.updated":
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+			slog.Error("webhook: unmarshal subscription update", "error", err)
 			break
 		}
 		var existing *store.Subscription
 		if sub.Customer != nil {
 			org, err := s.store.GetOrganizationByStripeCustomerID(r.Context(), sub.Customer.ID)
 			if err != nil {
+				slog.Error("webhook: lookup org for subscription update", "error", err)
 				break
 			}
 			existing, err = s.store.GetSubscriptionByOrg(r.Context(), org.ID)
 			if err != nil {
+				slog.Error("webhook: get subscription for update", "error", err)
 				break
 			}
 		} else {
@@ -474,15 +417,18 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	case "customer.subscription.deleted":
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+			slog.Error("webhook: unmarshal subscription delete", "error", err)
 			break
 		}
 		if sub.Customer != nil {
 			org, err := s.store.GetOrganizationByStripeCustomerID(r.Context(), sub.Customer.ID)
 			if err != nil {
+				slog.Error("webhook: lookup org for subscription delete", "error", err)
 				break
 			}
 			existing, err := s.store.GetSubscriptionByOrg(r.Context(), org.ID)
 			if err != nil {
+				slog.Error("webhook: get subscription for delete", "error", err)
 				break
 			}
 			existing.Status = store.SubStatusCancelled

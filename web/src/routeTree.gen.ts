@@ -27,7 +27,6 @@ import { Route as DocsArchitectureRouteImport } from './routes/docs/architecture
 import { Route as DocsApiRouteImport } from './routes/docs/api'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
-import { Route as AppPlaybooksRouteImport } from './routes/_app/playbooks'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
 import { Route as PublicBlogIndexRouteImport } from './routes/_public/blog/index'
@@ -125,11 +124,6 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRoute,
 } as any)
-const AppPlaybooksRoute = AppPlaybooksRouteImport.update({
-  id: '/playbooks',
-  path: '/playbooks',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -181,7 +175,6 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/billing': typeof AppBillingRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
-  '/playbooks': typeof AppPlaybooksRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -206,7 +199,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/dashboard': typeof AppDashboardRoute
-  '/playbooks': typeof AppPlaybooksRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -237,7 +229,6 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/_app/billing': typeof AppBillingRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
-  '/_app/playbooks': typeof AppPlaybooksRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -266,7 +257,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/billing'
     | '/dashboard'
-    | '/playbooks'
     | '/login'
     | '/register'
     | '/docs/api'
@@ -291,7 +281,6 @@ export interface FileRouteTypes {
   to:
     | '/onboarding'
     | '/dashboard'
-    | '/playbooks'
     | '/login'
     | '/register'
     | '/docs/api'
@@ -321,7 +310,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/_app/billing'
     | '/_app/dashboard'
-    | '/_app/playbooks'
     | '/_auth/login'
     | '/_auth/register'
     | '/docs/api'
@@ -480,13 +468,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_app/playbooks': {
-      id: '/_app/playbooks'
-      path: '/playbooks'
-      fullPath: '/playbooks'
-      preLoaderRoute: typeof AppPlaybooksRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -568,7 +549,6 @@ const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingR
 interface AppRouteChildren {
   AppBillingRoute: typeof AppBillingRouteWithChildren
   AppDashboardRoute: typeof AppDashboardRoute
-  AppPlaybooksRoute: typeof AppPlaybooksRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsOrganizationRoute: typeof AppSettingsOrganizationRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
@@ -577,7 +557,6 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppBillingRoute: AppBillingRouteWithChildren,
   AppDashboardRoute: AppDashboardRoute,
-  AppPlaybooksRoute: AppPlaybooksRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsOrganizationRoute: AppSettingsOrganizationRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,

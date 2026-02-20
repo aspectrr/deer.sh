@@ -96,30 +96,8 @@ type mockStore struct {
 	ListHostTokensByOrgFn func(ctx context.Context, orgID string) ([]store.HostToken, error)
 	DeleteHostTokenFn     func(ctx context.Context, orgID, id string) error
 
-	// Agent Conversations
-	CreateAgentConversationFn     func(ctx context.Context, conv *store.AgentConversation) error
-	GetAgentConversationFn        func(ctx context.Context, id string) (*store.AgentConversation, error)
-	ListAgentConversationsByOrgFn func(ctx context.Context, orgID string) ([]*store.AgentConversation, error)
-	DeleteAgentConversationFn     func(ctx context.Context, id string) error
-
-	// Agent Messages
-	CreateAgentMessageFn func(ctx context.Context, msg *store.AgentMessage) error
-	ListAgentMessagesFn  func(ctx context.Context, conversationID string) ([]*store.AgentMessage, error)
-
-	// Playbooks
-	CreatePlaybookFn     func(ctx context.Context, pb *store.Playbook) error
-	GetPlaybookFn        func(ctx context.Context, id string) (*store.Playbook, error)
-	ListPlaybooksByOrgFn func(ctx context.Context, orgID string) ([]*store.Playbook, error)
-	UpdatePlaybookFn     func(ctx context.Context, pb *store.Playbook) error
-	DeletePlaybookFn     func(ctx context.Context, id string) error
-
-	// Playbook Tasks
-	CreatePlaybookTaskFn   func(ctx context.Context, task *store.PlaybookTask) error
-	GetPlaybookTaskFn      func(ctx context.Context, id string) (*store.PlaybookTask, error)
-	ListPlaybookTasksFn    func(ctx context.Context, playbookID string) ([]*store.PlaybookTask, error)
-	UpdatePlaybookTaskFn   func(ctx context.Context, task *store.PlaybookTask) error
-	DeletePlaybookTaskFn   func(ctx context.Context, id string) error
-	ReorderPlaybookTasksFn func(ctx context.Context, playbookID string, taskIDs []string) error
+	// Agent Conversations, Messages, Playbooks, Tasks - commented out
+	// (types are commented out in store.go)
 
 	// Billing helpers
 	GetOrganizationByStripeCustomerIDFn func(ctx context.Context, customerID string) (*store.Organization, error)
@@ -525,7 +503,8 @@ func (m *mockStore) DeleteHostToken(ctx context.Context, orgID, id string) error
 	return nil
 }
 
-// Agent Conversations
+// Agent Conversations, Messages, Playbooks, Tasks mock methods - commented out
+/*
 func (m *mockStore) CreateAgentConversation(ctx context.Context, conv *store.AgentConversation) error {
 	if m.CreateAgentConversationFn != nil {
 		return m.CreateAgentConversationFn(ctx, conv)
@@ -555,7 +534,6 @@ func (m *mockStore) DeleteAgentConversation(ctx context.Context, id string) erro
 	return nil
 }
 
-// Agent Messages
 func (m *mockStore) CreateAgentMessage(ctx context.Context, msg *store.AgentMessage) error {
 	if m.CreateAgentMessageFn != nil {
 		return m.CreateAgentMessageFn(ctx, msg)
@@ -571,7 +549,6 @@ func (m *mockStore) ListAgentMessages(ctx context.Context, conversationID string
 	return nil, nil
 }
 
-// Playbooks
 func (m *mockStore) CreatePlaybook(ctx context.Context, pb *store.Playbook) error {
 	if m.CreatePlaybookFn != nil {
 		return m.CreatePlaybookFn(ctx, pb)
@@ -608,7 +585,6 @@ func (m *mockStore) DeletePlaybook(ctx context.Context, id string) error {
 	return nil
 }
 
-// Playbook Tasks
 func (m *mockStore) CreatePlaybookTask(ctx context.Context, task *store.PlaybookTask) error {
 	if m.CreatePlaybookTaskFn != nil {
 		return m.CreatePlaybookTaskFn(ctx, task)
@@ -651,6 +627,7 @@ func (m *mockStore) ReorderPlaybookTasks(ctx context.Context, playbookID string,
 	m.call("ReorderPlaybookTasks")
 	return nil
 }
+*/
 
 // Billing helpers
 func (m *mockStore) GetOrganizationByStripeCustomerID(ctx context.Context, customerID string) (*store.Organization, error) {
@@ -748,11 +725,12 @@ func testConfig() *config.Config {
 				MaxAgentHosts:          1,
 			},
 		},
-		Agent: config.AgentConfig{
-			DefaultModel:        "anthropic/claude-sonnet-4",
-			MaxTokensPerRequest: 8192,
-			FreeTokensPerMonth:  100000,
-		},
+		// Agent config - commented out, not yet ready for integration.
+		// Agent: config.AgentConfig{
+		// 	DefaultModel:        "anthropic/claude-sonnet-4",
+		// 	MaxTokensPerRequest: 8192,
+		// 	FreeTokensPerMonth:  100000,
+		// },
 		Orchestrator: config.OrchestratorConfig{
 			HeartbeatTimeout: 90 * time.Second,
 			DefaultTTL:       24 * time.Hour,
@@ -799,7 +777,7 @@ func newTestServer(ms *mockStore, cfg *config.Config) *Server {
 	reg := registry.New()
 	sender := &mockHostSender{}
 	orch := orchestrator.New(reg, ms, sender, nil, cfg.Orchestrator.DefaultTTL, cfg.Orchestrator.HeartbeatTimeout)
-	return NewServer(ms, cfg, orch, nil, nil, nil)
+	return NewServer(ms, cfg, orch, nil, nil)
 }
 
 // newTestServerWithSender creates a Server with a custom HostSender
@@ -809,7 +787,7 @@ func newTestServerWithSender(ms *mockStore, sender *mockHostSender, cfg *config.
 	}
 	reg := registry.New()
 	orch := orchestrator.New(reg, ms, sender, nil, cfg.Orchestrator.DefaultTTL, cfg.Orchestrator.HeartbeatTimeout)
-	return NewServer(ms, cfg, orch, nil, nil, nil)
+	return NewServer(ms, cfg, orch, nil, nil)
 }
 
 // ---------------------------------------------------------------------------

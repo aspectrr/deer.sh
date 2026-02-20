@@ -1,5 +1,8 @@
 package rest
 
+// Agent handler tests - commented out, not yet ready for integration.
+
+/*
 import (
 	"context"
 	"encoding/json"
@@ -201,3 +204,4 @@ func TestHandleListModels(t *testing.T) {
 		t.Fatalf("expected non-empty models list, got %v", resp["models"])
 	}
 }
+*/

@@ -9,9 +9,9 @@ import (
 	"github.com/posthog/posthog-go"
 )
 
-// posthogAPIKey is the PostHog API key. By default uses dev key.
+// posthogAPIKey is the PostHog API key. Empty by default - must be injected at build time.
 // Override at build time with: -ldflags "-X github.com/aspectrr/fluid.sh/fluid/internal/telemetry.posthogAPIKey=YOUR_KEY"
-var posthogAPIKey = "phc_nZdxqaqWmZhHpWPIsUFqmwtr9WfyYaae0IOdRmh8YGT"
+var posthogAPIKey = ""
 
 // Service defines the interface for telemetry operations.
 type Service interface {
@@ -40,7 +40,7 @@ type posthogService struct {
 
 // NewService creates a new telemetry service based on configuration.
 func NewService(cfg config.TelemetryConfig) (Service, error) {
-	if !cfg.EnableAnonymousUsage {
+	if !cfg.EnableAnonymousUsage || posthogAPIKey == "" {
 		return &NoopService{}, nil
 	}
 

@@ -171,12 +171,21 @@ function CalculatorPage() {
                   </span>
                 </div>
                 <p className="text-muted-foreground mt-1 text-[10px]">per month (USD)</p>
-                <p className="text-muted-foreground mt-3 text-[10px]">
-                  Want custom limits? Consider subscribing to our{' '}
+                <ul className="mt-6 space-y-1">
+                  <li className="text-[10px] text-white">Want custom limits?</li>
+                  <li className="text-[10px] text-white">
+                    Want sensitive data to be scrubbed from LLM inputs?
+                  </li>
+                  <li className="text-[10px] text-white">
+                    Want a dedicated Slack channel with 24/7 support?
+                  </li>
+                </ul>
+                <p className="mt-3 text-[10px] text-white">
+                  Contact Collin about your{' '}
                   <a href="mailto:cpfeifer@madcactus.org" className="text-blue-400 underline">
-                    enterprise plan
-                  </a>{' '}
-                  for custom limits.
+                    enterprise needs
+                  </a>
+                  .
                 </p>
               </div>
             </div>

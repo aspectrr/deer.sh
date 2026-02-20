@@ -3,6 +3,8 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -115,6 +117,11 @@ func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if len(req.Command) > 4096 {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("command too long (max 4096 bytes)"))
+		return
+	}
+
 	result, err := s.orchestrator.RunSourceCommand(r.Context(), org.ID, vm, req.Command, req.TimeoutSec)
 	if err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to run source command"))
@@ -158,6 +165,13 @@ func (s *Server) handleReadSourceFile(w http.ResponseWriter, r *http.Request) {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("path is required"))
 		return
 	}
+
+	cleaned := filepath.Clean(req.Path)
+	if !strings.HasPrefix(cleaned, "/") || strings.Contains(cleaned, "..") {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid file path"))
+		return
+	}
+	req.Path = cleaned
 
 	result, err := s.orchestrator.ReadSourceFile(r.Context(), org.ID, vm, req.Path)
 	if err != nil {

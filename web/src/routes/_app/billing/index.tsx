@@ -41,7 +41,7 @@ function BillingPage() {
   } = useQuery({
     queryKey: ['billing', orgSlug],
     queryFn: async () => {
-      const res = await axios.get(`/v1/orgs/${orgSlug}/billing`)
+      const res = await axios.get(`/v1/orgs/${encodeURIComponent(orgSlug)}/billing`)
       return res.data as BillingData
     },
     enabled: !!orgSlug,
@@ -49,7 +49,7 @@ function BillingPage() {
 
   const subscribe = useMutation({
     mutationFn: async () => {
-      const res = await axios.post(`/v1/orgs/${orgSlug}/billing/subscribe`)
+      const res = await axios.post(`/v1/orgs/${encodeURIComponent(orgSlug)}/billing/subscribe`)
       return res.data as { checkout_url?: string; status?: string }
     },
     onSuccess: (data) => {
@@ -63,7 +63,7 @@ function BillingPage() {
 
   const portal = useMutation({
     mutationFn: async () => {
-      const res = await axios.post(`/v1/orgs/${orgSlug}/billing/portal`)
+      const res = await axios.post(`/v1/orgs/${encodeURIComponent(orgSlug)}/billing/portal`)
       return res.data as { portal_url?: string; status?: string }
     },
     onSuccess: (data) => {

@@ -2,6 +2,7 @@ import type { Step } from '~/components/docs/step-tracker'
 import { TerminalBlock } from '~/components/docs/terminal-block'
 import { CodeBlock } from '~/components/docs/code-block'
 import { Callout } from '~/components/docs/callout'
+import { DaemonSubsteps } from '~/components/docs/daemon-setup-steps'
 
 export const quickstartSteps: Step[] = [
   {
@@ -29,24 +30,12 @@ export const quickstartSteps: Step[] = [
     title: 'Set up the daemon',
     content: (
       <>
-        <p>The daemon manages sandboxes on the host machine. The CLI connects to it over gRPC.</p>
-        <TerminalBlock
-          lines={[{ command: 'curl -fsSL https://fluid.sh/install.sh | bash -s -- --daemon' }]}
-        />
-        <p>Configure and start:</p>
-        <TerminalBlock
-          lines={[
-            { command: 'sudo systemctl enable --now fluid-daemon' },
-            { output: 'Created symlink ...' },
-          ]}
-        />
-        <Callout type="info">
-          See{' '}
-          <a href="/docs/daemon" className="text-blue-400 hover:text-blue-300">
-            Daemon Setup
-          </a>{' '}
-          for full configuration options.
-        </Callout>
+        <p>
+          The daemon manages sandboxes on the sandbox host. Choose a free host in your
+          infrastructure that can connect to the VMs that you want to work on over SSH. Install and
+          configure the daemon on each sandbox host - the CLI connects to it over gRPC.
+        </p>
+        <DaemonSubsteps />
       </>
     ),
   },

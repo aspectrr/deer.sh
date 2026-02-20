@@ -150,7 +150,7 @@ func DefaultConfig() *Config {
 			VMIDEnd:   9999,
 		},
 		Telemetry: TelemetryConfig{
-			EnableAnonymousUsage: true,
+			EnableAnonymousUsage: false,
 		},
 		Libvirt: LibvirtConfig{
 			URI:                "qemu:///system",

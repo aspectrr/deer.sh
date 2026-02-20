@@ -11,13 +11,13 @@ import (
 )
 
 type Config struct {
-	API           APIConfig
-	GRPC          GRPCConfig
-	Database      DatabaseConfig
-	Auth          AuthConfig
-	Frontend      FrontendConfig
-	Billing       BillingConfig
-	Agent         AgentConfig
+	API      APIConfig
+	GRPC     GRPCConfig
+	Database DatabaseConfig
+	Auth     AuthConfig
+	Frontend FrontendConfig
+	Billing  BillingConfig
+	// Agent AgentConfig - commented out, not yet ready for integration
 	Orchestrator  OrchestratorConfig
 	Logging       LoggingConfig
 	PostHog       PostHogConfig
@@ -98,6 +98,8 @@ type FreeTierConfig struct {
 	MaxAgentHosts          int
 }
 
+// AgentConfig - commented out, not yet ready for integration.
+/*
 type AgentConfig struct {
 	OpenRouterAPIKey    string
 	OpenRouterBaseURL   string
@@ -105,6 +107,7 @@ type AgentConfig struct {
 	MaxTokensPerRequest int
 	FreeTokensPerMonth  int
 }
+*/
 
 type LoggingConfig struct {
 	Level  string
@@ -124,6 +127,9 @@ func (c *Config) Validate() error {
 	}
 	if c.GRPC.TLSCertFile == "" && c.GRPC.TLSKeyFile == "" && !c.GRPC.AllowInsecure {
 		return fmt.Errorf("gRPC TLS not configured; set GRPC_TLS_CERT_FILE/GRPC_TLS_KEY_FILE or GRPC_ALLOW_INSECURE=true")
+	}
+	if c.EncryptionKey == "" {
+		slog.Warn("ENCRYPTION_KEY not set: OAuth tokens and Proxmox secrets will be stored in plaintext")
 	}
 	return nil
 }
@@ -147,7 +153,7 @@ func Load() *Config {
 			AutoMigrate:     envBool("DATABASE_AUTO_MIGRATE", false),
 		},
 		Auth: AuthConfig{
-			SessionTTL:    envDuration("AUTH_SESSION_TTL", 720*time.Hour),
+			SessionTTL:    envDuration("AUTH_SESSION_TTL", 168*time.Hour),
 			SecureCookies: envBool("AUTH_SECURE_COOKIES", true),
 			GitHub: OAuthProviderConfig{
 				ClientID:     os.Getenv("AUTH_GITHUB_CLIENT_ID"),
@@ -190,13 +196,14 @@ func Load() *Config {
 			},
 			BillingMarkup: envFloat("BILLING_MARKUP", 1.05),
 		},
-		Agent: AgentConfig{
-			OpenRouterAPIKey:    os.Getenv("OPENROUTER_API_KEY"),
-			OpenRouterBaseURL:   envOr("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-			DefaultModel:        envOr("AGENT_DEFAULT_MODEL", "anthropic/claude-sonnet-4"),
-			MaxTokensPerRequest: envInt("AGENT_MAX_TOKENS_PER_REQUEST", 8192),
-			FreeTokensPerMonth:  envInt("AGENT_FREE_TOKENS_PER_MONTH", 100000),
-		},
+		// Agent config - commented out, not yet ready for integration.
+		// Agent: AgentConfig{
+		// 	OpenRouterAPIKey:    os.Getenv("OPENROUTER_API_KEY"),
+		// 	OpenRouterBaseURL:   envOr("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+		// 	DefaultModel:        envOr("AGENT_DEFAULT_MODEL", "anthropic/claude-sonnet-4"),
+		// 	MaxTokensPerRequest: envInt("AGENT_MAX_TOKENS_PER_REQUEST", 8192),
+		// 	FreeTokensPerMonth:  envInt("AGENT_FREE_TOKENS_PER_MONTH", 100000),
+		// },
 		Logging: LoggingConfig{
 			Level:  envOr("LOG_LEVEL", "info"),
 			Format: envOr("LOG_FORMAT", "text"),

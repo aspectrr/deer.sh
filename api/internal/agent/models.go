@@ -1,5 +1,7 @@
 package agent
 
+// Model caching - commented out, not yet ready for integration.
+/*
 import (
 	"context"
 	"encoding/json"
@@ -207,3 +209,4 @@ func fallbackModels() []ModelInfo {
 		{ID: "google/gemini-2.5-pro", Name: "Gemini 2.5 Pro", InputCostPer1K: 0.00125, OutputCostPer1K: 0.01, ContextLimit: 1000000, OutputLimit: 65536, ToolCall: true, Reasoning: true},
 	}
 }
+*/

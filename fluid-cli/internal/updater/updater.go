@@ -2,7 +2,10 @@ package updater
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +16,8 @@ import (
 	"strings"
 	"time"
 )
+
+const maxBinarySize = 500 * 1024 * 1024 // 500MB limit for tar entry reads
 
 const (
 	releasesURL = "https://api.github.com/repos/aspectrr/fluid.sh/releases/latest"
@@ -87,6 +92,8 @@ func CheckLatest(currentVersion string) (string, string, bool, error) {
 // Update downloads the release archive from downloadURL and replaces the current executable.
 func Update(downloadURL string) error {
 	client := &http.Client{Timeout: 120 * time.Second}
+
+	// Download the tar.gz to a temp file so we can checksum it
 	resp, err := client.Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("download release: %w", err)
@@ -97,8 +104,19 @@ func Update(downloadURL string) error {
 		return fmt.Errorf("download returned %d", resp.StatusCode)
 	}
 
+	archiveData, err := io.ReadAll(io.LimitReader(resp.Body, maxBinarySize))
+	if err != nil {
+		return fmt.Errorf("read archive: %w", err)
+	}
+
+	// Download and verify checksum
+	checksumURL := strings.TrimSuffix(downloadURL, filepath.Base(downloadURL)) + "checksums.txt"
+	if err := verifyChecksum(client, checksumURL, filepath.Base(downloadURL), archiveData); err != nil {
+		return fmt.Errorf("checksum verification: %w", err)
+	}
+
 	// Extract the "fluid" binary from the tar.gz archive
-	gz, err := gzip.NewReader(resp.Body)
+	gz, err := gzip.NewReader(bytes.NewReader(archiveData))
 	if err != nil {
 		return fmt.Errorf("open gzip: %w", err)
 	}
@@ -117,7 +135,7 @@ func Update(downloadURL string) error {
 		// Look for the fluid binary (may be at root or in a subdirectory)
 		base := filepath.Base(hdr.Name)
 		if base == "fluid" && hdr.Typeflag == tar.TypeReg {
-			binaryData, err = io.ReadAll(tr)
+			binaryData, err = io.ReadAll(io.LimitReader(tr, maxBinarySize))
 			if err != nil {
 				return fmt.Errorf("read binary from archive: %w", err)
 			}
@@ -200,4 +218,45 @@ func MarkChecked() {
 	path := filepath.Join(dir, cacheFile)
 	_ = os.MkdirAll(dir, 0o755)
 	_ = os.WriteFile(path, []byte(time.Now().Format(time.RFC3339)), 0o644)
+}
+
+// verifyChecksum downloads checksums.txt from the release and verifies the archive SHA256.
+func verifyChecksum(client *http.Client, checksumURL, assetName string, data []byte) error {
+	resp, err := client.Get(checksumURL)
+	if err != nil {
+		return fmt.Errorf("download checksums: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("checksums download returned %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024)) // 1MB limit for checksums file
+	if err != nil {
+		return fmt.Errorf("read checksums: %w", err)
+	}
+
+	// Parse checksums file: each line is "sha256hash  filename"
+	var expectedHash string
+	for _, line := range strings.Split(string(body), "\n") {
+		parts := strings.Fields(line)
+		if len(parts) == 2 && parts[1] == assetName {
+			expectedHash = parts[0]
+			break
+		}
+	}
+
+	if expectedHash == "" {
+		return fmt.Errorf("no checksum found for %s in checksums.txt", assetName)
+	}
+
+	actualHash := sha256.Sum256(data)
+	actualHex := hex.EncodeToString(actualHash[:])
+
+	if actualHex != expectedHash {
+		return fmt.Errorf("SHA256 mismatch: expected %s, got %s", expectedHash, actualHex)
+	}
+
+	return nil
 }

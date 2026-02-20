@@ -131,7 +131,6 @@ func TestLoad_Defaults(t *testing.T) {
 	t.Setenv("GRPC_ADDR", "")
 	t.Setenv("LOG_LEVEL", "")
 	t.Setenv("LOG_FORMAT", "")
-	t.Setenv("AGENT_DEFAULT_MODEL", "")
 	t.Setenv("OPENROUTER_BASE_URL", "")
 	t.Setenv("FRONTEND_URL", "")
 	t.Setenv("DATABASE_AUTO_MIGRATE", "")
@@ -171,12 +170,6 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.Logging.Format != "text" {
 		t.Errorf("expected Logging.Format 'text', got %q", cfg.Logging.Format)
 	}
-	if cfg.Agent.DefaultModel != "anthropic/claude-sonnet-4" {
-		t.Errorf("expected Agent.DefaultModel 'anthropic/claude-sonnet-4', got %q", cfg.Agent.DefaultModel)
-	}
-	if cfg.Agent.MaxTokensPerRequest != 8192 {
-		t.Errorf("expected Agent.MaxTokensPerRequest 8192, got %d", cfg.Agent.MaxTokensPerRequest)
-	}
 	if cfg.Frontend.URL != "http://localhost:5173" {
 		t.Errorf("expected Frontend.URL 'http://localhost:5173', got %q", cfg.Frontend.URL)
 	}
@@ -188,7 +181,6 @@ func TestLoad_EnvOverrides(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("DATABASE_MAX_OPEN_CONNS", "32")
 	t.Setenv("DATABASE_AUTO_MIGRATE", "false")
-	t.Setenv("AGENT_DEFAULT_MODEL", "openai/gpt-4o")
 	t.Setenv("API_READ_TIMEOUT", "30s")
 
 	cfg := Load()
@@ -207,9 +199,6 @@ func TestLoad_EnvOverrides(t *testing.T) {
 	}
 	if cfg.Database.AutoMigrate != false {
 		t.Error("expected Database.AutoMigrate false, got true")
-	}
-	if cfg.Agent.DefaultModel != "openai/gpt-4o" {
-		t.Errorf("expected Agent.DefaultModel 'openai/gpt-4o', got %q", cfg.Agent.DefaultModel)
 	}
 	if cfg.API.ReadTimeout != 30*time.Second {
 		t.Errorf("expected API.ReadTimeout 30s, got %v", cfg.API.ReadTimeout)

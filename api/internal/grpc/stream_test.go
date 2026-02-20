@@ -133,40 +133,7 @@ func (m *mockStore) ListHostTokensByOrg(context.Context, string) ([]store.HostTo
 }
 func (m *mockStore) DeleteHostToken(context.Context, string, string) error { return nil }
 
-func (m *mockStore) CreateAgentConversation(context.Context, *store.AgentConversation) error {
-	return nil
-}
-func (m *mockStore) GetAgentConversation(context.Context, string) (*store.AgentConversation, error) {
-	return nil, nil
-}
-func (m *mockStore) ListAgentConversationsByOrg(context.Context, string) ([]*store.AgentConversation, error) {
-	return nil, nil
-}
-func (m *mockStore) DeleteAgentConversation(context.Context, string) error { return nil }
-
-func (m *mockStore) CreateAgentMessage(context.Context, *store.AgentMessage) error { return nil }
-func (m *mockStore) ListAgentMessages(context.Context, string) ([]*store.AgentMessage, error) {
-	return nil, nil
-}
-
-func (m *mockStore) CreatePlaybook(context.Context, *store.Playbook) error        { return nil }
-func (m *mockStore) GetPlaybook(context.Context, string) (*store.Playbook, error) { return nil, nil }
-func (m *mockStore) ListPlaybooksByOrg(context.Context, string) ([]*store.Playbook, error) {
-	return nil, nil
-}
-func (m *mockStore) UpdatePlaybook(context.Context, *store.Playbook) error { return nil }
-func (m *mockStore) DeletePlaybook(context.Context, string) error          { return nil }
-
-func (m *mockStore) CreatePlaybookTask(context.Context, *store.PlaybookTask) error { return nil }
-func (m *mockStore) GetPlaybookTask(context.Context, string) (*store.PlaybookTask, error) {
-	return nil, nil
-}
-func (m *mockStore) ListPlaybookTasks(context.Context, string) ([]*store.PlaybookTask, error) {
-	return nil, nil
-}
-func (m *mockStore) UpdatePlaybookTask(context.Context, *store.PlaybookTask) error { return nil }
-func (m *mockStore) DeletePlaybookTask(context.Context, string) error              { return nil }
-func (m *mockStore) ReorderPlaybookTasks(context.Context, string, []string) error  { return nil }
+// Agent/playbook mock methods removed - interface methods commented out in store.go
 
 func (m *mockStore) GetOrganizationByStripeCustomerID(context.Context, string) (*store.Organization, error) {
 	return nil, nil

@@ -12,7 +12,7 @@ export function DaemonConnectionStatus({ orgSlug }: { orgSlug: string }) {
   const { data } = useQuery({
     queryKey: ['hosts', orgSlug],
     queryFn: async () => {
-      const res = await axios.get(`/v1/orgs/${orgSlug}/hosts`)
+      const res = await axios.get(`/v1/orgs/${encodeURIComponent(orgSlug)}/hosts`)
       return res.data as { hosts: unknown[]; count: number }
     },
     refetchInterval: dismissed ? false : 3000,

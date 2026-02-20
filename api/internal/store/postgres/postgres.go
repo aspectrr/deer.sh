@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/aspectrr/fluid.sh/api/internal/crypto"
 	"github.com/aspectrr/fluid.sh/api/internal/store"
 )
 
@@ -21,8 +22,9 @@ var (
 )
 
 type postgresStore struct {
-	db   *gorm.DB
-	conf store.Config
+	db            *gorm.DB
+	conf          store.Config
+	encryptionKey []byte
 }
 
 // GORM models
@@ -187,6 +189,7 @@ type HostTokenModel struct {
 
 func (HostTokenModel) TableName() string { return "host_tokens" }
 
+/*
 type AgentConversationModel struct {
 	ID        string    `gorm:"column:id;primaryKey"`
 	OrgID     string    `gorm:"column:org_id;not null;index"`
@@ -237,6 +240,7 @@ type PlaybookTaskModel struct {
 }
 
 func (PlaybookTaskModel) TableName() string { return "playbook_tasks" }
+*/
 
 type SourceHostModel struct {
 	ID               string            `gorm:"column:id;primaryKey"`
@@ -319,7 +323,11 @@ func New(ctx context.Context, cfg store.Config) (store.Store, error) {
 		sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 	}
 
-	pg := &postgresStore{db: db.WithContext(ctx), conf: cfg}
+	var encKey []byte
+	if cfg.EncryptionKey != "" {
+		encKey = crypto.DeriveKey(cfg.EncryptionKey)
+	}
+	pg := &postgresStore{db: db.WithContext(ctx), conf: cfg, encryptionKey: encKey}
 
 	if cfg.AutoMigrate {
 		if err := pg.autoMigrate(ctx); err != nil {
@@ -349,10 +357,10 @@ func (s *postgresStore) autoMigrate(_ context.Context) error {
 		&SandboxModel{},
 		&CommandModel{},
 		&HostTokenModel{},
-		&AgentConversationModel{},
-		&AgentMessageModel{},
-		&PlaybookModel{},
-		&PlaybookTaskModel{},
+		// &AgentConversationModel{},
+		// &AgentMessageModel{},
+		// &PlaybookModel{},
+		// &PlaybookTaskModel{},
 		&SourceHostModel{},
 		&ModelMeterModel{},
 		&OrgModelSubscriptionModel{},
@@ -379,7 +387,7 @@ func (s *postgresStore) Ping(ctx context.Context) error {
 
 func (s *postgresStore) WithTx(ctx context.Context, fn func(tx store.DataStore) error) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return fn(&postgresStore{db: tx, conf: s.conf})
+		return fn(&postgresStore{db: tx, conf: s.conf, encryptionKey: s.encryptionKey})
 	})
 }
 
@@ -413,8 +421,8 @@ func userFromModel(m *UserModel) *store.User {
 	}
 }
 
-func oauthToModel(oa *store.OAuthAccount) *OAuthAccountModel {
-	return &OAuthAccountModel{
+func (s *postgresStore) oauthToModel(oa *store.OAuthAccount) *OAuthAccountModel {
+	m := &OAuthAccountModel{
 		ID:           oa.ID,
 		UserID:       oa.UserID,
 		Provider:     oa.Provider,
@@ -425,10 +433,23 @@ func oauthToModel(oa *store.OAuthAccount) *OAuthAccountModel {
 		TokenExpiry:  oa.TokenExpiry,
 		CreatedAt:    oa.CreatedAt,
 	}
+	if len(s.encryptionKey) > 0 {
+		if enc, err := crypto.Encrypt(s.encryptionKey, oa.AccessToken); err == nil {
+			m.AccessToken = enc
+		} else {
+			slog.Warn("failed to encrypt access token", "error", err)
+		}
+		if enc, err := crypto.Encrypt(s.encryptionKey, oa.RefreshToken); err == nil {
+			m.RefreshToken = enc
+		} else {
+			slog.Warn("failed to encrypt refresh token", "error", err)
+		}
+	}
+	return m
 }
 
-func oauthFromModel(m *OAuthAccountModel) *store.OAuthAccount {
-	return &store.OAuthAccount{
+func (s *postgresStore) oauthFromModel(m *OAuthAccountModel) *store.OAuthAccount {
+	oa := &store.OAuthAccount{
 		ID:           m.ID,
 		UserID:       m.UserID,
 		Provider:     m.Provider,
@@ -439,6 +460,15 @@ func oauthFromModel(m *OAuthAccountModel) *store.OAuthAccount {
 		TokenExpiry:  m.TokenExpiry,
 		CreatedAt:    m.CreatedAt,
 	}
+	if len(s.encryptionKey) > 0 {
+		if dec, err := crypto.Decrypt(s.encryptionKey, m.AccessToken); err == nil {
+			oa.AccessToken = dec
+		}
+		if dec, err := crypto.Decrypt(s.encryptionKey, m.RefreshToken); err == nil {
+			oa.RefreshToken = dec
+		}
+	}
+	return oa
 }
 
 func sessionToModel(s *store.Session) *SessionModel {
@@ -636,7 +666,7 @@ func (s *postgresStore) UpdateUser(ctx context.Context, u *store.User) error {
 
 func (s *postgresStore) CreateOAuthAccount(ctx context.Context, oa *store.OAuthAccount) error {
 	oa.CreatedAt = time.Now().UTC()
-	if err := s.db.WithContext(ctx).Create(oauthToModel(oa)).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(s.oauthToModel(oa)).Error; err != nil {
 		return mapDBError(err)
 	}
 	return nil
@@ -647,7 +677,7 @@ func (s *postgresStore) GetOAuthAccount(ctx context.Context, provider, providerI
 	if err := s.db.WithContext(ctx).Where("provider = ? AND provider_id = ?", provider, providerID).First(&model).Error; err != nil {
 		return nil, mapDBError(err)
 	}
-	return oauthFromModel(&model), nil
+	return s.oauthFromModel(&model), nil
 }
 
 func (s *postgresStore) GetOAuthAccountsByUser(ctx context.Context, userID string) ([]*store.OAuthAccount, error) {
@@ -657,7 +687,7 @@ func (s *postgresStore) GetOAuthAccountsByUser(ctx context.Context, userID strin
 	}
 	out := make([]*store.OAuthAccount, 0, len(models))
 	for i := range models {
-		out = append(out, oauthFromModel(&models[i]))
+		out = append(out, s.oauthFromModel(&models[i]))
 	}
 	return out, nil
 }
@@ -1286,7 +1316,7 @@ func (s *postgresStore) ListSandboxCommands(ctx context.Context, sandboxID strin
 func (s *postgresStore) CreateSourceHost(ctx context.Context, sh *store.SourceHost) error {
 	sh.CreatedAt = time.Now().UTC()
 	sh.UpdatedAt = sh.CreatedAt
-	if err := s.db.WithContext(ctx).Create(sourceHostToModel(sh)).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(s.sourceHostToModel(sh)).Error; err != nil {
 		return mapDBError(err)
 	}
 	return nil
@@ -1297,7 +1327,7 @@ func (s *postgresStore) GetSourceHost(ctx context.Context, id string) (*store.So
 	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&model).Error; err != nil {
 		return nil, mapDBError(err)
 	}
-	return sourceHostFromModel(&model), nil
+	return s.sourceHostFromModel(&model), nil
 }
 
 func (s *postgresStore) ListSourceHostsByOrg(ctx context.Context, orgID string) ([]*store.SourceHost, error) {
@@ -1307,7 +1337,7 @@ func (s *postgresStore) ListSourceHostsByOrg(ctx context.Context, orgID string) 
 	}
 	out := make([]*store.SourceHost, 0, len(models))
 	for i := range models {
-		out = append(out, sourceHostFromModel(&models[i]))
+		out = append(out, s.sourceHostFromModel(&models[i]))
 	}
 	return out, nil
 }
@@ -1323,8 +1353,8 @@ func (s *postgresStore) DeleteSourceHost(ctx context.Context, id string) error {
 	return nil
 }
 
-func sourceHostToModel(sh *store.SourceHost) *SourceHostModel {
-	return &SourceHostModel{
+func (s *postgresStore) sourceHostToModel(sh *store.SourceHost) *SourceHostModel {
+	m := &SourceHostModel{
 		ID:               sh.ID,
 		OrgID:            sh.OrgID,
 		Name:             sh.Name,
@@ -1342,10 +1372,19 @@ func sourceHostToModel(sh *store.SourceHost) *SourceHostModel {
 		CreatedAt:        sh.CreatedAt,
 		UpdatedAt:        sh.UpdatedAt,
 	}
+	if len(s.encryptionKey) > 0 {
+		if enc, err := crypto.Encrypt(s.encryptionKey, sh.ProxmoxTokenID); err == nil {
+			m.ProxmoxTokenID = enc
+		}
+		if enc, err := crypto.Encrypt(s.encryptionKey, sh.ProxmoxSecret); err == nil {
+			m.ProxmoxSecret = enc
+		}
+	}
+	return m
 }
 
-func sourceHostFromModel(m *SourceHostModel) *store.SourceHost {
-	return &store.SourceHost{
+func (s *postgresStore) sourceHostFromModel(m *SourceHostModel) *store.SourceHost {
+	sh := &store.SourceHost{
 		ID:               m.ID,
 		OrgID:            m.OrgID,
 		Name:             m.Name,
@@ -1363,6 +1402,15 @@ func sourceHostFromModel(m *SourceHostModel) *store.SourceHost {
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 	}
+	if len(s.encryptionKey) > 0 {
+		if dec, err := crypto.Decrypt(s.encryptionKey, m.ProxmoxTokenID); err == nil {
+			sh.ProxmoxTokenID = dec
+		}
+		if dec, err := crypto.Decrypt(s.encryptionKey, m.ProxmoxSecret); err == nil {
+			sh.ProxmoxSecret = dec
+		}
+	}
+	return sh
 }
 
 // --- HostToken CRUD ---
@@ -1406,6 +1454,7 @@ func (s *postgresStore) DeleteHostToken(ctx context.Context, orgID, id string) e
 	return nil
 }
 
+/*
 // --- Agent Conversation converters ---
 
 func convToModel(c *store.AgentConversation) *AgentConversationModel {
@@ -1509,7 +1558,9 @@ func taskFromModel(m *PlaybookTaskModel) *store.PlaybookTask {
 		UpdatedAt:  m.UpdatedAt,
 	}
 }
+*/
 
+/*
 // --- Agent Conversation CRUD ---
 
 func (s *postgresStore) CreateAgentConversation(ctx context.Context, conv *store.AgentConversation) error {
@@ -1741,6 +1792,7 @@ func (s *postgresStore) ReorderPlaybookTasks(ctx context.Context, playbookID str
 		return nil
 	})
 }
+*/
 
 // --- Billing helpers ---
 

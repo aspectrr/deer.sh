@@ -2245,8 +2245,7 @@ func (m OnboardingModel) runSourcePrepare() tea.Cmd {
 func makeSSHRunFunc(ip, user, proxyJump string) readonly.SSHRunFunc {
 	return func(ctx context.Context, command string) (string, string, int, error) {
 		args := []string{
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "StrictHostKeyChecking=accept-new",
 			"-o", "ConnectTimeout=15",
 			"-o", "BatchMode=yes",
 		}
