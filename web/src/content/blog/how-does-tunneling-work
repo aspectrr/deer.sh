@@ -1,0 +1,14 @@
+---
+title: 'How does Network Tunneling Work?'
+pubDate: 2026-02-19
+description: "If I use a VPN, it's still private right?"
+author: 'Collin @ Fluid.sh'
+authorImage: '/images/skeleton_smoking_cigarette.jpg'
+authorEmail: 'cpfeifer@madcactus.org'
+authorPhone: '+3179955114'
+authorDiscord: 'https://discordapp.com/users/301068417685913600'
+---
+
+## The Packet Journey
+
+Back in high-school, my school system blocked all traffic going to popular social media apps like Snapchat, Youtube, and Instagram. The way that we all got around it was with using a free VPN to mask our traffic.

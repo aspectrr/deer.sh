@@ -1601,7 +1601,7 @@ func (m OnboardingModel) viewDaemonGuided() string {
 					"     Commands to execute (via sudo):",
 				))
 				b.WriteString("\n")
-				cmdStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
+				cmdStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Width(m.width)
 				for _, cmd := range current.Commands {
 					b.WriteString(cmdStyle.Render(fmt.Sprintf("       $ %s", cmd)))
 					b.WriteString("\n")

@@ -64,8 +64,10 @@ services:
       - api
     environment:
       - API_URL=http://fluid-api:8080
+      - VITE_POSTHOG_KEY=${VITE_POSTHOG_KEY:-}
+      - VITE_POSTHOG_HOST=${VITE_POSTHOG_HOST:-}
     ports:
-      - "5173:5173"
+      - "80:5173"
 
 volumes:
   fluid-postgres-data:

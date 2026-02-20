@@ -57,7 +57,7 @@ func TestHandleCreateOrg(t *testing.T) {
 		}
 	})
 
-	t.Run("duplicate slug", func(t *testing.T) {
+	t.Run("duplicate explicit slug returns 409", func(t *testing.T) {
 		ms := &mockStore{}
 		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
 			return store.ErrAlreadyExists
@@ -73,6 +73,45 @@ func TestHandleCreateOrg(t *testing.T) {
 
 		if rr.Code != http.StatusConflict {
 			t.Fatalf("expected 409, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("duplicate auto slug auto-resolves with suffix", func(t *testing.T) {
+		ms := &mockStore{}
+		calls := 0
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			calls++
+			if calls == 1 {
+				return store.ErrAlreadyExists
+			}
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/orgs/",
+			strings.NewReader(`{"name":"Dup Org"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/orgs/", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		slug, ok := body["slug"].(string)
+		if !ok {
+			t.Fatal("expected slug in response")
+		}
+		if !strings.HasPrefix(slug, "dup-org-") {
+			t.Fatalf("expected slug to start with 'dup-org-', got %q", slug)
+		}
+		if len(slug) != len("dup-org-")+4 {
+			t.Fatalf("expected 4-char hex suffix, got slug %q", slug)
 		}
 	})
 }

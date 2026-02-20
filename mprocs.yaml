@@ -15,6 +15,11 @@ procs:
     autostart: false
     shell: "bun dev"
 
+  stripe-webhooks:
+    cwd: "."
+    autostart: false
+    shell: "stripe listen --forward-to localhost:8080/v1/webhooks/stripe"
+
   list-sandboxes:
     cwd: "."
     autostart: false

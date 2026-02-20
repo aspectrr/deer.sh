@@ -53,7 +53,7 @@ function BlogPost() {
       <article className="mx-auto max-w-3xl">
         <header className="mb-12">
           <Link
-            to="/"
+            to="/blog"
             className="font-mono text-sm text-neutral-500 transition-colors hover:text-blue-400"
           >
             <span className="text-blue-400">$</span> cd ..

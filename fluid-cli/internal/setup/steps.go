@@ -13,7 +13,9 @@ func allSteps(distro DistroInfo) []StepDef {
 	return []StepDef{
 		stepInstallPrereqs(distro),
 		stepDownloadDaemon(),
+		stepExtractAndInstall(),
 		stepCreateUserDirs(),
+		stepAddLibvirtGroup(),
 		stepGenerateConfig(),
 		stepCreateSystemdUnit(),
 		stepEnableAndStart(),
@@ -25,11 +27,11 @@ func installPrereqCommands(distro DistroInfo) []string {
 	case "apt":
 		return []string{
 			"apt-get update -qq",
-			"apt-get install -y qemu-system-x86 libvirt-daemon-system libvirt-clients",
+			"apt-get install -y qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients iproute2 bridge-utils openssh-client",
 		}
 	case "dnf":
 		return []string{
-			"dnf install -y qemu-kvm libvirt libvirt-client",
+			"dnf install -y qemu-kvm qemu-img libvirt libvirt-client iproute bridge-utils openssh-clients",
 		}
 	default:
 		return []string{"(unsupported package manager)"}
@@ -38,8 +40,8 @@ func installPrereqCommands(distro DistroInfo) []string {
 
 func stepInstallPrereqs(distro DistroInfo) StepDef {
 	return StepDef{
-		Name:        "Install prerequisites",
-		Description: "Install libvirt, QEMU, and other required packages",
+		Name:        "Install dependencies",
+		Description: "Install QEMU, libvirt, and networking tools",
 		Commands:    installPrereqCommands(distro),
 		Check: func(ctx context.Context, run hostexec.RunFunc) (bool, error) {
 			_, _, code, _ := run(ctx, "which qemu-system-x86_64 >/dev/null 2>&1 && which virsh >/dev/null 2>&1")
@@ -49,18 +51,18 @@ func stepInstallPrereqs(distro DistroInfo) StepDef {
 			var cmd string
 			switch distro.PkgManager {
 			case "apt":
-				cmd = "apt-get update -qq && apt-get install -y -qq qemu-system-x86 libvirt-daemon-system libvirt-clients"
+				cmd = "apt-get update -qq && apt-get install -y -qq qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients iproute2 bridge-utils openssh-client"
 			case "dnf":
-				cmd = "dnf install -y qemu-kvm libvirt libvirt-client"
+				cmd = "dnf install -y qemu-kvm qemu-img libvirt libvirt-client iproute bridge-utils openssh-clients"
 			default:
 				return fmt.Errorf("unsupported package manager: %s", distro.PkgManager)
 			}
 			_, stderr, code, err := sudoRun(ctx, cmd)
 			if err != nil {
-				return fmt.Errorf("install prerequisites: %w", err)
+				return fmt.Errorf("install dependencies: %w", err)
 			}
 			if code != 0 {
-				return fmt.Errorf("install prerequisites failed (exit %d): %s", code, stderr)
+				return fmt.Errorf("install dependencies failed (exit %d): %s", code, stderr)
 			}
 			return nil
 		},
@@ -70,20 +72,19 @@ func stepInstallPrereqs(distro DistroInfo) StepDef {
 func stepDownloadDaemon() StepDef {
 	arch := runtime.GOARCH
 	return StepDef{
-		Name:        "Download fluid-daemon",
-		Description: "Download the fluid-daemon binary",
+		Name:        "Download release assets",
+		Description: "Download the fluid-daemon versioned tarball",
 		Commands: []string{
-			fmt.Sprintf("curl -fsSL -o /usr/local/bin/fluid-daemon https://github.com/aspectrr/fluid.sh/releases/latest/download/fluid-daemon-linux-%s", arch),
-			"chmod +x /usr/local/bin/fluid-daemon",
+			fmt.Sprintf("curl -fsSL -o /tmp/fluid-daemon.tar.gz https://github.com/aspectrr/fluid.sh/releases/latest/download/fluid-daemon_linux_%s.tar.gz", arch),
 		},
 		Check: func(ctx context.Context, run hostexec.RunFunc) (bool, error) {
-			_, _, code, _ := run(ctx, "which fluid-daemon >/dev/null 2>&1")
+			_, _, code, _ := run(ctx, "test -f /tmp/fluid-daemon.tar.gz || which fluid-daemon >/dev/null 2>&1")
 			return code == 0, nil
 		},
 		Execute: func(ctx context.Context, sudoRun hostexec.RunFunc) error {
 			arch := runtime.GOARCH
 			cmd := fmt.Sprintf(
-				"curl -fsSL -o /usr/local/bin/fluid-daemon https://github.com/aspectrr/fluid.sh/releases/latest/download/fluid-daemon-linux-%s && chmod +x /usr/local/bin/fluid-daemon",
+				"curl -fsSL -o /tmp/fluid-daemon.tar.gz https://github.com/aspectrr/fluid.sh/releases/latest/download/fluid-daemon_linux_%s.tar.gz",
 				arch,
 			)
 			_, stderr, code, err := sudoRun(ctx, cmd)
@@ -98,14 +99,40 @@ func stepDownloadDaemon() StepDef {
 	}
 }
 
+func stepExtractAndInstall() StepDef {
+	return StepDef{
+		Name:        "Extract and install binary",
+		Description: "Extract tarball and install fluid-daemon to /usr/local/bin",
+		Commands: []string{
+			"tar -xzf /tmp/fluid-daemon.tar.gz -C /tmp",
+			"install -m 755 /tmp/fluid-daemon /usr/local/bin/",
+		},
+		Check: func(ctx context.Context, run hostexec.RunFunc) (bool, error) {
+			_, _, code, _ := run(ctx, "which fluid-daemon >/dev/null 2>&1")
+			return code == 0, nil
+		},
+		Execute: func(ctx context.Context, sudoRun hostexec.RunFunc) error {
+			cmd := "tar -xzf /tmp/fluid-daemon.tar.gz -C /tmp && install -m 755 /tmp/fluid-daemon /usr/local/bin/"
+			_, stderr, code, err := sudoRun(ctx, cmd)
+			if err != nil {
+				return fmt.Errorf("extract and install: %w", err)
+			}
+			if code != 0 {
+				return fmt.Errorf("extract and install failed (exit %d): %s", code, stderr)
+			}
+			return nil
+		},
+	}
+}
+
 func stepCreateUserDirs() StepDef {
 	return StepDef{
 		Name:        "Create system user and directories",
 		Description: "Create the fluid-daemon system user and storage directories",
 		Commands: []string{
-			"useradd -r -s /usr/sbin/nologin -d /var/lib/fluid -M fluid-daemon",
-			"mkdir -p /var/lib/fluid/images /var/lib/fluid/sandboxes /etc/fluid-daemon",
-			"chown -R fluid-daemon:fluid-daemon /var/lib/fluid",
+			"useradd --system --home /var/lib/fluid-daemon --shell /usr/sbin/nologin fluid-daemon",
+			"mkdir -p /etc/fluid-daemon /var/lib/fluid-daemon /var/log/fluid-daemon",
+			"chown -R fluid-daemon:fluid-daemon /var/lib/fluid-daemon /var/log/fluid-daemon",
 		},
 		Check: func(ctx context.Context, run hostexec.RunFunc) (bool, error) {
 			_, _, code, _ := run(ctx, "id fluid-daemon >/dev/null 2>&1")
@@ -113,9 +140,9 @@ func stepCreateUserDirs() StepDef {
 		},
 		Execute: func(ctx context.Context, sudoRun hostexec.RunFunc) error {
 			cmds := []string{
-				"id fluid-daemon >/dev/null 2>&1 || useradd -r -s /usr/sbin/nologin -d /var/lib/fluid -M fluid-daemon",
-				"mkdir -p /var/lib/fluid/images /var/lib/fluid/sandboxes /etc/fluid-daemon",
-				"chown -R fluid-daemon:fluid-daemon /var/lib/fluid",
+				"id fluid-daemon >/dev/null 2>&1 || useradd --system --home /var/lib/fluid-daemon --shell /usr/sbin/nologin fluid-daemon",
+				"mkdir -p /etc/fluid-daemon /var/lib/fluid-daemon /var/log/fluid-daemon",
+				"chown -R fluid-daemon:fluid-daemon /var/lib/fluid-daemon /var/log/fluid-daemon",
 			}
 			cmd := strings.Join(cmds, " && ")
 			_, stderr, code, err := sudoRun(ctx, cmd)
@@ -130,9 +157,33 @@ func stepCreateUserDirs() StepDef {
 	}
 }
 
+func stepAddLibvirtGroup() StepDef {
+	return StepDef{
+		Name:        "Add user to libvirt group",
+		Description: "Add fluid-daemon user to the libvirt group for VM access",
+		Commands: []string{
+			"usermod -aG libvirt fluid-daemon",
+		},
+		Check: func(ctx context.Context, run hostexec.RunFunc) (bool, error) {
+			_, _, code, _ := run(ctx, "id -nG fluid-daemon 2>/dev/null | grep -qw libvirt")
+			return code == 0, nil
+		},
+		Execute: func(ctx context.Context, sudoRun hostexec.RunFunc) error {
+			_, stderr, code, err := sudoRun(ctx, "usermod -aG libvirt fluid-daemon")
+			if err != nil {
+				return fmt.Errorf("add libvirt group: %w", err)
+			}
+			if code != 0 {
+				return fmt.Errorf("add libvirt group failed (exit %d): %s", code, stderr)
+			}
+			return nil
+		},
+	}
+}
+
 func stepGenerateConfig() StepDef {
 	return StepDef{
-		Name:        "Generate daemon config",
+		Name:        "Configure daemon.yaml",
 		Description: "Write default daemon configuration file",
 		Commands: []string{
 			"Write /etc/fluid-daemon/daemon.yaml (default config)",
@@ -148,11 +199,12 @@ func stepGenerateConfig() StepDef {
 backend: qemu
 
 storage:
-  images: /var/lib/fluid/images
-  overlays: /var/lib/fluid/sandboxes
+  images: /var/lib/fluid-daemon/images
+  overlays: /var/lib/fluid-daemon/overlays
+  state: /var/lib/fluid-daemon/state.db
 
 network:
-  bridge: virbr0
+  bridge: fluid0
   subnet: 10.0.0.0/24
 
 ssh:
@@ -188,15 +240,13 @@ func stepCreateSystemdUnit() StepDef {
 		},
 		Execute: func(ctx context.Context, sudoRun hostexec.RunFunc) error {
 			unit := `[Unit]
-Description=Fluid Daemon - Sandbox Host Agent
+Description=fluid-daemon sandbox host
 After=network.target libvirtd.service
-Wants=libvirtd.service
 
 [Service]
-Type=simple
 User=fluid-daemon
-AmbientCapabilities=CAP_NET_ADMIN
-ExecStart=/usr/local/bin/fluid-daemon serve
+Group=fluid-daemon
+ExecStart=/usr/local/bin/fluid-daemon --config /etc/fluid-daemon/daemon.yaml
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536

@@ -252,15 +252,6 @@ func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *flu
 	}
 }
 
-// GetStream returns the active stream for a host, if connected.
-func (h *StreamHandler) GetStream(hostID string) (fluidv1.HostService_ConnectServer, bool) {
-	v, ok := h.streams.Load(hostID)
-	if !ok {
-		return nil, false
-	}
-	return v.(fluidv1.HostService_ConnectServer), true
-}
-
 // monitorHeartbeat checks for heartbeat timeouts on a connected host.
 //
 // Timing: the check interval is heartbeatTimeout/3 (default 90s/3 = 30s).

@@ -8,6 +8,7 @@ import (
 	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/stripe/stripe-go/v82"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	"github.com/aspectrr/fluid.sh/api/internal/config"
@@ -38,6 +39,10 @@ func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrat
 		logger:       slog.Default().With("component", "rest"),
 		swaggerJSON:  swaggerJSON,
 	}
+	if cfg.Billing.StripeSecretKey != "" {
+		stripe.Key = cfg.Billing.StripeSecretKey
+	}
+
 	s.Router = s.routes()
 	return s
 }
@@ -97,6 +102,7 @@ func (s *Server) routes() *chi.Mux {
 			r.Use(auth.RequireAuth(s.store, s.cfg.Auth.SecureCookies))
 			r.Post("/logout", s.handleLogout)
 			r.Get("/me", s.handleMe)
+			r.Post("/onboarding", s.handleOnboarding)
 		})
 	})
 

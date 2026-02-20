@@ -265,6 +265,359 @@ func TestHandleLogout(t *testing.T) {
 	t.Fatal("expected session cookie to be cleared")
 }
 
+func TestHandleOnboarding(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"My Company","role":"devops","use_cases":["ci","testing"],"referral_source":"github"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["name"] != "My Company" {
+			t.Fatalf("expected name 'My Company', got %v", body["name"])
+		}
+		if body["slug"] != "my-company" {
+			t.Fatalf("expected slug 'my-company', got %v", body["slug"])
+		}
+		if body["owner_id"] != testUser.ID {
+			t.Fatalf("expected owner_id %s, got %v", testUser.ID, body["owner_id"])
+		}
+	})
+
+	t.Run("success with minimal fields", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"test-org-name"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "test-org-name" {
+			t.Fatalf("expected slug 'test-org-name', got %v", body["slug"])
+		}
+	})
+
+	t.Run("missing org_name", func(t *testing.T) {
+		ms := &mockStore{}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"role":"devops"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("invalid slug from org_name", func(t *testing.T) {
+		ms := &mockStore{}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"A!"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("special chars apostrophe", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"Collin's Team"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "collins-team" {
+			t.Fatalf("expected slug 'collins-team', got %v", body["slug"])
+		}
+	})
+
+	t.Run("special chars ampersand", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"Acme & Co."}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "acme-co" {
+			t.Fatalf("expected slug 'acme-co', got %v", body["slug"])
+		}
+	})
+
+	t.Run("numbers in name", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"Team 42"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "team-42" {
+			t.Fatalf("expected slug 'team-42', got %v", body["slug"])
+		}
+	})
+
+	t.Run("leading trailing special chars", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"--My Org--"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "my-org" {
+			t.Fatalf("expected slug 'my-org', got %v", body["slug"])
+		}
+	})
+
+	t.Run("consecutive special chars stripped", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"Foo...Bar"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "foobar" {
+			t.Fatalf("expected slug 'foobar', got %v", body["slug"])
+		}
+	})
+
+	t.Run("underscores become hyphens parens stripped", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"My_Org (Dev)"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "my-org-dev" {
+			t.Fatalf("expected slug 'my-org-dev', got %v", body["slug"])
+		}
+	})
+
+	t.Run("all special chars fails", func(t *testing.T) {
+		ms := &mockStore{}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"!!!@@@"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("mixed case preserved as lowercase", func(t *testing.T) {
+		ms := &mockStore{}
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"MyAwesomeTeam"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		if body["slug"] != "myawesometeam" {
+			t.Fatalf("expected slug 'myawesometeam', got %v", body["slug"])
+		}
+	})
+
+	t.Run("duplicate slug auto-resolves with suffix", func(t *testing.T) {
+		ms := &mockStore{}
+		calls := 0
+		ms.CreateOrganizationFn = func(_ context.Context, org *store.Organization) error {
+			calls++
+			if calls == 1 {
+				return store.ErrAlreadyExists
+			}
+			return nil
+		}
+		ms.CreateOrgMemberFn = func(_ context.Context, m *store.OrgMember) error {
+			return nil
+		}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		bodyReq := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"Existing Org"}`))
+		bodyReq.Header.Set("Content-Type", "application/json")
+		req := authenticatedRequest(ms, "POST", "/v1/auth/onboarding", bodyReq)
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		body := parseJSONResponse(rr)
+		slug, ok := body["slug"].(string)
+		if !ok {
+			t.Fatal("expected slug in response")
+		}
+		if !strings.HasPrefix(slug, "existing-org-") {
+			t.Fatalf("expected slug to start with 'existing-org-', got %q", slug)
+		}
+		if len(slug) != len("existing-org-")+4 {
+			t.Fatalf("expected 4-char hex suffix, got slug %q", slug)
+		}
+	})
+
+	t.Run("unauthenticated", func(t *testing.T) {
+		ms := &mockStore{}
+		s := newTestServer(ms, nil)
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/v1/auth/onboarding",
+			strings.NewReader(`{"org_name":"My Company"}`))
+		req.Header.Set("Content-Type", "application/json")
+		s.Router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+}
+
 func TestHandleMe(t *testing.T) {
 	ms := &mockStore{}
 	s := newTestServer(ms, nil)

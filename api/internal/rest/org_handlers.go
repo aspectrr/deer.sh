@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,6 +19,18 @@ import (
 )
 
 var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$`)
+
+const maxSlugLen = 50
+
+func generateSlugSuffix() string {
+	b := make([]byte, 2)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func isDuplicateSlugErr(err error) bool {
+	return errors.Is(err, store.ErrAlreadyExists) || strings.Contains(err.Error(), "duplicate key")
+}
 
 // --- Create Org ---
 
@@ -79,12 +93,27 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 
 	slug := req.Slug
 	if slug == "" {
-		slug = strings.ToLower(strings.ReplaceAll(req.Name, " ", "-"))
+		slug = strings.ToLower(req.Name)
+		slug = strings.Map(func(r rune) rune {
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+				return r
+			}
+			if r == ' ' || r == '-' || r == '_' {
+				return '-'
+			}
+			return -1
+		}, slug)
+		for strings.Contains(slug, "--") {
+			slug = strings.ReplaceAll(slug, "--", "-")
+		}
+		slug = strings.Trim(slug, "-")
 	}
 	if !slugRegex.MatchString(slug) {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("slug must be 3-50 lowercase alphanumeric chars and hyphens"))
 		return
 	}
+
+	autoSlug := req.Slug == ""
 
 	org := &store.Organization{
 		ID:      id.Generate("ORG-"),
@@ -93,25 +122,50 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 		OwnerID: user.ID,
 	}
 
-	err := s.store.WithTx(r.Context(), func(tx store.DataStore) error {
-		if err := tx.CreateOrganization(r.Context(), org); err != nil {
-			return err
+	baseSlug := slug
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			if !autoSlug {
+				break
+			}
+			suffix := generateSlugSuffix()
+			// Truncate base so base-XXXX fits within maxSlugLen
+			maxBase := maxSlugLen - 1 - len(suffix) // 1 for the hyphen
+			b := baseSlug
+			if len(b) > maxBase {
+				b = strings.TrimRight(b[:maxBase], "-")
+			}
+			slug = b + "-" + suffix
+			org.Slug = slug
 		}
-		member := &store.OrgMember{
-			ID:     id.Generate("MBR-"),
-			OrgID:  org.ID,
-			UserID: user.ID,
-			Role:   store.OrgRoleOwner,
+
+		err = s.store.WithTx(r.Context(), func(tx store.DataStore) error {
+			if err := tx.CreateOrganization(r.Context(), org); err != nil {
+				return err
+			}
+			member := &store.OrgMember{
+				ID:     id.Generate("MBR-"),
+				OrgID:  org.ID,
+				UserID: user.ID,
+				Role:   store.OrgRoleOwner,
+			}
+			return tx.CreateOrgMember(r.Context(), member)
+		})
+		if err == nil {
+			break
 		}
-		return tx.CreateOrgMember(r.Context(), member)
-	})
+		if !isDuplicateSlugErr(err) {
+			break
+		}
+	}
 
 	if err != nil {
-		if errors.Is(err, store.ErrAlreadyExists) {
-			serverError.RespondError(w, http.StatusConflict, fmt.Errorf("organization slug already taken"))
+		if isDuplicateSlugErr(err) {
+			serverError.RespondErrorMsg(w, http.StatusConflict, "organization slug already taken", err)
 			return
 		}
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create organization"))
+		serverError.RespondErrorMsg(w, http.StatusInternalServerError, "failed to create organization", err)
 		return
 	}
 

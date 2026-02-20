@@ -5,9 +5,9 @@
 // - Short-lived SSH certificate issuance
 // - Certificate validation and metadata
 //
-// Certificates are designed to be ephemeral (1-10 minutes TTL) and are
-// used to provide secure, auditable access to sandbox VMs without requiring
-// any persistent credentials on the VM side.
+// Certificates are designed to be ephemeral (default 30min, max 60min TTL)
+// and are used to provide secure, auditable access to sandbox VMs without
+// requiring any persistent credentials on the VM side.
 package sshca
 
 import (
@@ -296,7 +296,10 @@ func (ca *CA) IssueCertificate(ctx context.Context, req *CertificateRequest) (*C
 	}
 
 	// Generate unique certificate ID
-	certID := ca.generateCertID()
+	certID, err := ca.generateCertID()
+	if err != nil {
+		return nil, err
+	}
 
 	// Build certificate identity
 	identity := fmt.Sprintf("user:%s-vm:%s-sbx:%s-cert:%s",
@@ -312,7 +315,7 @@ func (ca *CA) IssueCertificate(ctx context.Context, req *CertificateRequest) (*C
 	validBefore := now.Add(ttl)
 
 	// Format validity for ssh-keygen
-	validityStr := fmt.Sprintf("+%dm", int(ttl.Minutes()))
+	validityStr := fmt.Sprintf("+%ds", int(ttl.Seconds()))
 
 	// Create temporary directory for this certificate
 	tempDir, err := os.MkdirTemp(ca.cfg.WorkDir, "cert-")
@@ -557,13 +560,12 @@ func (ca *CA) validateRequest(req *CertificateRequest) error {
 }
 
 // generateCertID generates a unique certificate identifier.
-func (ca *CA) generateCertID() string {
+func (ca *CA) generateCertID() (string, error) {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		// Fallback to time-based ID if random fails (extremely unlikely)
-		return fmt.Sprintf("%x", time.Now().UnixNano())
+		return "", fmt.Errorf("generate cert ID: %w", err)
 	}
-	return fmt.Sprintf("%x", b[:8])
+	return fmt.Sprintf("%x", b[:]), nil
 }
 
 // CertInfo extracts information from a certificate for display/audit.
@@ -604,6 +606,6 @@ func (c *Certificate) SSHConnectCommand(privateKeyPath, certPath, vmIP string, p
 	if len(c.Principals) > 0 {
 		principal = c.Principals[0]
 	}
-	return fmt.Sprintf("ssh -i %s -o CertificateFile=%s -o StrictHostKeyChecking=no -p %d %s@%s",
+	return fmt.Sprintf("ssh -i %s -o CertificateFile=%s -o StrictHostKeyChecking=accept-new -p %d %s@%s",
 		privateKeyPath, certPath, port, principal, vmIP)
 }

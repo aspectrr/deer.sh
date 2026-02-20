@@ -412,7 +412,11 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		default:
 			existing.Status = store.SubStatusPastDue
 		}
-		_ = s.store.UpdateSubscription(r.Context(), existing)
+		if err := s.store.UpdateSubscription(r.Context(), existing); err != nil {
+			slog.Error("webhook: update subscription", "error", err)
+			serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to update subscription"))
+			return
+		}
 
 	case "customer.subscription.deleted":
 		var sub stripe.Subscription
@@ -432,7 +436,11 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			existing.Status = store.SubStatusCancelled
-			_ = s.store.UpdateSubscription(r.Context(), existing)
+			if err := s.store.UpdateSubscription(r.Context(), existing); err != nil {
+				slog.Error("webhook: cancel subscription", "error", err)
+				serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to cancel subscription"))
+				return
+			}
 		}
 	}
 

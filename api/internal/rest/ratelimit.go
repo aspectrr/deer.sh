@@ -71,6 +71,11 @@ func clientIP(r *http.Request, trustedProxies []*net.IPNet) string {
 // rateLimitByIP returns middleware that rate-limits requests per client IP.
 // Proxy headers are only trusted when the direct connection comes from a
 // trustedProxies CIDR.
+//
+// NOTE: Rate limit state is in-memory and per-process. In a multi-instance
+// deployment, each instance maintains its own counters, so effective limits
+// are multiplied by the number of instances. This is acceptable for
+// single-instance deployments. For multi-instance, consider a shared store.
 func rateLimitByIP(rps float64, burst int, trustedProxies []*net.IPNet) func(http.Handler) http.Handler {
 	var mu sync.Mutex
 	limiters := make(map[string]*ipLimiter)

@@ -173,7 +173,7 @@ func checkQEMUBinary(ctx context.Context, run hostexec.RunFunc) CheckResult {
 }
 
 func checkStorageDirs(ctx context.Context, run hostexec.RunFunc) CheckResult {
-	_, _, code, _ := run(ctx, "test -d /var/lib/fluid/images && test -d /var/lib/fluid/sandboxes")
+	_, _, code, _ := run(ctx, "test -d /var/lib/fluid-daemon/images && test -d /var/lib/fluid-daemon/overlays")
 	if code == 0 {
 		return CheckResult{
 			Name:     "storage-dirs",
@@ -186,8 +186,8 @@ func checkStorageDirs(ctx context.Context, run hostexec.RunFunc) CheckResult {
 		Name:     "storage-dirs",
 		Category: "storage",
 		Passed:   false,
-		Message:  "storage directories missing (/var/lib/fluid/{images,sandboxes})",
-		FixCmd:   "sudo mkdir -p /var/lib/fluid/images /var/lib/fluid/sandboxes",
+		Message:  "storage directories missing (/var/lib/fluid-daemon/{images,overlays})",
+		FixCmd:   "sudo mkdir -p /var/lib/fluid-daemon/images /var/lib/fluid-daemon/overlays",
 	}
 }
 

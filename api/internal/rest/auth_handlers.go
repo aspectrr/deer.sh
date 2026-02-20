@@ -262,6 +262,121 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// --- Onboarding ---
+
+type onboardingRequest struct {
+	OrgName        string   `json:"org_name"`
+	Role           string   `json:"role"`
+	UseCases       []string `json:"use_cases"`
+	ReferralSource string   `json:"referral_source"`
+}
+
+// handleOnboarding godoc
+// @Summary      Complete onboarding
+// @Description  Create the user's first organization during onboarding
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      onboardingRequest  true  "Onboarding details"
+// @Success      201      {object}  orgResponse
+// @Failure      400      {object}  swaggerError
+// @Failure      409      {object}  swaggerError
+// @Failure      500      {object}  swaggerError
+// @Security     CookieAuth
+// @Router       /auth/onboarding [post]
+func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		serverError.RespondError(w, http.StatusUnauthorized, fmt.Errorf("not authenticated"))
+		return
+	}
+
+	var req onboardingRequest
+	if err := serverJSON.DecodeJSON(r.Context(), r, &req); err != nil {
+		serverError.RespondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if req.OrgName == "" {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("org_name is required"))
+		return
+	}
+
+	slug := strings.ToLower(req.OrgName)
+	slug = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		if r == ' ' || r == '-' || r == '_' {
+			return '-'
+		}
+		return -1
+	}, slug)
+	for strings.Contains(slug, "--") {
+		slug = strings.ReplaceAll(slug, "--", "-")
+	}
+	slug = strings.Trim(slug, "-")
+	if !slugRegex.MatchString(slug) {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("org name must produce a valid slug (3-50 lowercase alphanumeric chars and hyphens)"))
+		return
+	}
+
+	org := &store.Organization{
+		ID:      id.Generate("ORG-"),
+		Name:    req.OrgName,
+		Slug:    slug,
+		OwnerID: user.ID,
+	}
+
+	baseSlug := slug
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			suffix := generateSlugSuffix()
+			maxBase := maxSlugLen - 1 - len(suffix)
+			b := baseSlug
+			if len(b) > maxBase {
+				b = strings.TrimRight(b[:maxBase], "-")
+			}
+			slug = b + "-" + suffix
+			org.Slug = slug
+		}
+
+		err = s.store.WithTx(r.Context(), func(tx store.DataStore) error {
+			if err := tx.CreateOrganization(r.Context(), org); err != nil {
+				return err
+			}
+			member := &store.OrgMember{
+				ID:     id.Generate("MBR-"),
+				OrgID:  org.ID,
+				UserID: user.ID,
+				Role:   store.OrgRoleOwner,
+			}
+			return tx.CreateOrgMember(r.Context(), member)
+		})
+		if err == nil {
+			break
+		}
+		if !isDuplicateSlugErr(err) {
+			break
+		}
+	}
+
+	if err != nil {
+		serverError.RespondErrorMsg(w, http.StatusInternalServerError, "failed to create organization", err)
+		return
+	}
+
+	s.telemetry.Track(user.ID, "user_onboarded", map[string]any{
+		"org_slug":        slug,
+		"role":            req.Role,
+		"use_cases":       req.UseCases,
+		"referral_source": req.ReferralSource,
+	})
+
+	_ = serverJSON.RespondJSON(w, http.StatusCreated, toOrgResponseForOwner(org))
+}
+
 // --- GitHub OAuth ---
 
 // handleGitHubLogin godoc

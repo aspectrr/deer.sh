@@ -5,6 +5,8 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,6 +24,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -48,6 +51,9 @@ type Client struct {
 
 	// sendMu serializes writes to the gRPC stream.
 	sendMu sync.Mutex
+
+	// handlerSem bounds the number of concurrent command handler goroutines.
+	handlerSem chan struct{}
 }
 
 // Config holds configuration for the gRPC agent client.
@@ -88,6 +94,7 @@ func NewClient(
 		localStore: localStore,
 		puller:     puller,
 		logger:     logger.With("component", "agent"),
+		handlerSem: make(chan struct{}, 64),
 	}
 }
 
@@ -110,6 +117,12 @@ func (c *Client) connectAndServe(ctx context.Context) error {
 	opts := []grpc.DialOption{}
 	if c.insec {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		tlsCreds, err := c.buildTLSCredentials()
+		if err != nil {
+			return fmt.Errorf("build TLS credentials: %w", err)
+		}
+		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
 	}
 
 	conn, err := grpc.NewClient(c.cpAddr, opts...)
@@ -272,7 +285,15 @@ func (c *Client) recvLoop(ctx context.Context, stream fluidv1.HostService_Connec
 			return fmt.Errorf("recv: %w", err)
 		}
 
-		go c.handleCommand(ctx, stream, msg)
+		select {
+		case c.handlerSem <- struct{}{}:
+			go func() {
+				defer func() { <-c.handlerSem }()
+				c.handleCommand(ctx, stream, msg)
+			}()
+		default:
+			c.logger.Warn("too many concurrent command handlers, dropping", "request_id", msg.GetRequestId())
+		}
 	}
 }
 
@@ -689,6 +710,36 @@ func (c *Client) handleDiscoverHosts(ctx context.Context, reqID string, cmd *flu
 			},
 		},
 	}
+}
+
+// buildTLSCredentials constructs gRPC transport credentials from the client's
+// TLS configuration. If cert/key are provided, loads a client certificate.
+// If a CA file is provided, uses it for server verification. Otherwise falls
+// back to the system certificate pool.
+func (c *Client) buildTLSCredentials() (credentials.TransportCredentials, error) {
+	tlsCfg := &tls.Config{}
+
+	if c.certFile != "" && c.keyFile != "" {
+		cert, err := tls.LoadX509KeyPair(c.certFile, c.keyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load client cert/key: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+
+	if c.caFile != "" {
+		caPEM, err := os.ReadFile(c.caFile)
+		if err != nil {
+			return nil, fmt.Errorf("read CA file: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		tlsCfg.RootCAs = pool
+	}
+
+	return credentials.NewTLS(tlsCfg), nil
 }
 
 // errorResponse builds an ErrorReport HostMessage.

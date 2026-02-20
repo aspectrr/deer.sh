@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -786,13 +786,8 @@ func (o *Orchestrator) DiscoverSourceHosts(ctx context.Context, orgID, sshConfig
 		return nil, fmt.Errorf("no connected daemon hosts available for discovery")
 	}
 
-	// Sort by HostID for deterministic host selection across calls.
-	sort.Slice(connected, func(i, j int) bool {
-		return connected[i].HostID < connected[j].HostID
-	})
-
-	// Pick the first connected host (by HostID sort order) to do the probing
-	host := connected[0]
+	// Pick a random connected host to distribute probing load.
+	host := connected[rand.IntN(len(connected))]
 
 	reqID := uuid.New().String()
 	cmd := &fluidv1.ControlMessage{

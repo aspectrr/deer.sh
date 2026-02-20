@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
@@ -64,7 +65,7 @@ func TestDetectOSNoFile(t *testing.T) {
 func TestAllStepsCount(t *testing.T) {
 	distro := DistroInfo{ID: "ubuntu", PkgManager: "apt"}
 	steps := AllSteps(distro)
-	assert.Len(t, steps, 6)
+	assert.Len(t, steps, 8)
 }
 
 func TestStepsIdempotent(t *testing.T) {
@@ -73,6 +74,10 @@ func TestStepsIdempotent(t *testing.T) {
 		// systemctl is-active needs to return "active" for the enable-and-start check
 		if command == "systemctl is-active fluid-daemon 2>/dev/null" {
 			return "active\n", "", 0, nil
+		}
+		// id -nG check for libvirt group membership
+		if strings.Contains(command, "id -nG fluid-daemon") {
+			return "fluid-daemon libvirt\n", "", 0, nil
 		}
 		return "", "", 0, nil // everything else passes
 	})
@@ -113,7 +118,7 @@ func TestStepExecuteSuccess(t *testing.T) {
 	distro := DistroInfo{ID: "ubuntu", PkgManager: "apt"}
 	steps := AllSteps(distro)
 
-	// Execute the first step (install prerequisites)
+	// Execute the first step (install dependencies)
 	err := steps[0].Execute(context.Background(), sudoRun)
 	assert.NoError(t, err)
 	assert.Greater(t, len(executedCmds), 0)

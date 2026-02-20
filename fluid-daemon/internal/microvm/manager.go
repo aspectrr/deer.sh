@@ -263,15 +263,17 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 		MemoryMB:   cfg.MemoryMB,
 	}
 
-	// Persist metadata for recovery
-	writeMetadata(m.workDir, cfg.SandboxID, sandboxMetadata{
+	// Persist metadata for recovery (log but don't fail - VM is already running)
+	if err := writeMetadata(m.workDir, cfg.SandboxID, sandboxMetadata{
 		Name:       cfg.Name,
 		TAPDevice:  cfg.TAPDevice,
 		MACAddress: cfg.MACAddress,
 		Bridge:     cfg.Bridge,
 		VCPUs:      cfg.VCPUs,
 		MemoryMB:   cfg.MemoryMB,
-	})
+	}); err != nil {
+		m.logger.Warn("failed to write metadata", "sandbox_id", cfg.SandboxID, "error", err)
+	}
 
 	m.vms[cfg.SandboxID] = info
 	success = true
@@ -357,7 +359,8 @@ func (m *Manager) Destroy(ctx context.Context, sandboxID string) error {
 	return nil
 }
 
-// Get returns info about a sandbox.
+// Get returns info about a sandbox. The returned SandboxInfo is a copy
+// and is safe to use without holding the manager lock.
 func (m *Manager) Get(sandboxID string) (*SandboxInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -371,23 +374,24 @@ func (m *Manager) Get(sandboxID string) (*SandboxInfo, error) {
 	proc, err := os.FindProcess(info.PID)
 	if err != nil {
 		info.State = StateError
-		return info, nil
-	}
-	if err := proc.Signal(syscall.Signal(0)); err != nil {
+	} else if err := proc.Signal(syscall.Signal(0)); err != nil {
 		info.State = StateStopped
 	}
 
-	return info, nil
+	cp := *info
+	return &cp, nil
 }
 
-// List returns all tracked sandboxes.
+// List returns all tracked sandboxes. Each returned SandboxInfo is a copy
+// and is safe to use without holding the manager lock.
 func (m *Manager) List() []*SandboxInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	result := make([]*SandboxInfo, 0, len(m.vms))
 	for _, info := range m.vms {
-		result = append(result, info)
+		cp := *info
+		result = append(result, &cp)
 	}
 	return result
 }
@@ -409,13 +413,16 @@ type sandboxMetadata struct {
 	MemoryMB   int    `json:"memory_mb"`
 }
 
-func writeMetadata(workDir, sandboxID string, meta sandboxMetadata) {
+func writeMetadata(workDir, sandboxID string, meta sandboxMetadata) error {
 	path := filepath.Join(workDir, sandboxID, "metadata.json")
 	data, err := json.Marshal(meta)
 	if err != nil {
-		return
+		return fmt.Errorf("marshal metadata: %w", err)
 	}
-	_ = os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write metadata: %w", err)
+	}
+	return nil
 }
 
 func readMetadata(workDir, sandboxID string) (sandboxMetadata, error) {

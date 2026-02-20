@@ -42,7 +42,9 @@ func TestWriteReadMetadata(t *testing.T) {
 		MemoryMB:   2048,
 	}
 
-	writeMetadata(workDir, sandboxID, want)
+	if err := writeMetadata(workDir, sandboxID, want); err != nil {
+		t.Fatalf("writeMetadata: %v", err)
+	}
 
 	got, err := readMetadata(workDir, sandboxID)
 	if err != nil {

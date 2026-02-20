@@ -64,11 +64,11 @@ Below are the tools that the agent can use when setting the agent in `READ-ONLY`
 
 ### Edit Mode
 
-![Edit-Mode](../../../../edit_mode.png)
+![Edit-Mode](/images/edit_mode.png)
 
 ### Read-Only Mode
 
-![Read-Only-Mode](../../../../read_only_mode.png)
+![Read-Only-Mode](/images/read_only_mode.png)
 
 ## Come Hang Out
 

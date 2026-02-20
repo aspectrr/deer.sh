@@ -1,19 +1,12 @@
-FROM oven/bun:latest
-
-# Set the working directory
+FROM oven/bun:latest AS build
 WORKDIR /app
-
-# Copy package files and lock file
 COPY package.json bun.lock ./
-
-# Install dependencies
-RUN bun install
-
-# Copy the rest of the application code
+RUN bun install --frozen-lockfile
 COPY . .
+RUN bun run build
 
-# Expose the port Vite uses (default 5173)
-EXPOSE 5173
-
-# Run the start command (adjust if you add a start script)
-CMD ["bun", "run", "start"]
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+ENV NGINX_ENVSUBST_FILTER=API_URL
+EXPOSE 80
