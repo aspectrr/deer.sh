@@ -15,12 +15,14 @@ type HostStream interface {
 
 // ConnectedHost represents a sandbox host that is actively connected via gRPC.
 type ConnectedHost struct {
-	HostID        string
-	OrgID         string
-	Hostname      string
-	Stream        HostStream
-	LastHeartbeat time.Time
-	Registration  *fluidv1.HostRegistration
+	HostID          string
+	OrgID           string
+	Hostname        string
+	Stream          HostStream
+	LastHeartbeat   time.Time
+	Registration    *fluidv1.HostRegistration
+	ActiveSandboxes int32
+	SourceVMCount   int32
 }
 
 // Registry tracks all currently connected sandbox hosts in memory.
@@ -133,4 +135,29 @@ func (r *Registry) UpdateResources(hostID string, cpus int32, memMB int64) {
 		h.Registration.AvailableCpus = cpus
 		h.Registration.AvailableMemoryMb = memMB
 	}
+}
+
+// UpdateHeartbeatCounts updates the per-host sandbox and source VM counts from a heartbeat.
+func (r *Registry) UpdateHeartbeatCounts(hostID string, activeSandboxes, sourceVMCount int32) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if h, ok := r.hosts[hostID]; ok {
+		h.LastHeartbeat = time.Now()
+		h.ActiveSandboxes = activeSandboxes
+		h.SourceVMCount = sourceVMCount
+	}
+}
+
+// OrgResourceCounts returns aggregated resource counts for an org across all connected hosts.
+func (r *Registry) OrgResourceCounts(orgID string) (sandboxes, sourceVMs, daemons int) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, h := range r.hosts {
+		if h.OrgID == orgID {
+			sandboxes += int(h.ActiveSandboxes)
+			sourceVMs += int(h.SourceVMCount)
+			daemons++
+		}
+	}
+	return
 }

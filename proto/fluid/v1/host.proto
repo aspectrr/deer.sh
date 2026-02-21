@@ -66,6 +66,7 @@ message Heartbeat {
   int32 available_cpus = 2;
   int64 available_memory_mb = 3;
   int64 available_disk_mb = 4;
+  int32 source_vm_count = 5;
 }
 
 // ResourceReport is a full resource snapshot sent on reconnection or on demand.

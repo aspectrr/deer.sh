@@ -257,6 +257,10 @@ func (c *Client) heartbeatLoop(ctx context.Context, stream fluidv1.HostService_C
 					hb.AvailableCpus = int32(caps.AvailableCPUs)
 				}
 				hb.ActiveSandboxes = int32(c.prov.ActiveSandboxCount())
+				vms, err := c.prov.ListSourceVMs(ctx)
+				if err == nil {
+					hb.SourceVmCount = int32(len(vms))
+				}
 			}
 
 			msg := &fluidv1.HostMessage{

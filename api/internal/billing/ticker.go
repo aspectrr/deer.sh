@@ -13,6 +13,8 @@ import (
 )
 
 // ResourceTicker periodically reports non-token resource usage to Stripe meters.
+// It uses store.DataStore (not store.Store) because it only needs data access
+// methods, not lifecycle methods like Ping/Close/WithTx.
 type ResourceTicker struct {
 	store    store.DataStore
 	meter    *MeterManager
@@ -87,29 +89,8 @@ func (rt *ResourceTicker) reportForOrg(ctx context.Context, orgID string) {
 
 	now := time.Now().UTC()
 
-	// Count running sandboxes
-	sandboxes, err := rt.store.ListSandboxesByOrg(ctx, orgID)
-	if err != nil {
-		rt.logger.Warn("failed to list sandboxes for billing, skipping tick", "error", err, "org_id", orgID)
-		return
-	}
-	var runningSandboxes int
-	for _, sb := range sandboxes {
-		if sb.State == store.SandboxStateRunning {
-			runningSandboxes++
-		}
-	}
-
-	// Count source hosts
-	sourceHosts, err := rt.store.ListSourceHostsByOrg(ctx, orgID)
-	if err != nil {
-		rt.logger.Warn("failed to list source hosts for billing, skipping tick", "error", err, "org_id", orgID)
-		return
-	}
-	sourceVMCount := len(sourceHosts)
-
-	// Count actually connected daemons via registry
-	daemonCount := len(rt.registry.ListConnectedByOrg(orgID))
+	// Get counts from registry (daemon-reported data via heartbeats)
+	runningSandboxes, sourceVMCount, daemonCount := rt.registry.OrgResourceCounts(orgID)
 
 	// Subtract free tier
 	billableSandboxes := int64(runningSandboxes - rt.freeTier.MaxConcurrentSandboxes)
@@ -132,11 +113,11 @@ func (rt *ResourceTicker) reportForOrg(ctx context.Context, orgID string) {
 		if err := rt.store.CreateUsageRecord(ctx, &store.UsageRecord{
 			ID:           uuid.New().String(),
 			OrgID:        orgID,
-			ResourceType: "sandbox_hour",
+			ResourceType: "max_concurrent_sandboxes",
 			Quantity:     float64(runningSandboxes),
 			RecordedAt:   now,
 		}); err != nil {
-			rt.logger.Warn("failed to create usage record", "type", "sandbox_hour", "org_id", orgID, "error", err)
+			rt.logger.Warn("failed to create usage record", "type", "max_concurrent_sandboxes", "org_id", orgID, "error", err)
 		}
 	}
 	if sourceVMCount > 0 {

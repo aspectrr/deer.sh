@@ -131,10 +131,13 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 		return fmt.Errorf("register host: %w", err)
 	}
 	h.registry.SetRegistration(hostID, reg)
+	h.registry.UpdateHeartbeatCounts(hostID, 0, int32(len(reg.GetSourceVms())))
 
 	// Persist or update host in the database using a background context
 	// so the write completes even if the stream context is cancelled.
-	h.persistHostRegistration(context.Background(), hostID, orgID, reg)
+	regCtx, regCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer regCancel()
+	h.persistHostRegistration(regCtx, hostID, orgID, reg)
 
 	logger.Info("host registered",
 		"total_cpus", reg.GetTotalCpus(),
@@ -186,6 +189,7 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 	case *fluidv1.HostMessage_Heartbeat:
 		hb := msg.GetHeartbeat()
 		h.registry.UpdateHeartbeat(hostID)
+		h.registry.UpdateHeartbeatCounts(hostID, hb.GetActiveSandboxes(), hb.GetSourceVmCount())
 		if err := h.store.UpdateHostHeartbeat(
 			ctx,
 			hostID,

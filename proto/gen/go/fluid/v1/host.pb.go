@@ -356,6 +356,7 @@ type Heartbeat struct {
 	AvailableCpus     int32                  `protobuf:"varint,2,opt,name=available_cpus,json=availableCpus,proto3" json:"available_cpus,omitempty"`
 	AvailableMemoryMb int64                  `protobuf:"varint,3,opt,name=available_memory_mb,json=availableMemoryMb,proto3" json:"available_memory_mb,omitempty"`
 	AvailableDiskMb   int64                  `protobuf:"varint,4,opt,name=available_disk_mb,json=availableDiskMb,proto3" json:"available_disk_mb,omitempty"`
+	SourceVmCount     int32                  `protobuf:"varint,5,opt,name=source_vm_count,json=sourceVmCount,proto3" json:"source_vm_count,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -414,6 +415,13 @@ func (x *Heartbeat) GetAvailableMemoryMb() int64 {
 func (x *Heartbeat) GetAvailableDiskMb() int64 {
 	if x != nil {
 		return x.AvailableDiskMb
+	}
+	return 0
+}
+
+func (x *Heartbeat) GetSourceVmCount() int32 {
+	if x != nil {
+		return x.SourceVmCount
 	}
 	return 0
 }
@@ -701,12 +709,13 @@ const file_fluid_v1_host_proto_rawDesc = "" +
 	"\x0fRegistrationAck\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12(\n" +
-	"\x10assigned_host_id\x18\x03 \x01(\tR\x0eassignedHostId\"\xb9\x01\n" +
+	"\x10assigned_host_id\x18\x03 \x01(\tR\x0eassignedHostId\"\xe1\x01\n" +
 	"\tHeartbeat\x12)\n" +
 	"\x10active_sandboxes\x18\x01 \x01(\x05R\x0factiveSandboxes\x12%\n" +
 	"\x0eavailable_cpus\x18\x02 \x01(\x05R\ravailableCpus\x12.\n" +
 	"\x13available_memory_mb\x18\x03 \x01(\x03R\x11availableMemoryMb\x12*\n" +
-	"\x11available_disk_mb\x18\x04 \x01(\x03R\x0favailableDiskMb\"\xca\x03\n" +
+	"\x11available_disk_mb\x18\x04 \x01(\x03R\x0favailableDiskMb\x12&\n" +
+	"\x0fsource_vm_count\x18\x05 \x01(\x05R\rsourceVmCount\"\xca\x03\n" +
 	"\x0eResourceReport\x12\x1d\n" +
 	"\n" +
 	"total_cpus\x18\x01 \x01(\x05R\ttotalCpus\x12&\n" +
