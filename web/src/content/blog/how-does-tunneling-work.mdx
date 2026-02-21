@@ -1,0 +1,232 @@
+---
+title: 'How does Network Tunneling Work?'
+pubDate: 2026-02-19
+description: "If I use a VPN, it's still private right?"
+author: 'Collin @ Fluid.sh'
+authorImage: '/images/skeleton_smoking_cigarette.jpg'
+authorEmail: 'cpfeifer@madcactus.org'
+authorPhone: '+3179955114'
+authorDiscord: 'https://discordapp.com/users/301068417685913600'
+---
+
+import { PacketEncapsulation } from '~/components/blog/tunneling/PacketEncapsulation'
+import { PacketJourney } from '~/components/blog/tunneling/PacketJourney'
+
+## The Packet Journey
+
+Back in high-school, my school system blocked all traffic going to popular social media apps like Snapchat, Youtube, and Instagram. The way that we all got around it was with using a free VPN to mask our traffic.
+
+At the time, it felt like magic. You flip the VPN on, and suddenly YouTube loads. Flip it off, blocked again. But what actually happens when you hit "Connect"? Where does the traffic go, and why can't the school's firewall tell that you're watching videos instead of doing homework?
+
+Turns out, it's not magic. It's tunneling. And once you understand how packets work, the whole thing clicks.
+
+## What Packets Are
+
+Every time you load a webpage, send a message, or stream a video, your device is sending and receiving **packets** - small chunks of data with addressing information attached.
+
+Think of a packet like a letter in the mail:
+
+- **IP header** - the envelope. It has a source address (your laptop) and a destination address (youtube.com). Routers read this to figure out where to send the packet.
+- **TCP/UDP header** - the apartment number. It specifies which port (application) should handle the data. Port 443 means HTTPS, port 53 means DNS, etc.
+- **Payload** - the actual letter inside. This is your HTTP request, your video stream bytes, whatever you're actually sending.
+
+The school firewall works by reading the envelope. It sees the destination IP, checks it against a blocklist, and drops the packet if it matches. Simple pattern matching on the outer headers.
+
+## Tunneling: A Packet Inside a Packet
+
+Here's the core idea behind tunneling: **take your entire original packet and stuff it inside a new one**.
+
+Your original packet says "send this to youtube.com." The firewall would block that. But if you wrap that packet inside a new packet that says "send this to 198.51.100.1" (your VPN server's IP), the firewall has no idea what's inside. It sees an allowed destination, and forwards it along.
+
+The VPN server receives the outer packet, unwraps it, finds the original packet inside, and forwards it to YouTube on your behalf. YouTube's response takes the reverse path: VPN server wraps it, sends it back to you, your VPN client unwraps it, and your browser gets the response.
+
+The firewall never sees youtube.com. It only sees traffic going to and from some random IP address.
+
+## Encapsulation: Layer by Layer
+
+The wrapping process is called **encapsulation**. Each layer adds its own header. Step through the visualization below to see exactly how your packet gets wrapped and unwrapped:
+
+<PacketEncapsulation />
+
+The key insight is step 5: the outer IP header is the only thing visible to the firewall. Everything inside it - your real destination, your HTTP request, the actual data - is encrypted and opaque.
+
+## The Full Journey
+
+Now let's watch the full path a packet takes from your laptop to YouTube through a VPN tunnel:
+
+<PacketJourney />
+
+Notice how the dot changes from blue (encrypted) to green (plain HTTPS) after the VPN server decapsulates. From the VPN server to YouTube, it's a normal HTTPS connection - no tunnel needed. The tunnel only exists between your device and the VPN server.
+
+## What the Firewall Actually Sees
+
+This is the part that makes tunneling work. The firewall can only read the outermost layer of the packet. Here's a side-by-side comparison:
+
+<div class="tunnel-comparison">
+  <div class="tunnel-comparison-header">Tunnel Inspection</div>
+  <div class="tunnel-comparison-content">
+    <div class="tunnel-side">
+      <div class="tunnel-side-title">WHAT THE FIREWALL SEES</div>
+      <div class="tunnel-packet">
+        <div class="tunnel-field">
+          <span class="tunnel-key">src:</span>
+          <span class="tunnel-val">10.0.0.42 (your laptop)</span>
+        </div>
+        <div class="tunnel-field">
+          <span class="tunnel-key">dst:</span>
+          <span class="tunnel-val">198.51.100.1 (vpn server)</span>
+        </div>
+        <div class="tunnel-field">
+          <span class="tunnel-key">proto:</span>
+          <span class="tunnel-val">UDP :51820</span>
+        </div>
+        <div class="tunnel-field">
+          <span class="tunnel-key">payload:</span>
+          <span class="tunnel-val tunnel-encrypted">0x7f3a...encrypted...9b2e</span>
+        </div>
+      </div>
+      <div class="tunnel-verdict tunnel-verdict-pass">VERDICT: ALLOW</div>
+    </div>
+    <div class="tunnel-side">
+      <div class="tunnel-side-title tunnel-side-title-blue">WHAT'S ACTUALLY INSIDE</div>
+      <div class="tunnel-packet">
+        <div class="tunnel-field">
+          <span class="tunnel-key">src:</span>
+          <span class="tunnel-val">10.0.0.42 (your laptop)</span>
+        </div>
+        <div class="tunnel-field">
+          <span class="tunnel-key">dst:</span>
+          <span class="tunnel-val tunnel-highlight">142.250.80.46 (youtube.com)</span>
+        </div>
+        <div class="tunnel-field">
+          <span class="tunnel-key">proto:</span>
+          <span class="tunnel-val">TCP :443 (HTTPS)</span>
+        </div>
+        <div class="tunnel-field">
+          <span class="tunnel-key">payload:</span>
+          <span class="tunnel-val">GET /watch?v=dQw4w9WgXcQ</span>
+        </div>
+      </div>
+      <div class="tunnel-verdict tunnel-verdict-block">WOULD BE: BLOCKED</div>
+    </div>
+  </div>
+</div>
+
+<style>{`
+.tunnel-comparison {
+  background: linear-gradient(135deg, #0a0a0a 0%, #0c1929 100%);
+  border: 1px solid #1e3a5f;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  box-shadow: 0 0 30px rgba(96, 165, 250, 0.1);
+}
+.tunnel-comparison-header {
+  text-align: center;
+  color: #60a5fa;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #1e3a5f;
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+}
+.tunnel-comparison-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+@media (max-width: 640px) {
+  .tunnel-comparison-content {
+    grid-template-columns: 1fr;
+  }
+}
+.tunnel-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.tunnel-side-title {
+  color: #a3a3a3;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed #374151;
+}
+.tunnel-side-title-blue {
+  color: #60a5fa;
+}
+.tunnel-packet {
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.tunnel-field {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  align-items: baseline;
+}
+.tunnel-key {
+  color: #60a5fa;
+  min-width: 55px;
+}
+.tunnel-val {
+  color: #a3a3a3;
+}
+.tunnel-encrypted {
+  color: #f87171;
+  font-style: italic;
+}
+.tunnel-highlight {
+  color: #4ade80;
+  font-weight: 600;
+}
+.tunnel-verdict {
+  font-size: 0.7rem;
+  text-align: center;
+  padding: 0.375rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.tunnel-verdict-pass {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.tunnel-verdict-block {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+`}</style>
+
+The firewall sees a perfectly normal-looking UDP packet going to an IP that isn't on its blocklist. It has no way to inspect the encrypted payload without the VPN's encryption keys. So it lets it through.
+
+## Tunnel Protocols
+
+Not all tunnels work the same way. Here are the most common ones:
+
+**WireGuard** - the modern choice. Uses UDP, minimal codebase (~4,000 lines of kernel code), extremely fast. Encryption is Curve25519 + ChaCha20-Poly1305. This is what most modern VPN providers use under the hood. The protocol is stateless on the wire, which makes it harder to fingerprint and block.
+
+**OpenVPN** - the battle-tested workhorse. Can run over TCP or UDP, highly configurable, supports certificate-based auth. More overhead than WireGuard, but its TCP mode can masquerade as regular HTTPS traffic on port 443, making it harder to block in restrictive networks.
+
+**IPsec/IKEv2** - the enterprise standard. Built into most operating systems natively (no app needed on iOS/macOS). Uses IKE for key exchange and ESP for the actual encryption. Fast reconnection when switching between WiFi and cellular, which is why your phone's VPN doesn't drop when you walk out of a building.
+
+Each protocol makes different tradeoffs between speed, compatibility, and stealth. WireGuard is fastest but easiest to fingerprint. OpenVPN is slowest but hardest to block. IPsec is the most widely supported but the most complex to configure.
+
+## How fluid.sh Uses Tunnels
+
+At fluid.sh, we use a similar concept to give AI agents secure access to sandbox VMs. When a daemon connects to the control plane, it establishes an encrypted gRPC stream - effectively a tunnel that lets the control plane send commands to sandboxes behind NATs and firewalls without exposing any ports to the public internet.
+
+The sandbox never needs a public IP. The daemon maintains an outbound connection to the control plane, and all traffic flows through that encrypted channel. Same principle as a VPN tunnel: wrap internal traffic in an encrypted outer layer, punch through the network boundary, unwrap on the other side.
+
+If you want to see how sandboxes themselves work under the hood, check out [How Fluid.sh Sandboxes Work](/blog/how-sandboxes-work).

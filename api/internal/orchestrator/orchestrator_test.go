@@ -57,14 +57,16 @@ type mockStore struct {
 	UpdateHostFn          func(ctx context.Context, host *store.Host) error
 	UpdateHostHeartbeatFn func(ctx context.Context, hostID string, availCPUs int32, availMemMB int64, availDiskMB int64) error
 
-	CreateSandboxFn        func(ctx context.Context, sandbox *store.Sandbox) error
-	GetSandboxFn           func(ctx context.Context, sandboxID string) (*store.Sandbox, error)
-	ListSandboxesFn        func(ctx context.Context) ([]store.Sandbox, error)
-	ListSandboxesByOrgFn   func(ctx context.Context, orgID string) ([]store.Sandbox, error)
-	UpdateSandboxFn        func(ctx context.Context, sandbox *store.Sandbox) error
-	DeleteSandboxFn        func(ctx context.Context, sandboxID string) error
-	GetSandboxesByHostIDFn func(ctx context.Context, hostID string) ([]store.Sandbox, error)
-	ListExpiredSandboxesFn func(ctx context.Context, defaultTTL time.Duration) ([]store.Sandbox, error)
+	CreateSandboxFn           func(ctx context.Context, sandbox *store.Sandbox) error
+	GetSandboxFn              func(ctx context.Context, sandboxID string) (*store.Sandbox, error)
+	GetSandboxByOrgFn         func(ctx context.Context, orgID, sandboxID string) (*store.Sandbox, error)
+	ListSandboxesFn           func(ctx context.Context) ([]store.Sandbox, error)
+	ListSandboxesByOrgFn      func(ctx context.Context, orgID string) ([]store.Sandbox, error)
+	UpdateSandboxFn           func(ctx context.Context, sandbox *store.Sandbox) error
+	DeleteSandboxFn           func(ctx context.Context, sandboxID string) error
+	GetSandboxesByHostIDFn    func(ctx context.Context, hostID string) ([]store.Sandbox, error)
+	CountSandboxesByHostIDsFn func(ctx context.Context, hostIDs []string) (map[string]int, error)
+	ListExpiredSandboxesFn    func(ctx context.Context, defaultTTL time.Duration) ([]store.Sandbox, error)
 
 	CreateCommandFn       func(ctx context.Context, cmd *store.Command) error
 	ListSandboxCommandsFn func(ctx context.Context, sandboxID string) ([]store.Command, error)
@@ -352,6 +354,10 @@ func (m *mockStore) GetSandbox(ctx context.Context, sandboxID string) (*store.Sa
 	return nil, nil
 }
 func (m *mockStore) GetSandboxByOrg(ctx context.Context, orgID, sandboxID string) (*store.Sandbox, error) {
+	if m.GetSandboxByOrgFn != nil {
+		return m.GetSandboxByOrgFn(ctx, orgID, sandboxID)
+	}
+	// Fall back to GetSandboxFn for backward compat in tests.
 	if m.GetSandboxFn != nil {
 		return m.GetSandboxFn(ctx, sandboxID)
 	}
@@ -392,6 +398,12 @@ func (m *mockStore) GetSandboxesByHostID(ctx context.Context, hostID string) ([]
 	}
 	m.p("GetSandboxesByHostID")
 	return nil, nil
+}
+func (m *mockStore) CountSandboxesByHostIDs(ctx context.Context, hostIDs []string) (map[string]int, error) {
+	if m.CountSandboxesByHostIDsFn != nil {
+		return m.CountSandboxesByHostIDsFn(ctx, hostIDs)
+	}
+	return map[string]int{}, nil
 }
 func (m *mockStore) ListExpiredSandboxes(ctx context.Context, defaultTTL time.Duration) ([]store.Sandbox, error) {
 	if m.ListExpiredSandboxesFn != nil {
@@ -658,6 +670,9 @@ func TestGetSandbox_NotFound(t *testing.T) {
 
 func TestListCommands_Success(t *testing.T) {
 	ms := &mockStore{
+		GetSandboxFn: func(_ context.Context, id string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: id, OrgID: "org-1"}, nil
+		},
 		ListSandboxCommandsFn: func(_ context.Context, sandboxID string) ([]store.Command, error) {
 			if sandboxID != "sbx-1" {
 				t.Errorf("sandboxID = %q, want %q", sandboxID, "sbx-1")
@@ -670,7 +685,7 @@ func TestListCommands_Success(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, &mockSender{})
-	result, err := orch.ListCommands(context.Background(), "sbx-1")
+	result, err := orch.ListCommands(context.Background(), "org-1", "sbx-1")
 	if err != nil {
 		t.Fatalf("ListCommands: unexpected error: %v", err)
 	}
@@ -684,13 +699,16 @@ func TestListCommands_Success(t *testing.T) {
 
 func TestListCommands_StoreError(t *testing.T) {
 	ms := &mockStore{
+		GetSandboxFn: func(_ context.Context, id string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: id, OrgID: "org-1"}, nil
+		},
 		ListSandboxCommandsFn: func(_ context.Context, _ string) ([]store.Command, error) {
 			return nil, fmt.Errorf("db error")
 		},
 	}
 
 	orch := newTestOrchestrator(ms, &mockSender{})
-	_, err := orch.ListCommands(context.Background(), "sbx-1")
+	_, err := orch.ListCommands(context.Background(), "org-1", "sbx-1")
 	if err == nil {
 		t.Fatal("ListCommands: expected error from store")
 	}
@@ -707,14 +725,14 @@ func TestListHosts_Success(t *testing.T) {
 	})
 
 	ms := &mockStore{
-		GetSandboxesByHostIDFn: func(_ context.Context, hostID string) ([]store.Sandbox, error) {
-			if hostID == "host-1" {
-				return []store.Sandbox{
-					{ID: "sbx-1"},
-					{ID: "sbx-2"},
-				}, nil
+		CountSandboxesByHostIDsFn: func(_ context.Context, hostIDs []string) (map[string]int, error) {
+			counts := map[string]int{}
+			for _, id := range hostIDs {
+				if id == "host-1" {
+					counts[id] = 2
+				}
 			}
-			return nil, nil
+			return counts, nil
 		},
 	}
 
@@ -775,11 +793,7 @@ func TestListHosts_FiltersByOrg(t *testing.T) {
 	_ = reg.Register("host-2", "org-2", "h2", &mockStream{})
 	reg.SetRegistration("host-2", &fluidv1.HostRegistration{})
 
-	ms := &mockStore{
-		GetSandboxesByHostIDFn: func(_ context.Context, _ string) ([]store.Sandbox, error) {
-			return nil, nil
-		},
-	}
+	ms := &mockStore{}
 
 	sender := &mockSender{}
 	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
@@ -1046,7 +1060,7 @@ func TestDestroySandbox_Success(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	err := orch.DestroySandbox(context.Background(), "sbx-1")
+	err := orch.DestroySandbox(context.Background(), "org-1", "sbx-1")
 	if err != nil {
 		t.Fatalf("DestroySandbox: unexpected error: %v", err)
 	}
@@ -1063,7 +1077,7 @@ func TestDestroySandbox_NotFound(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, &mockSender{})
-	err := orch.DestroySandbox(context.Background(), "nonexistent")
+	err := orch.DestroySandbox(context.Background(), "org-1", "nonexistent")
 	if err == nil {
 		t.Fatal("DestroySandbox: expected error for nonexistent sandbox")
 	}
@@ -1083,7 +1097,7 @@ func TestDestroySandbox_SenderError(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	err := orch.DestroySandbox(context.Background(), "sbx-1")
+	err := orch.DestroySandbox(context.Background(), "org-1", "sbx-1")
 	if err == nil {
 		t.Fatal("DestroySandbox: expected error from sender")
 	}
@@ -1124,7 +1138,7 @@ func TestRunCommand_Success(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	result, err := orch.RunCommand(context.Background(), "sbx-1", "echo hello world", 30)
+	result, err := orch.RunCommand(context.Background(), "org-1", "sbx-1", "echo hello world", 30)
 	if err != nil {
 		t.Fatalf("RunCommand: unexpected error: %v", err)
 	}
@@ -1165,7 +1179,7 @@ func TestRunCommand_SenderError(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	_, err := orch.RunCommand(context.Background(), "sbx-1", "ls", 30)
+	_, err := orch.RunCommand(context.Background(), "org-1", "sbx-1", "ls", 30)
 	if err == nil {
 		t.Fatal("RunCommand: expected error from sender")
 	}
@@ -1205,7 +1219,7 @@ func TestStartSandbox_Success(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	err := orch.StartSandbox(context.Background(), "sbx-1")
+	err := orch.StartSandbox(context.Background(), "org-1", "sbx-1")
 	if err != nil {
 		t.Fatalf("StartSandbox: unexpected error: %v", err)
 	}
@@ -1228,7 +1242,7 @@ func TestStartSandbox_NotFound(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, &mockSender{})
-	err := orch.StartSandbox(context.Background(), "nonexistent")
+	err := orch.StartSandbox(context.Background(), "org-1", "nonexistent")
 	if err == nil {
 		t.Fatal("StartSandbox: expected error for nonexistent sandbox")
 	}
@@ -1264,7 +1278,7 @@ func TestStopSandbox_Success(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	err := orch.StopSandbox(context.Background(), "sbx-1")
+	err := orch.StopSandbox(context.Background(), "org-1", "sbx-1")
 	if err != nil {
 		t.Fatalf("StopSandbox: unexpected error: %v", err)
 	}
@@ -1290,7 +1304,7 @@ func TestStopSandbox_SenderError(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	err := orch.StopSandbox(context.Background(), "sbx-1")
+	err := orch.StopSandbox(context.Background(), "org-1", "sbx-1")
 	if err == nil {
 		t.Fatal("StopSandbox: expected error from sender")
 	}
@@ -1324,7 +1338,7 @@ func TestCreateSnapshot_Success(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	result, err := orch.CreateSnapshot(context.Background(), "sbx-1", "before-deploy")
+	result, err := orch.CreateSnapshot(context.Background(), "org-1", "sbx-1", "before-deploy")
 	if err != nil {
 		t.Fatalf("CreateSnapshot: unexpected error: %v", err)
 	}
@@ -1356,7 +1370,7 @@ func TestCreateSnapshot_SenderError(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, sender)
-	_, err := orch.CreateSnapshot(context.Background(), "sbx-1", "my-snap")
+	_, err := orch.CreateSnapshot(context.Background(), "org-1", "sbx-1", "my-snap")
 	if err == nil {
 		t.Fatal("CreateSnapshot: expected error from sender")
 	}

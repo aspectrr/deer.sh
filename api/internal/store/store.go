@@ -503,6 +503,7 @@ type DataStore interface {
 	UpdateSandbox(ctx context.Context, sandbox *Sandbox) error
 	DeleteSandbox(ctx context.Context, sandboxID string) error
 	GetSandboxesByHostID(ctx context.Context, hostID string) ([]Sandbox, error)
+	CountSandboxesByHostIDs(ctx context.Context, hostIDs []string) (map[string]int, error)
 	ListExpiredSandboxes(ctx context.Context, defaultTTL time.Duration) ([]Sandbox, error)
 
 	// Command

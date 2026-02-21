@@ -15,10 +15,9 @@ interface FreeTier {
 }
 
 interface UsageSummary {
-  sandbox_hours: number
+  max_concurrent_sandboxes: number
   source_vms: number
   agent_hosts: number
-  tokens_used: number
 }
 
 interface BillingData {
@@ -142,7 +141,7 @@ function BillingPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <UsageMeter
           label="Max Concurrent Sandboxes"
-          current={usage?.sandbox_hours ?? 0}
+          current={usage?.max_concurrent_sandboxes ?? 0}
           limit={freeTier?.max_concurrent_sandboxes}
           color="blue"
         />
@@ -157,12 +156,6 @@ function BillingPage() {
           current={usage?.agent_hosts ?? 0}
           limit={freeTier?.max_agent_hosts}
           color="amber"
-        />
-        <UsageMeter
-          label="Tokens"
-          current={usage?.tokens_used ?? 0}
-          limit={100000}
-          color="purple"
         />
       </div>
 

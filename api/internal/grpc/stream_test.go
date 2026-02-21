@@ -109,6 +109,9 @@ func (m *mockStore) DeleteSandbox(context.Context, string) error         { retur
 func (m *mockStore) GetSandboxesByHostID(context.Context, string) ([]store.Sandbox, error) {
 	return nil, nil
 }
+func (m *mockStore) CountSandboxesByHostIDs(context.Context, []string) (map[string]int, error) {
+	return map[string]int{}, nil
+}
 func (m *mockStore) ListExpiredSandboxes(context.Context, time.Duration) ([]store.Sandbox, error) {
 	return nil, nil
 }

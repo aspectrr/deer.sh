@@ -1264,6 +1264,31 @@ func (s *postgresStore) GetSandboxesByHostID(ctx context.Context, hostID string)
 	return out, nil
 }
 
+func (s *postgresStore) CountSandboxesByHostIDs(ctx context.Context, hostIDs []string) (map[string]int, error) {
+	if len(hostIDs) == 0 {
+		return map[string]int{}, nil
+	}
+	type row struct {
+		HostID string
+		Count  int
+	}
+	var rows []row
+	err := s.db.WithContext(ctx).
+		Model(&SandboxModel{}).
+		Select("host_id, COUNT(*) as count").
+		Where("host_id IN ? AND deleted_at IS NULL", hostIDs).
+		Group("host_id").
+		Find(&rows).Error
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	result := make(map[string]int, len(rows))
+	for _, r := range rows {
+		result[r.HostID] = r.Count
+	}
+	return result, nil
+}
+
 func (s *postgresStore) ListExpiredSandboxes(ctx context.Context, defaultTTL time.Duration) ([]store.Sandbox, error) {
 	now := time.Now().UTC()
 	query := s.db.WithContext(ctx).

@@ -68,7 +68,7 @@ func TestHandleGetBillingWithUsage(t *testing.T) {
 	}
 	ms.ListUsageRecordsFn = func(_ context.Context, orgID string, from, to time.Time) ([]*store.UsageRecord, error) {
 		return []*store.UsageRecord{
-			{ID: "u1", OrgID: orgID, ResourceType: "sandbox_hour", Quantity: 10.5},
+			{ID: "u1", OrgID: orgID, ResourceType: "max_concurrent_sandboxes", Quantity: 10.5},
 			{ID: "u2", OrgID: orgID, ResourceType: "source_vm", Quantity: 2},
 			{ID: "u3", OrgID: orgID, ResourceType: "agent_host", Quantity: 1},
 			{ID: "u4", OrgID: orgID, ResourceType: "llm_token", Quantity: 5000},
@@ -91,8 +91,8 @@ func TestHandleGetBillingWithUsage(t *testing.T) {
 	if resp.Usage == nil {
 		t.Fatal("expected usage to be present")
 	}
-	if resp.Usage.SandboxHours != 10.5 {
-		t.Fatalf("expected sandbox_hours=10.5, got %v", resp.Usage.SandboxHours)
+	if resp.Usage.MaxConcurrentSandboxes != 10.5 {
+		t.Fatalf("expected max_concurrent_sandboxes=10.5, got %v", resp.Usage.MaxConcurrentSandboxes)
 	}
 	if resp.Usage.SourceVMs != 2 {
 		t.Fatalf("expected source_vms=2, got %v", resp.Usage.SourceVMs)

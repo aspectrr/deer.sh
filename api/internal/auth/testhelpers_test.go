@@ -181,6 +181,9 @@ func (m *mockStore) DeleteSandbox(context.Context, string) error {
 func (m *mockStore) GetSandboxesByHostID(context.Context, string) ([]store.Sandbox, error) {
 	panic("mockStore: GetSandboxesByHostID not implemented")
 }
+func (m *mockStore) CountSandboxesByHostIDs(context.Context, []string) (map[string]int, error) {
+	panic("mockStore: CountSandboxesByHostIDs not implemented")
+}
 func (m *mockStore) ListExpiredSandboxes(context.Context, time.Duration) ([]store.Sandbox, error) {
 	panic("mockStore: ListExpiredSandboxes not implemented")
 }

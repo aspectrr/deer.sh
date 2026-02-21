@@ -141,13 +141,11 @@ func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	// Verify sandbox belongs to org.
-	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-
-	if err := s.orchestrator.DestroySandbox(r.Context(), sandboxID); err != nil {
+	if err := s.orchestrator.DestroySandbox(r.Context(), org.ID, sandboxID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
+			return
+		}
 		s.logger.Error("failed to destroy sandbox", "sandbox_id", sandboxID, "error", err)
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to destroy sandbox"))
 		return
@@ -187,11 +185,6 @@ func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-
 	var req orchestrator.RunCommandRequest
 	if err := serverJSON.DecodeJSON(r.Context(), r, &req); err != nil {
 		serverError.RespondError(w, http.StatusBadRequest, err)
@@ -216,8 +209,12 @@ func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.orchestrator.RunCommand(r.Context(), sandboxID, req.Command, req.TimeoutSec)
+	result, err := s.orchestrator.RunCommand(r.Context(), org.ID, sandboxID, req.Command, req.TimeoutSec)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
+			return
+		}
 		s.logger.Error("failed to run command", "sandbox_id", sandboxID, "error", err)
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to run command"))
 		return
@@ -247,12 +244,11 @@ func (s *Server) handleStartSandbox(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-
-	if err := s.orchestrator.StartSandbox(r.Context(), sandboxID); err != nil {
+	if err := s.orchestrator.StartSandbox(r.Context(), org.ID, sandboxID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
+			return
+		}
 		s.logger.Error("failed to start sandbox", "sandbox_id", sandboxID, "error", err)
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to start sandbox"))
 		return
@@ -285,12 +281,11 @@ func (s *Server) handleStopSandbox(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-
-	if err := s.orchestrator.StopSandbox(r.Context(), sandboxID); err != nil {
+	if err := s.orchestrator.StopSandbox(r.Context(), org.ID, sandboxID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
+			return
+		}
 		s.logger.Error("failed to stop sandbox", "sandbox_id", sandboxID, "error", err)
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to stop sandbox"))
 		return
@@ -358,19 +353,18 @@ func (s *Server) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-
 	var req orchestrator.SnapshotRequest
 	if err := serverJSON.DecodeJSON(r.Context(), r, &req); err != nil {
 		serverError.RespondError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	result, err := s.orchestrator.CreateSnapshot(r.Context(), sandboxID, req.Name)
+	result, err := s.orchestrator.CreateSnapshot(r.Context(), org.ID, sandboxID, req.Name)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
+			return
+		}
 		s.logger.Error("failed to create snapshot", "sandbox_id", sandboxID, "error", err)
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to create snapshot"))
 		return
@@ -400,13 +394,12 @@ func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
-		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-
-	commands, err := s.orchestrator.ListCommands(r.Context(), sandboxID)
+	commands, err := s.orchestrator.ListCommands(r.Context(), org.ID, sandboxID)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
+			return
+		}
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to list commands"))
 		return
 	}
@@ -459,11 +452,12 @@ func (s *Server) resolveOrgRole(w http.ResponseWriter, r *http.Request, minRole 
 	return org, member, true
 }
 
+var roleRanks = map[store.OrgRole]int{
+	store.OrgRoleOwner:  3,
+	store.OrgRoleAdmin:  2,
+	store.OrgRoleMember: 1,
+}
+
 func hasMinRole(role, minRole store.OrgRole) bool {
-	ranks := map[store.OrgRole]int{
-		store.OrgRoleOwner:  3,
-		store.OrgRoleAdmin:  2,
-		store.OrgRoleMember: 1,
-	}
-	return ranks[role] >= ranks[minRole]
+	return roleRanks[role] >= roleRanks[minRole]
 }

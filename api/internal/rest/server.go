@@ -23,10 +23,10 @@ type Server struct {
 	orchestrator *orchestrator.Orchestrator
 	telemetry    telemetry.Service
 	logger       *slog.Logger
-	swaggerJSON  []byte
+	openapiYAML  []byte
 }
 
-func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrator, tel telemetry.Service, swaggerJSON []byte) *Server {
+func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrator, tel telemetry.Service, openapiYAML []byte) *Server {
 	if tel == nil {
 		tel = &telemetry.NoopService{}
 	}
@@ -36,7 +36,7 @@ func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrat
 		orchestrator: orch,
 		telemetry:    tel,
 		logger:       slog.Default().With("component", "rest"),
-		swaggerJSON:  swaggerJSON,
+		openapiYAML:  openapiYAML,
 	}
 	// stripe.Key is set once in billing.NewMeterManager to avoid race conditions.
 
@@ -58,10 +58,15 @@ func (s *Server) routes() *chi.Mux {
 	// Public routes
 	r.Get("/v1/health", s.handleHealth)
 
+	r.Get("/v1/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-yaml")
+		_, _ = w.Write(s.openapiYAML)
+	})
+
 	if s.cfg.API.EnableDocs {
 		r.Get("/v1/docs", func(w http.ResponseWriter, r *http.Request) {
 			html, err := scalar.ApiReferenceHTML(&scalar.Options{
-				SpecURL: "/v1/docs/openapi.json",
+				SpecURL: "/v1/docs/openapi.yaml",
 				CustomOptions: scalar.CustomOptions{
 					PageTitle: "Fluid API Reference",
 				},
@@ -73,10 +78,6 @@ func (s *Server) routes() *chi.Mux {
 			}
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = fmt.Fprintln(w, html)
-		})
-		r.Get("/v1/docs/openapi.json", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write(s.swaggerJSON)
 		})
 	}
 

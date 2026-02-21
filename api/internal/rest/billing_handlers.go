@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v82"
 	billingportal "github.com/stripe/stripe-go/v82/billingportal/session"
@@ -40,29 +39,15 @@ type freeTierInfo struct {
 }
 
 type usageSummary struct {
-	SandboxHours float64 `json:"sandbox_hours"`
-	SourceVMs    float64 `json:"source_vms"`
-	AgentHosts   float64 `json:"agent_hosts"`
-	TokensUsed   float64 `json:"tokens_used"`
+	MaxConcurrentSandboxes float64 `json:"max_concurrent_sandboxes"`
+	SourceVMs              float64 `json:"source_vms"`
+	AgentHosts             float64 `json:"agent_hosts"`
+	TokensUsed             float64 `json:"tokens_used"`
 }
 
 func (s *Server) handleGetBilling(w http.ResponseWriter, r *http.Request) {
-	slug := chi.URLParam(r, "slug")
-	user := auth.UserFromContext(r.Context())
-
-	org, err := s.store.GetOrganizationBySlug(r.Context(), slug)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("organization not found"))
-			return
-		}
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to get organization"))
-		return
-	}
-
-	_, err = s.store.GetOrgMember(r.Context(), org.ID, user.ID)
-	if err != nil {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("not a member of this organization"))
+	org, _, ok := s.resolveOrgMembership(w, r)
+	if !ok {
 		return
 	}
 
@@ -98,8 +83,8 @@ func (s *Server) handleGetBilling(w http.ResponseWriter, r *http.Request) {
 		summary := &usageSummary{}
 		for _, rec := range records {
 			switch rec.ResourceType {
-			case "sandbox_hour":
-				summary.SandboxHours += rec.Quantity
+			case "max_concurrent_sandboxes":
+				summary.MaxConcurrentSandboxes += rec.Quantity
 			case "source_vm":
 				summary.SourceVMs += rec.Quantity
 			case "agent_host":
@@ -117,23 +102,12 @@ func (s *Server) handleGetBilling(w http.ResponseWriter, r *http.Request) {
 // --- Subscribe ---
 
 func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
-	slug := chi.URLParam(r, "slug")
+	org, _, ok := s.resolveOrgRole(w, r, store.OrgRoleOwner)
+	if !ok {
+		return
+	}
+
 	user := auth.UserFromContext(r.Context())
-
-	org, err := s.store.GetOrganizationBySlug(r.Context(), slug)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("organization not found"))
-			return
-		}
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to get organization"))
-		return
-	}
-
-	if org.OwnerID != user.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("only the owner can manage billing"))
-		return
-	}
 
 	if s.cfg.Billing.StripeSecretKey == "" || s.cfg.Billing.StripePriceID == "" {
 		_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{
@@ -161,7 +135,10 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		}
 		customerID = cust.ID
 		org.StripeCustomerID = customerID
-		_ = s.store.UpdateOrganization(r.Context(), org)
+		if err := s.store.UpdateOrganization(r.Context(), org); err != nil {
+			serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to save stripe customer"))
+			return
+		}
 	}
 
 	// Create checkout session
@@ -194,21 +171,8 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 // --- Billing Portal ---
 
 func (s *Server) handleBillingPortal(w http.ResponseWriter, r *http.Request) {
-	slug := chi.URLParam(r, "slug")
-	user := auth.UserFromContext(r.Context())
-
-	org, err := s.store.GetOrganizationBySlug(r.Context(), slug)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("organization not found"))
-			return
-		}
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to get organization"))
-		return
-	}
-
-	if org.OwnerID != user.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("only the owner can manage billing"))
+	org, _, ok := s.resolveOrgRole(w, r, store.OrgRoleOwner)
+	if !ok {
 		return
 	}
 
@@ -239,22 +203,8 @@ func (s *Server) handleBillingPortal(w http.ResponseWriter, r *http.Request) {
 // --- Usage ---
 
 func (s *Server) handleGetUsage(w http.ResponseWriter, r *http.Request) {
-	slug := chi.URLParam(r, "slug")
-	user := auth.UserFromContext(r.Context())
-
-	org, err := s.store.GetOrganizationBySlug(r.Context(), slug)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("organization not found"))
-			return
-		}
-		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to get organization"))
-		return
-	}
-
-	_, err = s.store.GetOrgMember(r.Context(), org.ID, user.ID)
-	if err != nil {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("not a member of this organization"))
+	org, _, ok := s.resolveOrgMembership(w, r)
+	if !ok {
 		return
 	}
 
@@ -333,6 +283,11 @@ func (s *Server) handleCalculator(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Billing.StripeSecretKey == "" {
 		_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{"status": "not_configured"})
+		return
+	}
+
+	if s.cfg.Billing.StripeWebhookSecret == "" {
+		_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{"status": "webhook_not_configured"})
 		return
 	}
 

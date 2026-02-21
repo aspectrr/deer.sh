@@ -30,7 +30,7 @@ import (
 // @title          Fluid API
 // @version        1.0
 // @description    API for managing sandboxes, organizations, billing, and hosts
-// @host           localhost:8080
+// @host           api.fluid.sh
 // @BasePath       /v1
 // @securityDefinitions.apikey CookieAuth
 // @in             cookie
@@ -138,7 +138,7 @@ func main() {
 	defer tel.Close()
 
 	// 7. Initialize REST server.
-	srv := rest.NewServer(st, cfg, orch, tel, docs.SwaggerJSON)
+	srv := rest.NewServer(st, cfg, orch, tel, docs.OpenAPIYAML)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.API.Addr,

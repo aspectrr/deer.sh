@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v82"
 	stripeMeterEvent "github.com/stripe/stripe-go/v82/billing/meterevent"
 
@@ -71,7 +71,7 @@ func (mm *MeterManager) ReportResourceUsage(ctx context.Context, stripeCustomerI
 			"stripe_customer_id": stripeCustomerID,
 			"value":              fmt.Sprintf("%d", value),
 		},
-		Identifier: stripe.String(uuid.New().String()),
+		Identifier: stripe.String(fmt.Sprintf("%s_%s_%d", stripeCustomerID, eventName, time.Now().UTC().Truncate(time.Hour).Unix())),
 	})
 	if err != nil {
 		mm.logger.Warn("failed to report resource meter event",

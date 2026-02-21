@@ -3,15 +3,16 @@ version: 2
 project_name: fluid
 before:
   hooks:
-    - sh -c "cd fluid-remote && go mod tidy"
+    - sh -c "cd api && go mod tidy"
+    - sh -c "cd fluid-daemon && go mod tidy"
     - sh -c "cd fluid-cli && go mod tidy"
 builds:
-  - id: fluid-remote
-    dir: fluid-remote
-    main: ./cmd/api/main.go
-    binary: fluid-remote
+  - id: api
+    dir: api
+    main: ./cmd/server
+    binary: api
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     goos:
       - linux
     goarch:
@@ -19,34 +20,35 @@ builds:
       - arm64
     flags:
       - -trimpath
-    tags:
-      - libvirt
     ldflags:
       - -s -w
       - -X main.version={{ .Version }}
       - -X main.commit={{ .Commit }}
       - -X main.date={{ .Date }}
-    overrides:
-      - goos: linux
-        goarch: arm64
-        env:
-          - CC=aarch64-linux-gnu-gcc
-          - CXX=aarch64-linux-gnu-g++
-          - CGO_ENABLED=1
-          - CGO_LDFLAGS=-L/usr/lib/aarch64-linux-gnu
-          - PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-      - goos: linux
-        goarch: amd64
-        env:
-          - CC=gcc
-          - CXX=g++
-          - CGO_ENABLED=1
+  - id: fluid-daemon
+    dir: fluid-daemon
+    main: ./cmd/fluid-daemon
+    binary: fluid-daemon
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .Date }}
   - id: fluid
     dir: fluid-cli
     main: ./cmd/fluid-cli
     binary: fluid
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     goos:
       - linux
     goarch:
@@ -54,34 +56,25 @@ builds:
       - arm64
     flags:
       - -trimpath
-    tags:
-      - libvirt
     ldflags:
       - -s -w
       - -X main.version={{ .Version }}
       - -X main.commit={{ .Commit }}
       - -X main.date={{ .Date }}
-    overrides:
-      - goos: linux
-        goarch: arm64
-        env:
-          - CC=aarch64-linux-gnu-gcc
-          - CXX=aarch64-linux-gnu-g++
-          - CGO_ENABLED=1
-          - CGO_LDFLAGS=-L/usr/lib/aarch64-linux-gnu
-          - PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-      - goos: linux
-        goarch: amd64
-        env:
-          - CC=gcc
-          - CXX=g++
-          - CGO_ENABLED=1
 archives:
-  - id: fluid-remote
+  - id: api
     builds:
-      - fluid-remote
+      - api
     name_template: >-
-      fluid-remote_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      api_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+  - id: fluid-daemon
+    builds:
+      - fluid-daemon
+    name_template: >-
+      fluid-daemon_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
       - README.md
       - LICENSE
@@ -134,15 +127,15 @@ changelog:
       - "^docs:"
       - "^test:"
 nfpms:
-  - id: fluid-remote
-    package_name: fluid-remote
+  - id: api
+    package_name: api
     builds:
-      - fluid-remote
+      - api
     bindir: /usr/local/bin
     vendor: "Fluid.sh"
     homepage: "https://github.com/aspectrr/fluid.sh"
     maintainer: "Collin Pfeifer <cpfeifer@madcactus.org>"
-    description: "Control-plane API for managing libvirt-based VM sandboxes"
+    description: "Control-plane API for fluid.sh sandbox management"
     license: "MIT"
     formats:
       - deb
@@ -150,6 +143,21 @@ nfpms:
     dependencies:
       - openssh-client
       - postgresql-client
+  - id: fluid-daemon
+    package_name: fluid-daemon
+    builds:
+      - fluid-daemon
+    bindir: /usr/local/bin
+    vendor: "Fluid.sh"
+    homepage: "https://github.com/aspectrr/fluid.sh"
+    maintainer: "Collin Pfeifer <cpfeifer@madcactus.org>"
+    description: "Background daemon for managing VM sandboxes on a host"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+    dependencies:
+      - openssh-client
   - id: fluid
     package_name: fluid
     builds:

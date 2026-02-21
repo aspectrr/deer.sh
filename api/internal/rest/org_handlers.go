@@ -478,6 +478,10 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("cannot add another owner"))
 		return
 	}
+	if role != store.OrgRoleMember && role != store.OrgRoleAdmin {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid role: must be member or admin"))
+		return
+	}
 
 	targetUser, err := s.store.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {

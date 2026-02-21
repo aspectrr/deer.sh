@@ -249,9 +249,10 @@ func (o *Orchestrator) ListSandboxesByOrg(ctx context.Context, orgID string) ([]
 }
 
 // DestroySandbox sends a destroy command to the host and marks the sandbox
-// as destroyed in the store.
-func (o *Orchestrator) DestroySandbox(ctx context.Context, sandboxID string) error {
-	sandbox, err := o.store.GetSandbox(ctx, sandboxID)
+// as destroyed in the store. The sandbox is looked up scoped to orgID for
+// defense-in-depth authorization.
+func (o *Orchestrator) DestroySandbox(ctx context.Context, orgID, sandboxID string) error {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
 	if err != nil {
 		return fmt.Errorf("get sandbox: %w", err)
 	}
@@ -287,8 +288,8 @@ func (o *Orchestrator) DestroySandbox(ctx context.Context, sandboxID string) err
 }
 
 // RunCommand sends a command to execute in a sandbox and persists the result.
-func (o *Orchestrator) RunCommand(ctx context.Context, sandboxID, command string, timeoutSec int) (*store.Command, error) {
-	sandbox, err := o.store.GetSandbox(ctx, sandboxID)
+func (o *Orchestrator) RunCommand(ctx context.Context, orgID, sandboxID, command string, timeoutSec int) (*store.Command, error) {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
 	if err != nil {
 		return nil, fmt.Errorf("get sandbox: %w", err)
 	}
@@ -344,8 +345,8 @@ func (o *Orchestrator) RunCommand(ctx context.Context, sandboxID, command string
 }
 
 // StartSandbox sends a start command to the host.
-func (o *Orchestrator) StartSandbox(ctx context.Context, sandboxID string) error {
-	sandbox, err := o.store.GetSandbox(ctx, sandboxID)
+func (o *Orchestrator) StartSandbox(ctx context.Context, orgID, sandboxID string) error {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
 	if err != nil {
 		return fmt.Errorf("get sandbox: %w", err)
 	}
@@ -383,15 +384,15 @@ func (o *Orchestrator) StartSandbox(ctx context.Context, sandboxID string) error
 	sandbox.State = store.SandboxState(started.GetState())
 	sandbox.IPAddress = started.GetIpAddress()
 	if err := o.store.UpdateSandbox(ctx, sandbox); err != nil {
-		o.logger.Error("failed to update sandbox after start", "sandbox_id", sandboxID, "error", err)
+		return fmt.Errorf("host operation succeeded but failed to persist state: %w", err)
 	}
 
 	return nil
 }
 
 // StopSandbox sends a stop command to the host.
-func (o *Orchestrator) StopSandbox(ctx context.Context, sandboxID string) error {
-	sandbox, err := o.store.GetSandbox(ctx, sandboxID)
+func (o *Orchestrator) StopSandbox(ctx context.Context, orgID, sandboxID string) error {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
 	if err != nil {
 		return fmt.Errorf("get sandbox: %w", err)
 	}
@@ -428,15 +429,15 @@ func (o *Orchestrator) StopSandbox(ctx context.Context, sandboxID string) error 
 
 	sandbox.State = store.SandboxState(stopped.GetState())
 	if err := o.store.UpdateSandbox(ctx, sandbox); err != nil {
-		o.logger.Error("failed to update sandbox after stop", "sandbox_id", sandboxID, "error", err)
+		return fmt.Errorf("host operation succeeded but failed to persist state: %w", err)
 	}
 
 	return nil
 }
 
 // CreateSnapshot sends a snapshot command to the host.
-func (o *Orchestrator) CreateSnapshot(ctx context.Context, sandboxID, name string) (*SnapshotResponse, error) {
-	sandbox, err := o.store.GetSandbox(ctx, sandboxID)
+func (o *Orchestrator) CreateSnapshot(ctx context.Context, orgID, sandboxID, name string) (*SnapshotResponse, error) {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
 	if err != nil {
 		return nil, fmt.Errorf("get sandbox: %w", err)
 	}
@@ -474,7 +475,12 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, sandboxID, name strin
 }
 
 // ListCommands returns all commands for a given sandbox.
-func (o *Orchestrator) ListCommands(ctx context.Context, sandboxID string) ([]*store.Command, error) {
+func (o *Orchestrator) ListCommands(ctx context.Context, orgID, sandboxID string) ([]*store.Command, error) {
+	// Verify sandbox belongs to org.
+	if _, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID); err != nil {
+		return nil, fmt.Errorf("get sandbox: %w", err)
+	}
+
 	commands, err := o.store.ListSandboxCommands(ctx, sandboxID)
 	if err != nil {
 		return nil, err
@@ -495,25 +501,30 @@ func (o *Orchestrator) ListHosts(ctx context.Context, orgID string) ([]*HostInfo
 	connected := o.registry.ListConnectedByOrg(orgID)
 	result := make([]*HostInfo, 0, len(connected))
 
+	// Batch-fetch sandbox counts to avoid N+1 queries.
+	hostIDs := make([]string, len(connected))
+	for i, h := range connected {
+		hostIDs[i] = h.HostID
+	}
+	counts, err := o.store.CountSandboxesByHostIDs(ctx, hostIDs)
+	if err != nil {
+		o.logger.Warn("failed to batch-count sandboxes by host", "error", err)
+		counts = map[string]int{}
+	}
+
 	for _, h := range connected {
 		info := &HostInfo{
-			HostID:        h.HostID,
-			Hostname:      h.Hostname,
-			Status:        "ONLINE",
-			LastHeartbeat: h.LastHeartbeat.Format(time.RFC3339),
+			HostID:          h.HostID,
+			Hostname:        h.Hostname,
+			Status:          "ONLINE",
+			LastHeartbeat:   h.LastHeartbeat.Format(time.RFC3339),
+			ActiveSandboxes: counts[h.HostID],
 		}
 		if h.Registration != nil {
 			info.AvailableCPUs = h.Registration.GetAvailableCpus()
 			info.AvailableMemMB = h.Registration.GetAvailableMemoryMb()
 			info.AvailableDiskMB = h.Registration.GetAvailableDiskMb()
 			info.BaseImages = h.Registration.GetBaseImages()
-		}
-
-		sandboxes, err := o.store.GetSandboxesByHostID(ctx, h.HostID)
-		if err != nil {
-			o.logger.Warn("failed to get sandboxes for host", "host_id", h.HostID, "error", err)
-		} else {
-			info.ActiveSandboxes = len(sandboxes)
 		}
 
 		result = append(result, info)
@@ -545,11 +556,11 @@ func (o *Orchestrator) GetHost(ctx context.Context, id, orgID string) (*HostInfo
 		info.BaseImages = h.Registration.GetBaseImages()
 	}
 
-	sandboxes, err := o.store.GetSandboxesByHostID(ctx, h.HostID)
+	counts, err := o.store.CountSandboxesByHostIDs(ctx, []string{h.HostID})
 	if err != nil {
-		o.logger.Warn("failed to get sandboxes for host", "host_id", h.HostID, "error", err)
+		o.logger.Warn("failed to count sandboxes for host", "host_id", h.HostID, "error", err)
 	} else {
-		info.ActiveSandboxes = len(sandboxes)
+		info.ActiveSandboxes = counts[h.HostID]
 	}
 
 	return info, nil

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import YAML from 'yaml'
 import { ApiEndpointCard } from '~/components/docs/api-endpoint-card'
 import { H2 } from '~/components/docs/heading-anchor'
 import type { OpenAPIEndpoint, OpenAPIParam } from '~/lib/openapi'
@@ -41,13 +42,14 @@ export function ApiTester() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/v1/swagger/doc.json')
+    fetch('/v1/docs/openapi.yaml')
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to fetch spec: ${res.status}`)
-        return res.json()
+        return res.text()
       })
-      .then((json) => {
-        setSpec(parseSwaggerSpec(json as Record<string, unknown>))
+      .then((text) => {
+        const parsed = YAML.parse(text) as Record<string, unknown>
+        setSpec(parseSwaggerSpec(parsed))
         setLoading(false)
       })
       .catch((err) => {

@@ -15,4 +15,4 @@ docker run --rm \
   -o /workspace/docs
 
 mv docs/openapi/openapi.yaml docs/
-# rm -rf docs/swagger.json docs/swagger.yaml docs/README.md docs/.openapi-generator-ignore docs/.openapi-generator/ docs/openapi/
+rm -rf docs/docs.go docs/swagger.json docs/swagger.yaml docs/README.md docs/.openapi-generator-ignore docs/.openapi-generator/ docs/openapi/

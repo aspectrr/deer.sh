@@ -433,6 +433,9 @@ func (m *mockStore) GetSandboxesByHostID(ctx context.Context, hostID string) ([]
 	m.call("GetSandboxesByHostID")
 	return nil, nil
 }
+func (m *mockStore) CountSandboxesByHostIDs(_ context.Context, _ []string) (map[string]int, error) {
+	return map[string]int{}, nil
+}
 func (m *mockStore) ListExpiredSandboxes(ctx context.Context, defaultTTL time.Duration) ([]store.Sandbox, error) {
 	if m.ListExpiredSandboxesFn != nil {
 		return m.ListExpiredSandboxesFn(ctx, defaultTTL)
