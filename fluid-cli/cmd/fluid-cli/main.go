@@ -278,6 +278,7 @@ func initServicesForMCPTUI(loadedCfg *config.Config, logger *slog.Logger) (sandb
 	svc, err := sandbox.NewRemoteService(daemonAddr, loadedCfg.ControlPlane)
 	if err != nil {
 		_ = st.Close()
+		tele.Close()
 		return nil, nil, nil, fmt.Errorf("connect to daemon at %s: %w", daemonAddr, err)
 	}
 

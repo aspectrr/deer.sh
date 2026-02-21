@@ -142,11 +142,18 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 
 	// Cleanup on disconnect.
 	defer func() {
-		h.cancelFns.Delete(hostID)
-		h.registry.Unregister(hostID)
-		h.streams.Delete(hostID)
-		h.streamMu.Delete(hostID)
-		logger.Info("host disconnected")
+		// Only clean up if we still own the stream. A reconnecting host
+		// stores its new stream before re-registering, so if CompareAndDelete
+		// fails our state has already been replaced and cleanup would clobber
+		// the new connection.
+		if h.streams.CompareAndDelete(hostID, stream) {
+			h.cancelFns.Delete(hostID)
+			h.registry.Unregister(hostID)
+			h.streamMu.Delete(hostID)
+			logger.Info("host disconnected")
+		} else {
+			logger.Info("connection replaced, skipping stale cleanup")
+		}
 	}()
 
 	// Main recv loop.

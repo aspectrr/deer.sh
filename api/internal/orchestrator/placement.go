@@ -61,8 +61,10 @@ func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbe
 	}
 
 	now := time.Now()
+	var best *registry.ConnectedHost
 
-	for _, h := range hosts {
+	for i := range hosts {
+		h := &hosts[i]
 		if h.Registration == nil {
 			continue
 		}
@@ -78,14 +80,26 @@ func SelectHostForSourceVM(reg *registry.Registry, vmName, orgID string, heartbe
 			continue
 		}
 
+		hasVM := false
 		for _, vm := range h.Registration.GetSourceVms() {
 			if vm.GetName() == vmName {
-				return h, nil
+				hasVM = true
+				break
 			}
+		}
+		if !hasVM {
+			continue
+		}
+
+		if best == nil || hostScore(*h) > hostScore(*best) {
+			best = h
 		}
 	}
 
-	return registry.ConnectedHost{}, fmt.Errorf("no connected host has source VM %q", vmName)
+	if best == nil {
+		return registry.ConnectedHost{}, fmt.Errorf("no connected host has source VM %q", vmName)
+	}
+	return *best, nil
 }
 
 // hostScore computes a placement score considering both memory and CPU.

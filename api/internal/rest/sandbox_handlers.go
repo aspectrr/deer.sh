@@ -218,6 +218,13 @@ func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	const maxCommandLen = 65536 // 64 KiB
+	if len(req.Command) > maxCommandLen {
+		serverError.RespondError(w, http.StatusBadRequest,
+			fmt.Errorf("command exceeds maximum length of %d bytes", maxCommandLen))
+		return
+	}
+
 	const maxTimeoutSec = 3600
 	if req.TimeoutSec > maxTimeoutSec {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("timeout_seconds must be <= %d", maxTimeoutSec))

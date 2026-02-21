@@ -284,6 +284,38 @@ func TestSelectHost_FallbackToSourceVM(t *testing.T) {
 	}
 }
 
+func TestSelectHostForSourceVM_PicksBestScore(t *testing.T) {
+	r := registry.New()
+	// Host 1: lower resources
+	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
+	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+		SourceVms: []*fluidv1.SourceVMInfo{
+			{Name: "web-server", State: "running"},
+		},
+		AvailableCpus:     2,
+		AvailableMemoryMb: 4096,
+	})
+	// Host 2: higher resources, same source VM
+	_ = r.Register("host-2", "org-1", "h2", &mockStream{})
+	r.SetRegistration("host-2", &fluidv1.HostRegistration{
+		SourceVms: []*fluidv1.SourceVMInfo{
+			{Name: "web-server", State: "running"},
+		},
+		AvailableCpus:     8,
+		AvailableMemoryMb: 16384,
+	})
+
+	h, err := SelectHostForSourceVM(r, "web-server", "org-1", 90*time.Second, 0, 0)
+	if err != nil {
+		t.Fatalf("SelectHostForSourceVM: unexpected error: %v", err)
+	}
+	// host-1 score: 4096 + 2*1024 = 6144
+	// host-2 score: 16384 + 8*1024 = 24576
+	if h.HostID != "host-2" {
+		t.Errorf("HostID = %q, want %q (host with higher score)", h.HostID, "host-2")
+	}
+}
+
 func TestSelectHost_ScorePrefersCPUAndMemory(t *testing.T) {
 	r := registry.New()
 	// Host 1: more memory but fewer CPUs

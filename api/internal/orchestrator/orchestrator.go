@@ -92,12 +92,10 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 
 	host, err := SelectHost(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
 	if err != nil {
-		if req.SourceVM != "" {
-			host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
-			if err != nil {
-				return nil, fmt.Errorf("select host: %w", err)
-			}
-		} else {
+		// SourceVM is always set (validated in handler). Fall back to
+		// source-VM-aware placement when base image matching fails.
+		host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
+		if err != nil {
 			return nil, fmt.Errorf("select host: %w", err)
 		}
 	}
