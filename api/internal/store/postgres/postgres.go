@@ -1181,6 +1181,14 @@ func (s *postgresStore) GetSandbox(ctx context.Context, sandboxID string) (*stor
 	return sandboxFromModel(&model), nil
 }
 
+func (s *postgresStore) GetSandboxByOrg(ctx context.Context, orgID, sandboxID string) (*store.Sandbox, error) {
+	var model SandboxModel
+	if err := s.db.WithContext(ctx).Where("id = ? AND org_id = ? AND deleted_at IS NULL", sandboxID, orgID).First(&model).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	return sandboxFromModel(&model), nil
+}
+
 func (s *postgresStore) ListSandboxes(ctx context.Context) ([]store.Sandbox, error) {
 	var models []SandboxModel
 	if err := s.db.WithContext(ctx).Where("deleted_at IS NULL").Find(&models).Error; err != nil {

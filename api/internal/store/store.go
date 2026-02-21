@@ -497,6 +497,7 @@ type DataStore interface {
 	// Sandbox
 	CreateSandbox(ctx context.Context, sandbox *Sandbox) error
 	GetSandbox(ctx context.Context, sandboxID string) (*Sandbox, error)
+	GetSandboxByOrg(ctx context.Context, orgID, sandboxID string) (*Sandbox, error)
 	ListSandboxes(ctx context.Context) ([]Sandbox, error)
 	ListSandboxesByOrg(ctx context.Context, orgID string) ([]Sandbox, error)
 	UpdateSandbox(ctx context.Context, sandbox *Sandbox) error

@@ -111,14 +111,9 @@ func (s *Server) handleGetSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sandboxID := chi.URLParam(r, "sandboxID")
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
+	sandbox, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID)
 	if err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 
@@ -147,13 +142,8 @@ func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
 	sandboxID := chi.URLParam(r, "sandboxID")
 
 	// Verify sandbox belongs to org.
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
-	if err != nil {
+	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 
@@ -197,13 +187,8 @@ func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
-	if err != nil {
+	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 
@@ -262,13 +247,8 @@ func (s *Server) handleStartSandbox(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
-	if err != nil {
+	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 
@@ -305,13 +285,8 @@ func (s *Server) handleStopSandbox(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
-	if err != nil {
+	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 
@@ -347,13 +322,9 @@ func (s *Server) handleGetSandboxIP(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
+	sandbox, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID)
 	if err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 
@@ -387,13 +358,8 @@ func (s *Server) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
-	if err != nil {
+	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 
@@ -434,13 +400,8 @@ func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 
 	sandboxID := chi.URLParam(r, "sandboxID")
 
-	sandbox, err := s.orchestrator.GetSandbox(r.Context(), sandboxID)
-	if err != nil {
+	if _, err := s.orchestrator.GetSandbox(r.Context(), org.ID, sandboxID); err != nil {
 		serverError.RespondError(w, http.StatusNotFound, fmt.Errorf("sandbox not found"))
-		return
-	}
-	if sandbox.OrgID != org.ID {
-		serverError.RespondError(w, http.StatusForbidden, fmt.Errorf("sandbox does not belong to this organization"))
 		return
 	}
 

@@ -384,6 +384,20 @@ func (m *mockStore) GetSandbox(ctx context.Context, sandboxID string) (*store.Sa
 	m.call("GetSandbox")
 	return nil, nil
 }
+func (m *mockStore) GetSandboxByOrg(ctx context.Context, orgID, sandboxID string) (*store.Sandbox, error) {
+	if m.GetSandboxFn != nil {
+		sb, err := m.GetSandboxFn(ctx, sandboxID)
+		if err != nil {
+			return nil, err
+		}
+		if sb.OrgID != orgID {
+			return nil, store.ErrNotFound
+		}
+		return sb, nil
+	}
+	m.call("GetSandboxByOrg")
+	return nil, nil
+}
 func (m *mockStore) ListSandboxes(ctx context.Context) ([]store.Sandbox, error) {
 	if m.ListSandboxesFn != nil {
 		return m.ListSandboxesFn(ctx)

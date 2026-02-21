@@ -119,8 +119,8 @@ func TestHandleGetSandbox(t *testing.T) {
 		req := authenticatedRequest(ms, "GET", "/v1/orgs/test-org/sandboxes/"+wrongOrgSandbox.ID, nil)
 		s.Router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 }
@@ -219,8 +219,8 @@ func TestHandleDestroySandbox(t *testing.T) {
 		req := authenticatedRequest(ms, "DELETE", "/v1/orgs/test-org/sandboxes/"+wrongOrgSandbox.ID, nil)
 		s.Router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 
@@ -319,8 +319,8 @@ func TestHandleRunCommand(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		s.Router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 
@@ -445,8 +445,8 @@ func TestHandleStartSandbox(t *testing.T) {
 		req := authenticatedRequest(ms, "POST", "/v1/orgs/test-org/sandboxes/"+wrongOrgSandbox.ID+"/start", nil)
 		s.Router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 
@@ -541,8 +541,8 @@ func TestHandleStopSandbox(t *testing.T) {
 		req := authenticatedRequest(ms, "POST", "/v1/orgs/test-org/sandboxes/"+wrongOrgSandbox.ID+"/stop", nil)
 		s.Router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 
@@ -638,8 +638,8 @@ func TestHandleGetSandboxIP(t *testing.T) {
 		req := authenticatedRequest(ms, "GET", "/v1/orgs/test-org/sandboxes/"+wrongOrgSandbox.ID+"/ip", nil)
 		s.Router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 
@@ -728,8 +728,8 @@ func TestHandleCreateSnapshot(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		s.Router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusForbidden {
-			t.Fatalf("expected 403, got %d: %s", rr.Code, rr.Body.String())
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
 		}
 	})
 

@@ -351,6 +351,13 @@ func (m *mockStore) GetSandbox(ctx context.Context, sandboxID string) (*store.Sa
 	m.p("GetSandbox")
 	return nil, nil
 }
+func (m *mockStore) GetSandboxByOrg(ctx context.Context, orgID, sandboxID string) (*store.Sandbox, error) {
+	if m.GetSandboxFn != nil {
+		return m.GetSandboxFn(ctx, sandboxID)
+	}
+	m.p("GetSandboxByOrg")
+	return nil, nil
+}
 func (m *mockStore) ListSandboxes(ctx context.Context) ([]store.Sandbox, error) {
 	if m.ListSandboxesFn != nil {
 		return m.ListSandboxesFn(ctx)
@@ -623,7 +630,7 @@ func TestGetSandbox_Success(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, &mockSender{})
-	result, err := orch.GetSandbox(context.Background(), "sbx-1")
+	result, err := orch.GetSandbox(context.Background(), "org-1", "sbx-1")
 	if err != nil {
 		t.Fatalf("GetSandbox: unexpected error: %v", err)
 	}
@@ -643,7 +650,7 @@ func TestGetSandbox_NotFound(t *testing.T) {
 	}
 
 	orch := newTestOrchestrator(ms, &mockSender{})
-	_, err := orch.GetSandbox(context.Background(), "nonexistent")
+	_, err := orch.GetSandbox(context.Background(), "org-1", "nonexistent")
 	if err == nil {
 		t.Fatal("GetSandbox: expected error for nonexistent sandbox")
 	}

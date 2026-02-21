@@ -90,7 +90,8 @@ func (rt *ResourceTicker) reportForOrg(ctx context.Context, orgID string) {
 	// Count running sandboxes
 	sandboxes, err := rt.store.ListSandboxesByOrg(ctx, orgID)
 	if err != nil {
-		rt.logger.Warn("failed to list sandboxes for billing", "error", err, "org_id", orgID)
+		rt.logger.Warn("failed to list sandboxes for billing, skipping tick", "error", err, "org_id", orgID)
+		return
 	}
 	var runningSandboxes int
 	for _, sb := range sandboxes {
@@ -102,7 +103,8 @@ func (rt *ResourceTicker) reportForOrg(ctx context.Context, orgID string) {
 	// Count source hosts
 	sourceHosts, err := rt.store.ListSourceHostsByOrg(ctx, orgID)
 	if err != nil {
-		rt.logger.Warn("failed to list source hosts for billing", "error", err, "org_id", orgID)
+		rt.logger.Warn("failed to list source hosts for billing, skipping tick", "error", err, "org_id", orgID)
+		return
 	}
 	sourceVMCount := len(sourceHosts)
 

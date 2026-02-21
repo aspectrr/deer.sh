@@ -230,9 +230,9 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	return sandbox, nil
 }
 
-// GetSandbox retrieves a sandbox by ID from the persistent store.
-func (o *Orchestrator) GetSandbox(ctx context.Context, id string) (*store.Sandbox, error) {
-	return o.store.GetSandbox(ctx, id)
+// GetSandbox retrieves a sandbox by ID, scoped to the given org.
+func (o *Orchestrator) GetSandbox(ctx context.Context, orgID, id string) (*store.Sandbox, error) {
+	return o.store.GetSandboxByOrg(ctx, orgID, id)
 }
 
 // ListSandboxesByOrg returns all non-deleted sandboxes for an org.

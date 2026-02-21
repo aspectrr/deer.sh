@@ -163,6 +163,9 @@ func (m *mockStore) CreateSandbox(context.Context, *store.Sandbox) error {
 func (m *mockStore) GetSandbox(context.Context, string) (*store.Sandbox, error) {
 	panic("mockStore: GetSandbox not implemented")
 }
+func (m *mockStore) GetSandboxByOrg(context.Context, string, string) (*store.Sandbox, error) {
+	panic("mockStore: GetSandboxByOrg not implemented")
+}
 func (m *mockStore) ListSandboxes(context.Context) ([]store.Sandbox, error) {
 	panic("mockStore: ListSandboxes not implemented")
 }

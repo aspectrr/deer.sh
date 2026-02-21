@@ -97,7 +97,10 @@ func (m *mockStore) UpdateHostHeartbeat(context.Context, string, int32, int64, i
 
 func (m *mockStore) CreateSandbox(context.Context, *store.Sandbox) error        { return nil }
 func (m *mockStore) GetSandbox(context.Context, string) (*store.Sandbox, error) { return nil, nil }
-func (m *mockStore) ListSandboxes(context.Context) ([]store.Sandbox, error)     { return nil, nil }
+func (m *mockStore) GetSandboxByOrg(context.Context, string, string) (*store.Sandbox, error) {
+	return nil, nil
+}
+func (m *mockStore) ListSandboxes(context.Context) ([]store.Sandbox, error) { return nil, nil }
 func (m *mockStore) ListSandboxesByOrg(context.Context, string) ([]store.Sandbox, error) {
 	return nil, nil
 }

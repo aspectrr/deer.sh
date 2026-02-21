@@ -157,6 +157,9 @@ func (m *tickerMockStore) CreateSandbox(context.Context, *store.Sandbox) error {
 func (m *tickerMockStore) GetSandbox(context.Context, string) (*store.Sandbox, error) {
 	return nil, nil
 }
+func (m *tickerMockStore) GetSandboxByOrg(context.Context, string, string) (*store.Sandbox, error) {
+	return nil, nil
+}
 func (m *tickerMockStore) ListSandboxes(context.Context) ([]store.Sandbox, error) { return nil, nil }
 func (m *tickerMockStore) UpdateSandbox(context.Context, *store.Sandbox) error    { return nil }
 func (m *tickerMockStore) DeleteSandbox(context.Context, string) error            { return nil }
@@ -379,5 +382,71 @@ func TestReportForOrg_StoreError(t *testing.T) {
 	}
 	if ms.callCount("CreateUsageRecord") != 0 {
 		t.Errorf("CreateUsageRecord should not be called after store error, got %d", ms.callCount("CreateUsageRecord"))
+	}
+}
+
+func TestReportForOrg_ListSandboxesError(t *testing.T) {
+	ms := newTickerMockStore()
+	ms.getOrgFn = func(_ context.Context, id string) (*store.Organization, error) {
+		return &store.Organization{
+			ID:               id,
+			StripeCustomerID: "cus_test123",
+		}, nil
+	}
+	ms.listSandboxesFn = func(_ context.Context, _ string) ([]store.Sandbox, error) {
+		return nil, fmt.Errorf("database timeout")
+	}
+
+	rt := newTestTicker(ms, config.FreeTierConfig{
+		MaxConcurrentSandboxes: 1,
+		MaxSourceVMs:           1,
+		MaxAgentHosts:          1,
+	})
+
+	rt.reportForOrg(context.Background(), "org-err")
+
+	if ms.callCount("ListSandboxesByOrg") != 1 {
+		t.Errorf("ListSandboxesByOrg call count = %d, want 1", ms.callCount("ListSandboxesByOrg"))
+	}
+	// Should return early: no ListSourceHostsByOrg or CreateUsageRecord calls.
+	if ms.callCount("ListSourceHostsByOrg") != 0 {
+		t.Errorf("ListSourceHostsByOrg should not be called, got %d", ms.callCount("ListSourceHostsByOrg"))
+	}
+	if ms.callCount("CreateUsageRecord") != 0 {
+		t.Errorf("CreateUsageRecord should not be called, got %d", ms.callCount("CreateUsageRecord"))
+	}
+}
+
+func TestReportForOrg_ListSourceHostsError(t *testing.T) {
+	ms := newTickerMockStore()
+	ms.getOrgFn = func(_ context.Context, id string) (*store.Organization, error) {
+		return &store.Organization{
+			ID:               id,
+			StripeCustomerID: "cus_test123",
+		}, nil
+	}
+	ms.listSandboxesFn = func(_ context.Context, _ string) ([]store.Sandbox, error) {
+		return []store.Sandbox{
+			{ID: "sbx-1", State: store.SandboxStateRunning},
+		}, nil
+	}
+	ms.listSourceHostsFn = func(_ context.Context, _ string) ([]*store.SourceHost, error) {
+		return nil, fmt.Errorf("connection refused")
+	}
+
+	rt := newTestTicker(ms, config.FreeTierConfig{
+		MaxConcurrentSandboxes: 1,
+		MaxSourceVMs:           1,
+		MaxAgentHosts:          1,
+	})
+
+	rt.reportForOrg(context.Background(), "org-err")
+
+	if ms.callCount("ListSourceHostsByOrg") != 1 {
+		t.Errorf("ListSourceHostsByOrg call count = %d, want 1", ms.callCount("ListSourceHostsByOrg"))
+	}
+	// Should return early: no CreateUsageRecord calls.
+	if ms.callCount("CreateUsageRecord") != 0 {
+		t.Errorf("CreateUsageRecord should not be called, got %d", ms.callCount("CreateUsageRecord"))
 	}
 }
