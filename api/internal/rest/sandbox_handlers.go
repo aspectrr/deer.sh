@@ -23,10 +23,10 @@ import (
 // @Param        slug     path      string                          true  "Organization slug"
 // @Param        request  body      orchestrator.CreateSandboxRequest  true  "Sandbox configuration"
 // @Success      201      {object}  store.Sandbox
-// @Failure      400      {object}  swaggerError
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes [post]
 func (s *Server) handleCreateSandbox(w http.ResponseWriter, r *http.Request) {
@@ -69,9 +69,9 @@ func (s *Server) handleCreateSandbox(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        slug  path      string  true  "Organization slug"
 // @Success      200   {object}  map[string]interface{}
-// @Failure      403   {object}  swaggerError
-// @Failure      404   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Failure      403   {object}  error.ErrorResponse
+// @Failure      404   {object}  error.ErrorResponse
+// @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes [get]
 func (s *Server) handleListSandboxes(w http.ResponseWriter, r *http.Request) {
@@ -100,8 +100,8 @@ func (s *Server) handleListSandboxes(w http.ResponseWriter, r *http.Request) {
 // @Param        slug       path      string  true  "Organization slug"
 // @Param        sandboxID  path      string  true  "Sandbox ID"
 // @Success      200        {object}  store.Sandbox
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID} [get]
 func (s *Server) handleGetSandbox(w http.ResponseWriter, r *http.Request) {
@@ -128,9 +128,9 @@ func (s *Server) handleGetSandbox(w http.ResponseWriter, r *http.Request) {
 // @Param        slug       path      string  true  "Organization slug"
 // @Param        sandboxID  path      string  true  "Sandbox ID"
 // @Success      200        {object}  map[string]interface{}
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
-// @Failure      500        {object}  swaggerError
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
+// @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID} [delete]
 func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
@@ -171,10 +171,10 @@ func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
 // @Param        sandboxID  path      string                          true  "Sandbox ID"
 // @Param        request    body      orchestrator.RunCommandRequest  true  "Command to run"
 // @Success      200        {object}  store.Command
-// @Failure      400        {object}  swaggerError
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
-// @Failure      500        {object}  swaggerError
+// @Failure      400        {object}  error.ErrorResponse
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
+// @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID}/run [post]
 func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
@@ -231,9 +231,9 @@ func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 // @Param        slug       path      string  true  "Organization slug"
 // @Param        sandboxID  path      string  true  "Sandbox ID"
 // @Success      200        {object}  map[string]interface{}
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
-// @Failure      500        {object}  swaggerError
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
+// @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID}/start [post]
 func (s *Server) handleStartSandbox(w http.ResponseWriter, r *http.Request) {
@@ -268,9 +268,9 @@ func (s *Server) handleStartSandbox(w http.ResponseWriter, r *http.Request) {
 // @Param        slug       path      string  true  "Organization slug"
 // @Param        sandboxID  path      string  true  "Sandbox ID"
 // @Success      200        {object}  map[string]interface{}
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
-// @Failure      500        {object}  swaggerError
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
+// @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID}/stop [post]
 func (s *Server) handleStopSandbox(w http.ResponseWriter, r *http.Request) {
@@ -305,8 +305,8 @@ func (s *Server) handleStopSandbox(w http.ResponseWriter, r *http.Request) {
 // @Param        slug       path      string  true  "Organization slug"
 // @Param        sandboxID  path      string  true  "Sandbox ID"
 // @Success      200        {object}  map[string]interface{}
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID}/ip [get]
 func (s *Server) handleGetSandboxIP(w http.ResponseWriter, r *http.Request) {
@@ -339,10 +339,10 @@ func (s *Server) handleGetSandboxIP(w http.ResponseWriter, r *http.Request) {
 // @Param        sandboxID  path      string                       true  "Sandbox ID"
 // @Param        request    body      orchestrator.SnapshotRequest true  "Snapshot details"
 // @Success      201        {object}  orchestrator.SnapshotResponse
-// @Failure      400        {object}  swaggerError
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
-// @Failure      500        {object}  swaggerError
+// @Failure      400        {object}  error.ErrorResponse
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
+// @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID}/snapshot [post]
 func (s *Server) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
@@ -381,9 +381,9 @@ func (s *Server) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
 // @Param        slug       path      string  true  "Organization slug"
 // @Param        sandboxID  path      string  true  "Sandbox ID"
 // @Success      200        {object}  map[string]interface{}
-// @Failure      403        {object}  swaggerError
-// @Failure      404        {object}  swaggerError
-// @Failure      500        {object}  swaggerError
+// @Failure      403        {object}  error.ErrorResponse
+// @Failure      404        {object}  error.ErrorResponse
+// @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sandboxes/{sandboxID}/commands [get]
 func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {

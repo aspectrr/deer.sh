@@ -22,9 +22,9 @@ import (
 // @Produce      json
 // @Param        slug  path      string  true  "Organization slug"
 // @Success      200   {object}  map[string]interface{}
-// @Failure      403   {object}  swaggerError
-// @Failure      404   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Failure      403   {object}  error.ErrorResponse
+// @Failure      404   {object}  error.ErrorResponse
+// @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts [get]
 func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
@@ -53,8 +53,8 @@ func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
 // @Param        slug    path      string  true  "Organization slug"
 // @Param        hostID  path      string  true  "Host ID"
 // @Success      200     {object}  orchestrator.HostInfo
-// @Failure      403     {object}  swaggerError
-// @Failure      404     {object}  swaggerError
+// @Failure      403     {object}  error.ErrorResponse
+// @Failure      404     {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts/{hostID} [get]
 func (s *Server) handleGetHost(w http.ResponseWriter, r *http.Request) {
@@ -95,10 +95,10 @@ type hostTokenResponse struct {
 // @Param        slug     path      string                  true  "Organization slug"
 // @Param        request  body      createHostTokenRequest  true  "Token details"
 // @Success      201      {object}  hostTokenResponse
-// @Failure      400      {object}  swaggerError
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts/tokens [post]
 func (s *Server) handleCreateHostToken(w http.ResponseWriter, r *http.Request) {
@@ -168,9 +168,9 @@ func (s *Server) handleCreateHostToken(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        slug  path      string  true  "Organization slug"
 // @Success      200   {object}  map[string]interface{}
-// @Failure      403   {object}  swaggerError
-// @Failure      404   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Failure      403   {object}  error.ErrorResponse
+// @Failure      404   {object}  error.ErrorResponse
+// @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts/tokens [get]
 func (s *Server) handleListHostTokens(w http.ResponseWriter, r *http.Request) {
@@ -208,8 +208,8 @@ func (s *Server) handleListHostTokens(w http.ResponseWriter, r *http.Request) {
 // @Param        slug     path      string  true  "Organization slug"
 // @Param        tokenID  path      string  true  "Token ID"
 // @Success      200      {object}  map[string]string
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/hosts/tokens/{tokenID} [delete]
 func (s *Server) handleDeleteHostToken(w http.ResponseWriter, r *http.Request) {

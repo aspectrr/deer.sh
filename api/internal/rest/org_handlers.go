@@ -72,9 +72,9 @@ func toOrgResponseForOwner(o *store.Organization) *orgResponse {
 // @Produce      json
 // @Param        request  body      createOrgRequest  true  "Organization details"
 // @Success      201      {object}  orgResponse
-// @Failure      400      {object}  swaggerError
-// @Failure      409      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      409      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs [post]
 func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
@@ -191,7 +191,7 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 // @Tags         Organizations
 // @Produce      json
 // @Success      200  {object}  map[string]interface{}
-// @Failure      500  {object}  swaggerError
+// @Failure      500  {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs [get]
 func (s *Server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
@@ -222,9 +222,9 @@ func (s *Server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        slug  path      string  true  "Organization slug"
 // @Success      200   {object}  orgResponse
-// @Failure      403   {object}  swaggerError
-// @Failure      404   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Failure      403   {object}  error.ErrorResponse
+// @Failure      404   {object}  error.ErrorResponse
+// @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug} [get]
 func (s *Server) handleGetOrg(w http.ResponseWriter, r *http.Request) {
@@ -270,10 +270,10 @@ type updateOrgRequest struct {
 // @Param        slug     path      string            true  "Organization slug"
 // @Param        request  body      updateOrgRequest  true  "Fields to update"
 // @Success      200      {object}  orgResponse
-// @Failure      400      {object}  swaggerError
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug} [patch]
 func (s *Server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
@@ -323,9 +323,9 @@ func (s *Server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        slug  path      string  true  "Organization slug"
 // @Success      200   {object}  map[string]string
-// @Failure      403   {object}  swaggerError
-// @Failure      404   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Failure      403   {object}  error.ErrorResponse
+// @Failure      404   {object}  error.ErrorResponse
+// @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug} [delete]
 func (s *Server) handleDeleteOrg(w http.ResponseWriter, r *http.Request) {
@@ -371,9 +371,9 @@ type memberResponse struct {
 // @Produce      json
 // @Param        slug  path      string  true  "Organization slug"
 // @Success      200   {object}  map[string]interface{}
-// @Failure      403   {object}  swaggerError
-// @Failure      404   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Failure      403   {object}  error.ErrorResponse
+// @Failure      404   {object}  error.ErrorResponse
+// @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/members [get]
 func (s *Server) handleListMembers(w http.ResponseWriter, r *http.Request) {
@@ -432,11 +432,11 @@ type addMemberRequest struct {
 // @Param        slug     path      string            true  "Organization slug"
 // @Param        request  body      addMemberRequest  true  "Member details"
 // @Success      201      {object}  memberResponse
-// @Failure      400      {object}  swaggerError
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
-// @Failure      409      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
+// @Failure      409      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/members [post]
 func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
@@ -531,9 +531,9 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 // @Param        slug      path      string  true  "Organization slug"
 // @Param        memberID  path      string  true  "Member ID"
 // @Success      200       {object}  map[string]string
-// @Failure      403       {object}  swaggerError
-// @Failure      404       {object}  swaggerError
-// @Failure      500       {object}  swaggerError
+// @Failure      403       {object}  error.ErrorResponse
+// @Failure      404       {object}  error.ErrorResponse
+// @Failure      500       {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/members/{memberID} [delete]
 func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {

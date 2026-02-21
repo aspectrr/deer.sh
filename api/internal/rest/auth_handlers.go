@@ -59,9 +59,9 @@ type userResponse struct {
 // @Produce      json
 // @Param        request  body      registerRequest  true  "Registration details"
 // @Success      201      {object}  authResponse
-// @Failure      400      {object}  swaggerError
-// @Failure      409      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      409      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Router       /auth/register [post]
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
@@ -156,9 +156,9 @@ type loginRequest struct {
 // @Produce      json
 // @Param        request  body      loginRequest  true  "Login credentials"
 // @Success      200      {object}  authResponse
-// @Failure      400      {object}  swaggerError
-// @Failure      401      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      401      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Router       /auth/login [post]
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
@@ -247,7 +247,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Produce      json
 // @Success      200  {object}  authResponse
-// @Failure      401  {object}  swaggerError
+// @Failure      401  {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /auth/me [get]
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -285,9 +285,9 @@ type onboardingRequest struct {
 // @Produce      json
 // @Param        request  body      onboardingRequest  true  "Onboarding details"
 // @Success      201      {object}  orgResponse
-// @Failure      400      {object}  swaggerError
-// @Failure      409      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      409      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /auth/onboarding [post]
 func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +399,7 @@ func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
 // @Description  Redirect to GitHub OAuth authorization page
 // @Tags         Auth
 // @Success      302  "Redirect to GitHub"
-// @Failure      501  {object}  swaggerError
+// @Failure      501  {object}  error.ErrorResponse
 // @Router       /auth/github [get]
 func (s *Server) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Auth.GitHub.ClientID == "" {
@@ -424,8 +424,8 @@ func (s *Server) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 // @Param        code   query  string  true  "OAuth authorization code"
 // @Param        state  query  string  true  "OAuth CSRF state parameter"
 // @Success      302    "Redirect to dashboard"
-// @Failure      400    {object}  swaggerError
-// @Failure      500    {object}  swaggerError
+// @Failure      400    {object}  error.ErrorResponse
+// @Failure      500    {object}  error.ErrorResponse
 // @Router       /auth/github/callback [get]
 func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	if err := auth.ValidateOAuthState(r); err != nil {
@@ -478,7 +478,7 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 // @Description  Redirect to Google OAuth authorization page
 // @Tags         Auth
 // @Success      302  "Redirect to Google"
-// @Failure      501  {object}  swaggerError
+// @Failure      501  {object}  error.ErrorResponse
 // @Router       /auth/google [get]
 func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Auth.Google.ClientID == "" {
@@ -503,8 +503,8 @@ func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 // @Param        code   query  string  true  "OAuth authorization code"
 // @Param        state  query  string  true  "OAuth CSRF state parameter"
 // @Success      302    "Redirect to dashboard"
-// @Failure      400    {object}  swaggerError
-// @Failure      500    {object}  swaggerError
+// @Failure      400    {object}  error.ErrorResponse
+// @Failure      500    {object}  error.ErrorResponse
 // @Router       /auth/google/callback [get]
 func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	if err := auth.ValidateOAuthState(r); err != nil {

@@ -20,9 +20,9 @@ import (
 // @Produce      json
 // @Param        slug  path      string  true  "Organization slug"
 // @Success      200   {object}  map[string]interface{}
-// @Failure      403   {object}  swaggerError
-// @Failure      404   {object}  swaggerError
-// @Failure      500   {object}  swaggerError
+// @Failure      403   {object}  error.ErrorResponse
+// @Failure      404   {object}  error.ErrorResponse
+// @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/vms [get]
 func (s *Server) handleListVMs(w http.ResponseWriter, r *http.Request) {
@@ -53,10 +53,10 @@ func (s *Server) handleListVMs(w http.ResponseWriter, r *http.Request) {
 // @Param        vm       path      string                       true  "Source VM name"
 // @Param        request  body      orchestrator.PrepareRequest  true  "SSH credentials"
 // @Success      200      {object}  map[string]interface{}
-// @Failure      400      {object}  swaggerError
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sources/{vm}/prepare [post]
 func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +92,10 @@ func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
 // @Param        vm       path      string                          true  "Source VM name"
 // @Param        request  body      orchestrator.RunSourceRequest   true  "Command to run"
 // @Success      200      {object}  orchestrator.SourceCommandResult
-// @Failure      400      {object}  swaggerError
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sources/{vm}/run [post]
 func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) {
@@ -141,10 +141,10 @@ func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) 
 // @Param        vm       path      string                          true  "Source VM name"
 // @Param        request  body      orchestrator.ReadSourceRequest  true  "File path"
 // @Success      200      {object}  orchestrator.SourceFileResult
-// @Failure      400      {object}  swaggerError
-// @Failure      403      {object}  swaggerError
-// @Failure      404      {object}  swaggerError
-// @Failure      500      {object}  swaggerError
+// @Failure      400      {object}  error.ErrorResponse
+// @Failure      403      {object}  error.ErrorResponse
+// @Failure      404      {object}  error.ErrorResponse
+// @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
 // @Router       /orgs/{slug}/sources/{vm}/read [post]
 func (s *Server) handleReadSourceFile(w http.ResponseWriter, r *http.Request) {

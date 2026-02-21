@@ -18,7 +18,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Implemented
       summary: GitHub OAuth login
       tags:
@@ -48,13 +48,13 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "500":
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       summary: GitHub OAuth callback
       tags:
@@ -70,7 +70,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Implemented
       summary: Google OAuth login
       tags:
@@ -100,13 +100,13 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "500":
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       summary: Google OAuth callback
       tags:
@@ -132,19 +132,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "401":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Unauthorized
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       summary: Log in
       tags:
@@ -181,7 +181,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Unauthorized
       security:
       - CookieAuth: []
@@ -209,19 +209,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "409":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Conflict
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -250,19 +250,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "409":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Conflict
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       summary: Register a new user
       tags:
@@ -298,7 +298,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -325,19 +325,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "409":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Conflict
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -368,19 +368,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -407,19 +407,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -453,25 +453,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -501,19 +501,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -547,13 +547,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
       security:
       - CookieAuth: []
@@ -582,19 +582,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -628,25 +628,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -683,13 +683,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
       security:
       - CookieAuth: []
@@ -718,19 +718,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -764,31 +764,31 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "409":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Conflict
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -825,19 +825,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -866,19 +866,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -913,25 +913,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -967,19 +967,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1012,13 +1012,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
       security:
       - CookieAuth: []
@@ -1053,19 +1053,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1100,13 +1100,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
       security:
       - CookieAuth: []
@@ -1147,25 +1147,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1207,25 +1207,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1261,19 +1261,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1308,19 +1308,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1362,25 +1362,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1422,25 +1422,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1482,25 +1482,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Bad Request
         "403":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1530,19 +1530,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Forbidden
         "404":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/rest.swaggerError"
+                $ref: "#/components/schemas/error.ErrorResponse"
           description: Internal Server Error
       security:
       - CookieAuth: []
@@ -1551,6 +1551,19 @@ paths:
       - Source VMs
 components:
   schemas:
+    error.ErrorResponse:
+      example:
+        code: 0
+        details: details
+        error: error
+      properties:
+        code:
+          type: integer
+        details:
+          type: string
+        error:
+          type: string
+      type: object
     orchestrator.CreateSandboxRequest:
       properties:
         agent_id:
@@ -1802,19 +1815,6 @@ components:
         email:
           type: string
         password:
-          type: string
-      type: object
-    rest.swaggerError:
-      example:
-        code: 0
-        details: details
-        error: error
-      properties:
-        code:
-          type: integer
-        details:
-          type: string
-        error:
           type: string
       type: object
     rest.updateOrgRequest:
