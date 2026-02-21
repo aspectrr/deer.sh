@@ -98,8 +98,14 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, err := id.Generate("USR-")
+	if err != nil {
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate user ID"))
+		return
+	}
+
 	user := &store.User{
-		ID:           id.Generate("USR-"),
+		ID:           userID,
 		Email:        req.Email,
 		DisplayName:  req.DisplayName,
 		PasswordHash: hash,
@@ -321,15 +327,20 @@ func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, err := id.Generate("ORG-")
+	if err != nil {
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate org ID"))
+		return
+	}
+
 	org := &store.Organization{
-		ID:      id.Generate("ORG-"),
+		ID:      orgID,
 		Name:    req.OrgName,
 		Slug:    slug,
 		OwnerID: user.ID,
 	}
 
 	baseSlug := slug
-	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
 			suffix := generateSlugSuffix()
@@ -346,8 +357,12 @@ func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
 			if err := tx.CreateOrganization(r.Context(), org); err != nil {
 				return err
 			}
+			memberID, err := id.Generate("MBR-")
+			if err != nil {
+				return fmt.Errorf("generate member ID: %w", err)
+			}
 			member := &store.OrgMember{
-				ID:     id.Generate("MBR-"),
+				ID:     memberID,
 				OrgID:  org.ID,
 				UserID: user.ID,
 				Role:   store.OrgRoleOwner,
@@ -670,8 +685,12 @@ func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID
 
 	if errors.Is(err, store.ErrNotFound) {
 		// Create new user
+		newUserID, err := id.Generate("USR-")
+		if err != nil {
+			return nil, fmt.Errorf("generate user ID: %w", err)
+		}
 		user = &store.User{
-			ID:            id.Generate("USR-"),
+			ID:            newUserID,
 			Email:         email,
 			DisplayName:   name,
 			AvatarURL:     avatarURL,
@@ -683,8 +702,12 @@ func (s *Server) findOrCreateOAuthUser(ctx context.Context, provider, providerID
 	}
 
 	// Link OAuth account to user
+	oaID, err := id.Generate("OA-")
+	if err != nil {
+		return nil, fmt.Errorf("generate oauth account ID: %w", err)
+	}
 	oauthAccount := &store.OAuthAccount{
-		ID:           id.Generate("OA-"),
+		ID:           oaID,
 		UserID:       user.ID,
 		Provider:     provider,
 		ProviderID:   providerID,

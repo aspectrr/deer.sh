@@ -238,8 +238,12 @@ func (p *Provider) CreateSnapshot(ctx context.Context, sandboxID, name string) (
 		return nil, fmt.Errorf("wait for snapshot: %w", err)
 	}
 
+	snapshotID, err := id.Generate("SNP-")
+	if err != nil {
+		return nil, fmt.Errorf("generate snapshot ID: %w", err)
+	}
 	return &provider.SnapshotResult{
-		SnapshotID:   id.Generate("SNP-"),
+		SnapshotID:   snapshotID,
 		SnapshotName: name,
 	}, nil
 }

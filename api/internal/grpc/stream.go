@@ -60,7 +60,12 @@ func NewStreamHandler(
 // hostMu returns the per-host mutex, creating one if needed.
 func (h *StreamHandler) hostMu(hostID string) *sync.Mutex {
 	v, _ := h.streamMu.LoadOrStore(hostID, &sync.Mutex{})
-	return v.(*sync.Mutex)
+	mu, ok := v.(*sync.Mutex)
+	if !ok {
+		h.logger.Error("streamMu contains non-Mutex value", "host_id", hostID)
+		return &sync.Mutex{}
+	}
+	return mu
 }
 
 // Connect handles a single bidirectional stream from a sandbox host.
@@ -111,7 +116,11 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 
 	// Cancel any existing connection for this host to avoid duplicate streams.
 	if oldCancel, loaded := h.cancelFns.LoadAndDelete(hostID); loaded {
-		oldCancel.(context.CancelFunc)()
+		if fn, ok := oldCancel.(context.CancelFunc); ok {
+			fn()
+		} else {
+			logger.Error("cancelFns contains non-CancelFunc value")
+		}
 	}
 
 	// Store the stream before registering so it is available immediately
@@ -207,12 +216,12 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 			return
 		}
 		if ch, ok := h.pendingRequests.LoadAndDelete(reqID); ok {
-			respCh := ch.(chan *fluidv1.HostMessage)
-			select {
-			case respCh <- msg:
-			default:
-				logger.Warn("response channel full, dropping", "request_id", reqID)
+			respCh, ok := ch.(chan *fluidv1.HostMessage)
+			if !ok {
+				logger.Error("pendingRequests contains non-channel value", "request_id", reqID)
+				return
 			}
+			respCh <- msg
 		} else {
 			logger.Warn("no pending request for response", "request_id", reqID)
 		}
@@ -227,7 +236,10 @@ func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *flu
 	if !ok {
 		return nil, fmt.Errorf("host %s is not connected", hostID)
 	}
-	stream := streamVal.(fluidv1.HostService_ConnectServer)
+	stream, ok := streamVal.(fluidv1.HostService_ConnectServer)
+	if !ok {
+		return nil, fmt.Errorf("host %s: stream has unexpected type", hostID)
+	}
 
 	reqID := msg.GetRequestId()
 	if reqID == "" {

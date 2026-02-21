@@ -115,15 +115,20 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 
 	autoSlug := req.Slug == ""
 
+	orgID, err := id.Generate("ORG-")
+	if err != nil {
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate org ID"))
+		return
+	}
+
 	org := &store.Organization{
-		ID:      id.Generate("ORG-"),
+		ID:      orgID,
 		Name:    req.Name,
 		Slug:    slug,
 		OwnerID: user.ID,
 	}
 
 	baseSlug := slug
-	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
 			if !autoSlug {
@@ -144,8 +149,12 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 			if err := tx.CreateOrganization(r.Context(), org); err != nil {
 				return err
 			}
+			memberID, err := id.Generate("MBR-")
+			if err != nil {
+				return fmt.Errorf("generate member ID: %w", err)
+			}
 			member := &store.OrgMember{
-				ID:     id.Generate("MBR-"),
+				ID:     memberID,
 				OrgID:  org.ID,
 				UserID: user.ID,
 				Role:   store.OrgRoleOwner,
@@ -480,8 +489,14 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	memberID, err := id.Generate("MBR-")
+	if err != nil {
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate member ID"))
+		return
+	}
+
 	newMember := &store.OrgMember{
-		ID:     id.Generate("MBR-"),
+		ID:     memberID,
 		OrgID:  org.ID,
 		UserID: targetUser.ID,
 		Role:   role,

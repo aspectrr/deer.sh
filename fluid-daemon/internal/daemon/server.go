@@ -50,7 +50,11 @@ func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCo
 
 	sandboxID := req.GetSandboxId()
 	if sandboxID == "" {
-		sandboxID = genid.Generate("sbx-")
+		var err error
+		sandboxID, err = genid.Generate("sbx-")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "generate sandbox ID: %v", err)
+		}
 	}
 
 	vcpus := int(req.GetVcpus())
@@ -267,8 +271,9 @@ func (s *Server) RunCommand(ctx context.Context, req *fluidv1.RunCommandCommand)
 	}
 
 	// Record command in state
+	cmdID, _ := genid.GenerateRaw()
 	cmdRecord := &state.Command{
-		ID:         genid.GenerateRaw(),
+		ID:         cmdID,
 		SandboxID:  id,
 		Command:    req.GetCommand(),
 		Stdout:     result.Stdout,

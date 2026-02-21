@@ -3,20 +3,21 @@ package id
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 )
 
-func Generate(prefix string) string {
+func Generate(prefix string) (string, error) {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		panic("crypto/rand failed: " + err.Error())
+		return "", fmt.Errorf("crypto/rand failed: %w", err)
 	}
-	return prefix + hex.EncodeToString(b)
+	return prefix + hex.EncodeToString(b), nil
 }
 
-func GenerateRaw() string {
+func GenerateRaw() (string, error) {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		panic("crypto/rand failed: " + err.Error())
+		return "", fmt.Errorf("crypto/rand failed: %w", err)
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }

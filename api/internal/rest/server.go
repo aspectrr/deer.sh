@@ -8,7 +8,6 @@ import (
 	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/stripe/stripe-go/v82"
 
 	"github.com/aspectrr/fluid.sh/api/internal/auth"
 	"github.com/aspectrr/fluid.sh/api/internal/config"
@@ -39,9 +38,7 @@ func NewServer(st store.Store, cfg *config.Config, orch *orchestrator.Orchestrat
 		logger:       slog.Default().With("component", "rest"),
 		swaggerJSON:  swaggerJSON,
 	}
-	if cfg.Billing.StripeSecretKey != "" {
-		stripe.Key = cfg.Billing.StripeSecretKey
-	}
+	// stripe.Key is set once in billing.NewMeterManager to avoid race conditions.
 
 	s.Router = s.routes()
 	return s
@@ -56,7 +53,7 @@ func (s *Server) routes() *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware(s.cfg.Frontend.URL))
 
-	trustedNets := parseCIDRs(s.cfg.API.TrustedProxies)
+	trustedNets := parseCIDRs(s.cfg.API.TrustedProxies, s.logger)
 
 	// Public routes
 	r.Get("/v1/health", s.handleHealth)

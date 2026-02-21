@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -16,8 +17,11 @@ type ipLimiter struct {
 }
 
 // parseCIDRs parses a slice of CIDR strings into net.IPNet values.
-// Invalid entries are silently skipped.
-func parseCIDRs(cidrs []string) []*net.IPNet {
+// Invalid entries are skipped with a warning log.
+func parseCIDRs(cidrs []string, logger *slog.Logger) []*net.IPNet {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	var nets []*net.IPNet
 	for _, c := range cidrs {
 		_, ipNet, err := net.ParseCIDR(c)
@@ -25,6 +29,7 @@ func parseCIDRs(cidrs []string) []*net.IPNet {
 			// Try as bare IP by appending /32 or /128.
 			ip := net.ParseIP(c)
 			if ip == nil {
+				logger.Warn("skipping invalid trusted proxy CIDR", "cidr", c, "error", err)
 				continue
 			}
 			bits := 32

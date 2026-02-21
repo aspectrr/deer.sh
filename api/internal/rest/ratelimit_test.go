@@ -169,7 +169,7 @@ func TestRateLimitByIP_XRealIPHonoredFromTrustedProxy(t *testing.T) {
 }
 
 func TestParseCIDRs(t *testing.T) {
-	nets := parseCIDRs([]string{"10.0.0.0/8", "192.168.1.1", "invalid", "::1"})
+	nets := parseCIDRs([]string{"10.0.0.0/8", "192.168.1.1", "invalid", "::1"}, nil)
 	if len(nets) != 3 {
 		t.Fatalf("expected 3 valid CIDRs, got %d", len(nets))
 	}

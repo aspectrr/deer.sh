@@ -79,7 +79,10 @@ func New(
 // CreateSandbox selects a host, sends a CreateSandboxCommand over the gRPC
 // stream, waits for the SandboxCreated response, and persists the sandbox.
 func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*store.Sandbox, error) {
-	sandboxID := id.Generate("SBX-")
+	sandboxID, err := id.Generate("SBX-")
+	if err != nil {
+		return nil, fmt.Errorf("generate sandbox ID: %w", err)
+	}
 
 	vcpus := int32(req.VCPUs)
 	if vcpus == 0 {
@@ -94,9 +97,10 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	if err != nil {
 		// SourceVM is always set (validated in handler). Fall back to
 		// source-VM-aware placement when base image matching fails.
-		host, err = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
-		if err != nil {
-			return nil, fmt.Errorf("select host: %w", err)
+		var fallbackErr error
+		host, fallbackErr = SelectHostForSourceVM(o.registry, req.SourceVM, req.OrgID, o.heartbeatTimeout, vcpus, memMB)
+		if fallbackErr != nil {
+			return nil, fmt.Errorf("select host: image match: %v; source VM fallback: %w", err, fallbackErr)
 		}
 	}
 

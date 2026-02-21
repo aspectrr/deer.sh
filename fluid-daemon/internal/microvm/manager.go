@@ -128,7 +128,11 @@ func (m *Manager) RecoverState(ctx context.Context) error {
 		}
 
 		// Read metadata
-		meta, _ := readMetadata(m.workDir, sandboxID)
+		meta, err := readMetadata(m.workDir, sandboxID)
+		if err != nil {
+			m.logger.Warn("failed to read metadata, sandbox state may be incomplete",
+				"sandbox_id", sandboxID, "error", err)
+		}
 
 		info := &SandboxInfo{
 			ID:         sandboxID,
@@ -171,6 +175,13 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 
 	if _, exists := m.vms[cfg.SandboxID]; exists {
 		return nil, fmt.Errorf("sandbox %s already exists", cfg.SandboxID)
+	}
+
+	if !filepath.IsAbs(cfg.KernelPath) {
+		return nil, fmt.Errorf("kernel path must be absolute: %s", cfg.KernelPath)
+	}
+	if !filepath.IsAbs(cfg.OverlayPath) {
+		return nil, fmt.Errorf("overlay path must be absolute: %s", cfg.OverlayPath)
 	}
 
 	sandboxDir := filepath.Join(m.workDir, cfg.SandboxID)

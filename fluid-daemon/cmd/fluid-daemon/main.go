@@ -65,7 +65,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	// Ensure host ID
 	if cfg.HostID == "" {
-		cfg.HostID = id.GenerateRaw()
+		hostID, err := id.GenerateRaw()
+		if err != nil {
+			return fmt.Errorf("generate host ID: %w", err)
+		}
+		cfg.HostID = hostID
 		_ = config.Save(cfgPath, cfg)
 		logger.Info("generated host ID", "host_id", cfg.HostID)
 	}

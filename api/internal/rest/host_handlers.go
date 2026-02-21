@@ -131,8 +131,14 @@ func (s *Server) handleCreateHostToken(w http.ResponseWriter, r *http.Request) {
 	}
 	rawToken := hex.EncodeToString(rawBytes)
 
+	tokenID, err := id.Generate("HTK-")
+	if err != nil {
+		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate token ID"))
+		return
+	}
+
 	token := &store.HostToken{
-		ID:        id.Generate("HTK-"),
+		ID:        tokenID,
 		OrgID:     org.ID,
 		Name:      req.Name,
 		TokenHash: auth.HashToken(rawToken),

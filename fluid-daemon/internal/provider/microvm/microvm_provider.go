@@ -197,7 +197,10 @@ func (p *Provider) CreateSnapshot(_ context.Context, sandboxID, name string) (*p
 		return nil, fmt.Errorf("microVM manager not available")
 	}
 
-	snapshotID := id.Generate("SNP-")
+	snapshotID, err := id.Generate("SNP-")
+	if err != nil {
+		return nil, fmt.Errorf("generate snapshot ID: %w", err)
+	}
 	return &provider.SnapshotResult{
 		SnapshotID:   snapshotID,
 		SnapshotName: name,
