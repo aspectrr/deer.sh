@@ -35,7 +35,7 @@ func ConfigDir() (string, error) {
 //
 // Resolution order:
 //  1. $XDG_DATA_HOME/fluid (if set)
-//  2. os.UserConfigDir()/fluid (Windows - same as config, standard practice)
+//  2. %LOCALAPPDATA%/fluid (Windows)
 //  3. ~/.local/share/fluid (macOS, Linux)
 func DataDir() (string, error) {
 	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
