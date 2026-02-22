@@ -1889,7 +1889,7 @@ func (m OnboardingModel) testConnections() tea.Cmd {
 					Name:    "Remote hosts",
 					Address: "none configured",
 					Success: false,
-					Error:   "Add hosts to ~/.fluid/config.yaml",
+					Error:   "Add hosts to config.yaml (run 'fluid --help' for config location)",
 				})
 			}
 		}

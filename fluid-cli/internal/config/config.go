@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -135,9 +136,20 @@ type HostConfig struct {
 	QueryTimeout time.Duration `yaml:"query_timeout"` // Per-host query timeout (default: 30s)
 }
 
+// mustConfigDir returns the config directory, falling back to a best-effort default.
+func mustConfigDir() string {
+	dir, err := paths.ConfigDir()
+	if err != nil {
+		log.Printf("Warning: could not determine config dir: %v", err)
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, ".config", "fluid")
+	}
+	return dir
+}
+
 // DefaultConfig returns config with sensible defaults.
 func DefaultConfig() *Config {
-	configDir := paths.ConfigDir()
+	configDir := mustConfigDir()
 
 	return &Config{
 		Provider: "libvirt",

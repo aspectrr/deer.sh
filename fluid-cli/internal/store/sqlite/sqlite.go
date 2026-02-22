@@ -29,11 +29,15 @@ type sqliteStore struct {
 }
 
 // New creates a Store backed by SQLite + GORM.
-// If cfg.DatabaseURL is empty, uses ~/.config/fluid/state.db
+// If cfg.DatabaseURL is empty, uses $XDG_DATA_HOME/fluid/state.db
 func New(ctx context.Context, cfg store.Config) (store.Store, error) {
 	dbPath := cfg.DatabaseURL
 	if dbPath == "" {
-		dbPath = paths.StateDB()
+		var err error
+		dbPath, err = paths.StateDB()
+		if err != nil {
+			return nil, fmt.Errorf("sqlite: determine db path: %w", err)
+		}
 	}
 
 	// Ensure directory exists

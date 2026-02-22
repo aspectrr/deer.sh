@@ -11,7 +11,7 @@ import (
 const MaxHistoryEntries = 1000
 
 // HistoryPath derives the history file path from the config file path.
-// e.g. ~/.fluid/config.yaml -> ~/.fluid/history
+// e.g. ~/.config/fluid/config.yaml -> ~/.config/fluid/history
 func HistoryPath(configPath string) string {
 	return filepath.Join(filepath.Dir(configPath), "history")
 }

@@ -80,7 +80,11 @@ var doctorCmd = &cobra.Command{
 
 		configPath := cfgFile
 		if configPath == "" {
-			configPath = paths.ConfigFile()
+			var err error
+			configPath, err = paths.ConfigFile()
+			if err != nil {
+				return fmt.Errorf("determine config path: %w", err)
+			}
 		}
 
 		loadedCfg, err := config.Load(configPath)
@@ -165,9 +169,17 @@ func init() {
 
 // runMCP launches the MCP server on stdio
 func runMCP() error {
+	if err := paths.MaybeMigrate(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: migration failed: %v\n", err)
+	}
+
 	configPath := cfgFile
 	if configPath == "" {
-		configPath = paths.ConfigFile()
+		var err error
+		configPath, err = paths.ConfigFile()
+		if err != nil {
+			return fmt.Errorf("determine config path: %w", err)
+		}
 	}
 
 	var err error
@@ -203,9 +215,17 @@ func runMCP() error {
 
 // runTUI launches the interactive TUI
 func runTUI() error {
+	if err := paths.MaybeMigrate(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: migration failed: %v\n", err)
+	}
+
 	configPath := cfgFile
 	if configPath == "" {
-		configPath = paths.ConfigFile()
+		var err error
+		configPath, err = paths.ConfigFile()
+		if err != nil {
+			return fmt.Errorf("determine config path: %w", err)
+		}
 	}
 
 	var err error

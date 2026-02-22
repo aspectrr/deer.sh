@@ -188,9 +188,13 @@ func Update(downloadURL string) error {
 	return nil
 }
 
-// CacheDir returns the fluid config directory path for caching update checks.
+// CacheDir returns the fluid data directory path for caching update checks.
 func CacheDir() string {
-	return paths.ConfigDir()
+	dir, err := paths.DataDir()
+	if err != nil {
+		return ""
+	}
+	return dir
 }
 
 // ShouldCheck returns true if enough time has passed since the last update check.

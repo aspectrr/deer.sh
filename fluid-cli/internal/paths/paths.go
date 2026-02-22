@@ -1,6 +1,7 @@
 package paths
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,27 +11,64 @@ import (
 //
 // Resolution order:
 //  1. $XDG_CONFIG_HOME/fluid (if set)
-//  2. %AppData%/fluid (Windows)
+//  2. os.UserConfigDir()/fluid (Windows)
 //  3. ~/.config/fluid (macOS, Linux)
-func ConfigDir() string {
+func ConfigDir() (string, error) {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "fluid")
+		return filepath.Join(xdg, "fluid"), nil
 	}
 	if runtime.GOOS == "windows" {
-		if dir, err := os.UserConfigDir(); err == nil {
-			return filepath.Join(dir, "fluid")
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("paths: config dir: %w", err)
 		}
+		return filepath.Join(dir, "fluid"), nil
 	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "fluid")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("paths: config dir: %w", err)
+	}
+	return filepath.Join(home, ".config", "fluid"), nil
+}
+
+// DataDir returns the fluid data directory for state, history, and logs.
+//
+// Resolution order:
+//  1. $XDG_DATA_HOME/fluid (if set)
+//  2. os.UserConfigDir()/fluid (Windows - same as config, standard practice)
+//  3. ~/.local/share/fluid (macOS, Linux)
+func DataDir() (string, error) {
+	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+		return filepath.Join(xdg, "fluid"), nil
+	}
+	if runtime.GOOS == "windows" {
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("paths: data dir: %w", err)
+		}
+		return filepath.Join(dir, "fluid"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("paths: data dir: %w", err)
+	}
+	return filepath.Join(home, ".local", "share", "fluid"), nil
 }
 
 // ConfigFile returns the path to the config.yaml file.
-func ConfigFile() string {
-	return filepath.Join(ConfigDir(), "config.yaml")
+func ConfigFile() (string, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.yaml"), nil
 }
 
 // StateDB returns the path to the SQLite state database.
-func StateDB() string {
-	return filepath.Join(ConfigDir(), "state.db")
+func StateDB() (string, error) {
+	dir, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "state.db"), nil
 }
