@@ -138,6 +138,11 @@ func TestMaybeMigrate_OldDirExists(t *testing.T) {
 		t.Errorf("history not migrated: %v", err)
 	}
 
+	// Sentinel file should exist
+	if _, err := os.Stat(filepath.Join(configBase, "fluid", sentinelName)); err != nil {
+		t.Errorf("sentinel file not created: %v", err)
+	}
+
 	// Old dir should still exist
 	if _, err := os.Stat(oldDir); err != nil {
 		t.Errorf("old dir should not be deleted: %v", err)
@@ -157,6 +162,10 @@ func TestMaybeMigrate_AlreadyMigrated(t *testing.T) {
 	configBase := filepath.Join(fakeHome, "xdg-config")
 	newConfigDir := filepath.Join(configBase, "fluid")
 	if err := os.MkdirAll(newConfigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Write sentinel to indicate migration already happened
+	if err := os.WriteFile(filepath.Join(newConfigDir, sentinelName), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(newConfigDir, "config.yaml"), []byte("new"), 0o600); err != nil {
@@ -195,5 +204,41 @@ func TestMaybeMigrate_FreshInstall(t *testing.T) {
 	// New dirs should NOT be created
 	if _, err := os.Stat(filepath.Join(fakeHome, "xdg-config", "fluid")); !os.IsNotExist(err) {
 		t.Errorf("config dir should not exist on fresh install")
+	}
+}
+
+func TestMaybeMigrate_RetriableAfterPartialFailure(t *testing.T) {
+	// If config dir exists but sentinel is missing, migration should be retried
+	fakeHome := t.TempDir()
+	oldDir := filepath.Join(fakeHome, ".fluid")
+	if err := os.MkdirAll(oldDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, "config.yaml"), []byte("test: true"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	configBase := filepath.Join(fakeHome, "xdg-config")
+	dataBase := filepath.Join(fakeHome, "xdg-data")
+	// Pre-create config dir without sentinel (simulates partial failure)
+	if err := os.MkdirAll(filepath.Join(configBase, "fluid"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("XDG_CONFIG_HOME", configBase)
+	t.Setenv("XDG_DATA_HOME", dataBase)
+	t.Setenv("HOME", fakeHome)
+
+	if err := MaybeMigrate(); err != nil {
+		t.Fatalf("MaybeMigrate() error: %v", err)
+	}
+
+	// Config should have been copied on retry
+	if _, err := os.Stat(filepath.Join(configBase, "fluid", "config.yaml")); err != nil {
+		t.Errorf("config.yaml not migrated on retry: %v", err)
+	}
+	// Sentinel should now exist
+	if _, err := os.Stat(filepath.Join(configBase, "fluid", sentinelName)); err != nil {
+		t.Errorf("sentinel not written after retry: %v", err)
 	}
 }

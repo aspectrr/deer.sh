@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,7 +139,7 @@ type HostConfig struct {
 func mustConfigDir() string {
 	dir, err := paths.ConfigDir()
 	if err != nil {
-		log.Printf("Warning: could not determine config dir: %v", err)
+		fmt.Fprintf(os.Stderr, "Warning: could not determine config dir: %v\n", err)
 		home, _ := os.UserHomeDir()
 		return filepath.Join(home, ".config", "fluid")
 	}

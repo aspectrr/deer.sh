@@ -5,15 +5,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
 )
 
 // MaxHistoryEntries is the maximum number of history entries to keep.
 const MaxHistoryEntries = 1000
 
-// HistoryPath derives the history file path from the config file path.
-// e.g. ~/.config/fluid/config.yaml -> ~/.config/fluid/history
-func HistoryPath(configPath string) string {
-	return filepath.Join(filepath.Dir(configPath), "history")
+// HistoryPath returns the history file path under the XDG data directory.
+// History is runtime data and belongs in DataDir, not ConfigDir.
+func HistoryPath() string {
+	dir, err := paths.DataDir()
+	if err != nil {
+		// Best-effort fallback
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, ".local", "share", "fluid")
+	}
+	return filepath.Join(dir, "history")
 }
 
 // LoadHistory reads the history file and returns the last MaxHistoryEntries lines.

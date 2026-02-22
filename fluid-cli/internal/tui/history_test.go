@@ -11,8 +11,11 @@ import (
 )
 
 func TestHistoryPath(t *testing.T) {
-	got := HistoryPath("/home/user/.fluid/config.yaml")
-	assert.Equal(t, "/home/user/.fluid/history", got)
+	tmp := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", tmp)
+
+	got := HistoryPath()
+	assert.Equal(t, filepath.Join(tmp, "fluid", "history"), got)
 }
 
 func TestLoadHistory_NoFile(t *testing.T) {

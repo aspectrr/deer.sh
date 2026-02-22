@@ -7,8 +7,11 @@ import (
 	"path/filepath"
 )
 
+// sentinelName is the file written to the config dir after a successful migration.
+const sentinelName = ".migrated-from-dot-fluid"
+
 // MaybeMigrate checks for the legacy ~/.fluid directory and copies files
-// to the new XDG locations if the new config directory does not yet exist.
+// to the new XDG locations if migration has not already completed.
 // It does NOT delete ~/.fluid - the user can do that manually.
 func MaybeMigrate() error {
 	home, err := os.UserHomeDir()
@@ -26,8 +29,8 @@ func MaybeMigrate() error {
 		return nil // can't determine new dir, skip
 	}
 
-	// If the new config dir already exists, assume migration was done
-	if _, err := os.Stat(configDir); err == nil {
+	// If the sentinel file exists, migration was already completed successfully
+	if _, err := os.Stat(filepath.Join(configDir, sentinelName)); err == nil {
 		return nil
 	}
 
@@ -44,21 +47,42 @@ func MaybeMigrate() error {
 		return fmt.Errorf("migrate: create data dir: %w", err)
 	}
 
+	// Collect errors from individual copies
+	var copyErrors []error
+
 	// Config dir files
 	configFiles := []string{"config.yaml"}
 	configDirs := []string{"ssh-ca", "sandbox-keys", "ansible"}
 
 	for _, name := range configFiles {
-		_ = copyFile(filepath.Join(oldDir, name), filepath.Join(configDir, name))
+		if err := copyFile(filepath.Join(oldDir, name), filepath.Join(configDir, name)); err != nil && !os.IsNotExist(err) {
+			copyErrors = append(copyErrors, fmt.Errorf("copy %s: %w", name, err))
+		}
 	}
 	for _, name := range configDirs {
-		_ = copyDir(filepath.Join(oldDir, name), filepath.Join(configDir, name))
+		if err := copyDir(filepath.Join(oldDir, name), filepath.Join(configDir, name)); err != nil && !os.IsNotExist(err) {
+			copyErrors = append(copyErrors, fmt.Errorf("copy %s/: %w", name, err))
+		}
 	}
 
 	// Data dir files
 	dataFiles := []string{"state.db", "history"}
 	for _, name := range dataFiles {
-		_ = copyFile(filepath.Join(oldDir, name), filepath.Join(dataDir, name))
+		if err := copyFile(filepath.Join(oldDir, name), filepath.Join(dataDir, name)); err != nil && !os.IsNotExist(err) {
+			copyErrors = append(copyErrors, fmt.Errorf("copy %s: %w", name, err))
+		}
+	}
+
+	if len(copyErrors) > 0 {
+		for _, e := range copyErrors {
+			fmt.Fprintf(os.Stderr, "Warning: migration: %v\n", e)
+		}
+		return fmt.Errorf("migrate: %d file(s) failed to copy", len(copyErrors))
+	}
+
+	// All copies succeeded - write sentinel
+	if err := os.WriteFile(filepath.Join(configDir, sentinelName), nil, 0o600); err != nil {
+		return fmt.Errorf("migrate: write sentinel: %w", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "Migrated config from ~/.fluid to %s and %s\n", configDir, dataDir)

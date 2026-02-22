@@ -200,7 +200,7 @@ func NewModel(title, provider, modelName string, runner AgentRunner, cfg *config
 	statusChan := make(chan tea.Msg, 100)
 
 	// Load persistent history
-	historyPath := HistoryPath(configPath)
+	historyPath := HistoryPath()
 	historyList := LoadHistory(historyPath)
 	if historyList == nil {
 		historyList = make([]string, 0)
