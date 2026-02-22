@@ -108,8 +108,10 @@ func copyFile(src, dst string) error {
 	}
 	defer func() { _ = out.Close() }()
 
-	_, err = io.Copy(out, in)
-	return err
+	if _, err = io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Sync()
 }
 
 func copyDir(src, dst string) error {
