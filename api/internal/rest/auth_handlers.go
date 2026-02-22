@@ -26,7 +26,7 @@ var oauthHTTPClient = &http.Client{Timeout: 10 * time.Second}
 // @Tags         Health
 // @Produce      json
 // @Success      200  {object}  map[string]string
-// @Router       /health [get]
+// @Router       /v1/health [get]
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	_ = serverJSON.RespondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -62,7 +62,7 @@ type userResponse struct {
 // @Failure      400      {object}  error.ErrorResponse
 // @Failure      409      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
-// @Router       /auth/register [post]
+// @Router       /v1/auth/register [post]
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := serverJSON.DecodeJSON(r.Context(), r, &req); err != nil {
@@ -159,7 +159,7 @@ type loginRequest struct {
 // @Failure      400      {object}  error.ErrorResponse
 // @Failure      401      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
-// @Router       /auth/login [post]
+// @Router       /v1/auth/login [post]
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := serverJSON.DecodeJSON(r.Context(), r, &req); err != nil {
@@ -229,7 +229,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Success      200  {object}  map[string]string
 // @Security     CookieAuth
-// @Router       /auth/logout [post]
+// @Router       /v1/auth/logout [post]
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(auth.SessionCookieName)
 	if err == nil {
@@ -249,7 +249,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 // @Success      200  {object}  authResponse
 // @Failure      401  {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /auth/me [get]
+// @Router       /v1/auth/me [get]
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
@@ -289,7 +289,7 @@ type onboardingRequest struct {
 // @Failure      409      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /auth/onboarding [post]
+// @Router       /v1/auth/onboarding [post]
 func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	if user == nil {
@@ -400,7 +400,7 @@ func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Success      302  "Redirect to GitHub"
 // @Failure      501  {object}  error.ErrorResponse
-// @Router       /auth/github [get]
+// @Router       /v1/auth/github [get]
 func (s *Server) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Auth.GitHub.ClientID == "" {
 		serverError.RespondError(w, http.StatusNotImplemented, fmt.Errorf("GitHub OAuth not configured"))
@@ -426,7 +426,7 @@ func (s *Server) handleGitHubLogin(w http.ResponseWriter, r *http.Request) {
 // @Success      302    "Redirect to dashboard"
 // @Failure      400    {object}  error.ErrorResponse
 // @Failure      500    {object}  error.ErrorResponse
-// @Router       /auth/github/callback [get]
+// @Router       /v1/auth/github/callback [get]
 func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	if err := auth.ValidateOAuthState(r); err != nil {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid oauth state: %w", err))
@@ -479,7 +479,7 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 // @Tags         Auth
 // @Success      302  "Redirect to Google"
 // @Failure      501  {object}  error.ErrorResponse
-// @Router       /auth/google [get]
+// @Router       /v1/auth/google [get]
 func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.Auth.Google.ClientID == "" {
 		serverError.RespondError(w, http.StatusNotImplemented, fmt.Errorf("google OAuth not configured"))
@@ -505,7 +505,7 @@ func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 // @Success      302    "Redirect to dashboard"
 // @Failure      400    {object}  error.ErrorResponse
 // @Failure      500    {object}  error.ErrorResponse
-// @Router       /auth/google/callback [get]
+// @Router       /v1/auth/google/callback [get]
 func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	if err := auth.ValidateOAuthState(r); err != nil {
 		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("invalid oauth state: %w", err))

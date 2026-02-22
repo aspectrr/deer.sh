@@ -28,7 +28,7 @@ import (
 // @Failure      404      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes [post]
+// @Router       /v1/orgs/{slug}/sandboxes [post]
 func (s *Server) handleCreateSandbox(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -73,7 +73,7 @@ func (s *Server) handleCreateSandbox(w http.ResponseWriter, r *http.Request) {
 // @Failure      404   {object}  error.ErrorResponse
 // @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes [get]
+// @Router       /v1/orgs/{slug}/sandboxes [get]
 func (s *Server) handleListSandboxes(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -103,7 +103,7 @@ func (s *Server) handleListSandboxes(w http.ResponseWriter, r *http.Request) {
 // @Failure      403        {object}  error.ErrorResponse
 // @Failure      404        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID} [get]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID} [get]
 func (s *Server) handleGetSandbox(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -132,7 +132,7 @@ func (s *Server) handleGetSandbox(w http.ResponseWriter, r *http.Request) {
 // @Failure      404        {object}  error.ErrorResponse
 // @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID} [delete]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID} [delete]
 func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgRole(w, r, store.OrgRoleAdmin)
 	if !ok {
@@ -176,7 +176,7 @@ func (s *Server) handleDestroySandbox(w http.ResponseWriter, r *http.Request) {
 // @Failure      404        {object}  error.ErrorResponse
 // @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID}/run [post]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID}/run [post]
 func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -235,7 +235,7 @@ func (s *Server) handleRunCommand(w http.ResponseWriter, r *http.Request) {
 // @Failure      404        {object}  error.ErrorResponse
 // @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID}/start [post]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID}/start [post]
 func (s *Server) handleStartSandbox(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -272,7 +272,7 @@ func (s *Server) handleStartSandbox(w http.ResponseWriter, r *http.Request) {
 // @Failure      404        {object}  error.ErrorResponse
 // @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID}/stop [post]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID}/stop [post]
 func (s *Server) handleStopSandbox(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -308,7 +308,7 @@ func (s *Server) handleStopSandbox(w http.ResponseWriter, r *http.Request) {
 // @Failure      403        {object}  error.ErrorResponse
 // @Failure      404        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID}/ip [get]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID}/ip [get]
 func (s *Server) handleGetSandboxIP(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -344,7 +344,7 @@ func (s *Server) handleGetSandboxIP(w http.ResponseWriter, r *http.Request) {
 // @Failure      404        {object}  error.ErrorResponse
 // @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID}/snapshot [post]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID}/snapshot [post]
 func (s *Server) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -385,7 +385,7 @@ func (s *Server) handleCreateSnapshot(w http.ResponseWriter, r *http.Request) {
 // @Failure      404        {object}  error.ErrorResponse
 // @Failure      500        {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sandboxes/{sandboxID}/commands [get]
+// @Router       /v1/orgs/{slug}/sandboxes/{sandboxID}/commands [get]
 func (s *Server) handleListCommands(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
