@@ -5,9 +5,9 @@ info:
   title: Fluid API
   version: "1.0"
 servers:
-- url: //api.fluid.sh/v1
+- url: //api.fluid.sh/
 paths:
-  /auth/github:
+  /v1/auth/github:
     get:
       description: Redirect to GitHub OAuth authorization page
       responses:
@@ -23,7 +23,7 @@ paths:
       summary: GitHub OAuth login
       tags:
       - Auth
-  /auth/github/callback:
+  /v1/auth/github/callback:
     get:
       description: "Handle GitHub OAuth callback, create or link user, set session\
         \ cookie, and redirect to dashboard"
@@ -59,7 +59,7 @@ paths:
       summary: GitHub OAuth callback
       tags:
       - Auth
-  /auth/google:
+  /v1/auth/google:
     get:
       description: Redirect to Google OAuth authorization page
       responses:
@@ -75,7 +75,7 @@ paths:
       summary: Google OAuth login
       tags:
       - Auth
-  /auth/google/callback:
+  /v1/auth/google/callback:
     get:
       description: "Handle Google OAuth callback, create or link user, set session\
         \ cookie, and redirect to dashboard"
@@ -111,7 +111,7 @@ paths:
       summary: Google OAuth callback
       tags:
       - Auth
-  /auth/login:
+  /v1/auth/login:
     post:
       description: "Authenticate with email and password, returns a session cookie"
       requestBody:
@@ -150,7 +150,7 @@ paths:
       tags:
       - Auth
       x-codegen-request-body-name: request
-  /auth/logout:
+  /v1/auth/logout:
     post:
       description: Invalidate the current session and clear the session cookie
       responses:
@@ -167,7 +167,7 @@ paths:
       summary: Log out
       tags:
       - Auth
-  /auth/me:
+  /v1/auth/me:
     get:
       description: Return the currently authenticated user
       responses:
@@ -188,7 +188,7 @@ paths:
       summary: Get current user
       tags:
       - Auth
-  /auth/onboarding:
+  /v1/auth/onboarding:
     post:
       description: Create the user's first organization during onboarding
       requestBody:
@@ -229,7 +229,7 @@ paths:
       tags:
       - Auth
       x-codegen-request-body-name: request
-  /auth/register:
+  /v1/auth/register:
     post:
       description: Create a new user account and return a session cookie
       requestBody:
@@ -268,7 +268,7 @@ paths:
       tags:
       - Auth
       x-codegen-request-body-name: request
-  /health:
+  /v1/health:
     get:
       description: Returns API health status
       responses:
@@ -283,7 +283,7 @@ paths:
       summary: Health check
       tags:
       - Health
-  /orgs:
+  /v1/orgs:
     get:
       description: List all organizations the current user belongs to
       responses:
@@ -345,7 +345,7 @@ paths:
       tags:
       - Organizations
       x-codegen-request-body-name: request
-  /orgs/{slug}:
+  /v1/orgs/{slug}:
     delete:
       description: Delete an organization (owner only)
       parameters:
@@ -479,7 +479,7 @@ paths:
       tags:
       - Organizations
       x-codegen-request-body-name: request
-  /orgs/{slug}/hosts:
+  /v1/orgs/{slug}/hosts:
     get:
       description: List all connected sandbox hosts
       parameters:
@@ -520,7 +520,7 @@ paths:
       summary: List hosts
       tags:
       - Hosts
-  /orgs/{slug}/hosts/{hostID}:
+  /v1/orgs/{slug}/hosts/{hostID}:
     get:
       description: Get details of a specific connected host
       parameters:
@@ -560,7 +560,7 @@ paths:
       summary: Get host
       tags:
       - Hosts
-  /orgs/{slug}/hosts/tokens:
+  /v1/orgs/{slug}/hosts/tokens:
     get:
       description: List all host tokens for the organization
       parameters:
@@ -654,7 +654,7 @@ paths:
       tags:
       - Host Tokens
       x-codegen-request-body-name: request
-  /orgs/{slug}/hosts/tokens/{tokenID}:
+  /v1/orgs/{slug}/hosts/tokens/{tokenID}:
     delete:
       description: Delete a host token (owner or admin only)
       parameters:
@@ -696,7 +696,7 @@ paths:
       summary: Delete host token
       tags:
       - Host Tokens
-  /orgs/{slug}/members:
+  /v1/orgs/{slug}/members:
     get:
       description: List all members of an organization
       parameters:
@@ -796,7 +796,7 @@ paths:
       tags:
       - Members
       x-codegen-request-body-name: request
-  /orgs/{slug}/members/{memberID}:
+  /v1/orgs/{slug}/members/{memberID}:
     delete:
       description: Remove a member from an organization (owner or admin only)
       parameters:
@@ -844,7 +844,7 @@ paths:
       summary: Remove member
       tags:
       - Members
-  /orgs/{slug}/sandboxes:
+  /v1/orgs/{slug}/sandboxes:
     get:
       description: List all sandboxes in the organization
       parameters:
@@ -939,7 +939,7 @@ paths:
       tags:
       - Sandboxes
       x-codegen-request-body-name: request
-  /orgs/{slug}/sandboxes/{sandboxID}:
+  /v1/orgs/{slug}/sandboxes/{sandboxID}:
     delete:
       description: Destroy a sandbox and release its resources
       parameters:
@@ -1025,7 +1025,7 @@ paths:
       summary: Get sandbox
       tags:
       - Sandboxes
-  /orgs/{slug}/sandboxes/{sandboxID}/commands:
+  /v1/orgs/{slug}/sandboxes/{sandboxID}/commands:
     get:
       description: List all commands executed in a sandbox
       parameters:
@@ -1072,7 +1072,7 @@ paths:
       summary: List commands
       tags:
       - Sandboxes
-  /orgs/{slug}/sandboxes/{sandboxID}/ip:
+  /v1/orgs/{slug}/sandboxes/{sandboxID}/ip:
     get:
       description: Get the IP address of a sandbox
       parameters:
@@ -1113,7 +1113,7 @@ paths:
       summary: Get sandbox IP
       tags:
       - Sandboxes
-  /orgs/{slug}/sandboxes/{sandboxID}/run:
+  /v1/orgs/{slug}/sandboxes/{sandboxID}/run:
     post:
       description: Execute a command in a sandbox
       parameters:
@@ -1173,7 +1173,7 @@ paths:
       tags:
       - Sandboxes
       x-codegen-request-body-name: request
-  /orgs/{slug}/sandboxes/{sandboxID}/snapshot:
+  /v1/orgs/{slug}/sandboxes/{sandboxID}/snapshot:
     post:
       description: Create a snapshot of a sandbox
       parameters:
@@ -1233,7 +1233,7 @@ paths:
       tags:
       - Sandboxes
       x-codegen-request-body-name: request
-  /orgs/{slug}/sandboxes/{sandboxID}/start:
+  /v1/orgs/{slug}/sandboxes/{sandboxID}/start:
     post:
       description: Start a stopped sandbox
       parameters:
@@ -1280,7 +1280,7 @@ paths:
       summary: Start sandbox
       tags:
       - Sandboxes
-  /orgs/{slug}/sandboxes/{sandboxID}/stop:
+  /v1/orgs/{slug}/sandboxes/{sandboxID}/stop:
     post:
       description: Stop a running sandbox
       parameters:
@@ -1327,7 +1327,7 @@ paths:
       summary: Stop sandbox
       tags:
       - Sandboxes
-  /orgs/{slug}/sources/{vm}/prepare:
+  /v1/orgs/{slug}/sources/{vm}/prepare:
     post:
       description: Prepare a source VM for sandbox cloning
       parameters:
@@ -1388,7 +1388,7 @@ paths:
       tags:
       - Source VMs
       x-codegen-request-body-name: request
-  /orgs/{slug}/sources/{vm}/read:
+  /v1/orgs/{slug}/sources/{vm}/read:
     post:
       description: Read a file from a source VM
       parameters:
@@ -1448,7 +1448,7 @@ paths:
       tags:
       - Source VMs
       x-codegen-request-body-name: request
-  /orgs/{slug}/sources/{vm}/run:
+  /v1/orgs/{slug}/sources/{vm}/run:
     post:
       description: Execute a read-only command on a source VM
       parameters:
@@ -1508,7 +1508,7 @@ paths:
       tags:
       - Source VMs
       x-codegen-request-body-name: request
-  /orgs/{slug}/vms:
+  /v1/orgs/{slug}/vms:
     get:
       description: List all source VMs across connected hosts
       parameters:

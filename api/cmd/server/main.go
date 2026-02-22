@@ -31,7 +31,7 @@ import (
 // @version        1.0
 // @description    API for managing sandboxes, organizations, billing, and hosts
 // @host           api.fluid.sh
-// @BasePath       /v1
+// @BasePath       /
 // @securityDefinitions.apikey CookieAuth
 // @in             cookie
 // @name           session

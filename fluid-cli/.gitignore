@@ -29,7 +29,6 @@ go.work.sum
 .env.lima
 .ssh-ca/
 bin/
-fluid-cli
 .ansible/
 config.yaml
 config.yml

@@ -14,6 +14,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
 	fluidmcp "github.com/aspectrr/fluid.sh/fluid/internal/mcp"
+	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
 	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store/sqlite"
@@ -79,8 +80,7 @@ var doctorCmd = &cobra.Command{
 
 		configPath := cfgFile
 		if configPath == "" {
-			home, _ := os.UserHomeDir()
-			configPath = filepath.Join(home, ".fluid", "config.yaml")
+			configPath = paths.ConfigFile()
 		}
 
 		loadedCfg, err := config.Load(configPath)
@@ -155,7 +155,7 @@ var updateCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.fluid/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $XDG_CONFIG_HOME/fluid/config.yaml)")
 	rootCmd.Flags().BoolP("version", "v", false, "print version")
 	doctorCmd.Flags().String("host", "", "host name from config (default: localhost)")
 	rootCmd.AddCommand(mcpCmd)
@@ -167,8 +167,7 @@ func init() {
 func runMCP() error {
 	configPath := cfgFile
 	if configPath == "" {
-		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".fluid", "config.yaml")
+		configPath = paths.ConfigFile()
 	}
 
 	var err error
@@ -206,8 +205,7 @@ func runMCP() error {
 func runTUI() error {
 	configPath := cfgFile
 	if configPath == "" {
-		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".fluid", "config.yaml")
+		configPath = paths.ConfigFile()
 	}
 
 	var err error

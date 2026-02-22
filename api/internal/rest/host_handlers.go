@@ -26,7 +26,7 @@ import (
 // @Failure      404   {object}  error.ErrorResponse
 // @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/hosts [get]
+// @Router       /v1/orgs/{slug}/hosts [get]
 func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -56,7 +56,7 @@ func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
 // @Failure      403     {object}  error.ErrorResponse
 // @Failure      404     {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/hosts/{hostID} [get]
+// @Router       /v1/orgs/{slug}/hosts/{hostID} [get]
 func (s *Server) handleGetHost(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -100,7 +100,7 @@ type hostTokenResponse struct {
 // @Failure      404      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/hosts/tokens [post]
+// @Router       /v1/orgs/{slug}/hosts/tokens [post]
 func (s *Server) handleCreateHostToken(w http.ResponseWriter, r *http.Request) {
 	org, member, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -172,7 +172,7 @@ func (s *Server) handleCreateHostToken(w http.ResponseWriter, r *http.Request) {
 // @Failure      404   {object}  error.ErrorResponse
 // @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/hosts/tokens [get]
+// @Router       /v1/orgs/{slug}/hosts/tokens [get]
 func (s *Server) handleListHostTokens(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -211,7 +211,7 @@ func (s *Server) handleListHostTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure      403      {object}  error.ErrorResponse
 // @Failure      404      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/hosts/tokens/{tokenID} [delete]
+// @Router       /v1/orgs/{slug}/hosts/tokens/{tokenID} [delete]
 func (s *Server) handleDeleteHostToken(w http.ResponseWriter, r *http.Request) {
 	org, member, ok := s.resolveOrgMembership(w, r)
 	if !ok {

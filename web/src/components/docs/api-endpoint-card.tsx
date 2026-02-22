@@ -35,7 +35,7 @@ export function ApiEndpointCard({ endpoint }: ApiEndpointCardProps) {
     for (const [key, val] of Object.entries(pathParams)) {
       path = path.replace(`{${key}}`, encodeURIComponent(val))
     }
-    return `/v1${path}`
+    return path
   }
 
   const sendRequest = async () => {

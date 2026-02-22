@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store"
 )
 
@@ -32,11 +33,7 @@ type sqliteStore struct {
 func New(ctx context.Context, cfg store.Config) (store.Store, error) {
 	dbPath := cfg.DatabaseURL
 	if dbPath == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("sqlite: get home dir: %w", err)
-		}
-		dbPath = filepath.Join(home, ".fluid", "state.db")
+		dbPath = paths.StateDB()
 	}
 
 	// Ensure directory exists

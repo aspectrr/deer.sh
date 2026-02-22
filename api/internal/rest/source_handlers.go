@@ -24,7 +24,7 @@ import (
 // @Failure      404   {object}  error.ErrorResponse
 // @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/vms [get]
+// @Router       /v1/orgs/{slug}/vms [get]
 func (s *Server) handleListVMs(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -58,7 +58,7 @@ func (s *Server) handleListVMs(w http.ResponseWriter, r *http.Request) {
 // @Failure      404      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sources/{vm}/prepare [post]
+// @Router       /v1/orgs/{slug}/sources/{vm}/prepare [post]
 func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -97,7 +97,7 @@ func (s *Server) handlePrepareSourceVM(w http.ResponseWriter, r *http.Request) {
 // @Failure      404      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sources/{vm}/run [post]
+// @Router       /v1/orgs/{slug}/sources/{vm}/run [post]
 func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {
@@ -146,7 +146,7 @@ func (s *Server) handleRunSourceCommand(w http.ResponseWriter, r *http.Request) 
 // @Failure      404      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/sources/{vm}/read [post]
+// @Router       /v1/orgs/{slug}/sources/{vm}/read [post]
 func (s *Server) handleReadSourceFile(w http.ResponseWriter, r *http.Request) {
 	org, _, ok := s.resolveOrgMembership(w, r)
 	if !ok {

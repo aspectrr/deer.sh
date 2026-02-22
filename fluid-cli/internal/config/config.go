@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
 )
 
 // Config is the root configuration for virsh-sandbox API.
@@ -135,8 +137,7 @@ type HostConfig struct {
 
 // DefaultConfig returns config with sensible defaults.
 func DefaultConfig() *Config {
-	home, _ := os.UserHomeDir()
-	configDir := filepath.Join(home, ".fluid")
+	configDir := paths.ConfigDir()
 
 	return &Config{
 		Provider: "libvirt",

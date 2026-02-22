@@ -76,7 +76,7 @@ func toOrgResponseForOwner(o *store.Organization) *orgResponse {
 // @Failure      409      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs [post]
+// @Router       /v1/orgs [post]
 func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 
@@ -193,7 +193,7 @@ func (s *Server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 // @Success      200  {object}  map[string]interface{}
 // @Failure      500  {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs [get]
+// @Router       /v1/orgs [get]
 func (s *Server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
 	orgs, err := s.store.ListOrganizationsByUser(r.Context(), user.ID)
@@ -226,7 +226,7 @@ func (s *Server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 // @Failure      404   {object}  error.ErrorResponse
 // @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug} [get]
+// @Router       /v1/orgs/{slug} [get]
 func (s *Server) handleGetOrg(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	user := auth.UserFromContext(r.Context())
@@ -275,7 +275,7 @@ type updateOrgRequest struct {
 // @Failure      404      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug} [patch]
+// @Router       /v1/orgs/{slug} [patch]
 func (s *Server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	user := auth.UserFromContext(r.Context())
@@ -327,7 +327,7 @@ func (s *Server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 // @Failure      404   {object}  error.ErrorResponse
 // @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug} [delete]
+// @Router       /v1/orgs/{slug} [delete]
 func (s *Server) handleDeleteOrg(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	user := auth.UserFromContext(r.Context())
@@ -375,7 +375,7 @@ type memberResponse struct {
 // @Failure      404   {object}  error.ErrorResponse
 // @Failure      500   {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/members [get]
+// @Router       /v1/orgs/{slug}/members [get]
 func (s *Server) handleListMembers(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	user := auth.UserFromContext(r.Context())
@@ -438,7 +438,7 @@ type addMemberRequest struct {
 // @Failure      409      {object}  error.ErrorResponse
 // @Failure      500      {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/members [post]
+// @Router       /v1/orgs/{slug}/members [post]
 func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	user := auth.UserFromContext(r.Context())
@@ -535,7 +535,7 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 // @Failure      404       {object}  error.ErrorResponse
 // @Failure      500       {object}  error.ErrorResponse
 // @Security     CookieAuth
-// @Router       /orgs/{slug}/members/{memberID} [delete]
+// @Router       /v1/orgs/{slug}/members/{memberID} [delete]
 func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	memberID := chi.URLParam(r, "memberID")

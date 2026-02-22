@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
 )
 
 const maxBinarySize = 500 * 1024 * 1024 // 500MB limit for tar entry reads
@@ -188,11 +190,7 @@ func Update(downloadURL string) error {
 
 // CacheDir returns the fluid config directory path for caching update checks.
 func CacheDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".fluid")
+	return paths.ConfigDir()
 }
 
 // ShouldCheck returns true if enough time has passed since the last update check.
