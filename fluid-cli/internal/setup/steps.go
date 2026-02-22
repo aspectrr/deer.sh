@@ -75,7 +75,8 @@ func stepDownloadDaemon() StepDef {
 		Name:        "Download release assets",
 		Description: "Download the fluid-daemon versioned tarball",
 		Commands: []string{
-			fmt.Sprintf("curl -fsSL -o /tmp/fluid-daemon.tar.gz https://github.com/aspectrr/fluid.sh/releases/latest/download/fluid-daemon_linux_%s.tar.gz", arch),
+			`TAG=$(curl -fsSL https://api.github.com/repos/aspectrr/fluid.sh/releases/latest | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)`,
+			fmt.Sprintf("curl -fsSL -o /tmp/fluid-daemon.tar.gz https://github.com/aspectrr/fluid.sh/releases/download/${TAG}/fluid-daemon_${TAG#v}_linux_%s.tar.gz", arch),
 		},
 		Check: func(ctx context.Context, run hostexec.RunFunc) (bool, error) {
 			_, _, code, _ := run(ctx, "test -f /tmp/fluid-daemon.tar.gz || which fluid-daemon >/dev/null 2>&1")
@@ -84,7 +85,7 @@ func stepDownloadDaemon() StepDef {
 		Execute: func(ctx context.Context, sudoRun hostexec.RunFunc) error {
 			arch := runtime.GOARCH
 			cmd := fmt.Sprintf(
-				"curl -fsSL -o /tmp/fluid-daemon.tar.gz https://github.com/aspectrr/fluid.sh/releases/latest/download/fluid-daemon_linux_%s.tar.gz",
+				`TAG=$(curl -fsSL https://api.github.com/repos/aspectrr/fluid.sh/releases/latest | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4) && VERSION=${TAG#v} && curl -fsSL -o /tmp/fluid-daemon.tar.gz "https://github.com/aspectrr/fluid.sh/releases/download/${TAG}/fluid-daemon_${VERSION}_linux_%s.tar.gz"`,
 				arch,
 			)
 			_, stderr, code, err := sudoRun(ctx, cmd)
