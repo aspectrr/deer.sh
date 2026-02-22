@@ -1,0 +1,13 @@
+fluid-cli/
+fluid-daemon/
+web/
+sdk/
+docs/
+reverse-proxy/
+scripts/
+examples/
+demo-server/
+.github/
+.claude/
+*.md
+docker-compose.yml
