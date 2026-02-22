@@ -29,7 +29,6 @@ go.work.sum
 .env.lima
 .ssh-ca/
 bin/
-.ansible/
 config.yaml
 config.yml
 hosts.txt

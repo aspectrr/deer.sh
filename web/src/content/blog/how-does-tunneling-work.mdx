@@ -20,7 +20,7 @@ But how does it work? At the time, I had no clue why it was working, just that i
 
 ## What Packets Are
 
-Every time you load a webpage, send a message, or stream a video, your device is sending and receiving **packets** - small chunks of data with addressing information attached.
+Every time you load a webpage, send a message, or stream a video, your device is sending and receiving **packets**, small chunks of data with addressing information attached.
 
 Think of a packet like a letter in the mail:
 
@@ -34,7 +34,7 @@ The school firewall works by reading the envelope. It sees the destination IP, c
 
 Here's the core idea behind tunneling: **take your entire original packet and stuff it inside a new one**.
 
-Your original packet says "send this to youtube.com." The firewall would block that. But if you wrap that packet inside a new packet that says "send this to 198.51.100.1" (your VPN server's IP), the firewall has no idea what's inside. It sees an allowed destination, and forwards it along.
+Your original packet says "send this to youtube.com." The firewall would block that. But if you wrap that packet inside a new packet that says "send this to (your VPN server's IP)", the firewall has no idea what's inside. It sees an allowed destination, and forwards it along.
 
 The VPN server receives the outer packet, unwraps it, finds the original packet inside, and forwards it to YouTube on your behalf. YouTube's response takes the reverse path: VPN server wraps it, sends it back to you, your VPN client unwraps it, and your browser gets the response.
 
@@ -46,7 +46,7 @@ The wrapping process is called **encapsulation**. Each layer adds its own header
 
 <PacketEncapsulation />
 
-The key insight is step 5: the outer IP header is the only thing visible to the firewall. Everything inside it - your real destination, your HTTP request, the actual data - is encrypted and opaque.
+The key insight is step 5: the outer IP header is the only thing visible to the firewall. Everything inside it - your real destination, your HTTP request, the actual data - is encrypted.
 
 ## The Full Journey
 
@@ -215,7 +215,7 @@ Not all tunnels work the same way. Here are the most common ones:
 
 **WireGuard** - the modern choice. Uses UDP, minimal codebase (~4,000 lines of kernel code), extremely fast. Encryption is Curve25519 + ChaCha20-Poly1305. This is what most modern VPN providers use under the hood. The protocol is stateless on the wire, which makes it harder to fingerprint and block.
 
-**OpenVPN** - the battle-tested workhorse. Can run over TCP or UDP, highly configurable, supports certificate-based auth. More overhead than WireGuard, but its TCP mode can masquerade as regular HTTPS traffic on port 443, making it harder to block in restrictive networks.
+**OpenVPN** - battle-tested. Can run over TCP or UDP, highly configurable, supports certificate-based auth. More overhead than WireGuard, but its TCP mode can masquerade as regular HTTPS traffic on port 443, making it harder to block in restrictive networks.
 
 **IPsec/IKEv2** - the enterprise standard. Built into most operating systems natively (no app needed on iOS/macOS). Uses IKE for key exchange and ESP for the actual encryption. Fast reconnection when switching between WiFi and cellular, which is why your phone's VPN doesn't drop when you walk out of a building.
 
