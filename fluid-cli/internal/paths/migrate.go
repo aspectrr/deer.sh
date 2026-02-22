@@ -66,7 +66,7 @@ func MaybeMigrate() error {
 	}
 
 	// Data dir files
-	dataFiles := []string{"state.db", "history"}
+	dataFiles := []string{"state.db", "state.db-wal", "state.db-shm", "history"}
 	for _, name := range dataFiles {
 		if err := copyFile(filepath.Join(oldDir, name), filepath.Join(dataDir, name)); err != nil && !os.IsNotExist(err) {
 			copyErrors = append(copyErrors, fmt.Errorf("copy %s: %w", name, err))
@@ -131,6 +131,9 @@ func copyDir(src, dst string) error {
 	}
 
 	for _, entry := range entries {
+		if entry.Type()&os.ModeSymlink != 0 {
+			continue
+		}
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 		if entry.IsDir() {

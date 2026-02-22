@@ -76,10 +76,6 @@ var doctorCmd = &cobra.Command{
 	Short: "Check daemon setup on a host",
 	Long:  "Validate that the fluid-daemon is properly installed and configured on a sandbox host.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := paths.MaybeMigrate(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: migration failed: %v\n", err)
-		}
-
 		hostName, _ := cmd.Flags().GetString("host")
 
 		configPath := cfgFile
@@ -165,6 +161,12 @@ var updateCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $XDG_CONFIG_HOME/fluid/config.yaml)")
 	rootCmd.Flags().BoolP("version", "v", false, "print version")
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if err := paths.MaybeMigrate(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: migration failed: %v\n", err)
+		}
+		return nil
+	}
 	doctorCmd.Flags().String("host", "", "host name from config (default: localhost)")
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(updateCmd)
@@ -173,10 +175,6 @@ func init() {
 
 // runMCP launches the MCP server on stdio
 func runMCP() error {
-	if err := paths.MaybeMigrate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: migration failed: %v\n", err)
-	}
-
 	configPath := cfgFile
 	if configPath == "" {
 		var err error
@@ -219,10 +217,6 @@ func runMCP() error {
 
 // runTUI launches the interactive TUI
 func runTUI() error {
-	if err := paths.MaybeMigrate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: migration failed: %v\n", err)
-	}
-
 	configPath := cfgFile
 	if configPath == "" {
 		var err error

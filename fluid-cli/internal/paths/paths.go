@@ -42,9 +42,13 @@ func DataDir() (string, error) {
 		return filepath.Join(xdg, "fluid"), nil
 	}
 	if runtime.GOOS == "windows" {
-		dir, err := os.UserConfigDir()
-		if err != nil {
-			return "", fmt.Errorf("paths: data dir: %w", err)
+		dir := os.Getenv("LOCALAPPDATA")
+		if dir == "" {
+			var err error
+			dir, err = os.UserCacheDir()
+			if err != nil {
+				return "", fmt.Errorf("paths: data dir: %w", err)
+			}
 		}
 		return filepath.Join(dir, "fluid"), nil
 	}
