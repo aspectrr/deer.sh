@@ -71,24 +71,20 @@ func stepInstallPrereqs(distro DistroInfo) StepDef {
 
 func stepDownloadDaemon() StepDef {
 	arch := runtime.GOARCH
+	downloadCmd := fmt.Sprintf(
+		`TAG=$(curl -fsSL https://api.github.com/repos/aspectrr/fluid.sh/releases/latest | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4) && [ -n "$TAG" ] && VERSION=${TAG#v} && curl -fsSL -o /tmp/fluid-daemon.tar.gz "https://github.com/aspectrr/fluid.sh/releases/download/${TAG}/fluid-daemon_${VERSION}_linux_%s.tar.gz"`,
+		arch,
+	)
 	return StepDef{
 		Name:        "Download release assets",
 		Description: "Download the fluid-daemon versioned tarball",
-		Commands: []string{
-			`TAG=$(curl -fsSL https://api.github.com/repos/aspectrr/fluid.sh/releases/latest | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)`,
-			fmt.Sprintf("curl -fsSL -o /tmp/fluid-daemon.tar.gz https://github.com/aspectrr/fluid.sh/releases/download/${TAG}/fluid-daemon_${TAG#v}_linux_%s.tar.gz", arch),
-		},
+		Commands:    []string{downloadCmd},
 		Check: func(ctx context.Context, run hostexec.RunFunc) (bool, error) {
 			_, _, code, _ := run(ctx, "test -f /tmp/fluid-daemon.tar.gz || which fluid-daemon >/dev/null 2>&1")
 			return code == 0, nil
 		},
 		Execute: func(ctx context.Context, sudoRun hostexec.RunFunc) error {
-			arch := runtime.GOARCH
-			cmd := fmt.Sprintf(
-				`TAG=$(curl -fsSL https://api.github.com/repos/aspectrr/fluid.sh/releases/latest | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4) && VERSION=${TAG#v} && curl -fsSL -o /tmp/fluid-daemon.tar.gz "https://github.com/aspectrr/fluid.sh/releases/download/${TAG}/fluid-daemon_${VERSION}_linux_%s.tar.gz"`,
-				arch,
-			)
-			_, stderr, code, err := sudoRun(ctx, cmd)
+			_, stderr, code, err := sudoRun(ctx, downloadCmd)
 			if err != nil {
 				return fmt.Errorf("download fluid-daemon: %w", err)
 			}
