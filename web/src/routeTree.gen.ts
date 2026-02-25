@@ -27,6 +27,7 @@ import { Route as DocsArchitectureRouteImport } from './routes/docs/architecture
 import { Route as DocsApiRouteImport } from './routes/docs/api'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppBillingRouteImport } from './routes/_app/billing'
 import { Route as PublicBlogIndexRouteImport } from './routes/_public/blog/index'
@@ -35,6 +36,7 @@ import { Route as AppBillingIndexRouteImport } from './routes/_app/billing/index
 import { Route as PublicBlogSlugRouteImport } from './routes/_public/blog/$slug'
 import { Route as AppSettingsOrganizationRouteImport } from './routes/_app/settings/organization'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppSettingsHostsRouteImport } from './routes/_app/settings/hosts'
 import { Route as AppBillingCalculatorRouteImport } from './routes/_app/billing/calculator'
 
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -124,6 +126,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -140,9 +147,9 @@ const PublicBlogIndexRoute = PublicBlogIndexRouteImport.update({
   getParentRoute: () => PublicRoute,
 } as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
-  id: '/settings/',
-  path: '/settings/',
-  getParentRoute: () => AppRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppBillingIndexRoute = AppBillingIndexRouteImport.update({
   id: '/',
@@ -155,14 +162,19 @@ const PublicBlogSlugRoute = PublicBlogSlugRouteImport.update({
   getParentRoute: () => PublicRoute,
 } as any)
 const AppSettingsOrganizationRoute = AppSettingsOrganizationRouteImport.update({
-  id: '/settings/organization',
-  path: '/settings/organization',
-  getParentRoute: () => AppRoute,
+  id: '/organization',
+  path: '/organization',
+  getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
-  id: '/settings/members',
-  path: '/settings/members',
-  getParentRoute: () => AppRoute,
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsHostsRoute = AppSettingsHostsRouteImport.update({
+  id: '/hosts',
+  path: '/hosts',
+  getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppBillingCalculatorRoute = AppBillingCalculatorRouteImport.update({
   id: '/calculator',
@@ -175,6 +187,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/billing': typeof AppBillingRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
+  '/settings': typeof AppSettingsRouteWithChildren
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -189,11 +202,12 @@ export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/billing/calculator': typeof AppBillingCalculatorRoute
+  '/settings/hosts': typeof AppSettingsHostsRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/organization': typeof AppSettingsOrganizationRoute
   '/blog/$slug': typeof PublicBlogSlugRoute
   '/billing/': typeof AppBillingIndexRoute
-  '/settings': typeof AppSettingsIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
   '/blog': typeof PublicBlogIndexRoute
 }
 export interface FileRoutesByTo {
@@ -213,6 +227,7 @@ export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/docs': typeof DocsIndexRoute
   '/billing/calculator': typeof AppBillingCalculatorRoute
+  '/settings/hosts': typeof AppSettingsHostsRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/organization': typeof AppSettingsOrganizationRoute
   '/blog/$slug': typeof PublicBlogSlugRoute
@@ -229,6 +244,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/_app/billing': typeof AppBillingRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/docs/api': typeof DocsApiRoute
@@ -243,6 +259,7 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/_app/billing/calculator': typeof AppBillingCalculatorRoute
+  '/_app/settings/hosts': typeof AppSettingsHostsRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/organization': typeof AppSettingsOrganizationRoute
   '/_public/blog/$slug': typeof PublicBlogSlugRoute
@@ -257,6 +274,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/billing'
     | '/dashboard'
+    | '/settings'
     | '/login'
     | '/register'
     | '/docs/api'
@@ -271,11 +289,12 @@ export interface FileRouteTypes {
     | '/'
     | '/docs/'
     | '/billing/calculator'
+    | '/settings/hosts'
     | '/settings/members'
     | '/settings/organization'
     | '/blog/$slug'
     | '/billing/'
-    | '/settings'
+    | '/settings/'
     | '/blog'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -295,6 +314,7 @@ export interface FileRouteTypes {
     | '/'
     | '/docs'
     | '/billing/calculator'
+    | '/settings/hosts'
     | '/settings/members'
     | '/settings/organization'
     | '/blog/$slug'
@@ -310,6 +330,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/_app/billing'
     | '/_app/dashboard'
+    | '/_app/settings'
     | '/_auth/login'
     | '/_auth/register'
     | '/docs/api'
@@ -324,6 +345,7 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/docs/'
     | '/_app/billing/calculator'
+    | '/_app/settings/hosts'
     | '/_app/settings/members'
     | '/_app/settings/organization'
     | '/_public/blog/$slug'
@@ -468,6 +490,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -491,10 +520,10 @@ declare module '@tanstack/react-router' {
     }
     '/_app/settings/': {
       id: '/_app/settings/'
-      path: '/settings'
-      fullPath: '/settings'
+      path: '/'
+      fullPath: '/settings/'
       preLoaderRoute: typeof AppSettingsIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppSettingsRoute
     }
     '/_app/billing/': {
       id: '/_app/billing/'
@@ -512,17 +541,24 @@ declare module '@tanstack/react-router' {
     }
     '/_app/settings/organization': {
       id: '/_app/settings/organization'
-      path: '/settings/organization'
+      path: '/organization'
       fullPath: '/settings/organization'
       preLoaderRoute: typeof AppSettingsOrganizationRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppSettingsRoute
     }
     '/_app/settings/members': {
       id: '/_app/settings/members'
-      path: '/settings/members'
+      path: '/members'
       fullPath: '/settings/members'
       preLoaderRoute: typeof AppSettingsMembersRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/hosts': {
+      id: '/_app/settings/hosts'
+      path: '/hosts'
+      fullPath: '/settings/hosts'
+      preLoaderRoute: typeof AppSettingsHostsRouteImport
+      parentRoute: typeof AppSettingsRoute
     }
     '/_app/billing/calculator': {
       id: '/_app/billing/calculator'
@@ -544,22 +580,38 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
   AppBillingIndexRoute: AppBillingIndexRoute,
 }
 
-const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(
+  AppBillingRouteChildren,
+)
 
-interface AppRouteChildren {
-  AppBillingRoute: typeof AppBillingRouteWithChildren
-  AppDashboardRoute: typeof AppDashboardRoute
+interface AppSettingsRouteChildren {
+  AppSettingsHostsRoute: typeof AppSettingsHostsRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsOrganizationRoute: typeof AppSettingsOrganizationRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
-const AppRouteChildren: AppRouteChildren = {
-  AppBillingRoute: AppBillingRouteWithChildren,
-  AppDashboardRoute: AppDashboardRoute,
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsHostsRoute: AppSettingsHostsRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsOrganizationRoute: AppSettingsOrganizationRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppBillingRoute: typeof AppBillingRouteWithChildren
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppBillingRoute: AppBillingRouteWithChildren,
+  AppDashboardRoute: AppDashboardRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -588,7 +640,8 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicBlogIndexRoute: PublicBlogIndexRoute,
 }
 
-const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
 
 interface DocsRouteChildren {
   DocsApiRoute: typeof DocsApiRoute

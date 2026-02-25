@@ -1,0 +1,38 @@
+---
+title: 'Changelog #003 v0.1.3'
+pubDate: 2026-02-23
+description: 'Changelog for v0.1.3'
+author: 'Collin @ Fluid.sh'
+authorImage: '/images/skeleton_smoking_cigarette.jpg'
+authorEmail: 'cpfeifer@madcactus.org'
+authorPhone: '+3179955114'
+authorDiscord: 'https://discordapp.com/users/301068417685913600'
+---
+
+## Changelog #003
+
+Hi everyone!
+
+This release brings a major rewrite to what Fluid can do and where it can operate. Fluid MCP gets added, proxmox support is added, and remote execution via the Fluid daemon was added!
+
+## Update to v0.1.3
+
+Update your CLI agent with `go install`
+
+```bash
+go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest
+```
+
+## Fluid Daemon
+
+By far the biggest change comes in the form of a Fluid architecture rebuild.
+
+Fluid just a week ago was a terminal agent that interacted with VM hosts via raw libvirt calls and is becoming a multi 
+
+
+
+## Come Hang Out
+
+Questions? Join us on [Discord](https://discord.gg/4WGGXJWm8J)
+
+Found a bug? Open an issue on [GitHub](https://github.com/aspectrr/fluid.sh/issues)

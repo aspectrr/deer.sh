@@ -165,7 +165,7 @@ export function StepTracker({
       pollingRef.current = setTimeout(poll, delay)
     }
 
-    pollingRef.current = setTimeout(poll, BASE_INTERVAL)
+    poll()
 
     return () => {
       cancelled = true

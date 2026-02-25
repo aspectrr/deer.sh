@@ -1,6 +1,6 @@
 ---
 title: 'How does Network Tunneling Work?'
-pubDate: 2026-02-19
+pubDate: 2026-02-25
 description: "If I use a VPN, it's still private right?"
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
@@ -14,9 +14,9 @@ import { PacketJourney } from '~/components/blog/tunneling/PacketJourney'
 
 ## The Packet Journey
 
-Back in high-school, my school system blocked all traffic going to popular social media apps like Snapchat, Youtube, and Instagram. The way that we all got around it was with using a free VPN to mask our traffic.
+Back in high-school, all traffic going to social media apps like Snapchat, Youtube, and Instagram was blocked. We all eventually discovered that VPNs helped us get around the firewall, but why did that work?
 
-But how does it work? At the time, I had no clue why it was working, just that it was. You flip the VPN on, and suddenly YouTube loads. Flip it off, blocked again. But what actually happens when you hit "Connect"? Where does the traffic go, and why can't the school's firewall tell that you're watching videos instead of doing homework?
+At the time, I had no clue why it was working, just that it was. You flip the VPN on, and suddenly YouTube loads. Flip it off, blocked again. But what actually happened when I hit "Connect"? Where does the traffic go, and why can't the school's firewall tell that you're on Snapchat?
 
 ## What Packets Are
 
@@ -35,6 +35,10 @@ The school firewall works by reading the envelope. It sees the destination IP, c
 Here's the core idea behind tunneling: **take your entire original packet and stuff it inside a new one**.
 
 Your original packet says "send this to youtube.com." The firewall would block that. But if you wrap that packet inside a new packet that says "send this to (your VPN server's IP)", the firewall has no idea what's inside. It sees an allowed destination, and forwards it along.
+
+To set this up, you need encryption to protect the inner packet. First the client (my phone) and the VPN server authenticate each other with a handshake. Next they exchange encryption keys using a technique like a [Diffie-Hellman](https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_key_exchange) to create encrypted keys over an insecure channel.
+
+After this a shared symmetric encryption key is generated which is used for all future communications.
 
 The VPN server receives the outer packet, unwraps it, finds the original packet inside, and forwards it to YouTube on your behalf. YouTube's response takes the reverse path: VPN server wraps it, sends it back to you, your VPN client unwraps it, and your browser gets the response.
 
@@ -226,5 +230,3 @@ Each protocol makes different tradeoffs between speed, compatibility, and stealt
 At fluid.sh, we use a similar concept to give AI agents secure access to sandbox VMs. When a daemon connects to the control plane, it establishes an encrypted gRPC stream - effectively a tunnel that lets the control plane send commands to sandboxes behind NATs and firewalls without exposing any ports to the public internet.
 
 The sandbox never needs a public IP. The daemon maintains an outbound connection to the control plane, and all traffic flows through that encrypted channel. Same principle as a VPN tunnel: wrap internal traffic in an encrypted outer layer, punch through the network boundary, unwrap on the other side.
-
-If you want to see how sandboxes themselves work under the hood, check out [How Fluid.sh Sandboxes Work](/blog/how-sandboxes-work).

@@ -27,19 +27,6 @@ export const quickstartSteps: Step[] = [
     ),
   },
   {
-    title: 'Set up the daemon',
-    content: (
-      <>
-        <p>
-          The daemon manages sandboxes on the sandbox host. Choose a free host in your
-          infrastructure that can connect to the VMs that you want to work on over SSH. Install and
-          configure the daemon on each sandbox host - the CLI connects to it over gRPC.
-        </p>
-        <DaemonSubsteps />
-      </>
-    ),
-  },
-  {
     title: 'Launch the TUI',
     content: (
       <>
@@ -61,6 +48,19 @@ export const quickstartSteps: Step[] = [
           Use <code className="text-green-400">/settings</code> to configure hosts, LLM provider,
           and sandbox defaults at any time.
         </Callout>
+      </>
+    ),
+  },
+  {
+    title: 'Set up the daemon',
+    content: (
+      <>
+        <p>
+          The daemon manages sandboxes on the sandbox host. Choose a free host in your
+          infrastructure that can connect to the VMs that you want to work on over SSH. Install and
+          configure the daemon on each sandbox host - the CLI connects to it over gRPC.
+        </p>
+        <DaemonSubsteps />
       </>
     ),
   },

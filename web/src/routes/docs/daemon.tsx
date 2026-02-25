@@ -6,7 +6,7 @@ import { TerminalBlock } from '~/components/docs/terminal-block'
 import { Callout } from '~/components/docs/callout'
 import { PrevNext } from '~/components/docs/prev-next'
 import { DaemonConnectionStatus } from '~/components/daemon-connection-status'
-import { daemonSetupSteps } from '~/components/docs/daemon-setup-steps'
+import { daemonSetupSteps, ManualInstallSteps } from '~/components/docs/daemon-setup-steps'
 import { useAuth } from '~/lib/auth'
 import { axios } from '~/lib/axios'
 
@@ -61,6 +61,7 @@ function DaemonPage() {
             />
           </div>
         )}
+        <ManualInstallSteps />
       </div>
 
       <StepTracker storageKey="daemon" steps={daemonSetupSteps} />

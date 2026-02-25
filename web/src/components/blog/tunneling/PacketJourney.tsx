@@ -408,7 +408,7 @@ export function PacketJourney() {
           initial="hidden"
           animate={controls}
         >
-          encrypted tunnel
+          encrypted
         </motion.text>
 
         <motion.text
@@ -426,7 +426,7 @@ export function PacketJourney() {
           initial="hidden"
           animate={controls}
         >
-          encrypted tunnel
+          encrypted
         </motion.text>
 
         <motion.text
@@ -444,7 +444,7 @@ export function PacketJourney() {
           initial="hidden"
           animate={controls}
         >
-          plain HTTPS
+          HTTPS
         </motion.text>
       </svg>
     </div>

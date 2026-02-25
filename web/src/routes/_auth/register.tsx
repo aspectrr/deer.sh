@@ -120,7 +120,7 @@ function RegisterPage() {
 
       <div className="space-y-2">
         <a
-          href={`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/v1/auth/github`}
+          href={`${import.meta.env.VITE_API_URL || ''}/v1/auth/github`}
           className="border-border hover:border-muted-foreground flex w-full items-center justify-center gap-2 border px-3 py-2 text-xs text-white transition-colors"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -129,7 +129,7 @@ function RegisterPage() {
           Continue with GitHub
         </a>
         <a
-          href={`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/v1/auth/google`}
+          href={`${import.meta.env.VITE_API_URL || ''}/v1/auth/google`}
           className="border-border hover:border-muted-foreground flex w-full items-center justify-center gap-2 border px-3 py-2 text-xs text-white transition-colors"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
