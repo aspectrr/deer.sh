@@ -618,7 +618,9 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
   AppBillingIndexRoute: AppBillingIndexRoute,
 }
 
-const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(
+  AppBillingRouteChildren,
+)
 
 interface AppSettingsRouteChildren {
   AppSettingsHostsRoute: typeof AppSettingsHostsRoute
@@ -676,7 +678,8 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicBlogSeriesHypervisorRoute: PublicBlogSeriesHypervisorRoute,
 }
 
-const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
 
 interface DocsRouteChildren {
   DocsApiRoute: typeof DocsApiRoute
