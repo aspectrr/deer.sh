@@ -111,6 +111,38 @@ function ArchitecturePage() {
         your workflow. The TUI and MCP tools work the same way regardless of tier.
       </Callout>
 
+      <H2>Network Topologies</H2>
+      <p className="mb-4 text-xs text-neutral-400">
+        How VMs are reachable depends on your networking setup. The daemon supports both bridged and
+        NAT configurations.
+      </p>
+
+      <H3>Bridged Networking (recommended)</H3>
+      <ul className="mb-4 ml-4 list-disc space-y-1 text-xs text-neutral-400">
+        <li>VMs get IPs on the same network as the host</li>
+        <li>Daemon and VMs are directly reachable - no proxy needed</li>
+        <li>
+          Daemon config: <code className="text-green-400">ssh.proxy_jump: ""</code> (default)
+        </li>
+        <li>CLI onboarding auto-detects when you answer "yes" to direct VM access</li>
+      </ul>
+
+      <H3>NAT Networking</H3>
+      <ul className="mb-4 ml-4 list-disc space-y-1 text-xs text-neutral-400">
+        <li>VMs get private IPs only reachable from the host</li>
+        <li>
+          Daemon must proxy jump:{' '}
+          <code className="text-green-400">ssh.proxy_jump: "fluid-daemon@host"</code>
+        </li>
+        <li>Common with default libvirt NAT bridge or cloud VMs (Hetzner, etc.)</li>
+        <li>CLI onboarding auto-configures this for both local and remote daemons</li>
+      </ul>
+
+      <Callout type="info">
+        Both topologies require the daemon's <code className="text-green-400">identity.pub</code> in
+        the host's <code className="text-green-400">~/.ssh/authorized_keys</code>.
+      </Callout>
+
       <PrevNext />
     </div>
   )

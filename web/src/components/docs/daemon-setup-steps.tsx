@@ -136,9 +136,12 @@ export const daemonSetupSteps: Step[] = [
         </p>
         <PackageManagerTabs tabs={installTabs} />
         <Callout type="info">
-          QEMU, libvirt, and networking tools are listed as recommended dependencies. On
-          Debian/Ubuntu they install automatically; on RHEL/Fedora install them separately if
-          needed: <code className="text-blue-400">sudo dnf install qemu-kvm libvirt</code>
+          QEMU, libvirt, libguestfs-tools, and networking tools are listed as recommended
+          dependencies. On Debian/Ubuntu they install automatically; on RHEL/Fedora install them
+          separately if needed:{' '}
+          <code className="text-blue-400">
+            sudo dnf install qemu-kvm libvirt libguestfs-tools-c
+          </code>
         </Callout>
       </>
     ),
@@ -204,7 +207,7 @@ const depsTabs: TabDef[] = [
     lines: [
       {
         command:
-          'sudo apt update && sudo apt install -y qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients iproute2 bridge-utils openssh-client',
+          'sudo apt update && sudo apt install -y qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients libguestfs-tools iproute2 bridge-utils openssh-client',
       },
     ],
   },
@@ -214,7 +217,7 @@ const depsTabs: TabDef[] = [
     lines: [
       {
         command:
-          'sudo dnf install -y qemu-kvm qemu-img libvirt libvirt-client iproute bridge-utils openssh-clients',
+          'sudo dnf install -y qemu-kvm qemu-img libvirt libvirt-client libguestfs-tools-c iproute bridge-utils openssh-clients',
       },
     ],
   },
@@ -224,7 +227,7 @@ const depsTabs: TabDef[] = [
     lines: [
       {
         command:
-          'sudo yum install -y qemu-kvm qemu-img libvirt libvirt-client iproute bridge-utils openssh-clients',
+          'sudo yum install -y qemu-kvm qemu-img libvirt libvirt-client libguestfs-tools-c iproute bridge-utils openssh-clients',
       },
     ],
   },
@@ -233,7 +236,8 @@ const depsTabs: TabDef[] = [
     label: 'pacman',
     lines: [
       {
-        command: 'sudo pacman -S --noconfirm qemu-full libvirt iproute2 bridge-utils openssh',
+        command:
+          'sudo pacman -S --noconfirm qemu-full libvirt libguestfs iproute2 bridge-utils openssh',
       },
     ],
   },
@@ -257,10 +261,11 @@ network:
 ssh:
   ca_key_path: /etc/fluid-daemon/ssh_ca
   ca_pub_key_path: /etc/fluid-daemon/ssh_ca.pub
-  key_dir: /etc/fluid-daemon/keys
+  key_dir: /var/lib/fluid-daemon/keys
   cert_ttl: 30m
   default_user: sandbox
   identity_file: /etc/fluid-daemon/identity
+  # proxy_jump: "fluid-daemon@vm-host"  # Set by CLI onboarding for NAT networks
 
 # Optional: connect to control plane
 # control_plane:
@@ -374,9 +379,9 @@ const manualSteps: Array<{ title: string; content: ReactNode }> = [
         />
         <Callout type="info">
           Deploy <code className="text-green-400">/etc/fluid-daemon/identity.pub</code> to{' '}
-          <code className="text-green-400">~/.ssh/authorized_keys</code> on each source VM host so
-          the daemon can SSH to them for virsh and rsync operations. The daemon's source prepare
-          step will automatically install this key on source VMs.
+          <code className="text-green-400">~/.ssh/authorized_keys</code> on each{' '}
+          <strong>source VM host</strong> (the machine running libvirt) so the daemon can SSH for
+          virsh and rsync operations.
         </Callout>
         <p>Create the configuration file:</p>
         <CodeBlock code={daemonConfig} lang="yaml" filename="/etc/fluid-daemon/daemon.yaml" />

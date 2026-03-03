@@ -5,6 +5,7 @@ package readonly
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -316,6 +317,73 @@ func tokenize(s string) []string {
 	}
 
 	return tokens
+}
+
+// ValidateCommandWithExtra checks that every command in a pipeline is allowed,
+// using both the default allowlist and extra user-configured commands.
+func ValidateCommandWithExtra(command string, extraAllowed []string) error {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return fmt.Errorf("empty command")
+	}
+
+	if err := checkDangerousMetacharacters(command); err != nil {
+		return err
+	}
+
+	if containsUnquotedRedirection(command) {
+		return fmt.Errorf("output redirection is not allowed in read-only mode")
+	}
+
+	// Build merged allowlist
+	merged := make(map[string]bool, len(allowedCommands)+len(extraAllowed))
+	for k, v := range allowedCommands {
+		merged[k] = v
+	}
+	for _, cmd := range extraAllowed {
+		cmd = strings.TrimSpace(cmd)
+		if cmd != "" {
+			merged[cmd] = true
+		}
+	}
+
+	segments := splitPipeline(command)
+
+	for _, seg := range segments {
+		seg = strings.TrimSpace(seg)
+		if seg == "" {
+			continue
+		}
+
+		baseCmd := extractBaseCommand(seg)
+		if baseCmd == "" {
+			continue
+		}
+
+		if !merged[baseCmd] {
+			return fmt.Errorf("command %q is not allowed in read-only mode", baseCmd)
+		}
+
+		if restrictions, ok := subcommandRestrictions[baseCmd]; ok {
+			subCmd := extractSubcommand(seg, baseCmd)
+			if subCmd != "" && !restrictions[subCmd] {
+				return fmt.Errorf("%s subcommand %q is not allowed in read-only mode (allowed: %s)",
+					baseCmd, subCmd, joinKeys(restrictions))
+			}
+		}
+	}
+
+	return nil
+}
+
+// AllowedCommandsList returns a sorted slice of default allowed command names.
+func AllowedCommandsList() []string {
+	cmds := make([]string, 0, len(allowedCommands))
+	for k := range allowedCommands {
+		cmds = append(cmds, k)
+	}
+	sort.Strings(cmds)
+	return cmds
 }
 
 // joinKeys returns a comma-separated list of map keys.

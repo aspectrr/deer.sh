@@ -1,0 +1,141 @@
+name: Publish Packages
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils createrepo-c gnupg
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "use-agent" >> ~/.gnupg/gpg.conf
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent
+          gpgconf --launch gpg-agent
+
+      - name: Build APT repository
+        env:
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          mkdir -p packages/apt/pool
+          mkdir -p packages/apt/dists/stable/main/binary-amd64
+          mkdir -p packages/apt/dists/stable/main/binary-arm64
+
+          # Copy .deb files to pool
+          cp dist/*.deb packages/apt/pool/ 2>/dev/null || true
+
+          # Generate Packages files
+          cd packages/apt
+          for arch in amd64 arm64; do
+            apt-ftparchive packages pool/ | grep -A 999 "Architecture: ${arch}" > dists/stable/main/binary-${arch}/Packages || true
+            # Generate per-arch from matching files
+            dpkg-scanpackages --arch ${arch} pool/ > dists/stable/main/binary-${arch}/Packages 2>/dev/null || true
+            gzip -kf dists/stable/main/binary-${arch}/Packages
+          done
+
+          # Generate Release file
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin="Fluid" \
+            -o APT::FTPArchive::Release::Label="Fluid" \
+            -o APT::FTPArchive::Release::Suite="stable" \
+            -o APT::FTPArchive::Release::Codename="stable" \
+            -o APT::FTPArchive::Release::Architectures="amd64 arm64" \
+            -o APT::FTPArchive::Release::Components="main" \
+            release dists/stable/ > dists/stable/Release
+
+          # Sign Release file
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --local-user "$GPG_FINGERPRINT" \
+            --armor --detach-sign \
+            --output dists/stable/Release.gpg \
+            dists/stable/Release
+
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --local-user "$GPG_FINGERPRINT" \
+            --armor --clearsign \
+            --output dists/stable/InRelease \
+            dists/stable/Release
+
+          cd ../..
+
+      - name: Build YUM repository
+        env:
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          mkdir -p packages/yum/x86_64
+          mkdir -p packages/yum/aarch64
+
+          # Copy .rpm files to arch dirs
+          for rpm in dist/*.x86_64.rpm; do
+            [ -f "$rpm" ] && cp "$rpm" packages/yum/x86_64/
+          done
+          for rpm in dist/*.aarch64.rpm; do
+            [ -f "$rpm" ] && cp "$rpm" packages/yum/aarch64/
+          done
+
+          # Sign RPMs
+          for rpm in packages/yum/**/*.rpm; do
+            [ -f "$rpm" ] && rpmsign --addsign \
+              --define "_gpg_name $GPG_FINGERPRINT" \
+              --define "__gpg_sign_cmd %{__gpg} gpg --batch --yes --pinentry-mode loopback --passphrase $GPG_PASSPHRASE -u '%{_gpg_name}' --detach-sign --armor -o %{__signature_filename} %{__plaintext_filename}" \
+              "$rpm" 2>/dev/null || true
+          done
+
+          # Create repo metadata
+          createrepo_c packages/yum/x86_64/
+          createrepo_c packages/yum/aarch64/
+
+      - name: Export GPG public key
+        run: |
+          gpg --armor --export "${{ secrets.GPG_FINGERPRINT }}" > packages/gpg
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages-action@v4

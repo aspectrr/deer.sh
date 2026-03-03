@@ -2,22 +2,10 @@ package doctor
 
 import (
 	"context"
-	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
 )
-
-// qemuBinaryName returns the correct QEMU binary name for the current architecture.
-func qemuBinaryName() string {
-	switch runtime.GOARCH {
-	case "arm64":
-		return "qemu-system-aarch64"
-	default:
-		return "qemu-system-x86_64"
-	}
-}
 
 type check struct {
 	name string
@@ -33,6 +21,7 @@ func allChecks() []check {
 		{"libvirt-running", checkLibvirtRunning},
 		{"kvm-available", checkKVMAvailable},
 		{"qemu-binary", checkQEMUBinary},
+		{"kernel-tools", checkKernelTools},
 		{"storage-dirs", checkStorageDirs},
 		{"daemon-config", checkDaemonConfig},
 	}
@@ -53,7 +42,7 @@ func checkDaemonBinary(ctx context.Context, run hostexec.RunFunc) CheckResult {
 		Category: "binary",
 		Passed:   false,
 		Message:  "fluid-daemon binary not found",
-		FixCmd:   "curl -fsSL https://get.fluid.sh/daemon | bash",
+		FixCmd:   "sudo apt install fluid-daemon  # or see https://fluid.sh/docs/daemon",
 	}
 }
 
@@ -153,8 +142,7 @@ func checkKVMAvailable(ctx context.Context, run hostexec.RunFunc) CheckResult {
 }
 
 func checkQEMUBinary(ctx context.Context, run hostexec.RunFunc) CheckResult {
-	binary := qemuBinaryName()
-	_, _, code, _ := run(ctx, fmt.Sprintf("which %s", binary))
+	_, _, code, _ := run(ctx, "which qemu-system-x86_64 || which qemu-system-aarch64")
 	if code == 0 {
 		return CheckResult{
 			Name:     "qemu-binary",
@@ -167,8 +155,27 @@ func checkQEMUBinary(ctx context.Context, run hostexec.RunFunc) CheckResult {
 		Name:     "qemu-binary",
 		Category: "binary",
 		Passed:   false,
-		Message:  fmt.Sprintf("%s not found", binary),
+		Message:  "no qemu-system binary found on daemon host",
 		FixCmd:   "sudo apt install -y qemu-system-x86",
+	}
+}
+
+func checkKernelTools(ctx context.Context, run hostexec.RunFunc) CheckResult {
+	_, _, code, _ := run(ctx, "which virt-cat || which qemu-nbd")
+	if code == 0 {
+		return CheckResult{
+			Name:     "kernel-tools",
+			Category: "prerequisites",
+			Passed:   true,
+			Message:  "kernel extraction tools available (virt-cat or qemu-nbd)",
+		}
+	}
+	return CheckResult{
+		Name:     "kernel-tools",
+		Category: "prerequisites",
+		Passed:   false,
+		Message:  "kernel extraction tools missing (need virt-cat or qemu-nbd)",
+		FixCmd:   "sudo apt install -y libguestfs-tools",
 	}
 }
 

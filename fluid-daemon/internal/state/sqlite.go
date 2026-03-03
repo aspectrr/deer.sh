@@ -4,6 +4,8 @@ package state
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -61,13 +63,31 @@ type Store struct {
 
 // NewStore creates a new SQLite state store.
 func NewStore(dbPath string) (*Store, error) {
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+		return nil, fmt.Errorf("create state directory: %w", err)
+	}
+
+	// Memory-constraining pragmas for low-RAM systems:
+	// - WAL journal uses less memory than rollback journal
+	// - cache_size(-2048) caps page cache at 2 MB (negative = KB)
+	// - mmap_size(0) disables memory-mapped I/O
+	dsn := dbPath + "?_pragma=journal_mode(wal)&_pragma=cache_size(-2048)&_pragma=mmap_size(0)"
+
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		NowFunc: func() time.Time { return time.Now().UTC() },
 		Logger:  logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
+
+	// Single connection avoids write contention and duplicate memory allocations
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("get underlying db: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 
 	// Auto-migrate tables
 	if err := db.AutoMigrate(&Sandbox{}, &Command{}, &CachedImage{}); err != nil {

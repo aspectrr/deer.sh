@@ -14,6 +14,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/snapshotpull"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshconfig"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshkeys"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/state"
 
 	genid "github.com/aspectrr/fluid.sh/fluid-daemon/internal/id"
@@ -25,23 +26,29 @@ import (
 type Server struct {
 	fluidv1.UnimplementedDaemonServiceServer
 
-	prov    provider.SandboxProvider
-	store   *state.Store
-	puller  *snapshotpull.Puller
-	hostID  string
-	version string
-	logger  *slog.Logger
+	prov            provider.SandboxProvider
+	store           *state.Store
+	puller          *snapshotpull.Puller
+	keyMgr          sshkeys.KeyProvider
+	hostID          string
+	version         string
+	sshIdentityFile string
+	caPubKey        string
+	logger          *slog.Logger
 }
 
 // NewServer creates a new DaemonService server.
-func NewServer(prov provider.SandboxProvider, store *state.Store, puller *snapshotpull.Puller, hostID, version string, logger *slog.Logger) *Server {
+func NewServer(prov provider.SandboxProvider, store *state.Store, puller *snapshotpull.Puller, keyMgr sshkeys.KeyProvider, hostID, version, sshIdentityFile, caPubKey string, logger *slog.Logger) *Server {
 	return &Server{
-		prov:    prov,
-		store:   store,
-		puller:  puller,
-		hostID:  hostID,
-		version: version,
-		logger:  logger.With("component", "daemon-service"),
+		prov:            prov,
+		store:           store,
+		puller:          puller,
+		keyMgr:          keyMgr,
+		hostID:          hostID,
+		version:         version,
+		sshIdentityFile: sshIdentityFile,
+		caPubKey:        caPubKey,
+		logger:          logger.With("component", "daemon-service"),
 	}
 }
 
@@ -74,7 +81,7 @@ func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCo
 		case "libvirt":
 			backend = snapshotpull.NewLibvirtBackend(
 				conn.GetSshHost(), int(conn.GetSshPort()),
-				conn.GetSshUser(), conn.GetSshIdentityFile(), s.logger)
+				conn.GetSshUser(), s.sshIdentityFile, "qemu:///system", s.logger)
 		case "proxmox":
 			backend = snapshotpull.NewProxmoxBackend(
 				conn.GetProxmoxHost(), conn.GetProxmoxTokenId(),
@@ -317,7 +324,28 @@ func (s *Server) CreateSnapshot(ctx context.Context, req *fluidv1.SnapshotComman
 	}, nil
 }
 
-func (s *Server) ListSourceVMs(ctx context.Context, _ *fluidv1.ListSourceVMsCommand) (*fluidv1.SourceVMsList, error) {
+func (s *Server) ListSourceVMs(ctx context.Context, req *fluidv1.ListSourceVMsCommand) (*fluidv1.SourceVMsList, error) {
+	if conn := req.GetSourceHostConnection(); conn != nil {
+		adhoc, err := s.adhocSourceVMManager(conn)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
+		}
+		vms, err := adhoc.ListVMs(ctx)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "list source VMs: %v", err)
+		}
+		entries := make([]*fluidv1.SourceVMListEntry, 0, len(vms))
+		for _, vm := range vms {
+			entries = append(entries, &fluidv1.SourceVMListEntry{
+				Name:      vm.Name,
+				State:     vm.State,
+				IpAddress: vm.IPAddress,
+				Prepared:  vm.Prepared,
+			})
+		}
+		return &fluidv1.SourceVMsList{Vms: entries}, nil
+	}
+
 	vms, err := s.prov.ListSourceVMs(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list source VMs: %v", err)
@@ -341,6 +369,27 @@ func (s *Server) ValidateSourceVM(ctx context.Context, req *fluidv1.ValidateSour
 		return nil, status.Error(codes.InvalidArgument, "source_vm is required")
 	}
 
+	if conn := req.GetSourceHostConnection(); conn != nil {
+		adhoc, err := s.adhocSourceVMManager(conn)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
+		}
+		result, err := adhoc.ValidateSourceVM(ctx, req.GetSourceVm())
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "validate source VM: %v", err)
+		}
+		return &fluidv1.SourceVMValidation{
+			SourceVm:   result.VMName,
+			Valid:      result.Valid,
+			State:      result.State,
+			MacAddress: result.MACAddress,
+			IpAddress:  result.IPAddress,
+			HasNetwork: result.HasNetwork,
+			Warnings:   result.Warnings,
+			Errors:     result.Errors,
+		}, nil
+	}
+
 	result, err := s.prov.ValidateSourceVM(ctx, req.GetSourceVm())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "validate source VM: %v", err)
@@ -361,6 +410,28 @@ func (s *Server) ValidateSourceVM(ctx context.Context, req *fluidv1.ValidateSour
 func (s *Server) PrepareSourceVM(ctx context.Context, req *fluidv1.PrepareSourceVMCommand) (*fluidv1.SourceVMPrepared, error) {
 	if req.GetSourceVm() == "" {
 		return nil, status.Error(codes.InvalidArgument, "source_vm is required")
+	}
+
+	if conn := req.GetSourceHostConnection(); conn != nil {
+		adhoc, err := s.adhocSourceVMManager(conn)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
+		}
+		result, err := adhoc.PrepareSourceVM(ctx, req.GetSourceVm(), req.GetSshUser(), req.GetSshKeyPath())
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "prepare source VM: %v", err)
+		}
+		return &fluidv1.SourceVMPrepared{
+			SourceVm:          result.SourceVM,
+			IpAddress:         result.IPAddress,
+			Prepared:          result.Prepared,
+			UserCreated:       result.UserCreated,
+			ShellInstalled:    result.ShellInstalled,
+			CaKeyInstalled:    result.CAKeyInstalled,
+			SshdConfigured:    result.SSHDConfigured,
+			PrincipalsCreated: result.PrincipalsCreated,
+			SshdRestarted:     result.SSHDRestarted,
+		}, nil
 	}
 
 	result, err := s.prov.PrepareSourceVM(ctx, req.GetSourceVm(), req.GetSshUser(), req.GetSshKeyPath())
@@ -394,6 +465,23 @@ func (s *Server) RunSourceCommand(ctx context.Context, req *fluidv1.RunSourceCom
 		timeout = 5 * time.Minute
 	}
 
+	if conn := req.GetSourceHostConnection(); conn != nil {
+		adhoc, err := s.adhocSourceVMManager(conn)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
+		}
+		stdout, stderr, exitCode, err := adhoc.RunSourceCommand(ctx, req.GetSourceVm(), req.GetCommand(), timeout)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "run source command: %v", err)
+		}
+		return &fluidv1.SourceCommandResult{
+			SourceVm: req.GetSourceVm(),
+			ExitCode: int32(exitCode),
+			Stdout:   stdout,
+			Stderr:   stderr,
+		}, nil
+	}
+
 	result, err := s.prov.RunSourceCommand(ctx, req.GetSourceVm(), req.GetCommand(), timeout)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "run source command: %v", err)
@@ -413,6 +501,22 @@ func (s *Server) ReadSourceFile(ctx context.Context, req *fluidv1.ReadSourceFile
 	}
 	if req.GetPath() == "" {
 		return nil, status.Error(codes.InvalidArgument, "path is required")
+	}
+
+	if conn := req.GetSourceHostConnection(); conn != nil {
+		adhoc, err := s.adhocSourceVMManager(conn)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
+		}
+		content, err := adhoc.ReadSourceFile(ctx, req.GetSourceVm(), req.GetPath())
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "read source file: %v", err)
+		}
+		return &fluidv1.SourceFileResult{
+			SourceVm: req.GetSourceVm(),
+			Path:     req.GetPath(),
+			Content:  content,
+		}, nil
 	}
 
 	content, err := s.prov.ReadSourceFile(ctx, req.GetSourceVm(), req.GetPath())
@@ -440,6 +544,7 @@ func (s *Server) GetHostInfo(ctx context.Context, _ *fluidv1.GetHostInfoRequest)
 		Hostname:        hostname,
 		Version:         s.version,
 		ActiveSandboxes: int32(s.prov.ActiveSandboxCount()),
+		SshCaPubKey:     s.caPubKey,
 	}
 
 	if caps != nil {

@@ -17,6 +17,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as DocsUpgradeRouteImport } from './routes/docs/upgrade'
+import { Route as DocsSourcePrepareRouteImport } from './routes/docs/source-prepare'
 import { Route as DocsSandboxesRouteImport } from './routes/docs/sandboxes'
 import { Route as DocsQuickstartRouteImport } from './routes/docs/quickstart'
 import { Route as DocsMcpRouteImport } from './routes/docs/mcp'
@@ -38,6 +39,7 @@ import { Route as AppSettingsOrganizationRouteImport } from './routes/_app/setti
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsHostsRouteImport } from './routes/_app/settings/hosts'
 import { Route as AppBillingCalculatorRouteImport } from './routes/_app/billing/calculator'
+import { Route as PublicBlogSeriesHypervisorRouteImport } from './routes/_public/blog/series/hypervisor'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -74,6 +76,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
 const DocsUpgradeRoute = DocsUpgradeRouteImport.update({
   id: '/upgrade',
   path: '/upgrade',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsSourcePrepareRoute = DocsSourcePrepareRouteImport.update({
+  id: '/source-prepare',
+  path: '/source-prepare',
   getParentRoute: () => DocsRoute,
 } as any)
 const DocsSandboxesRoute = DocsSandboxesRouteImport.update({
@@ -181,6 +188,11 @@ const AppBillingCalculatorRoute = AppBillingCalculatorRouteImport.update({
   path: '/calculator',
   getParentRoute: () => AppBillingRoute,
 } as any)
+const PublicBlogSeriesHypervisorRoute = PublicBlogSeriesHypervisorRouteImport.update({
+  id: '/blog/series/hypervisor',
+  path: '/blog/series/hypervisor',
+  getParentRoute: () => PublicRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
@@ -198,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/docs/mcp': typeof DocsMcpRoute
   '/docs/quickstart': typeof DocsQuickstartRoute
   '/docs/sandboxes': typeof DocsSandboxesRoute
+  '/docs/source-prepare': typeof DocsSourcePrepareRoute
   '/docs/upgrade': typeof DocsUpgradeRoute
   '/': typeof PublicIndexRoute
   '/docs/': typeof DocsIndexRoute
@@ -209,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/billing/': typeof AppBillingIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/blog': typeof PublicBlogIndexRoute
+  '/blog/series/hypervisor': typeof PublicBlogSeriesHypervisorRoute
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
@@ -223,6 +237,7 @@ export interface FileRoutesByTo {
   '/docs/mcp': typeof DocsMcpRoute
   '/docs/quickstart': typeof DocsQuickstartRoute
   '/docs/sandboxes': typeof DocsSandboxesRoute
+  '/docs/source-prepare': typeof DocsSourcePrepareRoute
   '/docs/upgrade': typeof DocsUpgradeRoute
   '/': typeof PublicIndexRoute
   '/docs': typeof DocsIndexRoute
@@ -234,6 +249,7 @@ export interface FileRoutesByTo {
   '/billing': typeof AppBillingIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/blog': typeof PublicBlogIndexRoute
+  '/blog/series/hypervisor': typeof PublicBlogSeriesHypervisorRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -255,6 +271,7 @@ export interface FileRoutesById {
   '/docs/mcp': typeof DocsMcpRoute
   '/docs/quickstart': typeof DocsQuickstartRoute
   '/docs/sandboxes': typeof DocsSandboxesRoute
+  '/docs/source-prepare': typeof DocsSourcePrepareRoute
   '/docs/upgrade': typeof DocsUpgradeRoute
   '/_public/': typeof PublicIndexRoute
   '/docs/': typeof DocsIndexRoute
@@ -266,6 +283,7 @@ export interface FileRoutesById {
   '/_app/billing/': typeof AppBillingIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_public/blog/': typeof PublicBlogIndexRoute
+  '/_public/blog/series/hypervisor': typeof PublicBlogSeriesHypervisorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -285,6 +303,7 @@ export interface FileRouteTypes {
     | '/docs/mcp'
     | '/docs/quickstart'
     | '/docs/sandboxes'
+    | '/docs/source-prepare'
     | '/docs/upgrade'
     | '/'
     | '/docs/'
@@ -296,6 +315,7 @@ export interface FileRouteTypes {
     | '/billing/'
     | '/settings/'
     | '/blog'
+    | '/blog/series/hypervisor'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
@@ -310,6 +330,7 @@ export interface FileRouteTypes {
     | '/docs/mcp'
     | '/docs/quickstart'
     | '/docs/sandboxes'
+    | '/docs/source-prepare'
     | '/docs/upgrade'
     | '/'
     | '/docs'
@@ -321,6 +342,7 @@ export interface FileRouteTypes {
     | '/billing'
     | '/settings'
     | '/blog'
+    | '/blog/series/hypervisor'
   id:
     | '__root__'
     | '/_app'
@@ -341,6 +363,7 @@ export interface FileRouteTypes {
     | '/docs/mcp'
     | '/docs/quickstart'
     | '/docs/sandboxes'
+    | '/docs/source-prepare'
     | '/docs/upgrade'
     | '/_public/'
     | '/docs/'
@@ -352,6 +375,7 @@ export interface FileRouteTypes {
     | '/_app/billing/'
     | '/_app/settings/'
     | '/_public/blog/'
+    | '/_public/blog/series/hypervisor'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -418,6 +442,13 @@ declare module '@tanstack/react-router' {
       path: '/upgrade'
       fullPath: '/docs/upgrade'
       preLoaderRoute: typeof DocsUpgradeRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/source-prepare': {
+      id: '/docs/source-prepare'
+      path: '/source-prepare'
+      fullPath: '/docs/source-prepare'
+      preLoaderRoute: typeof DocsSourcePrepareRouteImport
       parentRoute: typeof DocsRoute
     }
     '/docs/sandboxes': {
@@ -567,6 +598,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBillingCalculatorRouteImport
       parentRoute: typeof AppBillingRoute
     }
+    '/_public/blog/series/hypervisor': {
+      id: '/_public/blog/series/hypervisor'
+      path: '/blog/series/hypervisor'
+      fullPath: '/blog/series/hypervisor'
+      preLoaderRoute: typeof PublicBlogSeriesHypervisorRouteImport
+      parentRoute: typeof PublicRoute
+    }
   }
 }
 
@@ -580,9 +618,7 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
   AppBillingIndexRoute: AppBillingIndexRoute,
 }
 
-const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(
-  AppBillingRouteChildren,
-)
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
 
 interface AppSettingsRouteChildren {
   AppSettingsHostsRoute: typeof AppSettingsHostsRoute
@@ -598,9 +634,7 @@ const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
-const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
-  AppSettingsRouteChildren,
-)
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(AppSettingsRouteChildren)
 
 interface AppRouteChildren {
   AppBillingRoute: typeof AppBillingRouteWithChildren
@@ -632,16 +666,17 @@ interface PublicRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
   PublicBlogSlugRoute: typeof PublicBlogSlugRoute
   PublicBlogIndexRoute: typeof PublicBlogIndexRoute
+  PublicBlogSeriesHypervisorRoute: typeof PublicBlogSeriesHypervisorRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
   PublicBlogSlugRoute: PublicBlogSlugRoute,
   PublicBlogIndexRoute: PublicBlogIndexRoute,
+  PublicBlogSeriesHypervisorRoute: PublicBlogSeriesHypervisorRoute,
 }
 
-const PublicRouteWithChildren =
-  PublicRoute._addFileChildren(PublicRouteChildren)
+const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
 
 interface DocsRouteChildren {
   DocsApiRoute: typeof DocsApiRoute
@@ -652,6 +687,7 @@ interface DocsRouteChildren {
   DocsMcpRoute: typeof DocsMcpRoute
   DocsQuickstartRoute: typeof DocsQuickstartRoute
   DocsSandboxesRoute: typeof DocsSandboxesRoute
+  DocsSourcePrepareRoute: typeof DocsSourcePrepareRoute
   DocsUpgradeRoute: typeof DocsUpgradeRoute
   DocsIndexRoute: typeof DocsIndexRoute
 }
@@ -665,6 +701,7 @@ const DocsRouteChildren: DocsRouteChildren = {
   DocsMcpRoute: DocsMcpRoute,
   DocsQuickstartRoute: DocsQuickstartRoute,
   DocsSandboxesRoute: DocsSandboxesRoute,
+  DocsSourcePrepareRoute: DocsSourcePrepareRoute,
   DocsUpgradeRoute: DocsUpgradeRoute,
   DocsIndexRoute: DocsIndexRoute,
 }

@@ -17,6 +17,9 @@ export async function getHighlighter(): Promise<HighlighterCore> {
       import('shiki/langs/go.mjs'),
       import('shiki/langs/typescript.mjs'),
       import('shiki/langs/proto.mjs'),
+      import('shiki/langs/rust.mjs'),
+      import('shiki/langs/toml.mjs'),
+      import('shiki/langs/xml.mjs'),
     ],
     engine: createOnigurumaEngine(import('shiki/wasm')),
   })

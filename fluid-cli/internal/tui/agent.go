@@ -14,9 +14,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/aspectrr/fluid.sh/fluid/internal/ansible"
+	"github.com/aspectrr/fluid.sh/fluid/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid/internal/llm"
+	"github.com/aspectrr/fluid.sh/fluid/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid/internal/redact"
 	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid/internal/source"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store"
 	"github.com/aspectrr/fluid.sh/fluid/internal/telemetry"
 )
@@ -35,9 +39,12 @@ type FluidAgent struct {
 	cfg             *config.Config
 	store           store.Store
 	service         sandbox.Service
+	sourceService   *source.Service
 	llmClient       llm.Client
 	playbookService *ansible.PlaybookService
 	telemetry       telemetry.Service
+	redactor        *redact.Redactor
+	auditLog        *audit.Logger
 	logger          *slog.Logger
 
 	// Status callback for sending updates to TUI
@@ -72,7 +79,7 @@ type PendingNetworkApproval struct {
 }
 
 // NewFluidAgent creates a new fluid agent
-func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, tele telemetry.Service, logger *slog.Logger) *FluidAgent {
+func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc *source.Service, tele telemetry.Service, redactor *redact.Redactor, auditLog *audit.Logger, logger *slog.Logger) *FluidAgent {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -86,9 +93,12 @@ func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, tele
 		cfg:             cfg,
 		store:           st,
 		service:         svc,
+		sourceService:   srcSvc,
 		llmClient:       llmClient,
 		playbookService: ansible.NewPlaybookService(st, cfg.Ansible.PlaybooksDir),
 		telemetry:       tele,
+		redactor:        redactor,
+		auditLog:        auditLog,
 		logger:          logger,
 		history:         make([]llm.Message, 0),
 	}
@@ -135,6 +145,22 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				}}
 			case "/hosts":
 				a.sendStatus(AgentDoneMsg{})
+				if a.sourceService != nil {
+					hosts := a.sourceService.ListHosts()
+					var lines []string
+					for _, h := range hosts {
+						status := "not ready"
+						if h.Prepared {
+							status = "ready"
+						}
+						lines = append(lines, fmt.Sprintf("  %s (%s) - %s", h.Name, h.Address, status))
+					}
+					content := "**Source Hosts:**\n" + strings.Join(lines, "\n")
+					if len(hosts) == 0 {
+						content = "No source hosts configured. Run: `fluid source prepare <hostname>`"
+					}
+					return AgentResponseMsg{Response: AgentResponse{Content: content, Done: true}}
+				}
 				result, err := a.listHostsWithVMs(ctx)
 				return AgentResponseMsg{Response: AgentResponse{
 					Content: a.formatHostsResult(result, err),
@@ -171,6 +197,31 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 						tokens, maxTokens, usage*100, threshold*100),
 					Done: true,
 				}}
+			case "/allowlist":
+				a.sendStatus(AgentDoneMsg{})
+				var b strings.Builder
+				b.WriteString("## Read-Only Command Allowlist\n\n")
+				b.WriteString("### Default Commands\n\n")
+				defaults := readonly.AllowedCommandsList()
+				for i, cmd := range defaults {
+					if i > 0 {
+						b.WriteString(", ")
+					}
+					b.WriteString("`" + cmd + "`")
+				}
+				b.WriteString("\n\n")
+				if len(a.cfg.ExtraAllowedCommands) > 0 {
+					b.WriteString("### User-Added Commands\n\n")
+					for _, cmd := range a.cfg.ExtraAllowedCommands {
+						b.WriteString("- `" + cmd + "`\n")
+					}
+					b.WriteString("\n")
+				}
+				b.WriteString("Edit extra commands in `/settings` or `config.yaml` under `extra_allowed_commands`.\n")
+				return AgentResponseMsg{Response: AgentResponse{
+					Content: b.String(),
+					Done:    true,
+				}}
 			case "/help":
 				a.sendStatus(AgentDoneMsg{})
 				var b strings.Builder
@@ -179,6 +230,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				b.WriteString("- **/sandboxes**: List active sandboxes\n")
 				b.WriteString("- **/hosts**: List configured remote hosts\n")
 				b.WriteString("- **/playbooks**: List generated Ansible playbooks\n")
+				b.WriteString("- **/allowlist**: Show the read-only command allowlist\n")
 				b.WriteString("- **/compact**: Summarize and compact conversation history\n")
 				b.WriteString("- **/context**: Show current context token usage\n")
 				b.WriteString("- **/settings**: Open configuration settings\n")
@@ -193,7 +245,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			default:
 				a.sendStatus(AgentDoneMsg{})
 				return AgentResponseMsg{Response: AgentResponse{
-					Content: fmt.Sprintf("Unknown command: %s. Available: /vms, /sandboxes, /hosts, /playbooks, /compact, /context, /settings", input),
+					Content: fmt.Sprintf("Unknown command: %s. Available: /vms, /sandboxes, /hosts, /playbooks, /allowlist, /compact, /context, /settings", input),
 					Done:    true,
 				}}
 			}
@@ -201,6 +253,11 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 
 		// Add user message to history
 		a.history = append(a.history, llm.Message{Role: llm.RoleUser, Content: input})
+
+		// Log user input to audit log (length only, not content)
+		if a.auditLog != nil {
+			a.auditLog.LogUserInput(len(input))
+		}
 
 		// LLM client is required
 		if a.llmClient == nil || a.cfg.AIAgent.APIKey == "" {
@@ -227,17 +284,41 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			a.logger.Debug("LLM loop iteration", "iteration", iteration, "history_len", len(a.history))
 			systemPrompt := a.cfg.AIAgent.DefaultSystem
 			tools := llm.GetTools()
-			if a.readOnly {
+			if !a.cfg.HasSandboxHosts() {
+				tools = llm.GetSourceOnlyTools()
+				systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a sandbox host to enable this: https://fluid.sh/docs/daemon\""
+			} else if a.readOnly {
 				tools = llm.GetReadOnlyTools()
-				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources. Available tools: list_sandboxes, get_sandbox, list_vms, read_file, list_playbooks, get_playbook, run_source_command, read_source_file. Use run_source_command and read_source_file to inspect golden/source VMs directly."
+				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources."
+			}
+
+			// Build messages, applying redaction if enabled
+			messages := append([]llm.Message{{
+				Role:    llm.RoleSystem,
+				Content: systemPrompt,
+			}}, a.history...)
+
+			if a.redactor != nil {
+				redactedMessages := make([]llm.Message, len(messages))
+				for i, msg := range messages {
+					redactedMessages[i] = msg
+					redactedMessages[i].Content = a.redactor.Redact(msg.Content)
+					// Redact tool call arguments
+					if len(msg.ToolCalls) > 0 {
+						redactedTCs := make([]llm.ToolCall, len(msg.ToolCalls))
+						copy(redactedTCs, msg.ToolCalls)
+						for j, tc := range redactedTCs {
+							redactedTCs[j].Function.Arguments = a.redactor.Redact(tc.Function.Arguments)
+						}
+						redactedMessages[i].ToolCalls = redactedTCs
+					}
+				}
+				messages = redactedMessages
 			}
 
 			req := llm.ChatRequest{
-				Messages: append([]llm.Message{{
-					Role:    llm.RoleSystem,
-					Content: systemPrompt,
-				}}, a.history...),
-				Tools: tools,
+				Messages: messages,
+				Tools:    tools,
 			}
 
 			if a.telemetry != nil {
@@ -246,6 +327,11 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 					"provider":      a.cfg.AIAgent.Provider,
 					"model":         a.cfg.AIAgent.Model,
 				})
+			}
+
+			// Log LLM request to audit
+			if a.auditLog != nil {
+				a.auditLog.LogLLMRequest(len(req.Messages), a.EstimateTokens(), a.cfg.AIAgent.Model)
 			}
 
 			resp, err := a.llmClient.Chat(ctx, req)
@@ -262,6 +348,20 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			}
 
 			msg := resp.Choices[0].Message
+
+			// Log LLM response to audit
+			if a.auditLog != nil {
+				a.auditLog.LogLLMResponse(len(msg.Content)/4, len(msg.ToolCalls))
+			}
+
+			// Restore redacted tokens in LLM response
+			if a.redactor != nil {
+				msg.Content = a.redactor.Restore(msg.Content)
+				for i, tc := range msg.ToolCalls {
+					msg.ToolCalls[i].Function.Arguments = a.redactor.Restore(tc.Function.Arguments)
+				}
+			}
+
 			a.history = append(a.history, msg)
 
 			if len(msg.ToolCalls) > 0 {
@@ -277,6 +377,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				// Handle tool calls
 				for _, tc := range msg.ToolCalls {
 					a.logger.Debug("executing tool call", "tool", tc.Function.Name, "call_id", tc.ID)
+					toolStart := time.Now()
 					result, err := a.executeTool(ctx, tc)
 
 					var toolResultContent string
@@ -295,6 +396,13 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 						}
 						jsonResult, _ := json.Marshal(result)
 						toolResultContent = string(jsonResult)
+					}
+
+					// Log tool call to audit
+					if a.auditLog != nil {
+						var toolArgs map[string]any
+						_ = json.Unmarshal([]byte(tc.Function.Arguments), &toolArgs)
+						a.auditLog.LogToolCall(tc.Function.Name, toolArgs, result, err, time.Since(toolStart).Milliseconds())
 					}
 
 					// Send tool completion status to TUI
@@ -468,22 +576,50 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		return a.getPlaybook(ctx, args.PlaybookID)
 	case "run_source_command":
 		var args struct {
-			SourceVM string `json:"source_vm"`
-			Command  string `json:"command"`
+			Host    string `json:"host"`
+			Command string `json:"command"`
 		}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		return a.runSourceCommand(ctx, args.SourceVM, args.Command)
+		if a.sourceService != nil {
+			result, err := a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
+				func(chunk string, isStderr bool) {
+					a.sendStatus(CommandOutputChunkMsg{
+						SandboxID: args.Host,
+						IsStderr:  isStderr,
+						Chunk:     chunk,
+					})
+				})
+			a.sendStatus(CommandOutputDoneMsg{SandboxID: args.Host})
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{
+				"host":      args.Host,
+				"exit_code": result.ExitCode,
+				"stdout":    result.Stdout,
+				"stderr":    result.Stderr,
+			}, nil
+		}
+		return a.runSourceCommand(ctx, args.Host, args.Command)
 	case "read_source_file":
 		var args struct {
-			SourceVM string `json:"source_vm"`
-			Path     string `json:"path"`
+			Host string `json:"host"`
+			Path string `json:"path"`
 		}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		return a.readSourceFile(ctx, args.SourceVM, args.Path)
+		if a.sourceService != nil {
+			return a.sourceService.ReadFile(ctx, args.Host, args.Path)
+		}
+		return a.readSourceFile(ctx, args.Host, args.Path)
+	case "list_hosts":
+		if a.sourceService != nil {
+			return a.sourceService.ListHosts(), nil
+		}
+		return a.listHostsWithVMs(ctx)
 	default:
 		a.logger.Error("unknown tool name", "tool", tc.Function.Name)
 		return nil, fmt.Errorf("unknown tool: %s", tc.Function.Name)

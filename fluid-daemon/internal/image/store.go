@@ -117,6 +117,12 @@ func (s *Store) HasImage(name string) bool {
 	return err == nil
 }
 
+// HasKernel checks if an extracted kernel exists for a base image.
+func (s *Store) HasKernel(name string) bool {
+	_, err := s.GetKernelPath(name)
+	return err == nil
+}
+
 // BaseDir returns the base image directory.
 func (s *Store) BaseDir() string {
 	return s.baseDir

@@ -828,7 +828,7 @@ func TestHandleGetPlaybook_MissingID(t *testing.T) {
 
 // --- handleRunSourceCommand tests ---
 
-func TestHandleRunSourceCommand_MissingSourceVM(t *testing.T) {
+func TestHandleRunSourceCommand_MissingHost(t *testing.T) {
 	srv := testServer()
 	ctx := context.Background()
 
@@ -836,7 +836,7 @@ func TestHandleRunSourceCommand_MissingSourceVM(t *testing.T) {
 		"command": "ls",
 	}))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "source_vm is required")
+	assert.Contains(t, err.Error(), "host is required")
 }
 
 func TestHandleRunSourceCommand_MissingCommand(t *testing.T) {
@@ -844,7 +844,7 @@ func TestHandleRunSourceCommand_MissingCommand(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := srv.handleRunSourceCommand(ctx, newRequest("run_source_command", map[string]any{
-		"source_vm": "ubuntu-base",
+		"host": "ubuntu-base",
 	}))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "command is required")
@@ -852,7 +852,7 @@ func TestHandleRunSourceCommand_MissingCommand(t *testing.T) {
 
 // --- handleReadSourceFile tests ---
 
-func TestHandleReadSourceFile_MissingSourceVM(t *testing.T) {
+func TestHandleReadSourceFile_MissingHost(t *testing.T) {
 	srv := testServer()
 	ctx := context.Background()
 
@@ -860,7 +860,7 @@ func TestHandleReadSourceFile_MissingSourceVM(t *testing.T) {
 		"path": "/etc/passwd",
 	}))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "source_vm is required")
+	assert.Contains(t, err.Error(), "host is required")
 }
 
 func TestHandleReadSourceFile_MissingPath(t *testing.T) {
@@ -868,7 +868,7 @@ func TestHandleReadSourceFile_MissingPath(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := srv.handleReadSourceFile(ctx, newRequest("read_source_file", map[string]any{
-		"source_vm": "ubuntu-base",
+		"host": "ubuntu-base",
 	}))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "path is required")
@@ -879,8 +879,8 @@ func TestHandleReadSourceFile_RelativePath(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := srv.handleReadSourceFile(ctx, newRequest("read_source_file", map[string]any{
-		"source_vm": "ubuntu-base",
-		"path":      "relative/path",
+		"host": "ubuntu-base",
+		"path": "relative/path",
 	}))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid path")
@@ -891,7 +891,7 @@ func TestHandleReadSourceFile_RelativePath(t *testing.T) {
 func TestHandleListPlaybooks_Empty(t *testing.T) {
 	st := newMockStore()
 	cfg := testConfig()
-	srv := NewServer(cfg, st, nil, nil, noopLogger())
+	srv := NewServer(cfg, st, nil, nil, nil, noopLogger())
 	ctx := context.Background()
 
 	result, err := srv.handleListPlaybooks(ctx, newRequest("list_playbooks", nil))
@@ -905,7 +905,7 @@ func TestHandleListPlaybooks_NoPlaybooksDir(t *testing.T) {
 	st := newMockStore()
 	cfg := testConfig()
 	cfg.Ansible.PlaybooksDir = ""
-	srv := NewServer(cfg, st, nil, nil, noopLogger())
+	srv := NewServer(cfg, st, nil, nil, nil, noopLogger())
 	ctx := context.Background()
 
 	result, err := srv.handleListPlaybooks(ctx, newRequest("list_playbooks", nil))

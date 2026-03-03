@@ -9,6 +9,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid/internal/ansible"
 	"github.com/aspectrr/fluid.sh/fluid/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid/internal/source"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store"
 	"github.com/aspectrr/fluid.sh/fluid/internal/telemetry"
 )
@@ -23,6 +24,7 @@ type Server struct {
 	cfg             *config.Config
 	store           store.Store
 	service         sandbox.Service
+	sourceService   *source.Service
 	playbookService *ansible.PlaybookService
 	telemetry       telemetry.Service
 	logger          *slog.Logger
@@ -30,11 +32,12 @@ type Server struct {
 }
 
 // NewServer creates a new MCP server wired to the fluid services.
-func NewServer(cfg *config.Config, st store.Store, svc sandbox.Service, tele telemetry.Service, logger *slog.Logger) *Server {
+func NewServer(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc *source.Service, tele telemetry.Service, logger *slog.Logger) *Server {
 	s := &Server{
 		cfg:             cfg,
 		store:           st,
 		service:         svc,
+		sourceService:   srcSvc,
 		playbookService: ansible.NewPlaybookService(st, cfg.Ansible.PlaybooksDir),
 		telemetry:       tele,
 		logger:          logger,
@@ -144,15 +147,19 @@ func (s *Server) registerTools() {
 	), s.handleGetPlaybook)
 
 	s.mcpServer.AddTool(mcp.NewTool("run_source_command",
-		mcp.WithDescription("Execute a read-only command on a source/golden VM."),
-		mcp.WithString("source_vm", mcp.Required(), mcp.Description("The name of the source VM to run the command on.")),
+		mcp.WithDescription("Execute a read-only command on a source host. Only diagnostic commands allowed."),
+		mcp.WithString("host", mcp.Required(), mcp.Description("The name of the source host to run the command on.")),
 		mcp.WithString("command", mcp.Required(), mcp.Description("The read-only diagnostic command to execute.")),
 		mcp.WithNumber("timeout_seconds", mcp.Description("Optional command timeout in seconds.")),
 	), s.handleRunSourceCommand)
 
 	s.mcpServer.AddTool(mcp.NewTool("read_source_file",
-		mcp.WithDescription("Read the contents of a file on a source/golden VM. This is read-only."),
-		mcp.WithString("source_vm", mcp.Required(), mcp.Description("The name of the source VM containing the file.")),
-		mcp.WithString("path", mcp.Required(), mcp.Description("The absolute path to the file inside the source VM.")),
+		mcp.WithDescription("Read the contents of a file on a source host. This is read-only."),
+		mcp.WithString("host", mcp.Required(), mcp.Description("The name of the source host containing the file.")),
+		mcp.WithString("path", mcp.Required(), mcp.Description("The absolute path to the file on the source host.")),
 	), s.handleReadSourceFile)
+
+	s.mcpServer.AddTool(mcp.NewTool("list_hosts",
+		mcp.WithDescription("List all configured source hosts with their preparation status."),
+	), s.handleListHosts)
 }

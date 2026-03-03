@@ -64,11 +64,13 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 		return nil, fmt.Errorf("CA public key is required")
 	}
 
+	totalSteps := 6
+
 	result := &PrepareResult{}
 
 	report := func(step PrepareStep, name string, done bool) {
 		if onProgress != nil {
-			onProgress(PrepareProgress{Step: step, StepName: name, Total: 6, Done: done})
+			onProgress(PrepareProgress{Step: step, StepName: name, Total: totalSteps, Done: done})
 		}
 	}
 

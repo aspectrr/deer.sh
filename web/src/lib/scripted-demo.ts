@@ -455,7 +455,6 @@ export class ScriptedDemoEngine {
     // Status bar
     this.term.write(`\x1b[${rows};1H\x1b[2K`)
 
-    const modelStr = `${ANSI.text}anthropic/claude-opus-4.6${ANSI.reset}`
     const divider = `${ANSI.muted} | ${ANSI.reset}`
 
     const modeStr =
@@ -470,7 +469,16 @@ export class ScriptedDemoEngine {
     const filled = Math.round(this.contextPct / 10)
     const barStr = `${ANSI.olive}[${'='.repeat(filled)}${' '.repeat(10 - filled)}]${ANSI.reset} ${ANSI.muted}${this.contextPct}%${ANSI.reset}`
 
-    this.term.write(`${modelStr}${divider}${modeStr}${divider}${sandboxStr}${divider}${barStr}`)
+    const segments: string[] = []
+    if (cols >= 60) {
+      segments.push(`${ANSI.text}anthropic/claude-opus-4.6${ANSI.reset}`)
+    }
+    segments.push(modeStr, sandboxStr)
+    if (cols >= 40) {
+      segments.push(barStr)
+    }
+
+    this.term.write(segments.join(divider))
 
     this.term.write('\x1b[u')
   }

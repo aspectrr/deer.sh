@@ -11,8 +11,8 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
 	// ControlPlane defaults
-	if cfg.ControlPlane.Address != "localhost:9090" {
-		t.Errorf("ControlPlane.Address = %q, want %q", cfg.ControlPlane.Address, "localhost:9090")
+	if cfg.ControlPlane.Address != "" {
+		t.Errorf("ControlPlane.Address = %q, want %q", cfg.ControlPlane.Address, "")
 	}
 	if !cfg.ControlPlane.Insecure {
 		t.Error("ControlPlane.Insecure = false, want true")
@@ -22,8 +22,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.MicroVM.QEMUBinary != "qemu-system-x86_64" {
 		t.Errorf("MicroVM.QEMUBinary = %q, want %q", cfg.MicroVM.QEMUBinary, "qemu-system-x86_64")
 	}
-	if cfg.MicroVM.WorkDir != "/var/lib/fluid/sandboxes" {
-		t.Errorf("MicroVM.WorkDir = %q, want %q", cfg.MicroVM.WorkDir, "/var/lib/fluid/sandboxes")
+	if cfg.MicroVM.WorkDir != "/var/lib/fluid-daemon/overlays" {
+		t.Errorf("MicroVM.WorkDir = %q, want %q", cfg.MicroVM.WorkDir, "/var/lib/fluid-daemon/overlays")
 	}
 	if cfg.MicroVM.DefaultVCPUs != 2 {
 		t.Errorf("MicroVM.DefaultVCPUs = %d, want %d", cfg.MicroVM.DefaultVCPUs, 2)
@@ -50,8 +50,8 @@ func TestDefaultConfig(t *testing.T) {
 	}
 
 	// Image defaults
-	if cfg.Image.BaseDir != "/var/lib/fluid/images" {
-		t.Errorf("Image.BaseDir = %q, want %q", cfg.Image.BaseDir, "/var/lib/fluid/images")
+	if cfg.Image.BaseDir != "/var/lib/fluid-daemon/images" {
+		t.Errorf("Image.BaseDir = %q, want %q", cfg.Image.BaseDir, "/var/lib/fluid-daemon/images")
 	}
 
 	// SSH defaults

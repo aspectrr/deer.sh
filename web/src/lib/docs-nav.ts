@@ -15,6 +15,7 @@ export const docsNav: NavSection[] = [
     items: [
       { label: 'Quickstart', to: '/docs/quickstart', icon: '$' },
       { label: 'Daemon Setup', to: '/docs/daemon', icon: '>' },
+      { label: 'Source Prepare', to: '/docs/source-prepare', icon: '~>' },
       { label: 'MCP Server', to: '/docs/mcp', icon: '>>>' },
       { label: 'Local Setup', to: '/docs/local-setup', icon: '#' },
     ],

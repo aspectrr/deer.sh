@@ -122,10 +122,11 @@ func (p *Puller) doPull(ctx context.Context, imageName string, req PullRequest, 
 		return nil, fmt.Errorf("snapshot and pull: %w", err)
 	}
 
-	// Extract kernel from the pulled image
+	// Extract kernel from the pulled image - this is required for microVM boot
 	_, err := image.ExtractKernel(ctx, destPath)
 	if err != nil {
-		p.logger.Warn("kernel extraction failed (sandbox may still work)", "image", imageName, "error", err)
+		_ = os.Remove(destPath)
+		return nil, fmt.Errorf("extract kernel: %w", err)
 	}
 
 	// Get file size
@@ -168,9 +169,8 @@ func (p *Puller) checkCache(ctx context.Context, imageName string) (*PullResult,
 		return nil, false
 	}
 
-	// Verify the file still exists on disk
-	if !p.imgStore.HasImage(imageName) {
-		// DB says cached but file is gone - clean up
+	// Verify the image and kernel still exist on disk
+	if !p.imgStore.HasImage(imageName) || !p.imgStore.HasKernel(imageName) {
 		_ = p.db.Delete(&cached).Error
 		return nil, false
 	}

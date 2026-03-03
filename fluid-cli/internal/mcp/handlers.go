@@ -672,24 +672,49 @@ func (s *Server) handleRunSourceCommand(ctx context.Context, request mcp.CallToo
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	sourceVM := request.GetString("source_vm", "")
-	if sourceVM == "" {
-		return nil, fmt.Errorf("source_vm is required")
+	host := request.GetString("host", "")
+	if host == "" {
+		return nil, fmt.Errorf("host is required")
 	}
 	command := request.GetString("command", "")
 	if command == "" {
 		return nil, fmt.Errorf("command is required")
 	}
 
-	timeoutSec := request.GetInt("timeout_seconds", 0)
+	// Use direct source service if available
+	if s.sourceService != nil {
+		result, err := s.sourceService.RunCommand(ctx, host, command)
+		if err != nil {
+			s.logger.Error("run_source_command failed", "error", err, "host", host, "command", command)
+			resp := map[string]any{
+				"host":    host,
+				"command": command,
+				"error":   fmt.Sprintf("run source command: %s", err),
+			}
+			if result != nil {
+				resp["exit_code"] = result.ExitCode
+				resp["stdout"] = result.Stdout
+				resp["stderr"] = result.Stderr
+			}
+			return errorResult(resp)
+		}
+		return jsonResult(map[string]any{
+			"host":      host,
+			"exit_code": result.ExitCode,
+			"stdout":    result.Stdout,
+			"stderr":    result.Stderr,
+		})
+	}
 
-	result, err := s.service.RunSourceCommand(ctx, sourceVM, command, timeoutSec)
+	// Fallback to daemon-based source command
+	timeoutSec := request.GetInt("timeout_seconds", 0)
+	result, err := s.service.RunSourceCommand(ctx, host, command, timeoutSec)
 	if err != nil {
-		s.logger.Error("run_source_command failed", "error", err, "source_vm", sourceVM, "command", command)
+		s.logger.Error("run_source_command failed", "error", err, "host", host, "command", command)
 		resp := map[string]any{
-			"source_vm": sourceVM,
-			"command":   command,
-			"error":     fmt.Sprintf("run source command: %s", err),
+			"host":    host,
+			"command": command,
+			"error":   fmt.Sprintf("run source command: %s", err),
 		}
 		if result != nil {
 			resp["exit_code"] = result.ExitCode
@@ -700,7 +725,7 @@ func (s *Server) handleRunSourceCommand(ctx context.Context, request mcp.CallToo
 	}
 
 	return jsonResult(map[string]any{
-		"source_vm": sourceVM,
+		"host":      host,
 		"exit_code": result.ExitCode,
 		"stdout":    result.Stdout,
 		"stderr":    result.Stderr,
@@ -713,24 +738,73 @@ func (s *Server) handleReadSourceFile(ctx context.Context, request mcp.CallToolR
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	sourceVM := request.GetString("source_vm", "")
-	if sourceVM == "" {
-		return nil, fmt.Errorf("source_vm is required")
+	host := request.GetString("host", "")
+	if host == "" {
+		return nil, fmt.Errorf("host is required")
 	}
 	path, err := validateFilePath(request.GetString("path", ""))
 	if err != nil {
 		return nil, fmt.Errorf("invalid path: %w", err)
 	}
 
-	content, err := s.service.ReadSourceFile(ctx, sourceVM, path)
+	// Use direct source service if available
+	if s.sourceService != nil {
+		content, err := s.sourceService.ReadFile(ctx, host, path)
+		if err != nil {
+			s.logger.Error("read_source_file failed", "error", err, "host", host, "path", path)
+			return errorResult(map[string]any{"host": host, "path": path, "error": fmt.Sprintf("read source file: %s", err)})
+		}
+		return jsonResult(map[string]any{
+			"host":    host,
+			"path":    path,
+			"content": content,
+		})
+	}
+
+	// Fallback to daemon-based source file read
+	content, err := s.service.ReadSourceFile(ctx, host, path)
 	if err != nil {
-		s.logger.Error("read_source_file failed", "error", err, "source_vm", sourceVM, "path", path)
-		return errorResult(map[string]any{"source_vm": sourceVM, "path": path, "error": fmt.Sprintf("read source file: %s", err)})
+		s.logger.Error("read_source_file failed", "error", err, "host", host, "path", path)
+		return errorResult(map[string]any{"host": host, "path": path, "error": fmt.Sprintf("read source file: %s", err)})
 	}
 
 	return jsonResult(map[string]any{
-		"source_vm": sourceVM,
-		"path":      path,
-		"content":   content,
+		"host":    host,
+		"path":    path,
+		"content": content,
+	})
+}
+
+func (s *Server) handleListHosts(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.trackToolCall("list_hosts")
+
+	if s.sourceService != nil {
+		hosts := s.sourceService.ListHosts()
+		result := make([]map[string]any, 0, len(hosts))
+		for _, h := range hosts {
+			result = append(result, map[string]any{
+				"name":     h.Name,
+				"address":  h.Address,
+				"prepared": h.Prepared,
+			})
+		}
+		return jsonResult(map[string]any{
+			"hosts": result,
+			"count": len(result),
+		})
+	}
+
+	// Fallback: return config hosts
+	hosts := make([]map[string]any, 0, len(s.cfg.Hosts))
+	for _, h := range s.cfg.Hosts {
+		hosts = append(hosts, map[string]any{
+			"name":     h.Name,
+			"address":  h.Address,
+			"prepared": h.Prepared,
+		})
+	}
+	return jsonResult(map[string]any{
+		"hosts": hosts,
+		"count": len(hosts),
 	})
 }

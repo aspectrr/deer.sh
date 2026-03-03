@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -27,6 +28,9 @@ import (
 	lxcProvider "github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider/lxc"
 	microvmProvider "github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider/microvm"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/snapshotpull"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sourcevm"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshca"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshkeys"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/state"
 )
 
@@ -90,6 +94,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	// Initialize provider based on config
 	var prov provider.SandboxProvider
+	var keyMgr sshkeys.KeyProvider
+
+	var caPubKey string
 
 	switch cfg.Provider {
 	case "lxc":
@@ -102,7 +109,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 			"node", cfg.LXC.Node,
 		)
 	default: // "microvm" or empty (default)
-		prov, err = initMicroVMProvider(ctx, cfg, logger)
+		prov, keyMgr, caPubKey, err = initMicroVMProvider(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}
@@ -133,7 +140,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	// Start DaemonService gRPC server (inbound from CLI)
 	if cfg.Daemon.Enabled {
-		daemonSrv := daemon.NewServer(prov, st, puller, cfg.HostID, version, logger)
+		daemonSrv := daemon.NewServer(prov, st, puller, keyMgr, cfg.HostID, version, cfg.SSH.IdentityFile, caPubKey, logger)
 		grpcServer := grpc.NewServer()
 		fluidv1.RegisterDaemonServiceServer(grpcServer, daemonSrv)
 
@@ -154,54 +161,62 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		}()
 	}
 
-	// Initialize gRPC agent client
-	agentClient := agent.NewClient(
-		agent.Config{
-			HostID:   cfg.HostID,
-			Version:  version,
-			Address:  cfg.ControlPlane.Address,
-			Insecure: cfg.ControlPlane.Insecure,
-			CertFile: cfg.ControlPlane.CertFile,
-			KeyFile:  cfg.ControlPlane.KeyFile,
-			CAFile:   cfg.ControlPlane.CAFile,
-		},
-		prov,
-		st,
-		puller,
-		logger,
-	)
-
 	logger.Info("sandbox-host ready",
 		"host_id", cfg.HostID,
 		"control_plane", cfg.ControlPlane.Address,
 		"provider", cfg.Provider,
 	)
 
-	// Start gRPC agent in background (reconnects automatically)
-	agentErrCh := make(chan error, 1)
-	go func() {
-		agentErrCh <- agentClient.Run(ctx)
-	}()
+	if cfg.ControlPlane.Address != "" {
+		// Initialize gRPC agent client
+		agentClient := agent.NewClient(
+			agent.Config{
+				HostID:          cfg.HostID,
+				Version:         version,
+				Address:         cfg.ControlPlane.Address,
+				Token:           cfg.ControlPlane.Token,
+				Insecure:        cfg.ControlPlane.Insecure,
+				CertFile:        cfg.ControlPlane.CertFile,
+				KeyFile:         cfg.ControlPlane.KeyFile,
+				CAFile:          cfg.ControlPlane.CAFile,
+				SSHIdentityFile: cfg.SSH.IdentityFile,
+			},
+			prov,
+			st,
+			puller,
+			logger,
+		)
 
-	// Wait for shutdown signal or agent fatal error
-	select {
-	case <-ctx.Done():
-		logger.Info("sandbox-host shutting down")
-	case err := <-agentErrCh:
-		if err != nil && ctx.Err() == nil {
-			logger.Error("agent error", "error", err)
-			return err
+		// Start gRPC agent in background (reconnects automatically)
+		agentErrCh := make(chan error, 1)
+		go func() {
+			agentErrCh <- agentClient.Run(ctx)
+		}()
+
+		// Wait for shutdown signal or agent fatal error
+		select {
+		case <-ctx.Done():
+			logger.Info("sandbox-host shutting down")
+		case err := <-agentErrCh:
+			if err != nil && ctx.Err() == nil {
+				logger.Error("agent error", "error", err)
+				return err
+			}
 		}
+	} else {
+		logger.Info("control plane not configured, skipping agent client")
+		<-ctx.Done()
+		logger.Info("sandbox-host shutting down")
 	}
 
 	return nil
 }
 
-func initMicroVMProvider(ctx context.Context, cfg *config.Config, logger *slog.Logger) (provider.SandboxProvider, error) {
+func initMicroVMProvider(ctx context.Context, cfg *config.Config, logger *slog.Logger) (provider.SandboxProvider, sshkeys.KeyProvider, string, error) {
 	// Initialize microVM manager
 	vmMgr, err := microvm.NewManager(cfg.MicroVM.QEMUBinary, cfg.MicroVM.WorkDir, logger)
 	if err != nil {
-		logger.Warn("microVM manager initialization failed (qemu not available)", "error", err)
+		logger.Warn("microVM manager initialization failed", "error", err)
 		vmMgr = nil
 	} else {
 		logger.Info("microVM manager initialized", "work_dir", cfg.MicroVM.WorkDir)
@@ -222,7 +237,7 @@ func initMicroVMProvider(ctx context.Context, cfg *config.Config, logger *slog.L
 	// Initialize image store
 	imgStore, err := image.NewStore(cfg.Image.BaseDir, logger)
 	if err != nil {
-		return nil, err
+		return nil, nil, "", err
 	}
 	images, _ := imgStore.ListNames()
 	logger.Info("image store initialized",
@@ -230,7 +245,64 @@ func initMicroVMProvider(ctx context.Context, cfg *config.Config, logger *slog.L
 		"images", len(images),
 	)
 
-	return microvmProvider.New(vmMgr, netMgr, imgStore, nil, logger), nil
+	// Initialize SSH CA and key manager (graceful fallback to nil)
+	var keyMgr sshkeys.KeyProvider
+	var srcVMMgr *sourcevm.Manager
+	var caPubKey string
+
+	ca, caErr := sshca.NewCA(sshca.Config{
+		CAKeyPath:             cfg.SSH.CAKeyPath,
+		CAPubKeyPath:          cfg.SSH.CAPubKeyPath,
+		WorkDir:               cfg.SSH.KeyDir,
+		DefaultTTL:            cfg.SSH.CertTTL,
+		MaxTTL:                60 * time.Minute,
+		DefaultPrincipals:     []string{cfg.SSH.DefaultUser},
+		EnforceKeyPermissions: false,
+	})
+	if caErr != nil {
+		logger.Warn("SSH CA initialization failed", "error", caErr)
+	} else {
+		if initErr := ca.Initialize(ctx); initErr != nil {
+			logger.Warn("SSH CA key loading failed - source VM operations will use ad-hoc connections only", "error", initErr)
+		} else {
+			// Extract CA public key for sharing via gRPC
+			if pubKey, err := ca.GetPublicKey(); err != nil {
+				logger.Warn("failed to get CA public key", "error", err)
+			} else {
+				caPubKey = pubKey
+			}
+
+			km, kmErr := sshkeys.NewKeyManager(ca, sshkeys.Config{
+				KeyDir:          cfg.SSH.KeyDir,
+				CertificateTTL:  cfg.SSH.CertTTL,
+				DefaultUsername: cfg.SSH.DefaultUser,
+			}, logger)
+			if kmErr != nil {
+				logger.Warn("SSH key manager initialization failed", "error", kmErr)
+			} else {
+				keyMgr = km
+				logger.Info("SSH CA and key manager initialized")
+
+				// Initialize source VM manager
+				srcVMMgr = sourcevm.NewManager(
+					cfg.Libvirt.URI,
+					cfg.Libvirt.Network,
+					km,
+					cfg.SSH.DefaultUser,
+					cfg.SSH.ProxyJump,
+					cfg.SSH.IdentityFile,
+					caPubKey,
+					logger,
+				)
+				logger.Info("source VM manager initialized",
+					"libvirt_uri", cfg.Libvirt.URI,
+					"network", cfg.Libvirt.Network,
+				)
+			}
+		}
+	}
+
+	return microvmProvider.New(vmMgr, netMgr, imgStore, srcVMMgr, logger), keyMgr, caPubKey, nil
 }
 
 func initLXCProvider(cfg *config.Config, logger *slog.Logger) (provider.SandboxProvider, error) {

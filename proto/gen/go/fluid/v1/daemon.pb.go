@@ -312,6 +312,7 @@ type HostInfoResponse struct {
 	TotalMemoryMb   int64                  `protobuf:"varint,5,opt,name=total_memory_mb,json=totalMemoryMb,proto3" json:"total_memory_mb,omitempty"`
 	ActiveSandboxes int32                  `protobuf:"varint,6,opt,name=active_sandboxes,json=activeSandboxes,proto3" json:"active_sandboxes,omitempty"`
 	BaseImages      []string               `protobuf:"bytes,7,rep,name=base_images,json=baseImages,proto3" json:"base_images,omitempty"`
+	SshCaPubKey     string                 `protobuf:"bytes,8,opt,name=ssh_ca_pub_key,json=sshCaPubKey,proto3" json:"ssh_ca_pub_key,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -393,6 +394,13 @@ func (x *HostInfoResponse) GetBaseImages() []string {
 		return x.BaseImages
 	}
 	return nil
+}
+
+func (x *HostInfoResponse) GetSshCaPubKey() string {
+	if x != nil {
+		return x.SshCaPubKey
+	}
+	return ""
 }
 
 // HealthRequest is an empty health check request.
@@ -711,7 +719,7 @@ const file_fluid_v1_daemon_proto_rawDesc = "" +
 	"\x15ListSandboxesResponse\x123\n" +
 	"\tsandboxes\x18\x01 \x03(\v2\x15.fluid.v1.SandboxInfoR\tsandboxes\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x05R\x05count\"\x14\n" +
-	"\x12GetHostInfoRequest\"\xf4\x01\n" +
+	"\x12GetHostInfoRequest\"\x99\x02\n" +
 	"\x10HostInfoResponse\x12\x17\n" +
 	"\ahost_id\x18\x01 \x01(\tR\x06hostId\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x18\n" +
@@ -721,7 +729,8 @@ const file_fluid_v1_daemon_proto_rawDesc = "" +
 	"\x0ftotal_memory_mb\x18\x05 \x01(\x03R\rtotalMemoryMb\x12)\n" +
 	"\x10active_sandboxes\x18\x06 \x01(\x05R\x0factiveSandboxes\x12\x1f\n" +
 	"\vbase_images\x18\a \x03(\tR\n" +
-	"baseImages\"\x0f\n" +
+	"baseImages\x12#\n" +
+	"\x0essh_ca_pub_key\x18\b \x01(\tR\vsshCaPubKey\"\x0f\n" +
 	"\rHealthRequest\"(\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\"D\n" +

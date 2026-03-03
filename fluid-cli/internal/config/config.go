@@ -14,18 +14,45 @@ import (
 
 // Config is the root configuration for virsh-sandbox API.
 type Config struct {
-	Provider           string             `yaml:"provider"` // "libvirt" (default), "proxmox", or "control-plane"
-	Libvirt            LibvirtConfig      `yaml:"libvirt"`
-	Proxmox            ProxmoxConfig      `yaml:"proxmox"`
-	ControlPlane       ControlPlaneConfig `yaml:"control_plane"`
-	VM                 VMConfig           `yaml:"vm"`
-	SSH                SSHConfig          `yaml:"ssh"`
-	Ansible            AnsibleConfig      `yaml:"ansible"`
-	Logging            LoggingConfig      `yaml:"logging"`
-	Telemetry          TelemetryConfig    `yaml:"telemetry"`
-	AIAgent            AIAgentConfig      `yaml:"ai_agent"`
-	Hosts              []HostConfig       `yaml:"hosts"`               // Remote hosts for multi-host VM management
-	OnboardingComplete bool               `yaml:"onboarding_complete"` // Whether onboarding wizard has been completed
+	Provider             string              `yaml:"provider"` // "libvirt" (default), "proxmox", or "control-plane"
+	Libvirt              LibvirtConfig       `yaml:"libvirt"`
+	Proxmox              ProxmoxConfig       `yaml:"proxmox"`
+	ControlPlane         ControlPlaneConfig  `yaml:"control_plane"`
+	VM                   VMConfig            `yaml:"vm"`
+	SSH                  SSHConfig           `yaml:"ssh"`
+	Ansible              AnsibleConfig       `yaml:"ansible"`
+	Logging              LoggingConfig       `yaml:"logging"`
+	Telemetry            TelemetryConfig     `yaml:"telemetry"`
+	AIAgent              AIAgentConfig       `yaml:"ai_agent"`
+	Hosts                []HostConfig        `yaml:"hosts"`         // Source hosts for read-only SSH access
+	SandboxHosts         []SandboxHostConfig `yaml:"sandbox_hosts"` // Daemon hosts for sandbox operations
+	Redact               RedactConfig        `yaml:"redact"`
+	Audit                AuditConfig         `yaml:"audit"`
+	ExtraAllowedCommands []string            `yaml:"extra_allowed_commands"` // Additional commands allowed in read-only mode
+	OnboardingComplete   bool                `yaml:"onboarding_complete"`    // Whether onboarding wizard has been completed
+}
+
+// SandboxHostConfig configures a remote host running fluid-daemon for sandbox operations.
+type SandboxHostConfig struct {
+	Name          string `yaml:"name"`
+	DaemonAddress string `yaml:"daemon_address"`
+	Insecure      bool   `yaml:"insecure"`
+	CAFile        string `yaml:"ca_file"`
+}
+
+// RedactConfig controls PII/sensitive data redaction before LLM calls.
+type RedactConfig struct {
+	Enabled        bool     `yaml:"enabled"`
+	CustomPatterns []string `yaml:"custom_patterns"`
+	Allowlist      []string `yaml:"allowlist"`
+}
+
+// AuditConfig controls the hash-chained audit log.
+type AuditConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	LogPath    string `yaml:"log_path"`
+	MaxSizeMB  int    `yaml:"max_size_mb"`
+	RetainDays int    `yaml:"retain_days"`
 }
 
 // ControlPlaneConfig configures the connection to the hosted control plane.
@@ -98,16 +125,14 @@ type VMConfig struct {
 	IPDiscoveryTimeout time.Duration `yaml:"ip_discovery_timeout"`
 }
 
-// SSHConfig holds SSH CA and key management settings.
+// SSHConfig holds SSH key management settings.
 type SSHConfig struct {
-	ProxyJump   string        `yaml:"proxy_jump"`
-	CAKeyPath   string        `yaml:"ca_key_path"`
-	CAPubPath   string        `yaml:"ca_pub_path"`
-	KeyDir      string        `yaml:"key_dir"`
-	CertTTL     time.Duration `yaml:"cert_ttl"`
-	MaxTTL      time.Duration `yaml:"max_ttl"`
-	WorkDir     string        `yaml:"work_dir"`
-	DefaultUser string        `yaml:"default_user"`
+	ProxyJump    string        `yaml:"proxy_jump"`
+	KeyDir       string        `yaml:"key_dir"`
+	SourceKeyDir string        `yaml:"source_key_dir"` // Directory for source host SSH keys (default: ~/.config/fluid/keys/)
+	CertTTL      time.Duration `yaml:"cert_ttl"`
+	MaxTTL       time.Duration `yaml:"max_ttl"`
+	DefaultUser  string        `yaml:"default_user"`
 }
 
 // AnsibleConfig holds Ansible runner settings.
@@ -124,15 +149,19 @@ type LoggingConfig struct {
 	Format string `yaml:"format"`
 }
 
-// HostConfig represents a remote libvirt host for multi-host VM management.
-// Authentication uses system SSH config (~/.ssh/config and ssh-agent).
+// HostConfig represents a source host for read-only SSH access.
+// Authentication uses system SSH config (~/.ssh/config and ssh-agent), or a dedicated fluid key pair.
 type HostConfig struct {
-	Name         string        `yaml:"name"`          // Display name (e.g., "kvm-01")
-	Address      string        `yaml:"address"`       // IP or hostname
-	SSHUser      string        `yaml:"ssh_user"`      // SSH user for host (default: root)
-	SSHPort      int           `yaml:"ssh_port"`      // SSH port (default: 22)
-	SSHVMUser    string        `yaml:"ssh_vm_user"`   // SSH user for VMs on this host (default: root)
-	QueryTimeout time.Duration `yaml:"query_timeout"` // Per-host query timeout (default: 30s)
+	Name          string        `yaml:"name"`            // Display name (e.g., "web-prod-01")
+	Address       string        `yaml:"address"`         // IP or hostname
+	SSHUser       string        `yaml:"ssh_user"`        // SSH user for host (default: root)
+	SSHPort       int           `yaml:"ssh_port"`        // SSH port (default: 22)
+	SSHKeyPath    string        `yaml:"ssh_key_path"`    // SSH private key for onboarding (e.g., ~/.ssh/id_ed25519)
+	SSHVMUser     string        `yaml:"ssh_vm_user"`     // SSH user for VMs on this host (default: root)
+	DaemonSSHUser string        `yaml:"daemon_ssh_user"` // User the daemon connects as (default: fluid-daemon)
+	DirectAccess  bool          `yaml:"direct_access"`   // VMs reachable without proxy jump (bridged networking)
+	QueryTimeout  time.Duration `yaml:"query_timeout"`   // Per-host query timeout (default: 30s)
+	Prepared      bool          `yaml:"prepared"`        // Whether fluid-readonly user has been set up
 }
 
 // mustConfigDir returns the config directory, falling back to a best-effort default.
@@ -178,13 +207,11 @@ func DefaultConfig() *Config {
 			IPDiscoveryTimeout: 2 * time.Minute,
 		},
 		SSH: SSHConfig{
-			CAKeyPath:   filepath.Join(configDir, "ssh-ca", "ssh-ca"),
-			CAPubPath:   filepath.Join(configDir, "ssh-ca", "ssh-ca.pub"),
-			KeyDir:      filepath.Join(configDir, "sandbox-keys"),
-			CertTTL:     30 * time.Minute,
-			MaxTTL:      60 * time.Minute,
-			WorkDir:     filepath.Join(configDir, "ssh-ca", "workdir"),
-			DefaultUser: "sandbox",
+			KeyDir:       filepath.Join(configDir, "sandbox-keys"),
+			SourceKeyDir: filepath.Join(configDir, "keys"),
+			CertTTL:      30 * time.Minute,
+			MaxTTL:       60 * time.Minute,
+			DefaultUser:  "sandbox",
 		},
 		Ansible: AnsibleConfig{
 			InventoryPath: filepath.Join(configDir, "ansible", "inventory"),
@@ -193,6 +220,15 @@ func DefaultConfig() *Config {
 		Logging: LoggingConfig{
 			Level:  "info",
 			Format: "text",
+		},
+		Redact: RedactConfig{
+			Enabled: true,
+		},
+		Audit: AuditConfig{
+			Enabled:    true,
+			LogPath:    filepath.Join(configDir, "audit.jsonl"),
+			MaxSizeMB:  50,
+			RetainDays: 90,
 		},
 		AIAgent: AIAgentConfig{
 			Provider: "openrouter",
@@ -243,17 +279,11 @@ func applyDefaults(cfg *Config) {
 	defaults := DefaultConfig()
 
 	// SSH defaults - these are critical for the tool to work
-	if cfg.SSH.CAKeyPath == "" {
-		cfg.SSH.CAKeyPath = defaults.SSH.CAKeyPath
-	}
-	if cfg.SSH.CAPubPath == "" {
-		cfg.SSH.CAPubPath = defaults.SSH.CAPubPath
-	}
 	if cfg.SSH.KeyDir == "" {
 		cfg.SSH.KeyDir = defaults.SSH.KeyDir
 	}
-	if cfg.SSH.WorkDir == "" {
-		cfg.SSH.WorkDir = defaults.SSH.WorkDir
+	if cfg.SSH.SourceKeyDir == "" {
+		cfg.SSH.SourceKeyDir = defaults.SSH.SourceKeyDir
 	}
 	if cfg.SSH.DefaultUser == "" {
 		cfg.SSH.DefaultUser = defaults.SSH.DefaultUser
@@ -330,6 +360,30 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.AIAgent.TokensPerChar == 0 {
 		cfg.AIAgent.TokensPerChar = defaults.AIAgent.TokensPerChar
+	}
+
+	// Audit defaults
+	if cfg.Audit.LogPath == "" {
+		cfg.Audit.LogPath = defaults.Audit.LogPath
+	}
+	if cfg.Audit.MaxSizeMB == 0 {
+		cfg.Audit.MaxSizeMB = defaults.Audit.MaxSizeMB
+	}
+	if cfg.Audit.RetainDays == 0 {
+		cfg.Audit.RetainDays = defaults.Audit.RetainDays
+	}
+
+	// Migration: if ControlPlane.DaemonAddress is set and SandboxHosts is empty,
+	// auto-migrate the daemon address to a sandbox host entry.
+	if cfg.ControlPlane.DaemonAddress != "" && len(cfg.SandboxHosts) == 0 {
+		cfg.SandboxHosts = []SandboxHostConfig{
+			{
+				Name:          "default",
+				DaemonAddress: cfg.ControlPlane.DaemonAddress,
+				Insecure:      cfg.ControlPlane.DaemonInsecure,
+				CAFile:        cfg.ControlPlane.DaemonCAFile,
+			},
+		}
 	}
 }
 
@@ -442,6 +496,22 @@ func parseDuration(s string) time.Duration {
 		return time.Duration(sec) * time.Second
 	}
 	return 0
+}
+
+// HasSandboxHosts returns true if at least one sandbox host is configured.
+func (c *Config) HasSandboxHosts() bool {
+	return len(c.SandboxHosts) > 0
+}
+
+// PreparedHosts returns only the hosts that have been prepared for read-only access.
+func (c *Config) PreparedHosts() []HostConfig {
+	var result []HostConfig
+	for _, h := range c.Hosts {
+		if h.Prepared {
+			result = append(result, h)
+		}
+	}
+	return result
 }
 
 // Save writes the current config back to a YAML file.

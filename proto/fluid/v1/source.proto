@@ -4,12 +4,15 @@ package fluid.v1;
 
 option go_package = "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1";
 
+import "fluid/v1/sandbox.proto";
+
 // PrepareSourceVMCommand instructs the host to prepare a source VM for
 // read-only access (install restricted shell, create fluid-readonly user, etc.).
 message PrepareSourceVMCommand {
   string source_vm = 1;
   string ssh_user = 2;
   string ssh_key_path = 3;
+  SourceHostConnection source_host_connection = 4;
 }
 
 // SourceVMPrepared reports the result of preparing a source VM.
@@ -31,6 +34,7 @@ message RunSourceCommandCommand {
   string source_vm = 1;
   string command = 2;
   int32 timeout_seconds = 3;
+  SourceHostConnection source_host_connection = 4;
 }
 
 // SourceCommandResult returns the output of a source VM command.
@@ -45,6 +49,7 @@ message SourceCommandResult {
 message ReadSourceFileCommand {
   string source_vm = 1;
   string path = 2;
+  SourceHostConnection source_host_connection = 3;
 }
 
 // SourceFileResult returns the content of a file from a source VM.
@@ -55,7 +60,9 @@ message SourceFileResult {
 }
 
 // ListSourceVMsCommand instructs the host to list available source VMs.
-message ListSourceVMsCommand {}
+message ListSourceVMsCommand {
+  SourceHostConnection source_host_connection = 1;
+}
 
 // SourceVMsList returns the list of source VMs on a host.
 message SourceVMsList {
@@ -73,6 +80,7 @@ message SourceVMListEntry {
 // readiness for read-only access.
 message ValidateSourceVMCommand {
   string source_vm = 1;
+  SourceHostConnection source_host_connection = 2;
 }
 
 // SourceVMValidation returns the validation result for a source VM.

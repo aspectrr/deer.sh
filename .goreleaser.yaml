@@ -149,7 +149,7 @@ nfpms:
       - fluid-daemon
     bindir: /usr/local/bin
     vendor: "Fluid.sh"
-    homepage: "https://github.com/aspectrr/fluid.sh"
+    homepage: "https://fluid.sh"
     maintainer: "Collin Pfeifer <cpfeifer@madcactus.org>"
     description: "Background daemon for managing VM sandboxes on a host"
     license: "MIT"
@@ -158,6 +158,34 @@ nfpms:
       - rpm
     dependencies:
       - openssh-client
+    contents:
+      - src: fluid-daemon/packaging/fluid-daemon.service
+        dst: /etc/systemd/system/fluid-daemon.service
+      - src: fluid-daemon/packaging/daemon.yaml
+        dst: /etc/fluid-daemon/daemon.yaml
+        type: config|noreplace
+    scripts:
+      postinstall: fluid-daemon/packaging/postinstall.sh
+      preremove: fluid-daemon/packaging/preremove.sh
+    overrides:
+      deb:
+        recommends:
+          - qemu-system-x86
+          - qemu-utils
+          - libvirt-daemon-system
+          - libvirt-clients
+          - libguestfs-tools
+          - iproute2
+          - bridge-utils
+      rpm:
+        recommends:
+          - qemu-kvm
+          - qemu-img
+          - libvirt
+          - libvirt-client
+          - libguestfs-tools-c
+          - iproute
+          - bridge-utils
   - id: fluid
     package_name: fluid
     builds:

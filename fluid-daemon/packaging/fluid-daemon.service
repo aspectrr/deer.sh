@@ -1,0 +1,14 @@
+[Unit]
+Description=fluid-daemon sandbox host
+After=network.target libvirtd.service
+
+[Service]
+User=fluid-daemon
+Group=fluid-daemon
+ExecStart=/usr/local/bin/fluid-daemon --config /etc/fluid-daemon/daemon.yaml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

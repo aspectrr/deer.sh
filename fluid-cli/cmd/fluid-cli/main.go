@@ -7,15 +7,22 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/aspectrr/fluid.sh/fluid/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
 	fluidmcp "github.com/aspectrr/fluid.sh/fluid/internal/mcp"
 	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
+	"github.com/aspectrr/fluid.sh/fluid/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid/internal/redact"
 	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid/internal/source"
+	"github.com/aspectrr/fluid.sh/fluid/internal/sourcekeys"
+	"github.com/aspectrr/fluid.sh/fluid/internal/sshconfig"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store"
 	"github.com/aspectrr/fluid.sh/fluid/internal/store/sqlite"
 	"github.com/aspectrr/fluid.sh/fluid/internal/telemetry"
@@ -158,6 +165,55 @@ var updateCmd = &cobra.Command{
 	},
 }
 
+// --- source commands ---
+
+var sourceCmd = &cobra.Command{
+	Use:   "source",
+	Short: "Manage source hosts for read-only access",
+}
+
+var sourcePrepareCmd = &cobra.Command{
+	Use:   "prepare <hostname>",
+	Short: "Prepare a host for read-only access",
+	Long:  "Set up the fluid-readonly user and SSH key on a remote host. Uses ssh -G to resolve connection details from ~/.ssh/config.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		hostname := args[0]
+		return runSourcePrepare(hostname)
+	},
+}
+
+var sourceListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List configured source hosts",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSourceList()
+	},
+}
+
+// --- audit commands ---
+
+var auditCmd = &cobra.Command{
+	Use:   "audit",
+	Short: "Manage the audit log",
+}
+
+var auditVerifyCmd = &cobra.Command{
+	Use:   "verify",
+	Short: "Verify hash chain integrity of the audit log",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runAuditVerify()
+	},
+}
+
+var auditShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show recent audit log entries",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runAuditShow()
+	},
+}
+
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $XDG_CONFIG_HOME/fluid/config.yaml)")
 	rootCmd.Flags().BoolP("version", "v", false, "print version")
@@ -168,23 +224,235 @@ func init() {
 		return nil
 	}
 	doctorCmd.Flags().String("host", "", "host name from config (default: localhost)")
+
+	sourceCmd.AddCommand(sourcePrepareCmd)
+	sourceCmd.AddCommand(sourceListCmd)
+	auditCmd.AddCommand(auditVerifyCmd)
+	auditCmd.AddCommand(auditShowCmd)
+
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(doctorCmd)
+	rootCmd.AddCommand(sourceCmd)
+	rootCmd.AddCommand(auditCmd)
+}
+
+// resolveConfigPath returns the config file path, using the flag or default.
+func resolveConfigPath() (string, error) {
+	if cfgFile != "" {
+		return cfgFile, nil
+	}
+	return paths.ConfigFile()
+}
+
+// runSourcePrepare prepares a host for read-only fluid access.
+func runSourcePrepare(hostname string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	useColor := os.Getenv("NO_COLOR") == ""
+	green := func(s string) string {
+		if useColor {
+			return "\033[32m" + s + "\033[0m"
+		}
+		return s
+	}
+	red := func(s string) string {
+		if useColor {
+			return "\033[31m" + s + "\033[0m"
+		}
+		return s
+	}
+
+	// 1. Resolve SSH connection details
+	fmt.Printf("  Resolving %s via ssh config...\n", hostname)
+	resolved, err := sshconfig.Resolve(hostname)
+	if err != nil {
+		return fmt.Errorf("resolve SSH config for %s: %w", hostname, err)
+	}
+	fmt.Printf("  %s Resolved: %s@%s:%d\n", green("[ok]"), resolved.User, resolved.Hostname, resolved.Port)
+
+	// 2. Generate dedicated key pair
+	fmt.Printf("  Generating fluid SSH key pair...\n")
+	privPath, pubKey, err := sourcekeys.EnsureKeyPair(loadedCfg.SSH.SourceKeyDir)
+	if err != nil {
+		return fmt.Errorf("generate key pair: %w", err)
+	}
+	fmt.Printf("  %s Key pair at %s\n", green("[ok]"), privPath)
+
+	// 3. SSH to host using the original alias so ~/.ssh/config is fully applied
+	fmt.Printf("  Preparing %s for read-only access...\n", hostname)
+	sshRunFn := hostexec.NewSSHAlias(hostname)
+	sshRun := readonly.SSHRunFunc(sshRunFn)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	progress := func(p readonly.PrepareProgress) {
+		if !p.Done {
+			fmt.Printf("    [%d/%d] %s...\n", p.Step+1, p.Total, p.StepName)
+		} else {
+			fmt.Printf("    [%d/%d] %s %s\n", p.Step+1, p.Total, p.StepName, green("[ok]"))
+		}
+	}
+
+	_, err = readonly.PrepareWithKey(context.Background(), sshRun, pubKey, progress, logger)
+	if err != nil {
+		fmt.Printf("  %s Preparation failed: %v\n", red("[error]"), err)
+		return err
+	}
+
+	// 4. Update config
+	found := false
+	for i, h := range loadedCfg.Hosts {
+		if h.Name == hostname {
+			loadedCfg.Hosts[i].Address = resolved.Hostname
+			loadedCfg.Hosts[i].SSHUser = resolved.User
+			loadedCfg.Hosts[i].SSHPort = resolved.Port
+			loadedCfg.Hosts[i].Prepared = true
+			found = true
+			break
+		}
+	}
+	if !found {
+		loadedCfg.Hosts = append(loadedCfg.Hosts, config.HostConfig{
+			Name:     hostname,
+			Address:  resolved.Hostname,
+			SSHUser:  resolved.User,
+			SSHPort:  resolved.Port,
+			Prepared: true,
+		})
+	}
+
+	if err := loadedCfg.Save(configPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not save config: %v\n", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("  %s Host %q is ready for read-only access.\n", green("[done]"), hostname)
+	fmt.Printf("  Run `fluid` to start the agent and inspect this host.\n")
+	return nil
+}
+
+// runSourceList lists configured source hosts.
+func runSourceList() error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	if len(loadedCfg.Hosts) == 0 {
+		fmt.Println("  No source hosts configured.")
+		fmt.Println("  Run: fluid source prepare <hostname>")
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Printf("  %-20s %-25s %-10s\n", "NAME", "ADDRESS", "STATUS")
+	fmt.Printf("  %-20s %-25s %-10s\n", strings.Repeat("-", 20), strings.Repeat("-", 25), strings.Repeat("-", 10))
+	for _, h := range loadedCfg.Hosts {
+		status := "not ready"
+		if h.Prepared {
+			status = "ready"
+		}
+		addr := h.Address
+		if h.SSHPort != 0 && h.SSHPort != 22 {
+			addr = fmt.Sprintf("%s:%d", h.Address, h.SSHPort)
+		}
+		fmt.Printf("  %-20s %-25s %-10s\n", h.Name, addr, status)
+	}
+	fmt.Println()
+	return nil
+}
+
+// runAuditVerify verifies audit log hash chain integrity.
+func runAuditVerify() error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logPath := loadedCfg.Audit.LogPath
+	if logPath == "" {
+		return fmt.Errorf("audit log path not configured")
+	}
+
+	valid, brokenAt, err := audit.VerifyChain(logPath)
+	if err != nil {
+		return fmt.Errorf("verify audit chain: %w", err)
+	}
+
+	if valid {
+		fmt.Println("  Audit log chain is valid.")
+	} else {
+		fmt.Printf("  Audit log chain is BROKEN at sequence %d.\n", brokenAt)
+		os.Exit(1)
+	}
+	return nil
+}
+
+// runAuditShow shows recent audit log entries.
+func runAuditShow() error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logPath := loadedCfg.Audit.LogPath
+	if logPath == "" {
+		return fmt.Errorf("audit log path not configured")
+	}
+
+	entries, err := audit.ReadRecent(logPath, 50)
+	if err != nil {
+		return fmt.Errorf("read audit log: %w", err)
+	}
+
+	if len(entries) == 0 {
+		fmt.Println("  No audit entries found.")
+		return nil
+	}
+
+	for _, e := range entries {
+		line := fmt.Sprintf("  [%d] %s %s", e.Seq, e.Timestamp, e.Type)
+		if e.Tool != "" {
+			line += fmt.Sprintf(" tool=%s", e.Tool)
+		}
+		if e.Error != "" {
+			line += fmt.Sprintf(" error=%s", e.Error)
+		}
+		fmt.Println(line)
+	}
+	return nil
 }
 
 // runMCP launches the MCP server on stdio
 func runMCP() error {
-	configPath := cfgFile
-	if configPath == "" {
-		var err error
-		configPath, err = paths.ConfigFile()
-		if err != nil {
-			return fmt.Errorf("determine config path: %w", err)
-		}
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
 	}
 
-	var err error
 	cfg, err = tui.EnsureConfigExists(configPath)
 	if err != nil {
 		return fmt.Errorf("ensure config: %w", err)
@@ -204,29 +472,29 @@ func runMCP() error {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 
-	svc, st, tele, err := initServicesForMCPTUI(cfg, logger)
+	core, err := initCoreServices(cfg, logger)
 	if err != nil {
-		return fmt.Errorf("init services: %w", err)
+		return fmt.Errorf("init core services: %w", err)
 	}
-	defer func() { _ = svc.Close() }()
-	defer func() { _ = st.Close() }()
+	defer func() { _ = core.store.Close() }()
+	if core.auditLog != nil {
+		defer func() { _ = core.auditLog.Close() }()
+	}
 
-	srv := fluidmcp.NewServer(cfg, st, svc, tele, logger)
+	svc := initSandboxService(cfg, logger)
+	defer func() { _ = svc.Close() }()
+
+	srv := fluidmcp.NewServer(cfg, core.store, svc, core.source, core.telemetry, logger)
 	return srv.Serve()
 }
 
 // runTUI launches the interactive TUI
 func runTUI() error {
-	configPath := cfgFile
-	if configPath == "" {
-		var err error
-		configPath, err = paths.ConfigFile()
-		if err != nil {
-			return fmt.Errorf("determine config path: %w", err)
-		}
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
 	}
 
-	var err error
 	cfg, err = tui.EnsureConfigExists(configPath)
 	if err != nil {
 		return fmt.Errorf("ensure config: %w", err)
@@ -260,25 +528,40 @@ func runTUI() error {
 		fileLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 
-	svc, st, tele, err := initServicesForMCPTUI(cfg, fileLogger)
+	core, err := initCoreServices(cfg, fileLogger)
 	if err != nil {
-		return fmt.Errorf("init services: %w", err)
+		return fmt.Errorf("init core services: %w", err)
 	}
+	defer func() { _ = core.store.Close() }()
+	if core.auditLog != nil {
+		defer func() { _ = core.auditLog.Close() }()
+	}
+
+	svc := initSandboxService(cfg, fileLogger)
 	defer func() { _ = svc.Close() }()
-	defer func() { _ = st.Close() }()
 
-	agent := tui.NewFluidAgent(cfg, st, svc, tele, fileLogger)
+	agent := tui.NewFluidAgent(cfg, core.store, svc, core.source, core.telemetry, core.redactor, core.auditLog, fileLogger)
 
-	model := tui.NewModel("fluid", "local", "vm-agent", agent, cfg, configPath)
+	model := tui.NewModel("fluid", "daemon", "vm-agent", agent, cfg, configPath)
 	return tui.Run(model)
 }
 
-// initServicesForMCPTUI creates sandbox.Service, store, and telemetry for MCP/TUI modes.
-func initServicesForMCPTUI(loadedCfg *config.Config, logger *slog.Logger) (sandbox.Service, store.Store, telemetry.Service, error) {
+// coreServices bundles the services returned by initCoreServices.
+type coreServices struct {
+	store     store.Store
+	telemetry telemetry.Service
+	source    *source.Service
+	redactor  *redact.Redactor
+	auditLog  *audit.Logger
+}
+
+// initCoreServices creates store, telemetry, source service, redactor, and audit logger.
+// Always succeeds for the essential services (no gRPC needed).
+func initCoreServices(loadedCfg *config.Config, logger *slog.Logger) (*coreServices, error) {
 	ctx := context.Background()
 	st, err := sqlite.New(ctx, store.Config{AutoMigrate: true})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("open store: %w", err)
+		return nil, fmt.Errorf("open store: %w", err)
 	}
 
 	tele, err := telemetry.NewService(loadedCfg.Telemetry)
@@ -286,17 +569,88 @@ func initServicesForMCPTUI(loadedCfg *config.Config, logger *slog.Logger) (sandb
 		tele = telemetry.NewNoopService()
 	}
 
-	daemonAddr := loadedCfg.ControlPlane.DaemonAddress
-	if daemonAddr == "" {
-		daemonAddr = "localhost:9091"
+	// Ensure source SSH keys exist
+	keyPath := sourcekeys.GetPrivateKeyPath(loadedCfg.SSH.SourceKeyDir)
+	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+		_, _, _ = sourcekeys.EnsureKeyPair(loadedCfg.SSH.SourceKeyDir)
 	}
 
-	svc, err := sandbox.NewRemoteService(daemonAddr, loadedCfg.ControlPlane)
+	srcSvc := source.NewService(loadedCfg, keyPath, logger)
+
+	// Create redactor if enabled
+	var r *redact.Redactor
+	if loadedCfg.Redact.Enabled {
+		var opts []redact.Option
+		// Inject known config values for detection
+		var hosts, addresses, keyPaths []string
+		for _, h := range loadedCfg.Hosts {
+			if h.Name != "" {
+				hosts = append(hosts, h.Name)
+			}
+			if h.Address != "" {
+				addresses = append(addresses, h.Address)
+			}
+		}
+		if loadedCfg.SSH.SourceKeyDir != "" {
+			keyPaths = append(keyPaths, loadedCfg.SSH.SourceKeyDir)
+		}
+		if loadedCfg.SSH.KeyDir != "" {
+			keyPaths = append(keyPaths, loadedCfg.SSH.KeyDir)
+		}
+		opts = append(opts, redact.WithConfigValues(hosts, addresses, keyPaths))
+
+		if len(loadedCfg.Redact.Allowlist) > 0 {
+			opts = append(opts, redact.WithAllowlist(loadedCfg.Redact.Allowlist))
+		}
+		if len(loadedCfg.Redact.CustomPatterns) > 0 {
+			opts = append(opts, redact.WithCustomPatterns(loadedCfg.Redact.CustomPatterns))
+		}
+		r = redact.New(opts...)
+	}
+
+	// Create audit logger if enabled
+	var al *audit.Logger
+	if loadedCfg.Audit.Enabled && loadedCfg.Audit.LogPath != "" {
+		// Ensure audit log directory exists
+		auditDir := filepath.Dir(loadedCfg.Audit.LogPath)
+		if err := os.MkdirAll(auditDir, 0o755); err != nil {
+			logger.Warn("could not create audit log directory", "path", auditDir, "error", err)
+		} else {
+			al, err = audit.NewLogger(loadedCfg.Audit.LogPath, loadedCfg.Audit.MaxSizeMB)
+			if err != nil {
+				logger.Warn("could not open audit log", "path", loadedCfg.Audit.LogPath, "error", err)
+			} else {
+				al.LogSessionStart()
+			}
+		}
+	}
+
+	return &coreServices{
+		store:     st,
+		telemetry: tele,
+		source:    srcSvc,
+		redactor:  r,
+		auditLog:  al,
+	}, nil
+}
+
+// initSandboxService creates a sandbox service. Returns NoopService if no sandbox hosts configured.
+func initSandboxService(loadedCfg *config.Config, logger *slog.Logger) sandbox.Service {
+	if !loadedCfg.HasSandboxHosts() {
+		logger.Info("no sandbox hosts configured, using noop sandbox service")
+		return sandbox.NewNoopService()
+	}
+
+	// Use the first sandbox host
+	sh := loadedCfg.SandboxHosts[0]
+	svc, err := sandbox.NewRemoteService(sh.DaemonAddress, config.ControlPlaneConfig{
+		DaemonAddress:  sh.DaemonAddress,
+		DaemonInsecure: sh.Insecure,
+		DaemonCAFile:   sh.CAFile,
+	}, loadedCfg.Hosts)
 	if err != nil {
-		_ = st.Close()
-		tele.Close()
-		return nil, nil, nil, fmt.Errorf("connect to daemon at %s: %w", daemonAddr, err)
+		logger.Warn("failed to connect to sandbox daemon, falling back to noop", "address", sh.DaemonAddress, "error", err)
+		return sandbox.NewNoopService()
 	}
-
-	return svc, st, tele, nil
+	return svc
 }

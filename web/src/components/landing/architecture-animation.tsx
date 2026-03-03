@@ -459,8 +459,6 @@ export function ArchitectureAnimation({ phase }: { phase: DiagramPhase }) {
 
   // CLI -> Daemon connection
   const cliDaemonActive = daemonActive
-  // Daemon -> Source connection
-  const daemonSourceActive = sourceActive
 
   const playbookActive = [
     'create-playbook',
@@ -477,122 +475,159 @@ export function ArchitectureAnimation({ phase }: { phase: DiagramPhase }) {
   const sandbox = { x: 55, y: 210, w: 190, h: 65 }
   const source = { x: 45, y: 340, w: 190, h: 65 }
 
+  const coreNodes = (
+    <>
+      {/* CLI -> Daemon arrow (dims during read-source phases) */}
+      <Arrow
+        x1={160}
+        y1={80}
+        x2={160}
+        y2={110}
+        opacity={sourceActive ? 0.15 : cliDaemonActive ? 0.8 : 0.2}
+      />
+
+      {/* Direct CLI -> Source VM arrow (bypasses daemon, right side path) */}
+      <motion.g animate={{ opacity: sourceActive ? 0.8 : 0.15 }} transition={{ duration: fast }}>
+        <path
+          d="M 260 50 L 300 50 L 300 365 L 235 365"
+          fill="none"
+          stroke={LINE_COLOR}
+          strokeWidth={1}
+        />
+        <polygon points="235,365 240,362 240,368" fill={LINE_COLOR} />
+        {sourceActive && (
+          <text
+            x={332}
+            y={210}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill={TEXT_MUTED}
+            fontSize={10}
+            fontFamily="ui-monospace, SFMono-Regular, monospace"
+            transform="rotate(0, 332, 210)"
+          >
+            read-only
+          </text>
+        )}
+      </motion.g>
+
+      {/* CLI node */}
+      <NodeBox
+        {...cli}
+        label="Fluid CLI"
+        sublabel="client"
+        opacity={cliActive ? 1 : 0.3}
+        labelColor={cliActive ? '#ffffff' : TEXT_MUTED}
+      />
+
+      {/* Braille spinner inside CLI box */}
+      <BrailleSpinner x={cli.x + 12} y={cli.y + 52} active={isThinking} label="Thinking..." />
+
+      {/* Daemon container - terminal-window style */}
+      <motion.g animate={{ opacity: daemonActive ? 1 : 0.3 }} transition={{ duration: fast }}>
+        <rect
+          x={daemon.x}
+          y={daemon.y}
+          width={daemon.w}
+          height={daemon.h}
+          rx={0}
+          fill={daemonActive ? 'rgba(96,165,250,0.05)' : CARD_BG}
+          stroke={daemonActive ? 'rgba(96,165,250,0.4)' : BORDER}
+          strokeWidth={1}
+        />
+        {/* Window dots + sublabel */}
+        <WindowDots x={daemon.x + 10} y={daemon.y + 10} />
+        <text
+          x={daemon.x + 34}
+          y={daemon.y + 13}
+          dominantBaseline="central"
+          fill={TEXT_MUTED}
+          fontSize={9}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+        >
+          fluid-daemon
+        </text>
+        {/* Title */}
+        <text
+          x={daemon.x + 12}
+          y={daemon.y + 32}
+          dominantBaseline="central"
+          fill={daemonActive ? '#ffffff' : TEXT_MUTED}
+          fontSize={12}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          fontWeight={500}
+        >
+          sandbox-host-1
+        </text>
+      </motion.g>
+
+      {/* Source VM node */}
+      <NodeBox
+        {...source}
+        label="web-prod-01"
+        sublabel="source VM"
+        opacity={sourceActive ? 1 : daemonActive ? 0.5 : 0.2}
+        labelColor={sourceActive ? '#ffffff' : TEXT_MUTED}
+      />
+
+      {/* Tool spinner inside source VM box */}
+      <BrailleSpinner
+        x={source.x + 12}
+        y={source.y + 50}
+        active={sourceActive}
+        label={sourceToolName}
+      />
+
+      {/* Sandbox node - inside daemon container */}
+      <motion.g
+        animate={{
+          opacity: sandboxDestroying ? 0 : sandboxVisible ? 1 : 0,
+          scale: sandboxVisible ? 1 : 0.8,
+        }}
+        transition={{ duration: med }}
+        style={{
+          transformOrigin: `${sandbox.x + sandbox.w / 2}px ${sandbox.y + sandbox.h / 2}px`,
+        }}
+      >
+        <NodeBox
+          {...sandbox}
+          label="sbx-a1b2c3"
+          sublabel="sandbox"
+          opacity={1}
+          labelColor="#ffffff"
+        />
+      </motion.g>
+
+      {/* Tool spinner inside sandbox box */}
+      <BrailleSpinner
+        x={sandbox.x + 12}
+        y={sandbox.y + 50}
+        active={sandboxToolActive || sandboxCreating}
+        label={sandboxToolName}
+      />
+    </>
+  )
+
   return (
     <div className="mt-6">
-      <svg viewBox="0 0 600 420" className="h-full w-full" style={{ maxHeight: 440 }}>
-        {/* Background */}
+      {/* Mobile: narrower viewBox, no playbook card */}
+      <svg viewBox="0 0 320 420" className="h-full w-full md:hidden" style={{ maxHeight: 440 }}>
+        <rect width="320" height="420" fill="transparent" />
+        {coreNodes}
+      </svg>
+
+      {/* Desktop: full viewBox with playbook card */}
+      <svg
+        viewBox="0 0 600 420"
+        className="hidden h-full w-full md:block"
+        style={{ maxHeight: 440 }}
+      >
         <rect width="600" height="420" fill="transparent" />
-
-        {/* CLI -> Daemon arrow */}
-        <Arrow x1={160} y1={80} x2={160} y2={110} opacity={cliDaemonActive ? 0.8 : 0.2} />
-
-        {/* Daemon -> Source arrow */}
-        <Arrow
-          x1={140}
-          y1={305}
-          x2={140}
-          y2={340}
-          opacity={daemonSourceActive || daemonActive ? (sourceActive ? 0.8 : 0.3) : 0.15}
-          label={sourceActive ? 'read-only' : undefined}
-        />
 
         {/* CLI -> Playbook arrow (horizontal) */}
         <Arrow x1={260} y1={45} x2={340} y2={45} opacity={playbookActive ? 0.6 : 0} />
 
-        {/* CLI node */}
-        <NodeBox
-          {...cli}
-          label="Fluid CLI/Web"
-          sublabel="client"
-          opacity={cliActive ? 1 : 0.3}
-          labelColor={cliActive ? '#ffffff' : TEXT_MUTED}
-        />
-
-        {/* Braille spinner inside CLI box */}
-        <BrailleSpinner x={cli.x + 12} y={cli.y + 52} active={isThinking} label="Thinking..." />
-
-        {/* Daemon container - terminal-window style */}
-        <motion.g animate={{ opacity: daemonActive ? 1 : 0.3 }} transition={{ duration: fast }}>
-          <rect
-            x={daemon.x}
-            y={daemon.y}
-            width={daemon.w}
-            height={daemon.h}
-            rx={0}
-            fill={daemonActive ? 'rgba(96,165,250,0.05)' : CARD_BG}
-            stroke={daemonActive ? 'rgba(96,165,250,0.4)' : BORDER}
-            strokeWidth={1}
-          />
-          {/* Window dots + sublabel */}
-          <WindowDots x={daemon.x + 10} y={daemon.y + 10} />
-          <text
-            x={daemon.x + 34}
-            y={daemon.y + 13}
-            dominantBaseline="central"
-            fill={TEXT_MUTED}
-            fontSize={9}
-            fontFamily="ui-monospace, SFMono-Regular, monospace"
-          >
-            fluid-daemon
-          </text>
-          {/* Title */}
-          <text
-            x={daemon.x + 12}
-            y={daemon.y + 32}
-            dominantBaseline="central"
-            fill={daemonActive ? '#ffffff' : TEXT_MUTED}
-            fontSize={12}
-            fontFamily="ui-monospace, SFMono-Regular, monospace"
-            fontWeight={500}
-          >
-            sandbox-host-1
-          </text>
-        </motion.g>
-
-        {/* Source VM node */}
-        <NodeBox
-          {...source}
-          label="web-prod-01"
-          sublabel="source VM"
-          opacity={sourceActive ? 1 : daemonActive ? 0.5 : 0.2}
-          labelColor={sourceActive ? '#ffffff' : TEXT_MUTED}
-        />
-
-        {/* Tool spinner inside source VM box */}
-        <BrailleSpinner
-          x={source.x + 12}
-          y={source.y + 50}
-          active={sourceActive}
-          label={sourceToolName}
-        />
-
-        {/* Sandbox node - inside daemon container */}
-        <motion.g
-          animate={{
-            opacity: sandboxDestroying ? 0 : sandboxVisible ? 1 : 0,
-            scale: sandboxVisible ? 1 : 0.8,
-          }}
-          transition={{ duration: med }}
-          style={{
-            transformOrigin: `${sandbox.x + sandbox.w / 2}px ${sandbox.y + sandbox.h / 2}px`,
-          }}
-        >
-          <NodeBox
-            {...sandbox}
-            label="sbx-a1b2c3"
-            sublabel="sandbox"
-            opacity={1}
-            labelColor="#ffffff"
-          />
-        </motion.g>
-
-        {/* Tool spinner inside sandbox box */}
-        <BrailleSpinner
-          x={sandbox.x + 12}
-          y={sandbox.y + 50}
-          active={sandboxToolActive || sandboxCreating}
-          label={sandboxToolName}
-        />
+        {coreNodes}
 
         {/* Playbook card */}
         <PlaybookCard phase={phase} />

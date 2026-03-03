@@ -1,3 +1,9 @@
+// Package telemetry provides anonymous usage telemetry via PostHog.
+//
+// Anonymity design:
+//   - Each session generates a random UUID (not persisted across sessions)
+//   - $ip is explicitly set to "0.0.0.0" to prevent PostHog from capturing client IP
+//   - Only non-PII properties are tracked: OS, architecture, Go version
 package telemetry
 
 import (
@@ -39,6 +45,8 @@ type posthogService struct {
 }
 
 // NewService creates a new telemetry service based on configuration.
+// When enabled, telemetry is fully anonymous: a random UUID per session,
+// $ip set to 0.0.0.0, and only OS/arch/go_version tracked.
 func NewService(cfg config.TelemetryConfig) (Service, error) {
 	if !cfg.EnableAnonymousUsage || posthogAPIKey == "" {
 		return &NoopService{}, nil
@@ -59,15 +67,21 @@ func NewService(cfg config.TelemetryConfig) (Service, error) {
 	}, nil
 }
 
-func (s *posthogService) Track(event string, properties map[string]any) {
+// buildTrackProperties adds common anonymous properties to a track event.
+// Sets $ip to 0.0.0.0 so PostHog does not capture the client IP server-side.
+func buildTrackProperties(properties map[string]any) map[string]any {
 	if properties == nil {
 		properties = make(map[string]any)
 	}
-
-	// Add common properties
 	properties["os"] = runtime.GOOS
 	properties["arch"] = runtime.GOARCH
 	properties["go_version"] = runtime.Version()
+	properties["$ip"] = "0.0.0.0"
+	return properties
+}
+
+func (s *posthogService) Track(event string, properties map[string]any) {
+	properties = buildTrackProperties(properties)
 
 	_ = s.client.Enqueue(posthog.Capture{
 		DistinctId: s.distinctID,

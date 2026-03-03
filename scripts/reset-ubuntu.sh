@@ -133,6 +133,7 @@ log_info "Cleaning up old VM disks..."
 rm -f /var/lib/libvirt/images/test-vm-*.qcow2 2>/dev/null || true
 rm -f /var/lib/libvirt/images/sandbox-host-*.qcow2 2>/dev/null || true
 rm -f /var/lib/libvirt/images/sbx-*.qcow2 2>/dev/null || true
+rm -f /var/lib/libvirt/images/*.fluid-tmp-snap 2>/dev/null || true
 
 # Clean up sandbox work directories
 rm -rf /var/lib/libvirt/images/sandboxes/* 2>/dev/null || true
@@ -210,11 +211,13 @@ CREATED_VM_DISKS=()
 #   $1 - vm_name (e.g. "test-vm-1")
 #   $2 - vm_index (numeric, for MAC generation)
 #   $3 - mac_prefix (e.g. "52:54:00" or "52:54:01")
+#   $4 - memory_mb (e.g. 2048 or 4096)
 # ============================================================================
 create_vm() {
     local vm_name="$1"
     local vm_index="$2"
     local mac_prefix="$3"
+    local memory_mb="$4"
 
     log_info "Creating VM '${vm_name}'..."
 
@@ -307,7 +310,7 @@ EOF
 
     virt-install \
         --name "${vm_name}" \
-        --memory 2048 \
+        --memory "${memory_mb}" \
         --vcpus 2 \
         --disk "${vm_disk},device=disk,bus=virtio" \
         --cloud-init user-data="${user_data}",meta-data="${meta_data}",network-config="${network_config}" \
@@ -333,6 +336,8 @@ EOF
 
         if [[ -n "$vm_ip" ]]; then
             log_success "VM '${vm_name}' obtained IP address: ${vm_ip}"
+            # Remove stale SSH host key so the new VM key is accepted
+            ssh-keygen -f /root/.ssh/known_hosts -R "$vm_ip" 2>/dev/null || true
             break
         fi
 
@@ -377,8 +382,8 @@ EOF
 }
 
 # Create both VMs
-create_vm "test-vm-${VM_INDEX}" "$VM_INDEX" "52:54:00"
-create_vm "sandbox-host-${VM_INDEX}" "$VM_INDEX" "52:54:01"
+create_vm "test-vm-${VM_INDEX}" "$VM_INDEX" "52:54:00" 2048
+create_vm "sandbox-host-${VM_INDEX}" "$VM_INDEX" "52:54:01" 4096
 
 # ============================================================================
 # STEP 4: Final Summary

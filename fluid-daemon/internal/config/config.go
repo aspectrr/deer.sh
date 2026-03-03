@@ -152,6 +152,9 @@ type SSHConfig struct {
 
 	// ProxyJump is an optional SSH proxy jump host.
 	ProxyJump string `yaml:"proxy_jump"`
+
+	// IdentityFile is the SSH private key for outbound host connections.
+	IdentityFile string `yaml:"identity_file"`
 }
 
 // LibvirtConfig configures libvirt access for source VM operations.
@@ -189,12 +192,12 @@ func DefaultConfig() Config {
 			Enabled:    true,
 		},
 		ControlPlane: ControlPlaneConfig{
-			Address:  "localhost:9090",
+			Address:  "",
 			Insecure: true,
 		},
 		MicroVM: MicroVMConfig{
 			QEMUBinary:         "qemu-system-x86_64",
-			WorkDir:            "/var/lib/fluid/sandboxes",
+			WorkDir:            "/var/lib/fluid-daemon/overlays",
 			DefaultVCPUs:       2,
 			DefaultMemoryMB:    2048,
 			CommandTimeout:     5 * time.Minute,
@@ -208,7 +211,7 @@ func DefaultConfig() Config {
 			DHCPMode: "arp",
 		},
 		Image: ImageConfig{
-			BaseDir: "/var/lib/fluid/images",
+			BaseDir: "/var/lib/fluid-daemon/images",
 		},
 		SSH: SSHConfig{
 			CAKeyPath:    filepath.Join(fluidDir, "ssh_ca"),
@@ -216,6 +219,7 @@ func DefaultConfig() Config {
 			KeyDir:       filepath.Join(fluidDir, "keys"),
 			CertTTL:      30 * time.Minute,
 			DefaultUser:  "sandbox",
+			IdentityFile: filepath.Join(fluidDir, "identity"),
 		},
 		Libvirt: LibvirtConfig{
 			URI:     "qemu:///system",

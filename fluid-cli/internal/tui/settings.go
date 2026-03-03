@@ -19,31 +19,23 @@ import (
 type StaticSettingsField int
 
 const (
-	// Telemetry
-	FieldTelemetryEnabled StaticSettingsField = iota
-
-	// Libvirt
-	FieldLibvirtURI
-	FieldLibvirtNetwork
-	FieldLibvirtBaseImageDir
-	FieldLibvirtWorkDir
-	FieldLibvirtSSHKeyInjectMethod
-	FieldLibvirtSocketVMNetWrapper
-
-	// VM
-	FieldVMDefaultVCPUs
-	FieldVMDefaultMemoryMB
-	FieldVMCommandTimeout
-	FieldVMIPDiscoveryTimeout
+	// AI Agent
+	FieldAIAgentProvider StaticSettingsField = iota
+	FieldAIAgentAPIKey
+	FieldAIAgentModel
+	FieldAIAgentEndpoint
+	FieldAIAgentSiteURL
+	FieldAIAgentSiteName
+	FieldAIAgentTotalContextTokens
+	FieldAIAgentCompactModel
+	FieldAIAgentCompactThreshold
 
 	// SSH
 	FieldSSHProxyJump
-	FieldSSHCAKeyPath
-	FieldSSHCAPubPath
 	FieldSSHKeyDir
+	FieldSSHSourceKeyDir
 	FieldSSHCertTTL
 	FieldSSHMaxTTL
-	FieldSSHWorkDir
 	FieldSSHDefaultUser
 
 	// Ansible
@@ -54,16 +46,22 @@ const (
 	FieldLoggingLevel
 	FieldLoggingFormat
 
-	// AI Agent
-	FieldAIAgentProvider
-	FieldAIAgentAPIKey
-	FieldAIAgentModel
-	FieldAIAgentEndpoint
-	FieldAIAgentSiteURL
-	FieldAIAgentSiteName
-	FieldAIAgentTotalContextTokens
-	FieldAIAgentCompactModel
-	FieldAIAgentCompactThreshold
+	// Telemetry
+	FieldTelemetryEnabled
+
+	// Redaction
+	FieldRedactEnabled
+	FieldRedactCustomPatterns
+	FieldRedactAllowlist
+
+	// Audit
+	FieldAuditEnabled
+	FieldAuditLogPath
+	FieldAuditMaxSizeMB
+	FieldAuditRetainDays
+
+	// Allowlist
+	FieldExtraAllowedCommands
 
 	StaticFieldCount
 )
@@ -82,9 +80,6 @@ type SettingsModel struct {
 	saved      bool
 	err        error
 	scrollY    int
-
-	// Helper to track how many hosts we currently have inputs for
-	hostCount int
 }
 
 // NewSettingsModel creates a new settings model
@@ -98,56 +93,52 @@ func NewSettingsModel(cfg *config.Config, configPath string) SettingsModel {
 		sections:   make([]string, 0),
 	}
 
-	// 1. Initialize Host Inputs
-	m.hostCount = len(cfg.Hosts)
-
-	for i, h := range cfg.Hosts {
-		m.addHostInput(i+1, h.Name, h.Address, h.SSHVMUser)
-	}
-
-	// 2. Initialize Static Inputs
-	// We'll use a temporary map or slice to order them correctly matching StaticSettingsField order
+	// Static fields
 	staticLabels := []string{
-		// Telemetry
-		"Enable Anonymous Usage:",
-		// Libvirt
-		"Libvirt URI:", "Network:", "Base Image Dir:", "Work Dir:", "SSH Key Inject Method:", "Socket VMNet Wrapper:",
-		// VM
-		"Default vCPUs:", "Default Memory (MB):", "Command Timeout:", "IP Discovery Timeout:",
+		// AI Agent
+		"Provider:", "API Key:", "Model:", "Endpoint:", "Site URL:", "Site Name:",
+		"Total Context Tokens:", "Compact Model:", "Compact Threshold:",
 		// SSH
-		"Proxy Jump:", "CA Key Path:", "CA Pub Path:", "Key Dir:", "Cert TTL:", "Max TTL:", "Work Dir:", "Default User:",
+		"Proxy Jump:", "Key Dir:", "Source Key Dir:", "Cert TTL:", "Max TTL:", "Default User:",
 		// Ansible
 		"Inventory Path:", "Playbooks Dir:",
 		// Logging
 		"Log Level:", "Log Format:",
-		// AI Agent
-		"Provider:", "API Key:", "Model:", "Endpoint:", "Site URL:", "Site Name:", "Total Context Tokens:", "Compact Model:", "Compact Threshold:",
+		// Telemetry
+		"Enable Anonymous Usage:",
+		// Redaction
+		"Redaction Enabled:", "Custom Patterns:", "Allowlist:",
+		// Audit
+		"Audit Enabled:", "Log Path:", "Max Size (MB):", "Retain Days:",
+		// Allowlist
+		"Extra Allowed Commands:",
 	}
 
 	staticSections := []string{
-		// Telemetry
-		"Telemetry",
-		// Libvirt
-		"Libvirt", "Libvirt", "Libvirt", "Libvirt", "Libvirt", "Libvirt",
-		// VM
-		"VM Defaults", "VM Defaults", "VM Defaults", "VM Defaults",
+		// AI Agent
+		"AI Agent", "AI Agent", "AI Agent", "AI Agent", "AI Agent", "AI Agent",
+		"AI Agent", "AI Agent", "AI Agent",
 		// SSH
-		"SSH", "SSH", "SSH", "SSH", "SSH", "SSH", "SSH", "SSH",
+		"SSH", "SSH", "SSH", "SSH", "SSH", "SSH",
 		// Ansible
 		"Ansible", "Ansible",
 		// Logging
 		"Logging", "Logging",
-		// AI Agent
-		"AI Agent", "AI Agent", "AI Agent", "AI Agent", "AI Agent", "AI Agent", "AI Agent", "AI Agent", "AI Agent",
+		// Telemetry
+		"Telemetry",
+		// Redaction
+		"Redaction", "Redaction", "Redaction",
+		// Audit
+		"Audit", "Audit", "Audit", "Audit",
+		// Allowlist
+		"Allowlist",
 	}
 
-	// Create inputs for static fields
 	for i := range StaticFieldCount {
 		t := textinput.New()
 		t.Prompt = ""
 		t.CharLimit = 512
 
-		// Set value based on config
 		val := m.getStaticConfigValue(StaticSettingsField(i))
 		t.SetValue(val)
 
@@ -163,84 +154,8 @@ func NewSettingsModel(cfg *config.Config, configPath string) SettingsModel {
 	return m
 }
 
-func (m *SettingsModel) addHostInput(num int, name, addr, vmUser string) {
-	// Create three inputs: Name, Address, VM User
-	tName := textinput.New()
-	tName.Prompt = ""
-	tName.CharLimit = 512
-	tName.SetValue(name)
-
-	tAddr := textinput.New()
-	tAddr.Prompt = ""
-	tAddr.CharLimit = 512
-	tAddr.SetValue(addr)
-
-	tVMUser := textinput.New()
-	tVMUser.Prompt = ""
-	tVMUser.CharLimit = 512
-	tVMUser.SetValue(vmUser)
-
-	// Append to lists
-	m.inputs = append(m.inputs, tName, tAddr, tVMUser)
-	m.labels = append(m.labels, fmt.Sprintf("Host %d Name:", num), fmt.Sprintf("Host %d Address:", num), fmt.Sprintf("Host %d VM User:", num))
-	m.sections = append(m.sections, "Hosts", "Hosts", "Hosts")
-}
-
-// Helper to get static config value by enum
 func (m SettingsModel) getStaticConfigValue(field StaticSettingsField) string {
 	switch field {
-	case FieldTelemetryEnabled:
-		return strconv.FormatBool(m.cfg.Telemetry.EnableAnonymousUsage)
-
-	case FieldLibvirtURI:
-		return m.cfg.Libvirt.URI
-	case FieldLibvirtNetwork:
-		return m.cfg.Libvirt.Network
-	case FieldLibvirtBaseImageDir:
-		return m.cfg.Libvirt.BaseImageDir
-	case FieldLibvirtWorkDir:
-		return m.cfg.Libvirt.WorkDir
-	case FieldLibvirtSSHKeyInjectMethod:
-		return m.cfg.Libvirt.SSHKeyInjectMethod
-	case FieldLibvirtSocketVMNetWrapper:
-		return m.cfg.Libvirt.SocketVMNetWrapper
-
-	case FieldVMDefaultVCPUs:
-		return strconv.Itoa(m.cfg.VM.DefaultVCPUs)
-	case FieldVMDefaultMemoryMB:
-		return strconv.Itoa(m.cfg.VM.DefaultMemoryMB)
-	case FieldVMCommandTimeout:
-		return m.cfg.VM.CommandTimeout.String()
-	case FieldVMIPDiscoveryTimeout:
-		return m.cfg.VM.IPDiscoveryTimeout.String()
-
-	case FieldSSHProxyJump:
-		return m.cfg.SSH.ProxyJump
-	case FieldSSHCAKeyPath:
-		return m.cfg.SSH.CAKeyPath
-	case FieldSSHCAPubPath:
-		return m.cfg.SSH.CAPubPath
-	case FieldSSHKeyDir:
-		return m.cfg.SSH.KeyDir
-	case FieldSSHCertTTL:
-		return m.cfg.SSH.CertTTL.String()
-	case FieldSSHMaxTTL:
-		return m.cfg.SSH.MaxTTL.String()
-	case FieldSSHWorkDir:
-		return m.cfg.SSH.WorkDir
-	case FieldSSHDefaultUser:
-		return m.cfg.SSH.DefaultUser
-
-	case FieldAnsibleInventoryPath:
-		return m.cfg.Ansible.InventoryPath
-	case FieldAnsiblePlaybooksDir:
-		return m.cfg.Ansible.PlaybooksDir
-
-	case FieldLoggingLevel:
-		return m.cfg.Logging.Level
-	case FieldLoggingFormat:
-		return m.cfg.Logging.Format
-
 	case FieldAIAgentProvider:
 		return m.cfg.AIAgent.Provider
 	case FieldAIAgentAPIKey:
@@ -259,52 +174,53 @@ func (m SettingsModel) getStaticConfigValue(field StaticSettingsField) string {
 		return m.cfg.AIAgent.CompactModel
 	case FieldAIAgentCompactThreshold:
 		return strconv.FormatFloat(m.cfg.AIAgent.CompactThreshold, 'f', 2, 64)
+
+	case FieldSSHProxyJump:
+		return m.cfg.SSH.ProxyJump
+	case FieldSSHKeyDir:
+		return m.cfg.SSH.KeyDir
+	case FieldSSHSourceKeyDir:
+		return m.cfg.SSH.SourceKeyDir
+	case FieldSSHCertTTL:
+		return m.cfg.SSH.CertTTL.String()
+	case FieldSSHMaxTTL:
+		return m.cfg.SSH.MaxTTL.String()
+	case FieldSSHDefaultUser:
+		return m.cfg.SSH.DefaultUser
+
+	case FieldAnsibleInventoryPath:
+		return m.cfg.Ansible.InventoryPath
+	case FieldAnsiblePlaybooksDir:
+		return m.cfg.Ansible.PlaybooksDir
+
+	case FieldLoggingLevel:
+		return m.cfg.Logging.Level
+	case FieldLoggingFormat:
+		return m.cfg.Logging.Format
+
+	case FieldTelemetryEnabled:
+		return strconv.FormatBool(m.cfg.Telemetry.EnableAnonymousUsage)
+
+	case FieldRedactEnabled:
+		return strconv.FormatBool(m.cfg.Redact.Enabled)
+	case FieldRedactCustomPatterns:
+		return strings.Join(m.cfg.Redact.CustomPatterns, ",")
+	case FieldRedactAllowlist:
+		return strings.Join(m.cfg.Redact.Allowlist, ",")
+
+	case FieldAuditEnabled:
+		return strconv.FormatBool(m.cfg.Audit.Enabled)
+	case FieldAuditLogPath:
+		return m.cfg.Audit.LogPath
+	case FieldAuditMaxSizeMB:
+		return strconv.Itoa(m.cfg.Audit.MaxSizeMB)
+	case FieldAuditRetainDays:
+		return strconv.Itoa(m.cfg.Audit.RetainDays)
+
+	case FieldExtraAllowedCommands:
+		return strings.Join(m.cfg.ExtraAllowedCommands, ",")
 	}
 	return ""
-}
-
-// Add a new host to the lists
-func (m *SettingsModel) addNewHost() {
-	m.hostCount++
-	num := m.hostCount
-
-	tName := textinput.New()
-	tName.Prompt = ""
-	tName.CharLimit = 512
-
-	tAddr := textinput.New()
-	tAddr.Prompt = ""
-	tAddr.CharLimit = 512
-
-	tVMUser := textinput.New()
-	tVMUser.Prompt = ""
-	tVMUser.CharLimit = 512
-
-	// Insert before static fields
-	// Current host inputs end at (num-1)*3
-	insertIdx := (num - 1) * 3
-
-	// Helper to insert into slice
-	insertInput := func(slice []textinput.Model, idx int, items ...textinput.Model) []textinput.Model {
-		return append(slice[:idx], append(items, slice[idx:]...)...)
-	}
-	insertString := func(slice []string, idx int, items ...string) []string {
-		return append(slice[:idx], append(items, slice[idx:]...)...)
-	}
-
-	m.inputs = insertInput(m.inputs, insertIdx, tName, tAddr, tVMUser)
-	m.labels = insertString(m.labels, insertIdx, fmt.Sprintf("Host %d Name:", num), fmt.Sprintf("Host %d Address:", num), fmt.Sprintf("Host %d VM User:", num))
-	m.sections = insertString(m.sections, insertIdx, "Hosts", "Hosts", "Hosts")
-
-	// If focus was after insertion point, shift it
-	if m.focused >= insertIdx {
-		m.focused += 3
-	}
-	// Focus the new name field
-	m.inputs[m.focused].Blur()
-	m.focused = insertIdx
-	m.inputs[m.focused].Focus()
-	m.ensureFocusedVisible()
 }
 
 // Init implements tea.Model
@@ -371,10 +287,6 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focused = len(m.inputs) - 1
 			m.inputs[m.focused].Focus()
 			m.ensureFocusedVisible()
-			return m, nil
-
-		case "ctrl+n":
-			m.addNewHost()
 			return m, nil
 
 		case "ctrl+s":
@@ -447,7 +359,7 @@ func (m SettingsModel) View() string {
 	b.WriteString("\n")
 
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
-	b.WriteString(helpStyle.Render("Tab/↑↓: navigate | Ctrl+N: add host | Ctrl+S: save | Esc: cancel"))
+	b.WriteString(helpStyle.Render("Tab/arrows: navigate | Ctrl+S: save | Esc: cancel"))
 	b.WriteString("\n")
 
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
@@ -475,7 +387,7 @@ func (m SettingsModel) View() string {
 			if renderedCount > 0 {
 				b.WriteString("\n")
 			}
-			b.WriteString(sectionStyle.Render("─── " + currentSection + " ───"))
+			b.WriteString(sectionStyle.Render("--- " + currentSection + " ---"))
 			b.WriteString("\n")
 		}
 
@@ -497,7 +409,7 @@ func (m SettingsModel) View() string {
 		if filledWidth < 1 && m.scrollY > 0 {
 			filledWidth = 1
 		}
-		scrollBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", barWidth-filledWidth)
+		scrollBar := strings.Repeat("#", filledWidth) + strings.Repeat(".", barWidth-filledWidth)
 		scrollIndicator += fmt.Sprintf(" [%s] %d%%", scrollBar, scrollPct)
 	}
 	b.WriteString(helpStyle.Render(scrollIndicator))
@@ -523,7 +435,7 @@ func (m SettingsModel) renderField(idx int) string {
 
 	focusIndicator := "  "
 	if idx == m.focused {
-		focusIndicator = "▶ "
+		focusIndicator = "> "
 		inputStyle = inputStyle.Foreground(lipgloss.Color("#3B82F6"))
 	}
 
@@ -535,74 +447,15 @@ func (m SettingsModel) renderField(idx int) string {
 }
 
 func (m *SettingsModel) saveConfig() error {
-	// 1. Save Hosts
-	m.cfg.Hosts = make([]config.HostConfig, 0, m.hostCount)
-	hostInputCount := m.hostCount * 3
-
-	for i := 0; i < hostInputCount; i += 3 {
-		name := m.inputs[i].Value()
-		addr := m.inputs[i+1].Value()
-		vmUser := m.inputs[i+2].Value()
-		if name != "" || addr != "" {
-			m.cfg.Hosts = append(m.cfg.Hosts, config.HostConfig{
-				Name:      name,
-				Address:   addr,
-				SSHVMUser: vmUser,
-			})
-		}
-	}
-
-	// 2. Save Static Fields
-	// Helper to access static inputs relative to host inputs
 	getStatic := func(field StaticSettingsField) string {
-		idx := hostInputCount + int(field)
+		idx := int(field)
 		if idx < len(m.inputs) {
 			return m.inputs[idx].Value()
 		}
 		return ""
 	}
 
-	m.cfg.Telemetry.EnableAnonymousUsage = getStatic(FieldTelemetryEnabled) == "true"
-
-	m.cfg.Libvirt.URI = getStatic(FieldLibvirtURI)
-	m.cfg.Libvirt.Network = getStatic(FieldLibvirtNetwork)
-	m.cfg.Libvirt.BaseImageDir = getStatic(FieldLibvirtBaseImageDir)
-	m.cfg.Libvirt.WorkDir = getStatic(FieldLibvirtWorkDir)
-	m.cfg.Libvirt.SSHKeyInjectMethod = getStatic(FieldLibvirtSSHKeyInjectMethod)
-	m.cfg.Libvirt.SocketVMNetWrapper = getStatic(FieldLibvirtSocketVMNetWrapper)
-
-	if v, err := strconv.Atoi(getStatic(FieldVMDefaultVCPUs)); err == nil {
-		m.cfg.VM.DefaultVCPUs = v
-	}
-	if v, err := strconv.Atoi(getStatic(FieldVMDefaultMemoryMB)); err == nil {
-		m.cfg.VM.DefaultMemoryMB = v
-	}
-	if v, err := time.ParseDuration(getStatic(FieldVMCommandTimeout)); err == nil {
-		m.cfg.VM.CommandTimeout = v
-	}
-	if v, err := time.ParseDuration(getStatic(FieldVMIPDiscoveryTimeout)); err == nil {
-		m.cfg.VM.IPDiscoveryTimeout = v
-	}
-
-	m.cfg.SSH.ProxyJump = getStatic(FieldSSHProxyJump)
-	m.cfg.SSH.CAKeyPath = getStatic(FieldSSHCAKeyPath)
-	m.cfg.SSH.CAPubPath = getStatic(FieldSSHCAPubPath)
-	m.cfg.SSH.KeyDir = getStatic(FieldSSHKeyDir)
-	if v, err := time.ParseDuration(getStatic(FieldSSHCertTTL)); err == nil {
-		m.cfg.SSH.CertTTL = v
-	}
-	if v, err := time.ParseDuration(getStatic(FieldSSHMaxTTL)); err == nil {
-		m.cfg.SSH.MaxTTL = v
-	}
-	m.cfg.SSH.WorkDir = getStatic(FieldSSHWorkDir)
-	m.cfg.SSH.DefaultUser = getStatic(FieldSSHDefaultUser)
-
-	m.cfg.Ansible.InventoryPath = getStatic(FieldAnsibleInventoryPath)
-	m.cfg.Ansible.PlaybooksDir = getStatic(FieldAnsiblePlaybooksDir)
-
-	m.cfg.Logging.Level = getStatic(FieldLoggingLevel)
-	m.cfg.Logging.Format = getStatic(FieldLoggingFormat)
-
+	// AI Agent
 	m.cfg.AIAgent.Provider = getStatic(FieldAIAgentProvider)
 	m.cfg.AIAgent.APIKey = getStatic(FieldAIAgentAPIKey)
 	m.cfg.AIAgent.Model = getStatic(FieldAIAgentModel)
@@ -615,6 +468,59 @@ func (m *SettingsModel) saveConfig() error {
 	m.cfg.AIAgent.CompactModel = getStatic(FieldAIAgentCompactModel)
 	if v, err := strconv.ParseFloat(getStatic(FieldAIAgentCompactThreshold), 64); err == nil {
 		m.cfg.AIAgent.CompactThreshold = v
+	}
+
+	// SSH
+	m.cfg.SSH.ProxyJump = getStatic(FieldSSHProxyJump)
+	m.cfg.SSH.KeyDir = getStatic(FieldSSHKeyDir)
+	m.cfg.SSH.SourceKeyDir = getStatic(FieldSSHSourceKeyDir)
+	if v, err := parseDuration(getStatic(FieldSSHCertTTL)); v > 0 && err == nil {
+		m.cfg.SSH.CertTTL = v
+	}
+	if v, err := parseDuration(getStatic(FieldSSHMaxTTL)); v > 0 && err == nil {
+		m.cfg.SSH.MaxTTL = v
+	}
+	m.cfg.SSH.DefaultUser = getStatic(FieldSSHDefaultUser)
+
+	// Ansible
+	m.cfg.Ansible.InventoryPath = getStatic(FieldAnsibleInventoryPath)
+	m.cfg.Ansible.PlaybooksDir = getStatic(FieldAnsiblePlaybooksDir)
+
+	// Logging
+	m.cfg.Logging.Level = getStatic(FieldLoggingLevel)
+	m.cfg.Logging.Format = getStatic(FieldLoggingFormat)
+
+	// Telemetry
+	m.cfg.Telemetry.EnableAnonymousUsage = getStatic(FieldTelemetryEnabled) == "true"
+
+	// Redaction
+	m.cfg.Redact.Enabled = getStatic(FieldRedactEnabled) == "true"
+	if patterns := getStatic(FieldRedactCustomPatterns); patterns != "" {
+		m.cfg.Redact.CustomPatterns = strings.Split(patterns, ",")
+	} else {
+		m.cfg.Redact.CustomPatterns = nil
+	}
+	if allowlist := getStatic(FieldRedactAllowlist); allowlist != "" {
+		m.cfg.Redact.Allowlist = strings.Split(allowlist, ",")
+	} else {
+		m.cfg.Redact.Allowlist = nil
+	}
+
+	// Audit
+	m.cfg.Audit.Enabled = getStatic(FieldAuditEnabled) == "true"
+	m.cfg.Audit.LogPath = getStatic(FieldAuditLogPath)
+	if v, err := strconv.Atoi(getStatic(FieldAuditMaxSizeMB)); err == nil {
+		m.cfg.Audit.MaxSizeMB = v
+	}
+	if v, err := strconv.Atoi(getStatic(FieldAuditRetainDays)); err == nil {
+		m.cfg.Audit.RetainDays = v
+	}
+
+	// Allowlist
+	if cmds := getStatic(FieldExtraAllowedCommands); cmds != "" {
+		m.cfg.ExtraAllowedCommands = strings.Split(cmds, ",")
+	} else {
+		m.cfg.ExtraAllowedCommands = nil
 	}
 
 	// Ensure config directory exists
@@ -632,7 +538,6 @@ func (m SettingsModel) GetConfig() *config.Config {
 }
 
 // EnsureConfigExists checks if config exists and creates it with defaults if not.
-// Returns the config and any permission warnings.
 func EnsureConfigExists(configPath string) (*config.Config, error) {
 	if _, err := os.Stat(configPath); err == nil {
 		cfg, _, err := config.LoadWithEnvOverride(configPath)
@@ -650,6 +555,11 @@ func EnsureConfigExists(configPath string) (*config.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// parseDuration wraps time.ParseDuration for settings use.
+func parseDuration(s string) (time.Duration, error) {
+	return time.ParseDuration(s)
 }
 
 func min(a, b int) int {

@@ -1,6 +1,7 @@
 package readonly
 
 import (
+	"sort"
 	"testing"
 )
 
@@ -294,6 +295,56 @@ func TestValidateCommand_QuotedMetacharacters(t *testing.T) {
 	for _, cmd := range allowed {
 		if err := ValidateCommand(cmd); err != nil {
 			t.Errorf("expected command %q to be allowed (metacharacters in quotes), got error: %v", cmd, err)
+		}
+	}
+}
+
+func TestValidateCommandWithExtra(t *testing.T) {
+	// "docker" is not in the default allowlist
+	if err := ValidateCommand("docker ps"); err == nil {
+		t.Fatal("expected docker to be blocked by default")
+	}
+
+	// With extra allowed commands, docker should pass
+	if err := ValidateCommandWithExtra("docker ps", []string{"docker"}); err != nil {
+		t.Errorf("expected docker to be allowed with extra, got: %v", err)
+	}
+
+	// Without extra, still blocked
+	if err := ValidateCommandWithExtra("docker ps", nil); err == nil {
+		t.Error("expected docker to be blocked without extra")
+	}
+
+	// Default commands still work with extra
+	if err := ValidateCommandWithExtra("ls -la", []string{"docker"}); err != nil {
+		t.Errorf("expected ls to still be allowed: %v", err)
+	}
+
+	// Empty and whitespace entries in extra are ignored
+	if err := ValidateCommandWithExtra("docker ps", []string{"", " ", "docker"}); err != nil {
+		t.Errorf("expected docker to be allowed: %v", err)
+	}
+}
+
+func TestAllowedCommandsList(t *testing.T) {
+	cmds := AllowedCommandsList()
+	if len(cmds) == 0 {
+		t.Fatal("expected non-empty command list")
+	}
+
+	// Verify sorted
+	if !sort.StringsAreSorted(cmds) {
+		t.Error("expected command list to be sorted")
+	}
+
+	// Spot-check some known defaults
+	found := make(map[string]bool)
+	for _, c := range cmds {
+		found[c] = true
+	}
+	for _, expected := range []string{"cat", "ls", "grep", "ps"} {
+		if !found[expected] {
+			t.Errorf("expected %q in default commands", expected)
 		}
 	}
 }

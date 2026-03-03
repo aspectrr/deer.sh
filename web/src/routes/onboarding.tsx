@@ -128,7 +128,9 @@ function OnboardingPage() {
     <div className="flex min-h-screen items-center justify-center bg-black px-4">
       <div className="w-full max-w-lg space-y-6">
         <div className="space-y-1">
-          <h1 className="font-logo text-lg font-extrabold text-white">fluid.sh</h1>
+          <h1 className="font-logo text-lg tracking-tight">
+            <span className="text-blue-400">$</span> fluid.sh
+          </h1>
           <h2 className="text-sm font-medium text-white">Set up your workspace</h2>
           <p className="text-muted-foreground text-xs">Create your organization to get started</p>
         </div>

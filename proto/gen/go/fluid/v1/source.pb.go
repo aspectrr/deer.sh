@@ -24,12 +24,13 @@ const (
 // PrepareSourceVMCommand instructs the host to prepare a source VM for
 // read-only access (install restricted shell, create fluid-readonly user, etc.).
 type PrepareSourceVMCommand struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SourceVm      string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
-	SshUser       string                 `protobuf:"bytes,2,opt,name=ssh_user,json=sshUser,proto3" json:"ssh_user,omitempty"`
-	SshKeyPath    string                 `protobuf:"bytes,3,opt,name=ssh_key_path,json=sshKeyPath,proto3" json:"ssh_key_path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SourceVm             string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
+	SshUser              string                 `protobuf:"bytes,2,opt,name=ssh_user,json=sshUser,proto3" json:"ssh_user,omitempty"`
+	SshKeyPath           string                 `protobuf:"bytes,3,opt,name=ssh_key_path,json=sshKeyPath,proto3" json:"ssh_key_path,omitempty"`
+	SourceHostConnection *SourceHostConnection  `protobuf:"bytes,4,opt,name=source_host_connection,json=sourceHostConnection,proto3" json:"source_host_connection,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *PrepareSourceVMCommand) Reset() {
@@ -81,6 +82,13 @@ func (x *PrepareSourceVMCommand) GetSshKeyPath() string {
 		return x.SshKeyPath
 	}
 	return ""
+}
+
+func (x *PrepareSourceVMCommand) GetSourceHostConnection() *SourceHostConnection {
+	if x != nil {
+		return x.SourceHostConnection
+	}
+	return nil
 }
 
 // SourceVMPrepared reports the result of preparing a source VM.
@@ -195,12 +203,13 @@ func (x *SourceVMPrepared) GetSshdRestarted() bool {
 // RunSourceCommandCommand instructs the host to run a read-only command
 // on a source VM via the fluid-readonly user.
 type RunSourceCommandCommand struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SourceVm       string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
-	Command        string                 `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`
-	TimeoutSeconds int32                  `protobuf:"varint,3,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SourceVm             string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
+	Command              string                 `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`
+	TimeoutSeconds       int32                  `protobuf:"varint,3,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
+	SourceHostConnection *SourceHostConnection  `protobuf:"bytes,4,opt,name=source_host_connection,json=sourceHostConnection,proto3" json:"source_host_connection,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *RunSourceCommandCommand) Reset() {
@@ -252,6 +261,13 @@ func (x *RunSourceCommandCommand) GetTimeoutSeconds() int32 {
 		return x.TimeoutSeconds
 	}
 	return 0
+}
+
+func (x *RunSourceCommandCommand) GetSourceHostConnection() *SourceHostConnection {
+	if x != nil {
+		return x.SourceHostConnection
+	}
+	return nil
 }
 
 // SourceCommandResult returns the output of a source VM command.
@@ -325,11 +341,12 @@ func (x *SourceCommandResult) GetStderr() string {
 
 // ReadSourceFileCommand instructs the host to read a file from a source VM.
 type ReadSourceFileCommand struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SourceVm      string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
-	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SourceVm             string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
+	Path                 string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	SourceHostConnection *SourceHostConnection  `protobuf:"bytes,3,opt,name=source_host_connection,json=sourceHostConnection,proto3" json:"source_host_connection,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ReadSourceFileCommand) Reset() {
@@ -374,6 +391,13 @@ func (x *ReadSourceFileCommand) GetPath() string {
 		return x.Path
 	}
 	return ""
+}
+
+func (x *ReadSourceFileCommand) GetSourceHostConnection() *SourceHostConnection {
+	if x != nil {
+		return x.SourceHostConnection
+	}
+	return nil
 }
 
 // SourceFileResult returns the content of a file from a source VM.
@@ -439,9 +463,10 @@ func (x *SourceFileResult) GetContent() string {
 
 // ListSourceVMsCommand instructs the host to list available source VMs.
 type ListSourceVMsCommand struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SourceHostConnection *SourceHostConnection  `protobuf:"bytes,1,opt,name=source_host_connection,json=sourceHostConnection,proto3" json:"source_host_connection,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ListSourceVMsCommand) Reset() {
@@ -472,6 +497,13 @@ func (x *ListSourceVMsCommand) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListSourceVMsCommand.ProtoReflect.Descriptor instead.
 func (*ListSourceVMsCommand) Descriptor() ([]byte, []int) {
 	return file_fluid_v1_source_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListSourceVMsCommand) GetSourceHostConnection() *SourceHostConnection {
+	if x != nil {
+		return x.SourceHostConnection
+	}
+	return nil
 }
 
 // SourceVMsList returns the list of source VMs on a host.
@@ -590,10 +622,11 @@ func (x *SourceVMListEntry) GetPrepared() bool {
 // ValidateSourceVMCommand instructs the host to validate a source VM's
 // readiness for read-only access.
 type ValidateSourceVMCommand struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SourceVm      string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SourceVm             string                 `protobuf:"bytes,1,opt,name=source_vm,json=sourceVm,proto3" json:"source_vm,omitempty"`
+	SourceHostConnection *SourceHostConnection  `protobuf:"bytes,2,opt,name=source_host_connection,json=sourceHostConnection,proto3" json:"source_host_connection,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ValidateSourceVMCommand) Reset() {
@@ -631,6 +664,13 @@ func (x *ValidateSourceVMCommand) GetSourceVm() string {
 		return x.SourceVm
 	}
 	return ""
+}
+
+func (x *ValidateSourceVMCommand) GetSourceHostConnection() *SourceHostConnection {
+	if x != nil {
+		return x.SourceHostConnection
+	}
+	return nil
 }
 
 // SourceVMValidation returns the validation result for a source VM.
@@ -738,12 +778,13 @@ var File_fluid_v1_source_proto protoreflect.FileDescriptor
 
 const file_fluid_v1_source_proto_rawDesc = "" +
 	"\n" +
-	"\x15fluid/v1/source.proto\x12\bfluid.v1\"r\n" +
+	"\x15fluid/v1/source.proto\x12\bfluid.v1\x1a\x16fluid/v1/sandbox.proto\"\xc8\x01\n" +
 	"\x16PrepareSourceVMCommand\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12\x19\n" +
 	"\bssh_user\x18\x02 \x01(\tR\asshUser\x12 \n" +
 	"\fssh_key_path\x18\x03 \x01(\tR\n" +
-	"sshKeyPath\"\xdf\x02\n" +
+	"sshKeyPath\x12T\n" +
+	"\x16source_host_connection\x18\x04 \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\"\xdf\x02\n" +
 	"\x10SourceVMPrepared\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12\x1d\n" +
 	"\n" +
@@ -754,24 +795,27 @@ const file_fluid_v1_source_proto_rawDesc = "" +
 	"\x10ca_key_installed\x18\x06 \x01(\bR\x0ecaKeyInstalled\x12'\n" +
 	"\x0fsshd_configured\x18\a \x01(\bR\x0esshdConfigured\x12-\n" +
 	"\x12principals_created\x18\b \x01(\bR\x11principalsCreated\x12%\n" +
-	"\x0esshd_restarted\x18\t \x01(\bR\rsshdRestarted\"y\n" +
+	"\x0esshd_restarted\x18\t \x01(\bR\rsshdRestarted\"\xcf\x01\n" +
 	"\x17RunSourceCommandCommand\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12'\n" +
-	"\x0ftimeout_seconds\x18\x03 \x01(\x05R\x0etimeoutSeconds\"\x7f\n" +
+	"\x0ftimeout_seconds\x18\x03 \x01(\x05R\x0etimeoutSeconds\x12T\n" +
+	"\x16source_host_connection\x18\x04 \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\"\x7f\n" +
 	"\x13SourceCommandResult\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x16\n" +
 	"\x06stdout\x18\x03 \x01(\tR\x06stdout\x12\x16\n" +
-	"\x06stderr\x18\x04 \x01(\tR\x06stderr\"H\n" +
+	"\x06stderr\x18\x04 \x01(\tR\x06stderr\"\x9e\x01\n" +
 	"\x15ReadSourceFileCommand\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12\x12\n" +
-	"\x04path\x18\x02 \x01(\tR\x04path\"]\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12T\n" +
+	"\x16source_host_connection\x18\x03 \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\"]\n" +
 	"\x10SourceFileResult\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x18\n" +
-	"\acontent\x18\x03 \x01(\tR\acontent\"\x16\n" +
-	"\x14ListSourceVMsCommand\">\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\"l\n" +
+	"\x14ListSourceVMsCommand\x12T\n" +
+	"\x16source_host_connection\x18\x01 \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\">\n" +
 	"\rSourceVMsList\x12-\n" +
 	"\x03vms\x18\x01 \x03(\v2\x1b.fluid.v1.SourceVMListEntryR\x03vms\"x\n" +
 	"\x11SourceVMListEntry\x12\x12\n" +
@@ -779,9 +823,10 @@ const file_fluid_v1_source_proto_rawDesc = "" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x1d\n" +
 	"\n" +
 	"ip_address\x18\x03 \x01(\tR\tipAddress\x12\x1a\n" +
-	"\bprepared\x18\x04 \x01(\bR\bprepared\"6\n" +
+	"\bprepared\x18\x04 \x01(\bR\bprepared\"\x8c\x01\n" +
 	"\x17ValidateSourceVMCommand\x12\x1b\n" +
-	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\"\xf2\x01\n" +
+	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12T\n" +
+	"\x16source_host_connection\x18\x02 \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\"\xf2\x01\n" +
 	"\x12SourceVMValidation\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12\x14\n" +
 	"\x05valid\x18\x02 \x01(\bR\x05valid\x12\x14\n" +
@@ -820,14 +865,20 @@ var file_fluid_v1_source_proto_goTypes = []any{
 	(*SourceVMListEntry)(nil),       // 8: fluid.v1.SourceVMListEntry
 	(*ValidateSourceVMCommand)(nil), // 9: fluid.v1.ValidateSourceVMCommand
 	(*SourceVMValidation)(nil),      // 10: fluid.v1.SourceVMValidation
+	(*SourceHostConnection)(nil),    // 11: fluid.v1.SourceHostConnection
 }
 var file_fluid_v1_source_proto_depIdxs = []int32{
-	8, // 0: fluid.v1.SourceVMsList.vms:type_name -> fluid.v1.SourceVMListEntry
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	11, // 0: fluid.v1.PrepareSourceVMCommand.source_host_connection:type_name -> fluid.v1.SourceHostConnection
+	11, // 1: fluid.v1.RunSourceCommandCommand.source_host_connection:type_name -> fluid.v1.SourceHostConnection
+	11, // 2: fluid.v1.ReadSourceFileCommand.source_host_connection:type_name -> fluid.v1.SourceHostConnection
+	11, // 3: fluid.v1.ListSourceVMsCommand.source_host_connection:type_name -> fluid.v1.SourceHostConnection
+	8,  // 4: fluid.v1.SourceVMsList.vms:type_name -> fluid.v1.SourceVMListEntry
+	11, // 5: fluid.v1.ValidateSourceVMCommand.source_host_connection:type_name -> fluid.v1.SourceHostConnection
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_fluid_v1_source_proto_init() }
@@ -835,6 +886,7 @@ func file_fluid_v1_source_proto_init() {
 	if File_fluid_v1_source_proto != nil {
 		return
 	}
+	file_fluid_v1_sandbox_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -6,8 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 )
+
+const fluidSnapPrefix = "fluid-tmp-snap"
 
 // LibvirtBackend snapshots and pulls a VM disk from a remote libvirt host via SSH.
 type LibvirtBackend struct {
@@ -15,16 +19,20 @@ type LibvirtBackend struct {
 	sshPort         int
 	sshUser         string
 	sshIdentityFile string
+	virshURI        string
 	logger          *slog.Logger
 }
 
 // NewLibvirtBackend creates a backend that uses SSH + virsh to snapshot and rsync to pull.
-func NewLibvirtBackend(host string, port int, user, identityFile string, logger *slog.Logger) *LibvirtBackend {
+func NewLibvirtBackend(host string, port int, user, identityFile, virshURI string, logger *slog.Logger) *LibvirtBackend {
 	if port == 0 {
 		port = 22
 	}
 	if user == "" {
 		user = "root"
+	}
+	if virshURI == "" {
+		virshURI = "qemu:///system"
 	}
 	if logger == nil {
 		logger = slog.Default()
@@ -34,8 +42,14 @@ func NewLibvirtBackend(host string, port int, user, identityFile string, logger 
 		sshPort:         port,
 		sshUser:         user,
 		sshIdentityFile: identityFile,
+		virshURI:        virshURI,
 		logger:          logger.With("component", "libvirt-backend"),
 	}
+}
+
+// virshCmd builds a virsh command string with the connection URI.
+func (b *LibvirtBackend) virshCmd(args string) string {
+	return fmt.Sprintf("virsh -c %s %s", b.virshURI, args)
 }
 
 // SnapshotAndPull creates a temporary external snapshot, rsyncs the original
@@ -43,30 +57,29 @@ func NewLibvirtBackend(host string, port int, user, identityFile string, logger 
 func (b *LibvirtBackend) SnapshotAndPull(ctx context.Context, vmName string, destPath string) error {
 	b.logger.Info("starting snapshot-and-pull", "vm", vmName, "dest", destPath)
 
-	// 1. Find the disk path
-	diskPath, err := b.findDiskPath(ctx, vmName)
+	// 1. Clean up any stale snapshot from a previous failed blockcommit,
+	//    then find the (clean) disk path.
+	diskPath, err := b.findCleanDiskPath(ctx, vmName)
 	if err != nil {
 		return fmt.Errorf("find disk path: %w", err)
 	}
 	b.logger.Info("found disk path", "vm", vmName, "disk", diskPath)
 
-	// 2. Create external snapshot (makes original disk read-only)
-	snapName := "fluid-tmp-snap"
+	// 2. Create external snapshot with unique name (makes original disk read-only)
+	snapName := fmt.Sprintf("%s-%d", fluidSnapPrefix, time.Now().Unix())
 	if err := b.createSnapshot(ctx, vmName, snapName); err != nil {
 		return fmt.Errorf("create snapshot: %w", err)
 	}
 
-	// 3. Always clean up: blockcommit + delete snapshot metadata
+	// 3. Always clean up: blockcommit + delete all fluid snapshot metadata
 	defer func() {
-		if err := b.blockcommit(ctx, vmName); err != nil {
-			b.logger.Error("blockcommit failed", "vm", vmName, "error", err)
+		if err := b.blockcommitWithRetry(ctx, vmName); err != nil {
+			b.logger.Error("blockcommit failed after retries", "vm", vmName, "error", err)
 		}
-		if err := b.deleteSnapshotMetadata(ctx, vmName, snapName); err != nil {
-			b.logger.Warn("delete snapshot metadata failed", "vm", vmName, "error", err)
-		}
+		b.cleanupAllFluidSnapshots(ctx, vmName)
 	}()
 
-	// 4. Rsync the now read-only original disk to local destPath
+	// 5. Rsync the now read-only original disk to local destPath
 	if err := b.rsyncDisk(ctx, diskPath, destPath); err != nil {
 		return fmt.Errorf("rsync disk: %w", err)
 	}
@@ -77,7 +90,7 @@ func (b *LibvirtBackend) SnapshotAndPull(ctx context.Context, vmName string, des
 
 // findDiskPath uses virsh domblklist to find the primary disk path.
 func (b *LibvirtBackend) findDiskPath(ctx context.Context, vmName string) (string, error) {
-	out, err := b.sshCommand(ctx, fmt.Sprintf("virsh domblklist %s --details", vmName))
+	out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("domblklist %s --details", vmName)))
 	if err != nil {
 		return "", err
 	}
@@ -94,28 +107,231 @@ func (b *LibvirtBackend) findDiskPath(ctx context.Context, vmName string) (strin
 
 // createSnapshot creates an external disk-only snapshot.
 func (b *LibvirtBackend) createSnapshot(ctx context.Context, vmName, snapName string) error {
-	_, err := b.sshCommand(ctx, fmt.Sprintf(
-		"virsh snapshot-create-as %s %s --disk-only --atomic",
+	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf(
+		"snapshot-create-as %s %s --disk-only --atomic",
 		vmName, snapName,
-	))
+	)))
 	return err
+}
+
+// waitForBlockJob polls virsh blockjob until no job is active on the VM's vda disk.
+// Handles RUNNING (waits), READY (pivots then re-checks), and no-job (returns).
+func (b *LibvirtBackend) waitForBlockJob(ctx context.Context, vmName string) error {
+	const pollInterval = 2 * time.Second
+	for {
+		out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --info", vmName)))
+		if err != nil || strings.TrimSpace(out) == "" {
+			// No active block job (command errors or empty = no job)
+			return nil
+		}
+		out = strings.TrimSpace(out)
+
+		// "No current block job for vda" means no active job
+		if strings.Contains(strings.ToLower(out), "no current block job") {
+			return nil
+		}
+
+		if strings.Contains(strings.ToLower(out), "ready") {
+			// Job completed merge phase, needs pivot
+			b.logger.Info("block job ready, pivoting", "vm", vmName)
+			_, _ = b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --pivot", vmName)))
+			continue // re-check after pivot
+		}
+
+		// Job still running, wait and re-poll
+		b.logger.Info("waiting for block job to complete", "vm", vmName, "status", out)
+		select {
+		case <-time.After(pollInterval):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // blockcommit merges the snapshot back into the original disk and pivots.
 func (b *LibvirtBackend) blockcommit(ctx context.Context, vmName string) error {
-	_, err := b.sshCommand(ctx, fmt.Sprintf(
-		"virsh blockcommit %s vda --active --pivot --delete",
+	// Wait for any in-flight block job to finish before starting a new one
+	if err := b.waitForBlockJob(ctx, vmName); err != nil {
+		return fmt.Errorf("wait for block job: %w", err)
+	}
+	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf(
+		"blockcommit %s vda --active --pivot --delete",
 		vmName,
-	))
+	)))
 	return err
+}
+
+// blockcommitWithRetry retries blockcommit with exponential backoff.
+// QEMU's internal write lock is transient and typically clears within 1-3s.
+func (b *LibvirtBackend) blockcommitWithRetry(ctx context.Context, vmName string) error {
+	const maxAttempts = 5
+	for i := 0; i < maxAttempts; i++ {
+		err := b.blockcommit(ctx, vmName)
+		if err == nil {
+			return nil
+		}
+		if i < maxAttempts-1 {
+			delay := time.Duration(1<<uint(i)) * time.Second
+			b.logger.Warn("blockcommit attempt failed, retrying", "vm", vmName, "attempt", i+1, "delay", delay, "error", err)
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		} else {
+			return err
+		}
+	}
+	return nil // unreachable
+}
+
+// findCleanDiskPath returns the real disk path for a VM, cleaning up any stale
+// snapshot state first. Handles four scenarios:
+//  1. No stale state - returns disk path directly.
+//  2. VM pointing at overlay with backing file (failed blockcommit) - try blockcommit,
+//     fall back to blockpull if write lock persists, clean metadata, then re-query.
+//  3. VM pointing at overlay-named disk WITHOUT backing file (post-blockpull) - the
+//     overlay IS the disk now, just clean metadata and return it.
+//  4. VM pointing at real disk but orphaned overlay files exist - remove them.
+func (b *LibvirtBackend) findCleanDiskPath(ctx context.Context, vmName string) (string, error) {
+	diskPath, err := b.findDiskPath(ctx, vmName)
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the current disk path looks like a fluid overlay
+	if isFluidOverlay(diskPath) {
+		hasBacking, _ := b.hasBackingFile(ctx, diskPath)
+		if !hasBacking {
+			// Post-blockpull: overlay is standalone, just clean metadata
+			b.logger.Info("disk has overlay name but no backing file, using as-is", "vm", vmName, "disk", diskPath)
+			b.cleanupAllFluidSnapshots(ctx, vmName)
+			return diskPath, nil
+		}
+
+		b.logger.Warn("VM disk is stale overlay, recovering", "vm", vmName, "disk", diskPath)
+
+		// Abort any stuck block jobs before attempting blockcommit
+		_, _ = b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --abort", vmName)))
+		time.Sleep(time.Second)
+
+		// Try blockcommit first
+		if err := b.blockcommitWithRetry(ctx, vmName); err != nil {
+			b.logger.Warn("blockcommit failed, falling back to blockpull", "vm", vmName, "error", err)
+			if pullErr := b.blockpull(ctx, vmName); pullErr != nil {
+				return "", fmt.Errorf("recover stale overlay: blockcommit: %w, blockpull: %w", err, pullErr)
+			}
+			// After blockpull, overlay is standalone. Clean metadata and return overlay path.
+			b.cleanupAllFluidSnapshots(ctx, vmName)
+			diskPath, err = b.findDiskPath(ctx, vmName)
+			if err != nil {
+				return "", fmt.Errorf("find disk after blockpull: %w", err)
+			}
+			return diskPath, nil
+		}
+
+		b.cleanupAllFluidSnapshots(ctx, vmName)
+
+		// Remove the orphaned overlay file
+		b.logger.Warn("removing stale overlay file", "vm", vmName, "path", diskPath)
+		_, _ = b.sshCommand(ctx, fmt.Sprintf("rm -f %s", diskPath))
+
+		// Re-query to get the real disk path after pivot
+		diskPath, err = b.findDiskPath(ctx, vmName)
+		if err != nil {
+			return "", fmt.Errorf("find disk path after recovery: %w", err)
+		}
+
+		// Sanity check - should no longer be an overlay
+		if isFluidOverlay(diskPath) {
+			return "", fmt.Errorf("disk still points at overlay after blockcommit: %s", diskPath)
+		}
+	}
+
+	// Clean up any lingering snapshot metadata
+	b.cleanupAllFluidSnapshots(ctx, vmName)
+
+	// Clean up orphaned overlay files on disk (metadata gone but files remain)
+	b.cleanupOrphanOverlayFiles(ctx, vmName, diskPath)
+
+	return diskPath, nil
+}
+
+// isFluidOverlay checks if a disk path looks like a fluid snapshot overlay.
+func isFluidOverlay(diskPath string) bool {
+	return strings.Contains(filepath.Base(diskPath), fluidSnapPrefix)
+}
+
+// hasBackingFile checks if a disk image has a backing file (is part of a chain).
+func (b *LibvirtBackend) hasBackingFile(ctx context.Context, diskPath string) (bool, error) {
+	out, err := b.sshCommand(ctx, fmt.Sprintf("qemu-img info %s", diskPath))
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(out, "backing file:"), nil
+}
+
+// blockpull pulls backing data into the active overlay, making it standalone.
+func (b *LibvirtBackend) blockpull(ctx context.Context, vmName string) error {
+	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockpull %s vda --wait", vmName)))
+	return err
+}
+
+// cleanupAllFluidSnapshots removes all fluid snapshot metadata from a VM.
+func (b *LibvirtBackend) cleanupAllFluidSnapshots(ctx context.Context, vmName string) {
+	out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("snapshot-list %s --name", vmName)))
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		name := strings.TrimSpace(line)
+		if strings.HasPrefix(name, fluidSnapPrefix) {
+			b.logger.Warn("cleaning up stale snapshot metadata", "vm", vmName, "snapshot", name)
+			_ = b.deleteSnapshotMetadata(ctx, vmName, name)
+		}
+	}
+}
+
+// cleanupOrphanOverlayFiles removes any fluid overlay files that are no longer in use.
+func (b *LibvirtBackend) cleanupOrphanOverlayFiles(ctx context.Context, vmName, currentDiskPath string) {
+	dir := currentDiskPath[:strings.LastIndex(currentDiskPath, "/")+1]
+	base := currentDiskPath[strings.LastIndex(currentDiskPath, "/")+1:]
+	if dot := strings.LastIndex(base, "."); dot >= 0 {
+		base = base[:dot]
+	}
+	pattern := dir + base + "." + fluidSnapPrefix + "*"
+	out, err := b.sshCommand(ctx, fmt.Sprintf("ls %s 2>/dev/null", pattern))
+	if err != nil || strings.TrimSpace(out) == "" {
+		return
+	}
+	for _, f := range strings.Split(strings.TrimSpace(out), "\n") {
+		f = strings.TrimSpace(f)
+		if f != "" && f != currentDiskPath {
+			b.logger.Warn("removing orphaned overlay file", "vm", vmName, "path", f)
+			_, _ = b.sshCommand(ctx, fmt.Sprintf("rm -f %s", f))
+		}
+	}
+}
+
+// overlayPath derives the snapshot overlay file path from the base disk path.
+// libvirt names overlays as: <disk-dir>/<vm-name>.<snap-name>
+// e.g. /var/lib/libvirt/images/test-vm-1.qcow2 -> /var/lib/libvirt/images/test-vm-1.fluid-tmp-snap
+func (b *LibvirtBackend) overlayPath(diskPath, snapName string) string {
+	dir := diskPath[:strings.LastIndex(diskPath, "/")+1]
+	base := diskPath[strings.LastIndex(diskPath, "/")+1:]
+	// Strip extension from base
+	if dot := strings.LastIndex(base, "."); dot >= 0 {
+		base = base[:dot]
+	}
+	return dir + base + "." + snapName
 }
 
 // deleteSnapshotMetadata removes snapshot metadata from libvirt.
 func (b *LibvirtBackend) deleteSnapshotMetadata(ctx context.Context, vmName, snapName string) error {
-	_, err := b.sshCommand(ctx, fmt.Sprintf(
-		"virsh snapshot-delete %s %s --metadata",
+	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf(
+		"snapshot-delete %s %s --metadata",
 		vmName, snapName,
-	))
+	)))
 	return err
 }
 

@@ -224,9 +224,3 @@ Not all tunnels work the same way. Here are the most common ones:
 **IPsec/IKEv2** - the enterprise standard. Built into most operating systems natively (no app needed on iOS/macOS). Uses IKE for key exchange and ESP for the actual encryption. Fast reconnection when switching between WiFi and cellular, which is why your phone's VPN doesn't drop when you walk out of a building.
 
 Each protocol makes different tradeoffs between speed, compatibility, and stealth. WireGuard is fastest but easiest to fingerprint. OpenVPN is slowest but hardest to block. IPsec is the most widely supported but the most complex to configure.
-
-## How fluid.sh Uses Tunnels
-
-At fluid.sh, we use a similar concept to give AI agents secure access to sandbox VMs. When a daemon connects to the control plane, it establishes an encrypted gRPC stream - effectively a tunnel that lets the control plane send commands to sandboxes behind NATs and firewalls without exposing any ports to the public internet.
-
-The sandbox never needs a public IP. The daemon maintains an outbound connection to the control plane, and all traffic flows through that encrypted channel. Same principle as a VPN tunnel: wrap internal traffic in an encrypted outer layer, punch through the network boundary, unwrap on the other side.

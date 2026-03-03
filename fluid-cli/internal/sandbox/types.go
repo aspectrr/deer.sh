@@ -96,4 +96,5 @@ type HostInfo struct {
 	TotalMemoryMB   int64    `json:"total_memory_mb"`
 	ActiveSandboxes int      `json:"active_sandboxes"`
 	BaseImages      []string `json:"base_images"`
+	SSHCAPubKey     string   `json:"ssh_ca_pub_key,omitempty"`
 }

@@ -63,6 +63,13 @@ jobs:
               curl -sfL https://goreleaser.com/static/run | bash -s -- release --clean
             '
 
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
   docker:
     needs: goreleaser
     runs-on: ubuntu-latest

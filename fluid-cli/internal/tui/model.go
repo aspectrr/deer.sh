@@ -148,6 +148,7 @@ var allCommands = []commandSuggestion{
 	{"/compact", "Summarize and compact conversation history"},
 	{"/context", "Show current context token usage"},
 	{"/settings", "Open configuration settings"},
+	{"/allowlist", "Show the read-only command allowlist"},
 	{"/clear", "Clear conversation history"},
 	{"/help", "Show available commands"},
 }

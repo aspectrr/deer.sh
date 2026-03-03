@@ -10,6 +10,18 @@ var readOnlyTools = map[string]bool{
 	"get_playbook":       true,
 	"run_source_command": true,
 	"read_source_file":   true,
+	"list_hosts":         true,
+}
+
+// sourceOnlyTools is the set of tool names available when no sandbox hosts are configured.
+var sourceOnlyTools = map[string]bool{
+	"run_source_command": true,
+	"read_source_file":   true,
+	"list_hosts":         true,
+	"create_playbook":    true,
+	"add_playbook_task":  true,
+	"list_playbooks":     true,
+	"get_playbook":       true,
 }
 
 // GetReadOnlyTools returns only the tools that are safe for read-only mode.
@@ -17,6 +29,17 @@ func GetReadOnlyTools() []Tool {
 	var tools []Tool
 	for _, t := range GetTools() {
 		if readOnlyTools[t.Function.Name] {
+			tools = append(tools, t)
+		}
+	}
+	return tools
+}
+
+// GetSourceOnlyTools returns tools for source-only mode (no sandbox hosts configured).
+func GetSourceOnlyTools() []Tool {
+	var tools []Tool
+	for _, t := range GetTools() {
+		if sourceOnlyTools[t.Function.Name] {
 			tools = append(tools, t)
 		}
 	}
@@ -327,20 +350,20 @@ func GetTools() []Tool {
 			Type: "function",
 			Function: Function{
 				Name:        "run_source_command",
-				Description: "Execute a read-only command on a source/golden VM. Only diagnostic commands are allowed (ps, ls, cat, systemctl status, journalctl, etc.). This does NOT create or modify anything.",
+				Description: "Execute a read-only command on a source host. Only diagnostic commands are allowed (ps, ls, cat, systemctl status, journalctl, etc.). This does NOT create or modify anything.",
 				Parameters: ParameterSchema{
 					Type: "object",
 					Properties: map[string]Property{
-						"source_vm": {
+						"host": {
 							Type:        "string",
-							Description: "The name of the source VM to run the command on.",
+							Description: "The name of the source host to run the command on.",
 						},
 						"command": {
 							Type:        "string",
 							Description: "The read-only diagnostic command to execute.",
 						},
 					},
-					Required: []string{"source_vm", "command"},
+					Required: []string{"host", "command"},
 				},
 			},
 		},
@@ -348,20 +371,31 @@ func GetTools() []Tool {
 			Type: "function",
 			Function: Function{
 				Name:        "read_source_file",
-				Description: "Read the contents of a file on a source/golden VM. This is read-only and does not modify the VM.",
+				Description: "Read the contents of a file on a source host. This is read-only and does not modify the host.",
 				Parameters: ParameterSchema{
 					Type: "object",
 					Properties: map[string]Property{
-						"source_vm": {
+						"host": {
 							Type:        "string",
-							Description: "The name of the source VM containing the file.",
+							Description: "The name of the source host containing the file.",
 						},
 						"path": {
 							Type:        "string",
-							Description: "The absolute path to the file inside the source VM to read.",
+							Description: "The absolute path to the file on the source host to read.",
 						},
 					},
-					Required: []string{"source_vm", "path"},
+					Required: []string{"host", "path"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "list_hosts",
+				Description: "List all configured source hosts with their preparation status.",
+				Parameters: ParameterSchema{
+					Type:       "object",
+					Properties: map[string]Property{},
 				},
 			},
 		},

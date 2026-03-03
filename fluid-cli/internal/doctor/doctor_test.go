@@ -33,6 +33,9 @@ func TestRunAllAllPass(t *testing.T) {
 		if strings.Contains(command, "test -e /dev/kvm") {
 			return "", "", 0, nil
 		}
+		if strings.Contains(command, "which virt-cat") {
+			return "/usr/bin/virt-cat\n", "", 0, nil
+		}
 		if strings.Contains(command, "test -d /var/lib/fluid") {
 			return "", "", 0, nil
 		}
@@ -43,7 +46,7 @@ func TestRunAllAllPass(t *testing.T) {
 	}
 
 	results := RunAll(context.Background(), run)
-	assert.Len(t, results, 9)
+	assert.Len(t, results, 10)
 	for _, r := range results {
 		assert.True(t, r.Passed, "check %s should pass", r.Name)
 	}
@@ -69,7 +72,7 @@ func TestRunAllMixedFailures(t *testing.T) {
 	}
 
 	results := RunAll(context.Background(), run)
-	assert.Len(t, results, 9)
+	assert.Len(t, results, 10)
 
 	passCount := 0
 	for _, r := range results {

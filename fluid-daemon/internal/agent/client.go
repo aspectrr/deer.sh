@@ -30,14 +30,16 @@ import (
 
 // Client connects to the control plane via gRPC bidirectional streaming.
 type Client struct {
-	hostID   string
-	hostname string
-	version  string
-	cpAddr   string
-	insec    bool
-	certFile string
-	keyFile  string
-	caFile   string
+	hostID          string
+	hostname        string
+	version         string
+	cpAddr          string
+	token           string
+	insec           bool
+	certFile        string
+	keyFile         string
+	caFile          string
+	sshIdentityFile string
 
 	prov       provider.SandboxProvider
 	localStore *state.Store
@@ -58,14 +60,16 @@ type Client struct {
 
 // Config holds configuration for the gRPC agent client.
 type Config struct {
-	HostID   string
-	Hostname string
-	Version  string
-	Address  string
-	Insecure bool
-	CertFile string
-	KeyFile  string
-	CAFile   string
+	HostID          string
+	Hostname        string
+	Version         string
+	Address         string
+	Token           string
+	Insecure        bool
+	CertFile        string
+	KeyFile         string
+	CAFile          string
+	SSHIdentityFile string
 }
 
 // NewClient creates a new agent client.
@@ -82,20 +86,37 @@ func NewClient(
 	}
 
 	return &Client{
-		hostID:     cfg.HostID,
-		hostname:   hostname,
-		version:    cfg.Version,
-		cpAddr:     cfg.Address,
-		insec:      cfg.Insecure,
-		certFile:   cfg.CertFile,
-		keyFile:    cfg.KeyFile,
-		caFile:     cfg.CAFile,
-		prov:       prov,
-		localStore: localStore,
-		puller:     puller,
-		logger:     logger.With("component", "agent"),
-		handlerSem: make(chan struct{}, 64),
+		hostID:          cfg.HostID,
+		hostname:        hostname,
+		version:         cfg.Version,
+		cpAddr:          cfg.Address,
+		token:           cfg.Token,
+		insec:           cfg.Insecure,
+		certFile:        cfg.CertFile,
+		keyFile:         cfg.KeyFile,
+		caFile:          cfg.CAFile,
+		sshIdentityFile: cfg.SSHIdentityFile,
+		prov:            prov,
+		localStore:      localStore,
+		puller:          puller,
+		logger:          logger.With("component", "agent"),
+		handlerSem:      make(chan struct{}, 64),
 	}
+}
+
+// tokenCreds implements grpc.PerRPCCredentials to attach a Bearer token
+// to every gRPC call.
+type tokenCreds struct {
+	token    string
+	insecure bool
+}
+
+func (t tokenCreds) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	return map[string]string{"authorization": "Bearer " + t.token}, nil
+}
+
+func (t tokenCreds) RequireTransportSecurity() bool {
+	return !t.insecure
 }
 
 // sendMessage serializes writes to the gRPC stream.
@@ -123,6 +144,13 @@ func (c *Client) connectAndServe(ctx context.Context) error {
 			return fmt.Errorf("build TLS credentials: %w", err)
 		}
 		opts = append(opts, grpc.WithTransportCredentials(tlsCreds))
+	}
+
+	if c.token != "" {
+		opts = append(opts, grpc.WithPerRPCCredentials(tokenCreds{
+			token:    c.token,
+			insecure: c.insec,
+		}))
 	}
 
 	conn, err := grpc.NewClient(c.cpAddr, opts...)
@@ -360,7 +388,7 @@ func (c *Client) handleCreateSandbox(ctx context.Context, reqID string, cmd *flu
 		case "libvirt":
 			backend = snapshotpull.NewLibvirtBackend(
 				conn.GetSshHost(), int(conn.GetSshPort()),
-				conn.GetSshUser(), conn.GetSshIdentityFile(), c.logger)
+				conn.GetSshUser(), c.sshIdentityFile, "qemu:///system", c.logger)
 		case "proxmox":
 			backend = snapshotpull.NewProxmoxBackend(
 				conn.GetProxmoxHost(), conn.GetProxmoxTokenId(),

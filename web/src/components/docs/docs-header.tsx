@@ -21,8 +21,8 @@ export function DocsHeader() {
           >
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
-          <Link to="/dashboard" className="font-logo text-lg font-extrabold text-white">
-            fluid.sh
+          <Link to="/dashboard" className="font-logo text-lg tracking-tight text-white">
+            <span className="text-blue-400">$</span> fluid.sh
           </Link>
           <span className="text-muted-foreground text-sm">/</span>
           <Link

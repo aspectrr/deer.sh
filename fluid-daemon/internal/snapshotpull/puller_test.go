@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -33,8 +34,13 @@ func (m *mockBackend) SnapshotAndPull(_ context.Context, vmName string, destPath
 	if m.failErr != nil {
 		return m.failErr
 	}
-	// Write a dummy file
-	return os.WriteFile(destPath, []byte("fake-qcow2-data"), 0o644)
+	// Write a dummy qcow2 file
+	if err := os.WriteFile(destPath, []byte("fake-qcow2-data"), 0o644); err != nil {
+		return err
+	}
+	// Write a dummy kernel so ExtractKernel short-circuits
+	kernelPath := strings.TrimSuffix(destPath, ".qcow2") + ".vmlinux"
+	return os.WriteFile(kernelPath, []byte("fake-kernel"), 0o644)
 }
 
 func setupTestDB(t *testing.T) *gorm.DB {
@@ -270,6 +276,41 @@ func TestPuller_CacheMissWhenFileDeleted(t *testing.T) {
 	}
 	if result2.Cached {
 		t.Error("expected cache miss when file deleted")
+	}
+	if backend.callCount.Load() != 2 {
+		t.Errorf("expected 2 backend calls, got %d", backend.callCount.Load())
+	}
+}
+
+func TestPuller_CacheMissWhenKernelDeleted(t *testing.T) {
+	db := setupTestDB(t)
+	imgStore := setupTestImageStore(t)
+	puller := NewPuller(imgStore, db, nil)
+	backend := &mockBackend{}
+
+	req := PullRequest{
+		SourceHost:   "host1",
+		VMName:       "vm1",
+		SnapshotMode: "cached",
+	}
+
+	// First pull
+	result1, err := puller.Pull(context.Background(), req, backend)
+	if err != nil {
+		t.Fatalf("first pull error: %v", err)
+	}
+
+	// Delete only the kernel file
+	kernelPath := filepath.Join(imgStore.BaseDir(), result1.ImageName+".vmlinux")
+	_ = os.Remove(kernelPath)
+
+	// Second pull should be a cache miss (qcow2 exists but kernel missing)
+	result2, err := puller.Pull(context.Background(), req, backend)
+	if err != nil {
+		t.Fatalf("second pull error: %v", err)
+	}
+	if result2.Cached {
+		t.Error("expected cache miss when kernel deleted")
 	}
 	if backend.callCount.Load() != 2 {
 		t.Errorf("expected 2 backend calls, got %d", backend.callCount.Load())

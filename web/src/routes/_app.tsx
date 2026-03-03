@@ -80,7 +80,9 @@ function AppShell({
       <aside className="border-border flex w-56 flex-col border-r">
         <div className="border-border flex items-center gap-2 border-b p-4">
           <Link to="/dashboard">
-            <h1 className="font-logo text-lg font-extrabold text-white">fluid.sh</h1>
+            <h1 className="font-logo text-lg tracking-tight">
+              <span className="text-blue-400">$</span> fluid.sh
+            </h1>
           </Link>
           <span className="text-muted-foreground text-sm">/</span>
           <Link

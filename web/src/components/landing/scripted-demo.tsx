@@ -58,8 +58,8 @@ export function ScriptedDemo({ onPhase }: ScriptedDemoProps) {
       </div>
       <div
         ref={containerRef}
-        className="overflow-hidden rounded-b-2xl border border-t-0 border-neutral-800"
-        style={{ height: 400, background: '#000000' }}
+        className="h-[300px] overflow-hidden rounded-b-2xl border border-t-0 border-neutral-800 md:h-[400px]"
+        style={{ background: '#000000' }}
       />
     </div>
   )

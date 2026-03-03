@@ -1,0 +1,125 @@
+---
+title: 'What is Memory Ballooning?'
+pubDate: 2026-03-02
+description: "What are my VMs doing?"
+author: 'Collin @ Fluid.sh'
+authorImage: '/images/skeleton_smoking_cigarette.jpg'
+authorEmail: 'cpfeifer@madcactus.org'
+authorPhone: '+3179955114'
+authorDiscord: 'https://discordapp.com/users/301068417685913600'
+---
+
+import { MemoryAddressTranslation } from '~/components/blog/memory-ballooning/MemoryAddressTranslation'
+import { MemoryBalloonGame } from '~/components/blog/memory-ballooning/MemoryBalloonGame'
+
+## What is Memory Ballooning?
+
+Memory ballooning is a cooperative technique for redistributing physical RAM between virtual machines at runtime. A small driver inside the guest OS, the **balloon driver**, acts as the hypervisor's agent. When the hypervisor needs to reclaim memory from a VM, it tells the balloon driver to "inflate": the driver allocates pages inside the guest, pinning them so the guest can't use them, and the hypervisor unmaps those pages from the VM's physical address space. The reclaimed pages go back to the host's free pool, available for other VMs.
+
+The key word is *cooperative*. The guest OS gets to decide which pages to give up. It will evict page cache first, then push less-used pages to swap, applying its own memory management policies rather than having the hypervisor blindly rip pages away.
+
+I have seen this firsthand: during a spike in one VM's memory usage, the hypervisor was actively ballooning memory away from idle VMs to feed the hungry one. The idle VMs barely noticed (they were just losing page cache). But when *all* VMs were under pressure simultaneously, things got bad, guest swap activity spiked and latency went through the roof.
+
+Often times during high ingestion, our infrastructure would struggle and memory balooning would try to allocate from other hosts, making the issues worse on those hosts.
+
+Try it yourself. Drag the levers below to inflate and deflate each VM's memory allocation and watch the zero-sum redistribution play out:
+
+<MemoryBalloonGame />
+
+What you just experienced is the core constraint: host RAM is finite. Every megabyte given to one VM must come from somewhere - either the free pool or another VM's allocation. The balloon driver is what makes this redistribution smooth instead of catastrophic.
+
+## How Does Memory Management Work in VMs?
+
+To understand why ballooning exists, you need to understand the memory translation problem that virtualization creates.
+
+### Virtual Memory on Bare Metal
+
+On a normal (non-virtualized) machine, every process gets its own virtual address space. When nginx accesses address `0x7fff1234`, the CPU's Memory Management Unit (MMU) translates that virtual address to a physical address using the OS kernel's **page tables**.
+
+Modern x86-64 uses 4-level page tables (PML4, PDPT, PD, PT). Each level is one memory access, so translating a virtual address costs at most 4 memory accesses on a TLB miss. The Translation Lookaside Buffer (TLB) caches recent translations, so most accesses hit the TLB and skip the walk entirely.
+
+This is straightforward: one level of indirection, hardware-accelerated, well-understood.
+
+### The Problem: VMs Add Another Layer
+
+A VM thinks it has physical RAM. The guest kernel builds page tables mapping guest virtual addresses to what it believes are physical addresses. But those "physical" addresses are fake - they're just another layer of virtual addresses that the hypervisor must translate to actual host physical addresses.
+
+This creates a double translation:
+
+1. **GVA to GPA** - Guest Virtual Address to Guest Physical Address (guest page tables)
+2. **GPA to HPA** - Guest Physical Address to Host Physical Address (hypervisor EPT/NPT tables)
+
+Two full page table hierarchies, composed together.
+
+### Memory Address Translation in Detail
+
+Step through the visualization below to see exactly how a memory access flows from a process inside a VM all the way to physical RAM - and what happens when the TLB can't help:
+
+<MemoryAddressTranslation />
+
+The TLB miss case is the critical insight. On bare metal, a TLB miss costs 4 memory accesses. With nested paging, the CPU has to walk the host's EPT for *every step* of the guest page table walk. A 4-level guest table with a 4-level host table means up to 4 x 4 = 16 EPT lookups, plus the 4 guest table reads, plus the final data access. That is 24 memory accesses for a single translation versus 4 on bare metal.
+
+### Shadow Page Tables vs. Hardware-Assisted Paging
+
+There are two approaches to solving the double translation problem:
+
+**Shadow page tables** (the old way): The hypervisor maintains a combined GVA-to-HPA page table and installs it directly in the hardware. This means the CPU only walks one page table - fast on TLB miss. But the hypervisor must trap every guest page table modification (via VM exits) to keep the shadow copy in sync. Those VM exits are expensive: each one costs thousands of cycles for the context switch alone. Workloads that frequently modify page tables (like fork-heavy applications) thrash on VM exits.
+
+**EPT/NPT** (the modern way): Intel Extended Page Tables (EPT) and AMD Nested Page Tables (NPT) let the hardware walk both page table hierarchies natively, without any VM exits. The 24-access TLB miss is expensive, but it happens in silicon - no hypervisor intervention required. For most workloads, the TLB hit rate is high enough that the occasional expensive miss is far cheaper than constant VM exits.
+
+This is also why **hugepages** matter so much for VM performance. A 2MB hugepage eliminates one level of page table, and a 1GB hugepage eliminates two. Fewer levels means fewer memory accesses on a TLB miss, and fewer TLB entries consumed (so higher hit rates). Using 1GB hugepages for VM backing memory can cut nested page walk cost roughly in half.
+
+### Memory Security
+
+EPT/NPT tables are per-VM and hardware-enforced. VM A's EPT maps only the host pages assigned to VM A. There is no EPT entry pointing to VM B's memory - the hardware simply won't translate those addresses. This is the same isolation model as process page tables, but one level up.
+
+This is relevant to ballooning: when the hypervisor reclaims a page via the balloon driver, it removes the EPT mapping for that page. The guest can no longer access it - the hardware enforces this. The page is cleanly returned to the host's free pool. No data leaks, no stale mappings.
+
+## The Balloon Driver
+
+The balloon driver is a small kernel module running inside the guest:
+
+- **KVM/QEMU**: `virtio_balloon`
+- **VMware**: `vmballoon` (or `vmmemctl`)
+- **Hyper-V**: `hv_balloon`
+
+### Inflation (Reclaiming Memory)
+
+When the hypervisor decides a VM has too much memory:
+
+1. Hypervisor sends an inflate request to the balloon driver via virtio (or VMware backdoor, etc.)
+2. Balloon driver calls the guest kernel's page allocator to grab pages - just like any other kernel subsystem requesting memory
+3. The guest kernel applies its normal reclamation policies: drop clean page cache first, then write dirty pages, then swap if necessary
+4. Balloon driver pins the allocated pages and reports their Guest Physical Addresses to the hypervisor
+5. Hypervisor removes those GPAs from the VM's EPT mapping and adds the underlying host pages to the free pool
+
+The guest thinks the balloon driver is just a memory-hungry process. It has no idea those pages are being given back to the host.
+
+### Deflation (Returning Memory)
+
+The reverse process:
+
+1. Hypervisor sends a deflate request
+2. Balloon driver releases its pinned pages back to the guest kernel
+3. Hypervisor maps fresh host pages into the VM's EPT for those GPAs
+4. Guest kernel adds the freed pages to its own free pool
+
+The VM can now use more memory again.
+
+### Why This Design Works
+
+The crucial design insight is that the *guest* makes the eviction decisions. The guest kernel knows which pages are page cache (safe to drop), which are anonymous memory (need to be swapped), and which are wired/pinned (can't be touched). The hypervisor has none of this information - it just sees opaque guest physical pages.
+
+If the hypervisor tried to forcibly unmap pages without the balloon driver's cooperation, it would be guessing which pages are safe to take. It might rip away a page that the guest kernel is actively using for a database buffer pool, causing a segfault or data corruption. The balloon driver avoids this by asking nicely.
+
+## When Ballooning Goes Wrong
+
+Ballooning works well when at least some VMs have memory to spare. It breaks down in several scenarios:
+
+**All VMs under pressure simultaneously.** If every VM is already using all its allocated memory, the balloon driver can only give up pages by forcing guest swapping. Now you have guest swap I/O competing with everything else. Latency spikes across the board.
+
+**No balloon driver installed.** Without the balloon driver, the hypervisor's only option for memory overcommit is *host-level swapping* - swapping entire guest physical pages to the host's swap device. This is strictly worse than balloon-driven guest swapping because the host has no idea which pages are important. It might swap out a hot database page while leaving a cold page cache entry in RAM.
+
+**Latency-sensitive workloads.** Even well-functioning ballooning introduces memory pressure in the guest, which can trigger page reclamation at unpredictable times. For latency-critical VMs (databases, real-time systems), the right answer is to pin their memory and exclude them from ballooning entirely.
+
+**Aggressive overcommit.** If you promise 64GB total to VMs on a host with 32GB of physical RAM, you're relying on not all VMs needing their full allocation simultaneously. This works until it doesn't - and when it fails, it fails hard.

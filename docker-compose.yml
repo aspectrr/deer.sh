@@ -67,7 +67,7 @@ services:
       - VITE_POSTHOG_KEY=${VITE_POSTHOG_KEY:-}
       - VITE_POSTHOG_HOST=${VITE_POSTHOG_HOST:-}
     ports:
-      - "80:5173"
+      - "5173:80"
 
 volumes:
   fluid-postgres-data:

@@ -1,5 +1,7 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { YouTube } from '~/components/youtube'
+import { BlogPreBlock } from '~/components/blog/blog-pre-block'
+import { findSeriesForSlug } from '~/lib/blog-series'
 
 interface BlogFrontmatter {
   title: string
@@ -26,8 +28,10 @@ function getSlug(path: string) {
 }
 
 function findPost(slug: string) {
+  const now = new Date()
   for (const [path, mod] of Object.entries(modules)) {
     if (getSlug(path) === slug) {
+      if (new Date(mod.frontmatter.pubDate) > now) return null
       return mod
     }
   }
@@ -47,17 +51,50 @@ function BlogPost() {
   }
 
   const { frontmatter, default: Content } = post
+  const seriesInfo = findSeriesForSlug(slug)
+
+  // Determine prev/next chapter availability
+  const now = new Date()
+  let prevChapter: { slug: string; part: number; shortTitle: string } | null = null
+  let nextChapter: { slug: string; part: number; shortTitle: string; published: boolean } | null =
+    null
+  if (seriesInfo) {
+    const { series, chapterIndex } = seriesInfo
+    if (chapterIndex > 0) {
+      prevChapter = series.chapters[chapterIndex - 1]
+    }
+    if (chapterIndex < series.chapters.length - 1) {
+      const next = series.chapters[chapterIndex + 1]
+      // Check if published
+      let published = false
+      for (const [path, mod] of Object.entries(modules)) {
+        if (getSlug(path) === next.slug && new Date(mod.frontmatter.pubDate) <= now) {
+          published = true
+        }
+      }
+      nextChapter = { ...next, published }
+    }
+  }
 
   return (
-    <main className="px-6 py-24">
+    <main className="px-4 py-24 sm:px-6">
       <article className="mx-auto max-w-3xl">
         <header className="mb-12">
-          <Link
-            to="/blog"
-            className="font-mono text-sm text-neutral-500 transition-colors hover:text-blue-400"
-          >
-            <span className="text-blue-400">$</span> cd ..
-          </Link>
+          {seriesInfo ? (
+            <Link
+              to="/blog/series/hypervisor"
+              className="font-mono text-sm text-neutral-500 transition-colors hover:text-blue-400"
+            >
+              <span className="text-blue-400">$</span> cd /series
+            </Link>
+          ) : (
+            <Link
+              to="/blog"
+              className="font-mono text-sm text-neutral-500 transition-colors hover:text-blue-400"
+            >
+              <span className="text-blue-400">$</span> cd ..
+            </Link>
+          )}
 
           <div className="mt-8 flex items-center gap-3">
             <h1 className="font-logo text-2xl tracking-tight md:text-3xl">
@@ -122,8 +159,64 @@ function BlogPost() {
         </header>
 
         <div className="blog-prose max-w-none">
-          <Content components={{ YouTube }} />
+          <Content components={{ YouTube, pre: BlogPreBlock }} />
         </div>
+
+        {seriesInfo && (
+          <nav className="mt-16 border-t border-neutral-800 pt-8">
+            <Link
+              to="/blog/series/hypervisor"
+              className="font-mono text-xs text-neutral-500 transition-colors hover:text-blue-400"
+            >
+              {seriesInfo.series.title}
+            </Link>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {prevChapter ? (
+                <Link
+                  to="/blog/$slug"
+                  params={{ slug: prevChapter.slug }}
+                  className="group rounded-lg border border-neutral-800 p-3 no-underline transition-colors hover:border-blue-500/30 hover:no-underline"
+                >
+                  <span className="font-mono text-[10px] text-neutral-600 uppercase">Previous</span>
+                  <div className="mt-1 font-mono text-sm text-neutral-400 transition-colors group-hover:text-blue-400">
+                    <span className="text-blue-400">
+                      {String(prevChapter.part).padStart(2, '0')}
+                    </span>{' '}
+                    {prevChapter.shortTitle}
+                  </div>
+                </Link>
+              ) : (
+                <div />
+              )}
+              {nextChapter ? (
+                nextChapter.published ? (
+                  <Link
+                    to="/blog/$slug"
+                    params={{ slug: nextChapter.slug }}
+                    className="group rounded-lg border border-neutral-800 p-3 text-right no-underline transition-colors hover:border-blue-500/30 hover:no-underline"
+                  >
+                    <span className="font-mono text-[10px] text-neutral-600 uppercase">Next</span>
+                    <div className="mt-1 font-mono text-sm text-neutral-400 transition-colors group-hover:text-blue-400">
+                      {nextChapter.shortTitle}{' '}
+                      <span className="text-blue-400">
+                        {String(nextChapter.part).padStart(2, '0')}
+                      </span>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="rounded-lg border border-neutral-800/50 p-3 text-right opacity-50">
+                    <span className="font-mono text-[10px] text-neutral-600 uppercase">Next</span>
+                    <div className="mt-1 font-mono text-sm text-neutral-600">
+                      {nextChapter.shortTitle} - Coming soon
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div />
+              )}
+            </div>
+          </nav>
+        )}
       </article>
     </main>
   )

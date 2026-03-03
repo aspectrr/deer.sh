@@ -46,6 +46,94 @@ type PrepareResult struct {
 	SSHDRestarted     bool
 }
 
+// PrepareWithKeyResult contains the outcome of key-based preparation.
+type PrepareWithKeyResult struct {
+	ShellInstalled bool
+	UserCreated    bool
+	KeyDeployed    bool
+}
+
+// PrepareWithKey configures a host for read-only access using an SSH public key
+// instead of a CA certificate. This is simpler (4 steps vs 6) and works directly
+// from the user's laptop without needing a daemon.
+//
+// Steps:
+//  1. Install restricted shell script
+//  2. Create fluid-readonly user with restricted shell
+//  3. Deploy public key to authorized_keys
+//  4. Restart sshd
+func PrepareWithKey(ctx context.Context, sshRun SSHRunFunc, pubKey string, onProgress ProgressFunc, logger *slog.Logger) (*PrepareWithKeyResult, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if strings.TrimSpace(pubKey) == "" {
+		return nil, fmt.Errorf("public key is required")
+	}
+
+	totalSteps := 4
+	result := &PrepareWithKeyResult{}
+
+	report := func(step PrepareStep, name string, done bool) {
+		if onProgress != nil {
+			onProgress(PrepareProgress{Step: step, StepName: name, Total: totalSteps, Done: done})
+		}
+	}
+
+	// Wrap sshRun to elevate all commands with sudo via base64 transport.
+	origRun := sshRun
+	sshRun = func(ctx context.Context, command string) (string, string, int, error) {
+		encoded := base64.StdEncoding.EncodeToString([]byte(command))
+		return origRun(ctx, fmt.Sprintf("echo %s | base64 -d | sudo bash", encoded))
+	}
+
+	// 1. Install restricted shell script
+	report(StepInstallShell, "Installing restricted shell", false)
+	logger.Info("installing restricted shell script")
+	shellCmd := fmt.Sprintf("cat > /usr/local/bin/fluid-readonly-shell << 'FLUID_SHELL_EOF'\n%sFLUID_SHELL_EOF\nchmod 755 /usr/local/bin/fluid-readonly-shell", RestrictedShellScript)
+	stdout, stderr, code, err := sshRun(ctx, shellCmd)
+	if err != nil || code != 0 {
+		return result, fmt.Errorf("install restricted shell: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
+	}
+	result.ShellInstalled = true
+	report(StepInstallShell, "Installing restricted shell", true)
+
+	// 2. Create fluid-readonly user (idempotent)
+	report(StepCreateUser, "Creating fluid-readonly user", false)
+	logger.Info("creating fluid-readonly user")
+	userCmd := `id fluid-readonly >/dev/null 2>&1 || useradd -r -s /usr/local/bin/fluid-readonly-shell -m fluid-readonly`
+	stdout, stderr, code, err = sshRun(ctx, userCmd)
+	if err != nil || code != 0 {
+		return result, fmt.Errorf("create fluid-readonly user: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
+	}
+	// Ensure shell is correct even if user already existed
+	sshRun(ctx, "usermod -s /usr/local/bin/fluid-readonly-shell fluid-readonly") //nolint:errcheck
+	result.UserCreated = true
+	report(StepCreateUser, "Creating fluid-readonly user", true)
+
+	// 3. Deploy public key to authorized_keys
+	report(StepInstallCAKey, "Deploying SSH public key", false)
+	logger.Info("deploying SSH public key")
+	keyCmd := fmt.Sprintf(`mkdir -p /home/fluid-readonly/.ssh && chmod 700 /home/fluid-readonly/.ssh && echo '%s' > /home/fluid-readonly/.ssh/authorized_keys && chmod 600 /home/fluid-readonly/.ssh/authorized_keys && chown -R fluid-readonly:fluid-readonly /home/fluid-readonly/.ssh`, strings.TrimSpace(pubKey))
+	stdout, stderr, code, err = sshRun(ctx, keyCmd)
+	if err != nil || code != 0 {
+		return result, fmt.Errorf("deploy public key: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
+	}
+	result.KeyDeployed = true
+	report(StepInstallCAKey, "Deploying SSH public key", true)
+
+	// 4. Restart sshd
+	report(StepRestartSSHD, "Restarting sshd", false)
+	logger.Info("restarting sshd")
+	restartCmd := `systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service sshd restart 2>/dev/null || service ssh restart`
+	stdout, stderr, code, err = sshRun(ctx, restartCmd)
+	if err != nil || code != 0 {
+		return result, fmt.Errorf("restart sshd: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
+	}
+	report(StepRestartSSHD, "Restarting sshd", true)
+
+	return result, nil
+}
+
 // Prepare configures a golden VM for read-only access via the fluid-readonly user.
 // All steps are idempotent. The sshRun function is used to execute commands on the VM.
 //
@@ -64,11 +152,13 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 		return nil, fmt.Errorf("CA public key is required")
 	}
 
+	totalSteps := 6
+
 	result := &PrepareResult{}
 
 	report := func(step PrepareStep, name string, done bool) {
 		if onProgress != nil {
-			onProgress(PrepareProgress{Step: step, StepName: name, Total: 6, Done: done})
+			onProgress(PrepareProgress{Step: step, StepName: name, Total: totalSteps, Done: done})
 		}
 	}
 

@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/aspectrr/fluid.sh/fluid/internal/config"
@@ -61,4 +62,41 @@ func TestNoopServiceMethods(t *testing.T) {
 
 	// Close should not panic
 	svc.Close()
+}
+
+func TestBuildTrackProperties_NilInput(t *testing.T) {
+	props := buildTrackProperties(nil)
+	if props == nil {
+		t.Fatal("expected non-nil properties")
+	}
+	if ip, ok := props["$ip"]; !ok || ip != "0.0.0.0" {
+		t.Errorf("expected $ip=0.0.0.0, got %v", ip)
+	}
+	if props["os"] != runtime.GOOS {
+		t.Errorf("expected os=%s, got %v", runtime.GOOS, props["os"])
+	}
+	if props["arch"] != runtime.GOARCH {
+		t.Errorf("expected arch=%s, got %v", runtime.GOARCH, props["arch"])
+	}
+	if props["go_version"] != runtime.Version() {
+		t.Errorf("expected go_version=%s, got %v", runtime.Version(), props["go_version"])
+	}
+}
+
+func TestBuildTrackProperties_PreservesExisting(t *testing.T) {
+	input := map[string]any{
+		"custom_key": "custom_value",
+		"count":      42,
+	}
+	props := buildTrackProperties(input)
+
+	if props["custom_key"] != "custom_value" {
+		t.Errorf("expected custom_key preserved, got %v", props["custom_key"])
+	}
+	if props["count"] != 42 {
+		t.Errorf("expected count preserved, got %v", props["count"])
+	}
+	if props["$ip"] != "0.0.0.0" {
+		t.Errorf("expected $ip=0.0.0.0, got %v", props["$ip"])
+	}
 }

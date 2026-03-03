@@ -50,16 +50,18 @@ type PrepareResult struct {
 
 // Manager handles source VM operations.
 type Manager struct {
-	libvirtURI string
-	network    string
-	keyMgr     sshkeys.KeyProvider
-	sshUser    string
-	proxyJump  string
-	logger     *slog.Logger
+	libvirtURI   string
+	network      string
+	keyMgr       sshkeys.KeyProvider
+	sshUser      string
+	proxyJump    string
+	identityFile string
+	caPubKey     string
+	logger       *slog.Logger
 }
 
 // NewManager creates a source VM manager.
-func NewManager(libvirtURI, network string, keyMgr sshkeys.KeyProvider, sshUser, proxyJump string, logger *slog.Logger) *Manager {
+func NewManager(libvirtURI, network string, keyMgr sshkeys.KeyProvider, sshUser, proxyJump, identityFile, caPubKey string, logger *slog.Logger) *Manager {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -67,12 +69,14 @@ func NewManager(libvirtURI, network string, keyMgr sshkeys.KeyProvider, sshUser,
 		sshUser = "sandbox"
 	}
 	return &Manager{
-		libvirtURI: libvirtURI,
-		network:    network,
-		keyMgr:     keyMgr,
-		sshUser:    sshUser,
-		proxyJump:  proxyJump,
-		logger:     logger.With("component", "sourcevm"),
+		libvirtURI:   libvirtURI,
+		network:      network,
+		keyMgr:       keyMgr,
+		sshUser:      sshUser,
+		proxyJump:    proxyJump,
+		identityFile: identityFile,
+		caPubKey:     caPubKey,
+		logger:       logger.With("component", "sourcevm"),
 	}
 }
 
@@ -181,20 +185,11 @@ func (m *Manager) PrepareSourceVM(ctx context.Context, vmName, sshUser, sshKeyPa
 		return m.sshCmdWithKey(ctx, ip, sshUser, sshKeyPath, command, 60*time.Second)
 	}
 
-	// Get CA public key
-	var caPubKey string
-	if m.keyMgr != nil {
-		// The key manager's CA should have the public key
-		// For now, we'll read it from the sshca package via the key path config
-		// This will be wired properly through the CA instance
-		caPubKey = "" // Will be set by caller
-	}
-
-	if caPubKey == "" {
+	if m.caPubKey == "" {
 		return nil, fmt.Errorf("CA public key is required for source VM preparation")
 	}
 
-	result, err := readonly.Prepare(ctx, sshRun, caPubKey, nil, m.logger)
+	result, err := readonly.Prepare(ctx, sshRun, m.caPubKey, nil, m.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +357,11 @@ func (m *Manager) sshCmd(ctx context.Context, ip, user string, creds *sshkeys.Cr
 		"-o", fmt.Sprintf("ConnectTimeout=%d", int(timeout.Seconds())),
 	}
 
-	if m.proxyJump != "" {
+	if m.proxyJump != "" && m.identityFile != "" {
+		args = append(args, "-o", fmt.Sprintf(
+			"ProxyCommand=ssh -i %s -o StrictHostKeyChecking=no -W %%h:%%p %s",
+			m.identityFile, m.proxyJump))
+	} else if m.proxyJump != "" {
 		args = append(args, "-J", m.proxyJump)
 	}
 
@@ -397,7 +396,11 @@ func (m *Manager) sshCmdWithKey(ctx context.Context, ip, user, keyPath, command 
 		"-o", fmt.Sprintf("ConnectTimeout=%d", int(timeout.Seconds())),
 	}
 
-	if m.proxyJump != "" {
+	if m.proxyJump != "" && m.identityFile != "" {
+		args = append(args, "-o", fmt.Sprintf(
+			"ProxyCommand=ssh -i %s -o StrictHostKeyChecking=no -W %%h:%%p %s",
+			m.identityFile, m.proxyJump))
+	} else if m.proxyJump != "" {
 		args = append(args, "-J", m.proxyJump)
 	}
 

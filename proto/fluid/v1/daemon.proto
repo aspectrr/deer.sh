@@ -80,6 +80,7 @@ message HostInfoResponse {
   int64 total_memory_mb = 5;
   int32 active_sandboxes = 6;
   repeated string base_images = 7;
+  string ssh_ca_pub_key = 8;
 }
 
 // HealthRequest is an empty health check request.
