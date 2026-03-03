@@ -1,7 +1,7 @@
 ---
 title: 'What Happens When You Run a VM?'
 pubDate: 2026-03-04
-description: "ARM exception levels, two-stage address translation, and the VM exit loop - the concepts behind every hypervisor."
+description: 'ARM exception levels, two-stage address translation, and the VM exit loop - the concepts behind every hypervisor.'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
@@ -23,11 +23,11 @@ Before we write any code, we need to understand the three foundational concepts 
 
 ## What is a Hypervisor?
 
-A hypervisor is software that creates and runs virtual machines. That is the one-sentence definition. The details of *how* it does that vary enormously depending on architecture, but the job description is always the same: make one physical computer look like multiple independent computers, each with its own CPU, memory, and devices.
+A hypervisor is software that creates and runs virtual machines. That is the one-sentence definition. The details of _how_ it does that vary enormously depending on architecture, but the job description is always the same: make one physical computer look like multiple independent computers, each with its own CPU, memory, and devices.
 
 Hypervisors come in two flavors:
 
-**Type 1 (bare metal)** runs directly on the hardware with no host OS underneath. Xen and VMware ESXi are Type 1 hypervisors. They *are* the OS, in a sense - they boot first and then launch guest operating systems on top of themselves.
+**Type 1 (bare metal)** runs directly on the hardware with no host OS underneath. Xen and VMware ESXi are Type 1 hypervisors. They _are_ the OS, in a sense - they boot first and then launch guest operating systems on top of themselves.
 
 **Type 2 (hosted)** runs as a process on top of a conventional operating system. VirtualBox, QEMU with KVM, and Parallels are Type 2 hypervisors. They rely on the host OS for things like scheduling, memory management, and device drivers, but they still use hardware virtualization features to run guest code at near-native speed.
 
@@ -79,7 +79,7 @@ This is directly relevant to our hypervisor. When we call `hv_vm_map(host_ptr, i
 
 The performance cost is real. A TLB miss on bare metal walks one set of page tables - 4 memory accesses for a 4-level table. A TLB miss with two-stage translation walks both sets, nested. Each step of the stage-1 walk itself requires a stage-2 walk to translate the page table entry's IPA to a PA. For 4-level tables on both stages, that is up to 4 x 4 = 16 stage-2 lookups plus 4 stage-1 reads plus the final data access: 24 memory accesses total versus 4 on bare metal. TLB hit rates are generally high enough that this does not matter in practice, but it is worth knowing where the overhead comes from.
 
-The more interesting consequence for us is what happens when the guest accesses an IPA that has *no* stage-2 mapping. The hardware generates a **data abort** exception, which causes a VM exit. The hypervisor gets control, reads the faulting IPA from the exit information, and decides what to do. If the IPA is in a range we designated for a memory-mapped device, we emulate the device access. If it is truly unmapped, we inject a fault back into the guest.
+The more interesting consequence for us is what happens when the guest accesses an IPA that has _no_ stage-2 mapping. The hardware generates a **data abort** exception, which causes a VM exit. The hypervisor gets control, reads the faulting IPA from the exit information, and decides what to do. If the IPA is in a range we designated for a memory-mapped device, we emulate the device access. If it is truly unmapped, we inject a fault back into the guest.
 
 This is the foundation of MMIO (Memory-Mapped I/O) emulation. We deliberately leave certain IPA ranges unmapped. When the guest reads or writes to those addresses - because it thinks there is a UART or an interrupt controller there - the hardware traps to us and we emulate the device in software. We will use this mechanism extensively when we build our virtual UART and GIC (interrupt controller) later in the series.
 

@@ -21,7 +21,7 @@ func VerifyChain(logPath string) (valid bool, brokenAtSeq int64, err error) {
 		}
 		return false, -1, fmt.Errorf("open audit log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -71,7 +71,7 @@ func ReadRecent(logPath string, n int) ([]Entry, error) {
 		}
 		return nil, fmt.Errorf("open audit log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var all []Entry
 	scanner := bufio.NewScanner(f)

@@ -427,7 +427,7 @@ This is not much to look at, but it represents something significant. Your users
 
 ### Common Errors
 
-**`HV_DENIED` (0xfae94007):** Missing entitlement. The binary must be codesigned with `com.apple.security.hypervisor`. This is the single most common error. Note that `cargo build` produces a *new* binary each time, so you need to codesign after every build. The `build.sh` script handles this.
+**`HV_DENIED` (0xfae94007):** Missing entitlement. The binary must be codesigned with `com.apple.security.hypervisor`. This is the single most common error. Note that `cargo build` produces a _new_ binary each time, so you need to codesign after every build. The `build.sh` script handles this.
 
 **`HV_NO_DEVICE` (0xfae94006):** The hardware does not support Hypervisor.framework, or the feature is disabled. On Apple Silicon, this should not happen unless something is very wrong with your system.
 

@@ -70,7 +70,7 @@ func NewLogger(logPath string, maxSizeMB int) (*Logger, error) {
 			prevHash = e.Hash
 			seq = e.Seq
 		}
-		f.Close()
+		_ = f.Close()
 	}
 
 	file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)

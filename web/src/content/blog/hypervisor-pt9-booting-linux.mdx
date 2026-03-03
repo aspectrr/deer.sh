@@ -1,7 +1,7 @@
 ---
 title: 'Booting Linux: From Kernel Image to Log Output'
 pubDate: 2026-03-20
-description: "The payoff - boot a real ARM64 Linux kernel on your hypervisor and watch it come alive."
+description: 'The payoff - boot a real ARM64 Linux kernel on your hypervisor and watch it come alive.'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
@@ -361,7 +361,7 @@ ISS bits for EC=0x18 (system register access):
 [0]     Direction - 0 = write (MSR), 1 = read (MRS)
 ```
 
-Wait - that encoding has a subtlety. The ISS for MSR/MRS traps uses bit 0 for direction, but the convention is inverted from what you might expect: 0 means the guest was *writing* to the system register (MSR), and 1 means the guest was *reading* from it (MRS). Some references describe it the other way. The ARM Architecture Reference Manual (DDI 0487) is the authoritative source - check the EC=0x18 ISS encoding table.
+Wait - that encoding has a subtlety. The ISS for MSR/MRS traps uses bit 0 for direction, but the convention is inverted from what you might expect: 0 means the guest was _writing_ to the system register (MSR), and 1 means the guest was _reading_ from it (MRS). Some references describe it the other way. The ARM Architecture Reference Manual (DDI 0487) is the authoritative source - check the EC=0x18 ISS encoding table.
 
 Here is the system register trap handler:
 
@@ -679,7 +679,7 @@ Loading the kernel at the start of RAM works fine. Modern ARM64 Linux kernels ar
 
 **DTB placement**: We put the DTB at the top of RAM, 2 MB-aligned, with plenty of room below. The kernel copies the DTB early in boot, so even if the DTB overlaps with the kernel's BSS expansion, the data is safe. Placing it at the top avoids any overlap with the kernel Image at the bottom.
 
-**UART address**: `0x09000000` matches the ARM "virt" machine's standard PL011 address. This matters because the `earlycon` kernel parameter looks for a PL011 at the address specified in the device tree. If the DTB says the UART is at `0x09000000`, and we register our MMIO device at `0x09000000`, and we *don't* map that address range in stage-2 so it generates data aborts, then everything works.
+**UART address**: `0x09000000` matches the ARM "virt" machine's standard PL011 address. This matters because the `earlycon` kernel parameter looks for a PL011 at the address specified in the device tree. If the DTB says the UART is at `0x09000000`, and we register our MMIO device at `0x09000000`, and we _don't_ map that address range in stage-2 so it generates data aborts, then everything works.
 
 **Exit counting**: The `exit_count` variable is purely for curiosity - when the VM shuts down, you can see how many exits occurred. A typical Linux boot to kernel panic (no rootfs) generates several hundred thousand exits.
 

@@ -49,17 +49,17 @@ For our purposes, we always return 0 for this register, which means: TX FIFO is 
 
 The PL011 has many other registers that guests may probe or configure:
 
-| Offset | Name | Purpose |
-|--------|------|---------|
-| 0x024 | IBRD | Integer Baud Rate Divisor |
-| 0x028 | FBRD | Fractional Baud Rate Divisor |
-| 0x02C | LCR_H | Line Control (word length, parity, stop bits) |
-| 0x030 | CR | Control Register (enable TX, RX, UART) |
-| 0x034 | IFLS | Interrupt FIFO Level Select |
-| 0x038 | IMSC | Interrupt Mask |
-| 0x03C | RIS | Raw Interrupt Status |
-| 0x040 | MIS | Masked Interrupt Status |
-| 0x044 | ICR | Interrupt Clear |
+| Offset | Name  | Purpose                                       |
+| ------ | ----- | --------------------------------------------- |
+| 0x024  | IBRD  | Integer Baud Rate Divisor                     |
+| 0x028  | FBRD  | Fractional Baud Rate Divisor                  |
+| 0x02C  | LCR_H | Line Control (word length, parity, stop bits) |
+| 0x030  | CR    | Control Register (enable TX, RX, UART)        |
+| 0x034  | IFLS  | Interrupt FIFO Level Select                   |
+| 0x038  | IMSC  | Interrupt Mask                                |
+| 0x03C  | RIS   | Raw Interrupt Status                          |
+| 0x040  | MIS   | Masked Interrupt Status                       |
+| 0x044  | ICR   | Interrupt Clear                               |
 
 Linux's PL011 driver writes to IBRD, FBRD, LCR_H, and CR during initialization to configure the baud rate and enable the UART. We accept these writes and silently discard them. The UART is always "on" and always at "infinite baud rate" regardless of what the guest configures. Reads to unimplemented registers return 0.
 

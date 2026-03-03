@@ -55,7 +55,7 @@ func TestTamperDetection(t *testing.T) {
 	logger.LogToolCall("run_command", map[string]any{"cmd": "pwd"}, "/home", nil, 5)
 	logger.LogToolCall("run_command", map[string]any{"cmd": "whoami"}, "root", nil, 3)
 	logger.LogSessionEnd(3, 0)
-	logger.Close()
+	_ = logger.Close()
 
 	// Read all lines, tamper with the middle entry (seq 3), write back.
 	data, err := os.ReadFile(logPath)
@@ -75,7 +75,7 @@ func TestTamperDetection(t *testing.T) {
 		copy(line, scanner.Bytes())
 		lines = append(lines, line)
 	}
-	f.Close()
+	_ = f.Close()
 	_ = data
 
 	if len(lines) < 3 {
@@ -97,10 +97,10 @@ func TestTamperDetection(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	for _, line := range lines {
-		out.Write(line)
-		out.Write([]byte("\n"))
+		_, _ = out.Write(line)
+		_, _ = out.Write([]byte("\n"))
 	}
-	out.Close()
+	_ = out.Close()
 
 	valid, brokenAt, err := VerifyChain(logPath)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestChainContinuity(t *testing.T) {
 	logger.LogSessionStart()
 	logger.LogToolCall("ls", nil, "ok", nil, 5)
 	logger.LogSessionEnd(1, 0)
-	logger.Close()
+	_ = logger.Close()
 
 	// Reopen and continue.
 	logger2, err := NewLogger(logPath, 10)
@@ -135,7 +135,7 @@ func TestChainContinuity(t *testing.T) {
 	logger2.LogSessionStart()
 	logger2.LogToolCall("pwd", nil, "/home", nil, 3)
 	logger2.LogSessionEnd(1, 0)
-	logger2.Close()
+	_ = logger2.Close()
 
 	// Verify entire chain.
 	valid, brokenAt, err := VerifyChain(logPath)
@@ -151,7 +151,7 @@ func TestChainContinuity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -199,7 +199,7 @@ func TestConcurrentWrites(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	logger.Close()
+	_ = logger.Close()
 
 	// Verify chain integrity after concurrent writes.
 	valid, brokenAt, err := VerifyChain(logPath)
@@ -215,7 +215,7 @@ func TestConcurrentWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -239,13 +239,13 @@ func TestGenesisEntry(t *testing.T) {
 		t.Fatalf("NewLogger: %v", err)
 	}
 	logger.LogSessionStart()
-	logger.Close()
+	_ = logger.Close()
 
 	f, err := os.Open(logPath)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)

@@ -20,7 +20,7 @@ func TestVerifyValidChain(t *testing.T) {
 	logger.LogLLMRequest(1, 100, "test-model")
 	logger.LogLLMResponse(50, 1)
 	logger.LogSessionEnd(1, 1)
-	logger.Close()
+	_ = logger.Close()
 
 	valid, brokenAt, err := VerifyChain(logPath)
 	if err != nil {
@@ -45,7 +45,7 @@ func TestVerifyDetectModifiedEntry(t *testing.T) {
 	logger.LogToolCall("ls", nil, "ok", nil, 5)
 	logger.LogToolCall("pwd", nil, "/home", nil, 3)
 	logger.LogSessionEnd(2, 0)
-	logger.Close()
+	_ = logger.Close()
 
 	// Read lines.
 	lines := readLines(t, logPath)
@@ -87,7 +87,7 @@ func TestVerifyDetectDeletedEntry(t *testing.T) {
 	logger.LogToolCall("ls", nil, "ok", nil, 5)
 	logger.LogToolCall("pwd", nil, "/home", nil, 3)
 	logger.LogSessionEnd(2, 0)
-	logger.Close()
+	_ = logger.Close()
 
 	// Read lines and delete the second entry (index 1).
 	lines := readLines(t, logPath)
@@ -122,7 +122,7 @@ func TestVerifyEmptyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	f.Close()
+	_ = f.Close()
 
 	valid, brokenAt, err := VerifyChain(logPath)
 	if err != nil {
@@ -158,7 +158,7 @@ func readLines(t *testing.T, path string) [][]byte {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var lines [][]byte
 	scanner := bufio.NewScanner(f)
@@ -181,9 +181,9 @@ func writeLines(t *testing.T, path string, lines [][]byte) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	for _, line := range lines {
-		f.Write(line)
-		f.Write([]byte("\n"))
+		_, _ = f.Write(line)
+		_, _ = f.Write([]byte("\n"))
 	}
 }

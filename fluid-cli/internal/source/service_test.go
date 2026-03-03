@@ -1,6 +1,7 @@
 package source
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestFindHostNotFound(t *testing.T) {
 	}
 	svc := NewService(cfg, "/tmp/key", slog.Default())
 
-	_, err := svc.RunCommand(nil, "nonexistent", "ls")
+	_, err := svc.RunCommand(context.TODO(), "nonexistent", "ls")
 	if err == nil {
 		t.Error("expected error for nonexistent host")
 	}
@@ -50,7 +51,7 @@ func TestReadFileRequiresAbsolutePath(t *testing.T) {
 	}
 	svc := NewService(cfg, "/tmp/key", slog.Default())
 
-	_, err := svc.ReadFile(nil, "web-01", "relative/path")
+	_, err := svc.ReadFile(context.TODO(), "web-01", "relative/path")
 	if err == nil {
 		t.Error("expected error for relative path")
 	}

@@ -1,7 +1,7 @@
 ---
 title: 'What is Memory Ballooning?'
 pubDate: 2026-03-02
-description: "What are my VMs doing?"
+description: 'What are my VMs doing?'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
@@ -16,9 +16,9 @@ import { MemoryBalloonGame } from '~/components/blog/memory-ballooning/MemoryBal
 
 Memory ballooning is a cooperative technique for redistributing physical RAM between virtual machines at runtime. A small driver inside the guest OS, the **balloon driver**, acts as the hypervisor's agent. When the hypervisor needs to reclaim memory from a VM, it tells the balloon driver to "inflate": the driver allocates pages inside the guest, pinning them so the guest can't use them, and the hypervisor unmaps those pages from the VM's physical address space. The reclaimed pages go back to the host's free pool, available for other VMs.
 
-The key word is *cooperative*. The guest OS gets to decide which pages to give up. It will evict page cache first, then push less-used pages to swap, applying its own memory management policies rather than having the hypervisor blindly rip pages away.
+The key word is _cooperative_. The guest OS gets to decide which pages to give up. It will evict page cache first, then push less-used pages to swap, applying its own memory management policies rather than having the hypervisor blindly rip pages away.
 
-I have seen this firsthand: during a spike in one VM's memory usage, the hypervisor was actively ballooning memory away from idle VMs to feed the hungry one. The idle VMs barely noticed (they were just losing page cache). But when *all* VMs were under pressure simultaneously, things got bad, guest swap activity spiked and latency went through the roof.
+I have seen this firsthand: during a spike in one VM's memory usage, the hypervisor was actively ballooning memory away from idle VMs to feed the hungry one. The idle VMs barely noticed (they were just losing page cache). But when _all_ VMs were under pressure simultaneously, things got bad, guest swap activity spiked and latency went through the roof.
 
 Often times during high ingestion, our infrastructure would struggle and memory balooning would try to allocate from other hosts, making the issues worse on those hosts.
 
@@ -57,7 +57,7 @@ Step through the visualization below to see exactly how a memory access flows fr
 
 <MemoryAddressTranslation />
 
-The TLB miss case is the critical insight. On bare metal, a TLB miss costs 4 memory accesses. With nested paging, the CPU has to walk the host's EPT for *every step* of the guest page table walk. A 4-level guest table with a 4-level host table means up to 4 x 4 = 16 EPT lookups, plus the 4 guest table reads, plus the final data access. That is 24 memory accesses for a single translation versus 4 on bare metal.
+The TLB miss case is the critical insight. On bare metal, a TLB miss costs 4 memory accesses. With nested paging, the CPU has to walk the host's EPT for _every step_ of the guest page table walk. A 4-level guest table with a 4-level host table means up to 4 x 4 = 16 EPT lookups, plus the 4 guest table reads, plus the final data access. That is 24 memory accesses for a single translation versus 4 on bare metal.
 
 ### Shadow Page Tables vs. Hardware-Assisted Paging
 
@@ -108,7 +108,7 @@ The VM can now use more memory again.
 
 ### Why This Design Works
 
-The crucial design insight is that the *guest* makes the eviction decisions. The guest kernel knows which pages are page cache (safe to drop), which are anonymous memory (need to be swapped), and which are wired/pinned (can't be touched). The hypervisor has none of this information - it just sees opaque guest physical pages.
+The crucial design insight is that the _guest_ makes the eviction decisions. The guest kernel knows which pages are page cache (safe to drop), which are anonymous memory (need to be swapped), and which are wired/pinned (can't be touched). The hypervisor has none of this information - it just sees opaque guest physical pages.
 
 If the hypervisor tried to forcibly unmap pages without the balloon driver's cooperation, it would be guessing which pages are safe to take. It might rip away a page that the guest kernel is actively using for a database buffer pool, causing a segfault or data corruption. The balloon driver avoids this by asking nicely.
 
@@ -118,7 +118,7 @@ Ballooning works well when at least some VMs have memory to spare. It breaks dow
 
 **All VMs under pressure simultaneously.** If every VM is already using all its allocated memory, the balloon driver can only give up pages by forcing guest swapping. Now you have guest swap I/O competing with everything else. Latency spikes across the board.
 
-**No balloon driver installed.** Without the balloon driver, the hypervisor's only option for memory overcommit is *host-level swapping* - swapping entire guest physical pages to the host's swap device. This is strictly worse than balloon-driven guest swapping because the host has no idea which pages are important. It might swap out a hot database page while leaving a cold page cache entry in RAM.
+**No balloon driver installed.** Without the balloon driver, the hypervisor's only option for memory overcommit is _host-level swapping_ - swapping entire guest physical pages to the host's swap device. This is strictly worse than balloon-driven guest swapping because the host has no idea which pages are important. It might swap out a hot database page while leaving a cold page cache entry in RAM.
 
 **Latency-sensitive workloads.** Even well-functioning ballooning introduces memory pressure in the guest, which can trigger page reclamation at unpredictable times. For latency-critical VMs (databases, real-time systems), the right answer is to pin their memory and exclude them from ballooning entirely.
 

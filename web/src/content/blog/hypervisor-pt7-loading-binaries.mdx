@@ -1,7 +1,7 @@
 ---
 title: 'Loading Real Binaries: ELF and Flat Images'
 pubDate: 2026-03-16
-description: "Stop hardcoding instruction arrays - load ELF binaries and bare-metal Rust programs into your VM."
+description: 'Stop hardcoding instruction arrays - load ELF binaries and bare-metal Rust programs into your VM.'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
@@ -423,6 +423,7 @@ The CPSR value `0x3c4` deserves explanation. In binary, this is:
 ```
 
 Breaking it down:
+
 - Bits [3:0] = `0100` - exception level 1, using SP_EL1 (the "h" in EL1h)
 - Bit [6] = `1` - FIQ masked
 - Bit [7] = `1` - IRQ masked

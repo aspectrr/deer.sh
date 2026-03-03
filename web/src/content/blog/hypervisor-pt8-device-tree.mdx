@@ -1,7 +1,7 @@
 ---
 title: 'The Device Tree: Telling the Guest About Its Hardware'
 pubDate: 2026-03-18
-description: "Generate a Flattened Device Tree Blob so Linux knows what hardware your VM has."
+description: 'Generate a Flattened Device Tree Blob so Linux knows what hardware your VM has.'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
@@ -222,6 +222,7 @@ The `/cpus` node describes the system's processors. Each CPU gets its own child 
 `#address-cells = 1` and `#size-cells = 0` within the `/cpus` node mean that CPU `reg` properties are single u32 values with no size component. This makes sense - a CPU has an ID, not an address range.
 
 Each `cpu@N` node has:
+
 - `device_type = "cpu"` - identifies this as a CPU node.
 - `compatible = "arm,arm-v8"` - tells the kernel this is an ARMv8 processor. The kernel uses this to select the right CPU feature initialization code.
 - `reg = i` - the CPU's hardware ID. For our single-CPU VM, this is 0. For multi-CPU VMs, each CPU would have a sequential ID, and these IDs must match the MPIDR_EL1 register values that the hypervisor configures for each vCPU.
