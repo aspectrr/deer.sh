@@ -7,6 +7,7 @@ import { ScriptedDemo } from '~/components/landing/scripted-demo'
 import { ArchitectureAnimation } from '~/components/landing/architecture-animation'
 import type { DiagramPhase } from '~/lib/diagram-phases'
 import { useAuth } from '~/lib/auth'
+import { usePostHog } from '~/lib/posthog'
 
 export const Route = createFileRoute('/_public/')({
   component: LandingPage,
@@ -29,16 +30,20 @@ const CheckIcon = () => (
   </svg>
 )
 
-function CopyButton({ command }: { command: string }) {
+function CopyButton({ command, method }: { command: string; method?: string }) {
+  const posthog = usePostHog()
   const [copied, setCopied] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(command)
+    if (method) {
+      posthog.capture('install_command_copied', { method })
+    }
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     setCopied(true)
     timeoutRef.current = setTimeout(() => setCopied(false), 2000)
-  }, [command])
+  }, [command, method, posthog])
 
   return (
     <button
@@ -157,11 +162,13 @@ const installTabs = [
     id: 'go',
     label: 'go',
     command: 'go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest',
+    method: 'go_install',
   },
   {
     id: 'curl',
     label: 'curl',
     command: 'curl -fsSL https://fluid.sh/install.sh | bash',
+    method: 'curl',
   },
 ] as const
 
@@ -274,7 +281,7 @@ function LandingPage() {
             </div>
           )}
           <p className="font-logo mt-2 text-lg tracking-tight text-neutral-200">
-            Claude Code for Linux Servers.
+            Claude Code for working on Linux Servers.
           </p>
           <p className="my-2 text-neutral-400">
             Read-only shell access. PII redaction. Tamper-evident audit logs. Fluid gets just the
@@ -463,7 +470,7 @@ function LandingPage() {
                   <span className="text-blue-400 select-none">$ </span>
                   <span className="whitespace-nowrap">{currentTab.command}</span>
                 </div>
-                <CopyButton command={currentTab.command} />
+                <CopyButton command={currentTab.command} method={currentTab.method} />
               </div>
               <div className="mt-4 border-t border-neutral-800 pt-4 font-mono text-sm text-neutral-500">
                 <span className="text-blue-400 select-none">$ </span>fluid
