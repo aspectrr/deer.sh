@@ -28,7 +28,7 @@ function AuthLayout() {
             <span className="text-blue-400">$</span> fluid.sh
           </h1>
           <p className="text-muted-foreground mt-2 text-xs">
-            Autonomous AI agents for infrastructure
+            Claude Code for Working on Linux Servers
           </p>
         </div>
         <div className="border-border bg-card border p-6">

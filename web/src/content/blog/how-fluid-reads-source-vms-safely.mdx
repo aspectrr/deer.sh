@@ -9,6 +9,8 @@ authorPhone: '+3179955114'
 authorDiscord: 'https://discordapp.com/users/301068417685913600'
 ---
 
+import { BlogInlineCTA } from '~/components/blog/blog-inline-cta'
+
 ## The Problem
 
 Fluid already lets AI agents spin up sandboxes by cloning golden VM images via QCOW2 copy-on-write overlays. That flow is fast and safe -- the base image is never modified because every write lands on the overlay.
@@ -24,7 +26,8 @@ The answer is defense-in-depth. No single mechanism is trusted to enforce read-o
 <div class="ro-container">
   <div class="ro-header">Defense-in-Depth: Three Independent Walls</div>
   <div class="ro-input-bar">
-    <span class="ro-prompt">$</span> Agent sends command: <span class="ro-cmd">cat /etc/nginx/nginx.conf</span>
+    <span class="ro-prompt">$</span> Agent sends command:{' '}
+    <span class="ro-cmd">cat /etc/nginx/nginx.conf</span>
   </div>
   <div class="ro-connector"></div>
   <div class="ro-layer">
@@ -76,7 +79,7 @@ The answer is defense-in-depth. No single mechanism is trusted to enforce read-o
   </div>
 </div>
 
-<style>
+<style>{`
 .ro-container {
   background: linear-gradient(135deg, #0a0a0a 0%, #0c1929 100%);
   border: 1px solid #1e3a5f;
@@ -205,7 +208,7 @@ The answer is defense-in-depth. No single mechanism is trusted to enforce read-o
     font-size: 0.7rem;
   }
 }
-</style>
+`}</style>
 
 If an attacker somehow gets past the client-side validation, the SSH certificate still routes them to a user whose login shell is a restricted script. If they somehow forge a certificate with the wrong principal, the client-side validation already rejected the dangerous command. If both fail, the restricted shell on the VM still blocks it.
 
@@ -270,6 +273,8 @@ if err := readonly.ValidateCommand(command); err != nil {
 ```
 
 Blocked commands are tracked via telemetry, so operators can see if an agent is repeatedly trying to run disallowed commands.
+
+<BlogInlineCTA feature="This is how Fluid validates every command before it touches your servers - try it on your own infrastructure." />
 
 ## Layer 2: SSH Certificate Principal Separation
 
@@ -378,7 +383,9 @@ Here's the complete path when an AI agent runs a read-only command on a source V
       <div class="exec-step-title">Agent calls fluid CLI</div>
     </div>
     <div class="exec-step-body">
-      <div class="exec-cmd"><span class="exec-prompt">$</span> fluid run-source my-golden-vm "systemctl status nginx"</div>
+      <div class="exec-cmd">
+        <span class="exec-prompt">$</span> fluid run-source my-golden-vm "systemctl status nginx"
+      </div>
     </div>
   </div>
   <div class="exec-conn exec-conn-blue"></div>
@@ -396,7 +403,9 @@ Here's the complete path when an AI agent runs a read-only command on a source V
       <li>Check base command: "systemctl" is in allowlist</li>
       <li>Check subcommand: "status" is in allowed subcommands</li>
     </ul>
-    <div class="exec-pass exec-pass-blue"><span class="exec-check exec-check-blue">v</span> Passes</div>
+    <div class="exec-pass exec-pass-blue">
+      <span class="exec-check exec-check-blue">v</span> Passes
+    </div>
   </div>
   <div class="exec-conn exec-conn-purple"></div>
   <div class="exec-step exec-step-purple">
@@ -419,7 +428,10 @@ Here's the complete path when an AI agent runs a read-only command on a source V
     </div>
     <ul class="exec-step-details">
       <li>Check cache for "sourcevm:my-golden-vm:fluid-readonly"</li>
-      <li>If expired: generate Ed25519 keypair, sign certificate with principal "fluid-readonly" and 30-min TTL</li>
+      <li>
+        If expired: generate Ed25519 keypair, sign certificate with principal "fluid-readonly" and
+        30-min TTL
+      </li>
       <li>Write to ~/.fluid/keys/sourcevm-my-golden-vm/</li>
     </ul>
   </div>
@@ -449,7 +461,9 @@ Here's the complete path when an AI agent runs a read-only command on a source V
       <li>Parse segments, check against blocklist</li>
       <li>Executes: exec /bin/bash -c "systemctl status nginx"</li>
     </ul>
-    <div class="exec-pass exec-pass-orange"><span class="exec-check exec-check-orange">v</span> Passes</div>
+    <div class="exec-pass exec-pass-orange">
+      <span class="exec-check exec-check-orange">v</span> Passes
+    </div>
   </div>
   <div class="exec-conn exec-conn-green"></div>
   <div class="exec-step exec-step-green">
@@ -464,7 +478,7 @@ Here's the complete path when an AI agent runs a read-only command on a source V
   </div>
 </div>
 
-<style>
+<style>{`
 .exec-container {
   background: linear-gradient(135deg, #0a0a0a 0%, #0c1929 100%);
   border: 1px solid #1e3a5f;
@@ -629,7 +643,7 @@ Here's the complete path when an AI agent runs a read-only command on a source V
     font-size: 0.65rem;
   }
 }
-</style>
+`}</style>
 
 ## Why Source VM Preparation is One-Time
 
@@ -672,6 +686,8 @@ The key productivity win is avoiding the full clone cycle. Here's what running a
 The agent gets a response to `cat /etc/nginx/nginx.conf` or `dpkg -l | grep python` directly from the running golden image. The results aren't persisted to the store (unlike sandbox commands), keeping the audit trail clean -- source VM reads are tracked through telemetry instead.
 
 This matters for the agent workflow. When an agent is deciding _which_ source VM to clone, or _whether_ a source VM has the right software stack, it can inspect first and clone only when it's ready to make changes. The read-inspect-decide loop stays fast.
+
+<BlogInlineCTA feature="This is how Fluid lets agents inspect golden images without cloning - try it on your own servers." />
 
 ## What Could Go Wrong (and Why It's Contained)
 

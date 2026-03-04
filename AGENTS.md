@@ -1,6 +1,6 @@
 # fluid.sh
 
-Autonomous AI agents for infrastructure -- with human approval.
+Claude Code for Working on Linux Servers -- with human approval.
 
 ## What This Is
 

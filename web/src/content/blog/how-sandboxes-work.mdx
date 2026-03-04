@@ -9,6 +9,8 @@ authorPhone: '+3179955114'
 authorDiscord: 'https://discordapp.com/users/301068417685913600'
 ---
 
+import { BlogInlineCTA } from '~/components/blog/blog-inline-cta'
+
 ## Intro
 
 When you ask Fluid to spin up a sandbox, you are not waiting for a full OS installation or a slow VM clone. A QEMU microVM boots from a shared base image in milliseconds - no bootloader, no BIOS, no wasted disk. Each sandbox gets a copy-on-write overlay that starts at a few kilobytes, a TAP device on the host's network bridge, and an ephemeral SSH certificate that expires in 30 minutes.
@@ -154,32 +156,56 @@ Defaults: 2 vCPUs, 2048 MB RAM. Each sandbox runs as an independent QEMU process
   <div class="sbx-flow-vertical">
     <div class="sbx-flow-card">
       <div class="sbx-flow-card-title">1. Base Image</div>
-      <div class="sbx-flow-card-body">QCOW2 cloud image (e.g. Ubuntu 24.04)<br>Stored read-only in image cache</div>
+      <div class="sbx-flow-card-body">
+        QCOW2 cloud image (e.g. Ubuntu 24.04)
+        <br />
+        Stored read-only in image cache
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8595;</div>
     <div class="sbx-flow-card">
       <div class="sbx-flow-card-title">2. Kernel Extraction</div>
-      <div class="sbx-flow-card-body">virt-cat /boot/vmlinuz-* from image<br>Decompress to .vmlinux (cached)</div>
+      <div class="sbx-flow-card-body">
+        virt-cat /boot/vmlinuz-* from image
+        <br />
+        Decompress to .vmlinux (cached)
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8595;</div>
     <div class="sbx-flow-card">
       <div class="sbx-flow-card-title">3. CoW Overlay</div>
-      <div class="sbx-flow-card-body">qemu-img create -f qcow2 -b base.qcow2<br>Starts at ~128 KB</div>
+      <div class="sbx-flow-card-body">
+        qemu-img create -f qcow2 -b base.qcow2
+        <br />
+        Starts at ~128 KB
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8595;</div>
     <div class="sbx-flow-card">
       <div class="sbx-flow-card-title">4. TAP + MAC</div>
-      <div class="sbx-flow-card-body">Create TAP device, attach to bridge<br>Generate random 52:54:00:xx:xx:xx MAC</div>
+      <div class="sbx-flow-card-body">
+        Create TAP device, attach to bridge
+        <br />
+        Generate random 52:54:00:xx:xx:xx MAC
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8595;</div>
     <div class="sbx-flow-card sbx-flow-card-highlight">
       <div class="sbx-flow-card-title">5. QEMU Launch</div>
-      <div class="sbx-flow-card-body">-M microvm -enable-kvm -cpu host<br>Direct kernel boot, daemonized with PID tracking</div>
+      <div class="sbx-flow-card-body">
+        -M microvm -enable-kvm -cpu host
+        <br />
+        Direct kernel boot, daemonized with PID tracking
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8595;</div>
     <div class="sbx-flow-card">
       <div class="sbx-flow-card-title">6. IP Discovery</div>
-      <div class="sbx-flow-card-body">Poll ARP table / lease files for MAC<br>Sandbox ready when IP resolves</div>
+      <div class="sbx-flow-card-body">
+        Poll ARP table / lease files for MAC
+        <br />
+        Sandbox ready when IP resolves
+      </div>
     </div>
   </div>
 </div>
@@ -201,6 +227,8 @@ Why this matters:
 - **Instant creation**: `qemu-img create` is effectively a metadata operation. No data copying.
 - **Clean teardown**: Destroying a sandbox is `rm -rf <sandboxID>/`. The overlay directory and everything in it (disk, PID file, metadata) disappears.
 - **Base image safety**: The base is read-only. A sandbox cannot corrupt the image used by other sandboxes.
+
+<BlogInlineCTA feature="This is how Fluid creates sandboxes in milliseconds with zero disk overhead - try it on your own servers." />
 
 ## TAP Networking
 
@@ -298,27 +326,53 @@ Fluid never drops a static SSH key onto a sandbox. Instead, the daemon runs an i
 
 For **source VM** access (read-only commands against production VMs), the same CA issues certificates but the target VM is configured with a restricted shell that only allows read operations.
 
+<BlogInlineCTA feature="This is how Fluid handles SSH access with ephemeral certificates - try it on your own servers." />
+
 <div class="sbx-diagram-container">
   <div class="sbx-diagram-header">SSH Certificate Flow</div>
   <div class="sbx-flow-horizontal">
     <div class="sbx-flow-card sbx-hflow-card">
       <div class="sbx-flow-card-title">1. CA Init</div>
-      <div class="sbx-flow-card-body">Ed25519 keypair<br>/etc/fluid/ssh_ca<br>Pub key in VM images</div>
+      <div class="sbx-flow-card-body">
+        Ed25519 keypair
+        <br />
+        /etc/fluid/ssh_ca
+        <br />
+        Pub key in VM images
+      </div>
     </div>
     <div class="sbx-flow-arrow-h">&#8594;</div>
     <div class="sbx-flow-card sbx-hflow-card">
       <div class="sbx-flow-card-title">2. Key Gen</div>
-      <div class="sbx-flow-card-body">Per-sandbox Ed25519<br>keypair generated<br>on create</div>
+      <div class="sbx-flow-card-body">
+        Per-sandbox Ed25519
+        <br />
+        keypair generated
+        <br />
+        on create
+      </div>
     </div>
     <div class="sbx-flow-arrow-h">&#8594;</div>
     <div class="sbx-flow-card sbx-hflow-card sbx-flow-card-highlight">
       <div class="sbx-flow-card-title">3. Sign</div>
-      <div class="sbx-flow-card-body">ssh-keygen -s CA_KEY<br>TTL: 30min<br>no-port-forwarding</div>
+      <div class="sbx-flow-card-body">
+        ssh-keygen -s CA_KEY
+        <br />
+        TTL: 30min
+        <br />
+        no-port-forwarding
+      </div>
     </div>
     <div class="sbx-flow-arrow-h">&#8594;</div>
     <div class="sbx-flow-card sbx-hflow-card">
       <div class="sbx-flow-card-title">4. Connect</div>
-      <div class="sbx-flow-card-body">ssh -i key -o CertificateFile=cert<br>sandbox@10.0.0.x<br>Auto-refresh before expiry</div>
+      <div class="sbx-flow-card-body">
+        ssh -i key -o CertificateFile=cert
+        <br />
+        sandbox@10.0.0.x
+        <br />
+        Auto-refresh before expiry
+      </div>
     </div>
   </div>
 </div>
@@ -343,17 +397,29 @@ When you run a command in a sandbox, here is the full path it takes:
     <div class="sbx-flow-arrow">&#8595; gRPC :9091 (TLS 1.2+)</div>
     <div class="sbx-flow-card">
       <div class="sbx-flow-card-title">Daemon</div>
-      <div class="sbx-flow-card-body">Lookup sandbox IP + SSH credentials<br>Open SSH session to sandbox@10.0.0.x</div>
+      <div class="sbx-flow-card-body">
+        Lookup sandbox IP + SSH credentials
+        <br />
+        Open SSH session to sandbox@10.0.0.x
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8595; SSH (certificate auth)</div>
     <div class="sbx-flow-card sbx-flow-card-highlight">
       <div class="sbx-flow-card-title">Sandbox MicroVM</div>
-      <div class="sbx-flow-card-body">Execute command, capture stdout/stderr<br>Exit code + duration tracked</div>
+      <div class="sbx-flow-card-body">
+        Execute command, capture stdout/stderr
+        <br />
+        Exit code + duration tracked
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8593; stdout, stderr, exit_code</div>
     <div class="sbx-flow-card">
       <div class="sbx-flow-card-title">Daemon</div>
-      <div class="sbx-flow-card-body">Persist to SQLite state store<br>Return result via gRPC</div>
+      <div class="sbx-flow-card-body">
+        Persist to SQLite state store
+        <br />
+        Return result via gRPC
+      </div>
     </div>
     <div class="sbx-flow-arrow">&#8593; gRPC response</div>
     <div class="sbx-flow-card">
@@ -388,7 +454,7 @@ The Janitor runs a cleanup pass immediately on startup, then ticks every minute.
 
 Fluid sandboxes are production infrastructure: QEMU microVMs with direct kernel boot, copy-on-write overlays, TAP networking on the host bridge, ephemeral SSH certificates from an internal CA, SQLite state persistence with daemon restart recovery, optional multi-host orchestration through the control plane, and automatic cleanup via the Janitor. Every sandbox is isolated at the hypervisor level and disposable by design.
 
-<style>
+<style>{`
 .sbx-diagram-container {
   background: linear-gradient(135deg, #0a0a0a 0%, #0c1929 100%);
   border: 1px solid #1e3a5f;
@@ -638,4 +704,4 @@ Fluid sandboxes are production infrastructure: QEMU microVMs with direct kernel 
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-</style>
+`}</style>
