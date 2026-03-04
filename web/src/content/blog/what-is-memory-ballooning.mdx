@@ -1,6 +1,6 @@
 ---
 title: 'What is Memory Ballooning?'
-pubDate: 2026-03-02
+pubDate: 2026-03-04
 description: 'What are my VMs doing?'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
@@ -11,6 +11,7 @@ authorDiscord: 'https://discordapp.com/users/301068417685913600'
 
 import { MemoryAddressTranslation } from '~/components/blog/memory-ballooning/MemoryAddressTranslation'
 import { MemoryBalloonGame } from '~/components/blog/memory-ballooning/MemoryBalloonGame'
+import { BlogInlineCTA } from '~/components/blog/blog-inline-cta'
 
 ## What is Memory Ballooning?
 
@@ -20,7 +21,7 @@ The key word is _cooperative_. The guest OS gets to decide which pages to give u
 
 I have seen this firsthand: during a spike in one VM's memory usage, the hypervisor was actively ballooning memory away from idle VMs to feed the hungry one. The idle VMs barely noticed (they were just losing page cache). But when _all_ VMs were under pressure simultaneously, things got bad, guest swap activity spiked and latency went through the roof.
 
-Often times during high ingestion, our infrastructure would struggle and memory balooning would try to allocate from other hosts, making the issues worse on those hosts.
+Often times during high ingestion, my infrastructure would struggle and memory ballooning would try to allocate from other hosts, making the issue worse.
 
 Try it yourself. Drag the levers below to inflate and deflate each VM's memory allocation and watch the zero-sum redistribution play out:
 
@@ -59,21 +60,31 @@ Step through the visualization below to see exactly how a memory access flows fr
 
 The TLB miss case is the critical insight. On bare metal, a TLB miss costs 4 memory accesses. With nested paging, the CPU has to walk the host's EPT for _every step_ of the guest page table walk. A 4-level guest table with a 4-level host table means up to 4 x 4 = 16 EPT lookups, plus the 4 guest table reads, plus the final data access. That is 24 memory accesses for a single translation versus 4 on bare metal.
 
+<BlogInlineCTA feature="Fluid sandboxes use microVMs with hugepage-backed memory and hardware EPT, so your workloads get near-bare-metal translation performance without the ballooning overhead." />
+
+### What is a VM Exit?
+
+A **VM exit** happens when the CPU stops executing guest code and transfers control back to the hypervisor. The guest is frozen mid-instruction while the hypervisor handles whatever triggered the exit - a privileged instruction, an I/O operation, a page table modification, or a hardware interrupt.
+
+VM exits are expensive. The CPU has to save the entire guest state (registers, control structures, segment selectors), flush the pipeline, load the hypervisor's state, execute the handler, then reverse the whole process to resume the guest. A single VM exit typically costs thousands of CPU cycles. Workloads that trigger frequent exits - like those that heavily modify page tables or perform lots of I/O - can spend more time context-switching than doing useful work.
+
+This cost is central to the tradeoff in the next section: shadow page tables avoid expensive nested page walks but pay for it with constant VM exits, while hardware-assisted paging (EPT/NPT) eliminates the exits entirely at the cost of deeper page walks on TLB misses.
+
 ### Shadow Page Tables vs. Hardware-Assisted Paging
 
 There are two approaches to solving the double translation problem:
 
 **Shadow page tables** (the old way): The hypervisor maintains a combined GVA-to-HPA page table and installs it directly in the hardware. This means the CPU only walks one page table - fast on TLB miss. But the hypervisor must trap every guest page table modification (via VM exits) to keep the shadow copy in sync. Those VM exits are expensive: each one costs thousands of cycles for the context switch alone. Workloads that frequently modify page tables (like fork-heavy applications) thrash on VM exits.
 
-**EPT/NPT** (the modern way): Intel Extended Page Tables (EPT) and AMD Nested Page Tables (NPT) let the hardware walk both page table hierarchies natively, without any VM exits. The 24-access TLB miss is expensive, but it happens in silicon - no hypervisor intervention required. For most workloads, the TLB hit rate is high enough that the occasional expensive miss is far cheaper than constant VM exits.
+**EPT/NPT** (the modern way): Intel Extended Page Tables (EPT) and AMD Nested Page Tables (NPT) let the hardware walk both page table hierarchies natively, without any VM exits. The 24-access TLB miss is expensive, but it happens in the CPU meaning no hypervisor intervention required. For most workloads, the TLB hit rate is high enough that the occasional expensive miss is far cheaper than constant VM exits.
 
 This is also why **hugepages** matter so much for VM performance. A 2MB hugepage eliminates one level of page table, and a 1GB hugepage eliminates two. Fewer levels means fewer memory accesses on a TLB miss, and fewer TLB entries consumed (so higher hit rates). Using 1GB hugepages for VM backing memory can cut nested page walk cost roughly in half.
 
 ### Memory Security
 
-EPT/NPT tables are per-VM and hardware-enforced. VM A's EPT maps only the host pages assigned to VM A. There is no EPT entry pointing to VM B's memory - the hardware simply won't translate those addresses. This is the same isolation model as process page tables, but one level up.
+EPT/NPT tables are per-VM and hardware-enforced. VM A's EPT maps only the host pages assigned to VM A. There is no EPT entry pointing to VM B's memory, then the hardware simply won't translate those addresses. This is the same isolation model as process page tables, but one level up.
 
-This is relevant to ballooning: when the hypervisor reclaims a page via the balloon driver, it removes the EPT mapping for that page. The guest can no longer access it - the hardware enforces this. The page is cleanly returned to the host's free pool. No data leaks, no stale mappings.
+This is relevant to ballooning: when the hypervisor reclaims a page via the balloon driver, it removes the EPT mapping for that page. The guest can no longer access it and the hardware enforces this. The page is cleanly returned to the host's free pool.
 
 ## The Balloon Driver
 

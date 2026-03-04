@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { ArrowRight } from 'lucide-react'
 
 export function BlogInlineCTA({ feature }: { feature: string }) {
   return (
@@ -6,9 +7,9 @@ export function BlogInlineCTA({ feature }: { feature: string }) {
       <p className="font-mono text-sm text-neutral-300">{feature}</p>
       <Link
         to="/docs/quickstart"
-        className="mt-2 inline-block font-mono text-sm text-blue-400 transition-colors hover:text-blue-300"
+        className="mt-3 inline-flex items-center gap-2 bg-blue-500 px-5 py-2 font-mono text-sm text-white transition-colors hover:bg-blue-600"
       >
-        Try it on your own server -&gt;
+        Get Started <ArrowRight className="h-4 w-4" />
       </Link>
     </aside>
   )
