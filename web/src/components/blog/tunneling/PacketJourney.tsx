@@ -149,8 +149,265 @@ export function PacketJourney() {
         </div>
       )}
 
+      {/* Mobile: vertical stack */}
+      <svg
+        viewBox="0 0 360 510"
+        className="md:hidden"
+        style={{
+          width: '100%',
+          display: 'block',
+          opacity: hasPlayed ? 1 : 0.3,
+          transition: 'opacity 0.3s',
+        }}
+      >
+        {!REDUCED_MOTION && (
+          <defs>
+            <filter id="glow-journey-m">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+        )}
+        <line x1={180} y1={110} x2={180} y2={170} stroke={BORDER} strokeWidth={1} />
+        <line x1={180} y1={240} x2={180} y2={300} stroke={BORDER} strokeWidth={1} />
+        <line x1={180} y1={370} x2={180} y2={430} stroke={BORDER} strokeWidth={1} />
+        {NODES.map((node, i) => {
+          const ny = [40, 170, 300, 430][i]
+          return (
+            <g key={node.label}>
+              <motion.rect
+                x={40}
+                y={ny}
+                width={280}
+                height={NODE_H}
+                fill={CARD_BG}
+                stroke={BORDER}
+                strokeWidth={1}
+                variants={{
+                  hidden: { stroke: BORDER },
+                  firewall: i === 1 ? { stroke: '#fbbf24', transition: { duration: 0.3 } } : {},
+                  decapsulate:
+                    i === 2
+                      ? { stroke: BLUE, transition: { duration: 0.3 } }
+                      : i === 1
+                        ? { stroke: BORDER }
+                        : {},
+                  done: i === 3 ? { stroke: GREEN, transition: { duration: 0.3 } } : {},
+                  instant: {
+                    stroke: i === 3 ? GREEN : i === 2 ? BLUE : i === 1 ? '#fbbf24' : BORDER,
+                  },
+                }}
+                initial="hidden"
+                animate={controls}
+              />
+              <WindowDots x={50} y={ny + 10} />
+              <text
+                x={180}
+                y={ny + 32}
+                textAnchor="middle"
+                fill="#e5e5e5"
+                fontSize={12}
+                fontFamily="ui-monospace, SFMono-Regular, monospace"
+                fontWeight={500}
+              >
+                {node.label}
+              </text>
+              <text
+                x={180}
+                y={ny + 48}
+                textAnchor="middle"
+                fill={TEXT_MUTED}
+                fontSize={10}
+                fontFamily="ui-monospace, SFMono-Regular, monospace"
+              >
+                {node.sublabel}
+              </text>
+            </g>
+          )
+        })}
+        <motion.text
+          x={180}
+          y={28}
+          textAnchor="middle"
+          fill={BLUE}
+          fontSize={10}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          variants={{
+            hidden: { opacity: 0 },
+            encrypting: { opacity: [0, 1, 1, 0], transition: { duration: 1.2 } },
+            instant: { opacity: 0 },
+          }}
+          initial="hidden"
+          animate={controls}
+        >
+          encrypting...
+        </motion.text>
+        <motion.text
+          x={180}
+          y={158}
+          textAnchor="middle"
+          fill="#fbbf24"
+          fontSize={10}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          variants={{
+            hidden: { opacity: 0 },
+            firewall: { opacity: [0, 1, 1, 0], transition: { duration: 1.2 } },
+            instant: { opacity: 0 },
+          }}
+          initial="hidden"
+          animate={controls}
+        >
+          reads outer IP: pass
+        </motion.text>
+        <motion.text
+          x={180}
+          y={288}
+          textAnchor="middle"
+          fill={BLUE}
+          fontSize={10}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          variants={{
+            hidden: { opacity: 0 },
+            decapsulate: { opacity: [0, 1, 1, 0], transition: { duration: 1.2 } },
+            instant: { opacity: 0 },
+          }}
+          initial="hidden"
+          animate={controls}
+        >
+          decapsulating...
+        </motion.text>
+        <motion.text
+          x={180}
+          y={418}
+          textAnchor="middle"
+          fill={GREEN}
+          fontSize={10}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          fontWeight={600}
+          variants={{
+            hidden: { opacity: 0 },
+            done: { opacity: 1, transition: { duration: 0.5 } },
+            instant: { opacity: 1 },
+          }}
+          initial="hidden"
+          animate={controls}
+        >
+          200 OK
+        </motion.text>
+        {!REDUCED_MOTION && (
+          <motion.circle
+            cx={180}
+            cy={110}
+            r={4}
+            fill={BLUE}
+            filter="url(#glow-journey-m)"
+            variants={{
+              hidden: { opacity: 0, cy: 110 },
+              travel1: {
+                opacity: [0, 1, 1, 0],
+                cy: [110, 140, 165, 170],
+                transition: { duration: 1 },
+              },
+            }}
+            initial="hidden"
+            animate={controls}
+          />
+        )}
+        {!REDUCED_MOTION && (
+          <motion.circle
+            cx={180}
+            cy={240}
+            r={4}
+            fill={BLUE}
+            filter="url(#glow-journey-m)"
+            variants={{
+              hidden: { opacity: 0, cy: 240 },
+              travel2: {
+                opacity: [0, 1, 1, 0],
+                cy: [240, 270, 295, 300],
+                transition: { duration: 1 },
+              },
+            }}
+            initial="hidden"
+            animate={controls}
+          />
+        )}
+        {!REDUCED_MOTION && (
+          <motion.circle
+            cx={180}
+            cy={370}
+            r={4}
+            fill={GREEN}
+            filter="url(#glow-journey-m)"
+            variants={{
+              hidden: { opacity: 0, cy: 370 },
+              travel3: {
+                opacity: [0, 1, 1, 0],
+                cy: [370, 400, 425, 430],
+                transition: { duration: 1 },
+              },
+            }}
+            initial="hidden"
+            animate={controls}
+          />
+        )}
+        <motion.text
+          x={195}
+          y={143}
+          fill={TEXT_MUTED}
+          fontSize={9}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          variants={{
+            hidden: { opacity: 0 },
+            travel1: { opacity: 1, transition: { delay: 0.3 } },
+            instant: { opacity: 1 },
+          }}
+          initial="hidden"
+          animate={controls}
+        >
+          encrypted
+        </motion.text>
+        <motion.text
+          x={195}
+          y={273}
+          fill={TEXT_MUTED}
+          fontSize={9}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          variants={{
+            hidden: { opacity: 0 },
+            travel2: { opacity: 1, transition: { delay: 0.3 } },
+            instant: { opacity: 1 },
+          }}
+          initial="hidden"
+          animate={controls}
+        >
+          encrypted
+        </motion.text>
+        <motion.text
+          x={195}
+          y={403}
+          fill={TEXT_MUTED}
+          fontSize={9}
+          fontFamily="ui-monospace, SFMono-Regular, monospace"
+          variants={{
+            hidden: { opacity: 0 },
+            travel3: { opacity: 1, transition: { delay: 0.3 } },
+            instant: { opacity: 1 },
+          }}
+          initial="hidden"
+          animate={controls}
+        >
+          HTTPS
+        </motion.text>
+      </svg>
+
+      {/* Desktop: horizontal layout */}
       <svg
         viewBox="0 0 880 220"
+        className="hidden md:block"
         style={{
           width: '100%',
           minWidth: 500,
@@ -159,7 +416,6 @@ export function PacketJourney() {
           transition: 'opacity 0.3s',
         }}
       >
-        {/* Glow filter */}
         {!REDUCED_MOTION && (
           <defs>
             <filter id="glow-journey">
@@ -171,8 +427,6 @@ export function PacketJourney() {
             </filter>
           </defs>
         )}
-
-        {/* Connection lines (static) */}
         <line
           x1={line1Start}
           y1={LINE_Y}
@@ -197,11 +451,8 @@ export function PacketJourney() {
           stroke={BORDER}
           strokeWidth={1}
         />
-
-        {/* Node boxes */}
         {NODES.map((node, i) => (
           <g key={node.label}>
-            {/* Node highlight for firewall during inspection */}
             <motion.rect
               x={node.x}
               y={NODE_Y}
@@ -251,8 +502,6 @@ export function PacketJourney() {
             </text>
           </g>
         ))}
-
-        {/* "encrypting..." label at laptop */}
         <motion.text
           x={NODES[0].x + NODE_W / 2}
           y={NODE_Y - 10}
@@ -270,8 +519,6 @@ export function PacketJourney() {
         >
           encrypting...
         </motion.text>
-
-        {/* "reads outer IP" label at firewall */}
         <motion.text
           x={NODES[1].x + NODE_W / 2}
           y={NODE_Y - 10}
@@ -289,8 +536,6 @@ export function PacketJourney() {
         >
           reads outer IP: pass
         </motion.text>
-
-        {/* "decapsulating..." label at VPN */}
         <motion.text
           x={NODES[2].x + NODE_W / 2}
           y={NODE_Y - 10}
@@ -308,8 +553,6 @@ export function PacketJourney() {
         >
           decapsulating...
         </motion.text>
-
-        {/* "200 OK" label at YouTube */}
         <motion.text
           x={NODES[3].x + NODE_W / 2}
           y={NODE_Y - 10}
@@ -328,8 +571,6 @@ export function PacketJourney() {
         >
           200 OK
         </motion.text>
-
-        {/* Traveling dot - segment 1: laptop -> firewall (blue, encrypted) */}
         {!REDUCED_MOTION && (
           <motion.circle
             cx={line1Start}
@@ -349,8 +590,6 @@ export function PacketJourney() {
             animate={controls}
           />
         )}
-
-        {/* Traveling dot - segment 2: firewall -> vpn (blue, still encrypted) */}
         {!REDUCED_MOTION && (
           <motion.circle
             cx={line2Start}
@@ -370,8 +609,6 @@ export function PacketJourney() {
             animate={controls}
           />
         )}
-
-        {/* Traveling dot - segment 3: vpn -> youtube (green, decrypted) */}
         {!REDUCED_MOTION && (
           <motion.circle
             cx={line3Start}
@@ -391,8 +628,6 @@ export function PacketJourney() {
             animate={controls}
           />
         )}
-
-        {/* Line labels */}
         <motion.text
           x={(line1Start + line1End) / 2}
           y={LINE_Y + 20}
@@ -410,7 +645,6 @@ export function PacketJourney() {
         >
           encrypted
         </motion.text>
-
         <motion.text
           x={(line2Start + line2End) / 2}
           y={LINE_Y + 20}
@@ -428,7 +662,6 @@ export function PacketJourney() {
         >
           encrypted
         </motion.text>
-
         <motion.text
           x={(line3Start + line3End) / 2}
           y={LINE_Y + 20}

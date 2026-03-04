@@ -55,7 +55,7 @@ export function BlogCTA() {
         <span className="font-mono text-xs text-neutral-500">install</span>
       </div>
       <div className="p-5">
-        <div className="flex items-center justify-between gap-4 font-mono text-sm">
+        <div className="flex items-center justify-between gap-4 overflow-hidden font-mono text-sm">
           <div className="min-w-0 overflow-x-auto text-neutral-400">
             <span className="text-blue-400 select-none">$ </span>
             <span className="whitespace-nowrap">{INSTALL_COMMAND}</span>

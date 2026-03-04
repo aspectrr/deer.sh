@@ -57,7 +57,7 @@ const STEPS: Step[] = [
 ]
 
 // Layout constants
-const VB_W = 480
+const VB_W = 540
 const VB_H = 360
 const BAR_X = 100
 const BAR_W = 280
@@ -221,7 +221,7 @@ function StepGuestPT() {
 
 function StepEPT() {
   const arrowX = BAR_X + BAR_W / 2
-  const labelX = BAR_X + BAR_W + 12
+  const labelX = BAR_X + BAR_W
   const midY12 = (LAYER_Y[1] + BAR_H + LAYER_Y[2]) / 2
   return (
     <g>
@@ -569,7 +569,7 @@ export function MemoryAddressTranslation() {
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           style={{
             width: '100%',
-            maxWidth: 540,
+            maxWidth: 600,
             minWidth: 320,
             display: 'block',
             margin: '0 auto',
@@ -635,15 +635,28 @@ export function MemoryAddressTranslation() {
             key={i}
             onClick={() => setStep(i)}
             style={{
-              width: 6,
-              height: 6,
+              width: 24,
+              height: 24,
               borderRadius: '50%',
-              background: i === step ? BLUE : BORDER,
+              background: 'transparent',
               border: 'none',
               cursor: 'pointer',
               padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-          />
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: i === step ? BLUE : BORDER,
+                display: 'block',
+              }}
+            />
+          </button>
         ))}
       </div>
     </div>

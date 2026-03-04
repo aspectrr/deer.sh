@@ -9,7 +9,7 @@ function PublicLayout() {
     <div className="min-h-screen bg-black text-white">
       <Outlet />
       <footer className="border-t border-neutral-800 px-6 py-8">
-        <div className="mx-auto flex max-w-2xl items-center justify-between text-xs text-neutral-600">
+        <div className="mx-auto flex max-w-2xl items-center justify-between overflow-hidden text-xs text-neutral-600">
           <Link
             to="/"
             className="font-logo no-underline transition-colors hover:text-neutral-400 hover:no-underline"

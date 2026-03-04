@@ -368,6 +368,30 @@ export function MemoryBalloonGame() {
     segments.push({ x: VM_START_X + segOffset, w: freeW, color: '#444', label: `${currentFree}` })
   }
 
+  // Mobile layout
+  const M_VB_W = 360
+  const M_VM_X = 10
+  const M_VM_W = M_VB_W - 2 * M_VM_X
+  const M_VM_H = 240
+  const M_VM_GAP = 10
+  const M_HOST_BAR_Y = 770
+  const M_HOST_BAR_H = 32
+  const M_LOG_Y = 822
+  const M_LOG_H = 100
+  const M_VB_H = 932
+
+  const mSegments: typeof segments = []
+  let mSegOffset = 0
+  for (const vm of vms) {
+    const w = (vm.allocated / TOTAL_RAM) * M_VM_W
+    mSegments.push({ x: M_VM_X + mSegOffset, w, color: vm.color, label: `${vm.allocated}` })
+    mSegOffset += w
+  }
+  if (currentFree > 0) {
+    const freeW = (currentFree / TOTAL_RAM) * M_VM_W
+    mSegments.push({ x: M_VM_X + mSegOffset, w: freeW, color: '#444', label: `${currentFree}` })
+  }
+
   return (
     <div
       style={{
@@ -396,7 +420,238 @@ export function MemoryBalloonGame() {
         </span>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      {/* Mobile: VMs stacked vertically */}
+      <div className="md:hidden">
+        <svg viewBox={`0 0 ${M_VB_W} ${M_VB_H}`} style={{ width: '100%', display: 'block' }}>
+          {vms.map((vm, i) => {
+            const cardY = M_VM_GAP + i * (M_VM_H + M_VM_GAP)
+            const addrEntries = getAddrEntries(vm)
+            const memBarX = M_VM_X + 12
+            const memBarY = cardY + 30
+            const memBarW = 80
+            const memBarH = 120
+            const usedFraction = vm.used / (vm.allocated || 1)
+            const usedH = Math.max(0, usedFraction * memBarH)
+            const balloonCX = memBarX + memBarW / 2
+            const balloonCY = memBarY + memBarH + 28
+            const balloonRX = 12 + (vm.allocated / TOTAL_RAM) * 25
+            const balloonRY = 8 + (vm.allocated / TOTAL_RAM) * 16
+            const leverX = M_VM_X + 110
+            const leverY = cardY + 36
+            const addrX = M_VM_X + 110
+            const addrY = cardY + 36 + LEVER_TRACK_H + 24
+            const othersReclaimable = vms
+              .filter((v) => v.id !== vm.id)
+              .reduce((sum, v) => sum + Math.max(0, v.allocated - Math.max(v.used, v.minAlloc)), 0)
+            const maxAlloc = Math.min(
+              TOTAL_RAM - vms.filter((v) => v.id !== vm.id).reduce((sum, v) => sum + v.minAlloc, 0),
+              vm.allocated + currentFree + othersReclaimable
+            )
+            return (
+              <g key={vm.id}>
+                <rect
+                  x={M_VM_X}
+                  y={cardY}
+                  width={M_VM_W}
+                  height={M_VM_H}
+                  rx={4}
+                  fill={CARD_BG}
+                  stroke={BORDER}
+                  strokeWidth={1}
+                />
+                <rect x={M_VM_X} y={cardY} width={M_VM_W} height={20} rx={4} fill={CARD_BG} />
+                <rect x={M_VM_X} y={cardY + 16} width={M_VM_W} height={4} fill={CARD_BG} />
+                <line
+                  x1={M_VM_X}
+                  y1={cardY + 20}
+                  x2={M_VM_X + M_VM_W}
+                  y2={cardY + 20}
+                  stroke={BORDER}
+                  strokeWidth={1}
+                />
+                <WindowDots x={M_VM_X + 8} y={cardY + 8} />
+                <text
+                  x={M_VM_X + 34}
+                  y={cardY + 14}
+                  fill={vm.color}
+                  fontSize={10}
+                  fontFamily={MONO}
+                  fontWeight={500}
+                >
+                  {vm.name}
+                </text>
+                <rect
+                  x={memBarX}
+                  y={memBarY}
+                  width={memBarW}
+                  height={memBarH}
+                  rx={2}
+                  fill="#111"
+                  stroke={BORDER}
+                  strokeWidth={1}
+                />
+                <rect
+                  x={memBarX}
+                  y={memBarY}
+                  width={memBarW}
+                  height={memBarH}
+                  rx={2}
+                  fill={vm.fill}
+                  opacity={0.3}
+                />
+                <rect
+                  x={memBarX}
+                  y={memBarY + memBarH - usedH}
+                  width={memBarW}
+                  height={usedH}
+                  rx={2}
+                  fill={vm.color}
+                  opacity={0.6}
+                />
+                <text
+                  x={memBarX + memBarW / 2}
+                  y={memBarY + memBarH + 14}
+                  textAnchor="middle"
+                  fill={vm.color}
+                  fontSize={9}
+                  fontFamily={MONO}
+                  fontWeight={500}
+                >
+                  {vm.used}MB / {vm.allocated}MB
+                </text>
+                <ellipse
+                  cx={balloonCX}
+                  cy={balloonCY}
+                  rx={balloonRX}
+                  ry={balloonRY}
+                  fill={vm.color}
+                  opacity={0.15}
+                  stroke={vm.color}
+                  strokeWidth={1}
+                  strokeDasharray="3 2"
+                />
+                <text
+                  x={balloonCX}
+                  y={balloonCY + 3}
+                  textAnchor="middle"
+                  fill={vm.color}
+                  fontSize={8}
+                  fontFamily={MONO}
+                  opacity={0.6}
+                >
+                  balloon
+                </text>
+                <Lever
+                  x={leverX}
+                  y={leverY}
+                  vm={vm}
+                  maxAlloc={maxAlloc}
+                  onAllocChange={handleAllocChange}
+                />
+                <text x={addrX} y={addrY} fill={TEXT_MUTED} fontSize={7} fontFamily={MONO}>
+                  GPA {'->'} HPA
+                </text>
+                {addrEntries.slice(0, 3).map((entry, j) => {
+                  const ey = addrY + 10 + j * 11
+                  const isReclaimed = j * Math.floor(vm.allocated / 4) >= vm.allocated
+                  return (
+                    <text
+                      key={j}
+                      x={addrX}
+                      y={ey}
+                      fill={isReclaimed ? RED : vm.color}
+                      fontSize={7}
+                      fontFamily={MONO}
+                      opacity={isReclaimed ? 0.5 : 0.8}
+                    >
+                      {isReclaimed ? `${entry.gpa} [reclaimed]` : `${entry.gpa} ${entry.hpa}`}
+                    </text>
+                  )
+                })}
+              </g>
+            )
+          })}
+          <text x={M_VM_X} y={M_HOST_BAR_Y - 4} fill={TEXT_MUTED} fontSize={9} fontFamily={MONO}>
+            Host Physical RAM ({TOTAL_RAM}MB)
+          </text>
+          <rect
+            x={M_VM_X}
+            y={M_HOST_BAR_Y}
+            width={M_VM_W}
+            height={M_HOST_BAR_H}
+            rx={3}
+            fill="#111"
+            stroke={BORDER}
+            strokeWidth={1}
+          />
+          {mSegments.map((seg, i) => (
+            <g key={i}>
+              <rect
+                x={seg.x}
+                y={M_HOST_BAR_Y}
+                width={Math.max(0, seg.w)}
+                height={M_HOST_BAR_H}
+                rx={i === 0 ? 3 : 0}
+                fill={seg.color}
+                opacity={seg.color === '#444' ? 0.3 : 0.25}
+              />
+              {seg.w > 30 && (
+                <text
+                  x={seg.x + seg.w / 2}
+                  y={M_HOST_BAR_Y + M_HOST_BAR_H / 2 + 3}
+                  textAnchor="middle"
+                  fill={seg.color === '#444' ? TEXT_MUTED : seg.color}
+                  fontSize={8}
+                  fontFamily={MONO}
+                  fontWeight={500}
+                >
+                  {seg.label}MB
+                </text>
+              )}
+            </g>
+          ))}
+          <rect
+            x={M_VM_X}
+            y={M_LOG_Y}
+            width={M_VM_W}
+            height={M_LOG_H}
+            rx={4}
+            fill={CARD_BG}
+            stroke={BORDER}
+            strokeWidth={1}
+          />
+          <rect x={M_VM_X} y={M_LOG_Y} width={M_VM_W} height={18} rx={4} fill={CARD_BG} />
+          <rect x={M_VM_X} y={M_LOG_Y + 14} width={M_VM_W} height={4} fill={CARD_BG} />
+          <line
+            x1={M_VM_X}
+            y1={M_LOG_Y + 18}
+            x2={M_VM_X + M_VM_W}
+            y2={M_LOG_Y + 18}
+            stroke={BORDER}
+            strokeWidth={1}
+          />
+          <WindowDots x={M_VM_X + 8} y={M_LOG_Y + 7} />
+          <text x={M_VM_X + 34} y={M_LOG_Y + 13} fill={TEXT_MUTED} fontSize={8} fontFamily={MONO}>
+            event log
+          </text>
+          {log.slice(0, 5).map((entry, i) => (
+            <text
+              key={entry.id}
+              x={M_VM_X + 10}
+              y={M_LOG_Y + 32 + i * 14}
+              fill={entry.color}
+              fontSize={8}
+              fontFamily={MONO}
+              opacity={1 - i * 0.1}
+            >
+              {entry.text.length > 50 ? entry.text.slice(0, 50) + '...' : entry.text}
+            </text>
+          ))}
+        </svg>
+      </div>
+
+      {/* Desktop: VMs side by side */}
+      <div className="hidden md:block" style={{ overflowX: 'auto' }}>
         <svg
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           style={{
@@ -405,34 +660,23 @@ export function MemoryBalloonGame() {
             display: 'block',
           }}
         >
-          {/* VM Columns */}
           {vms.map((vm, i) => {
             const colX = VM_START_X + i * (VM_COL_W + VM_COL_GAP)
             const addrEntries = getAddrEntries(vm)
-
-            // Memory bar inside VM box
             const memBarX = colX + 12
             const memBarY = VM_Y + 30
             const memBarW = 80
             const memBarH = 120
             const usedFraction = vm.used / (vm.allocated || 1)
             const usedH = Math.max(0, usedFraction * memBarH)
-
-            // Balloon
             const balloonCX = memBarX + memBarW / 2
             const balloonCY = memBarY + memBarH + 28
             const balloonRX = 12 + (vm.allocated / TOTAL_RAM) * 25
             const balloonRY = 8 + (vm.allocated / TOTAL_RAM) * 16
-
-            // Lever position
             const leverX = colX + 110
             const leverY = VM_Y + 36
-
-            // Address table
             const addrX = colX + 110
             const addrY = VM_Y + 36 + LEVER_TRACK_H + 24
-
-            // Max this VM could have
             const othersReclaimable = vms
               .filter((v) => v.id !== vm.id)
               .reduce((sum, v) => sum + Math.max(0, v.allocated - Math.max(v.used, v.minAlloc)), 0)
@@ -440,10 +684,8 @@ export function MemoryBalloonGame() {
               TOTAL_RAM - vms.filter((v) => v.id !== vm.id).reduce((sum, v) => sum + v.minAlloc, 0),
               vm.allocated + currentFree + othersReclaimable
             )
-
             return (
               <g key={vm.id}>
-                {/* VM box */}
                 <rect
                   x={colX}
                   y={VM_Y}
@@ -454,7 +696,6 @@ export function MemoryBalloonGame() {
                   stroke={BORDER}
                   strokeWidth={1}
                 />
-                {/* Window header */}
                 <rect x={colX} y={VM_Y} width={VM_COL_W} height={20} rx={4} fill={CARD_BG} />
                 <rect x={colX} y={VM_Y + 16} width={VM_COL_W} height={4} fill={CARD_BG} />
                 <line
@@ -476,8 +717,6 @@ export function MemoryBalloonGame() {
                 >
                   {vm.name}
                 </text>
-
-                {/* Memory bar */}
                 <rect
                   x={memBarX}
                   y={memBarY}
@@ -488,7 +727,6 @@ export function MemoryBalloonGame() {
                   stroke={BORDER}
                   strokeWidth={1}
                 />
-                {/* Allocated portion (full bar background) */}
                 <rect
                   x={memBarX}
                   y={memBarY}
@@ -498,7 +736,6 @@ export function MemoryBalloonGame() {
                   fill={vm.fill}
                   opacity={0.3}
                 />
-                {/* Used portion */}
                 <rect
                   x={memBarX}
                   y={memBarY + memBarH - usedH}
@@ -508,7 +745,6 @@ export function MemoryBalloonGame() {
                   fill={vm.color}
                   opacity={0.6}
                 />
-                {/* Memory label */}
                 <text
                   x={memBarX + memBarW / 2}
                   y={memBarY + memBarH + 14}
@@ -520,8 +756,6 @@ export function MemoryBalloonGame() {
                 >
                   {vm.used}MB / {vm.allocated}MB
                 </text>
-
-                {/* Balloon */}
                 <ellipse
                   cx={balloonCX}
                   cy={balloonCY}
@@ -544,8 +778,6 @@ export function MemoryBalloonGame() {
                 >
                   balloon
                 </text>
-
-                {/* Lever */}
                 <Lever
                   x={leverX}
                   y={leverY}
@@ -553,8 +785,6 @@ export function MemoryBalloonGame() {
                   maxAlloc={maxAlloc}
                   onAllocChange={handleAllocChange}
                 />
-
-                {/* Address mappings (compact) */}
                 <text x={addrX} y={addrY} fill={TEXT_MUTED} fontSize={6.5} fontFamily={MONO}>
                   GPA {'->'} HPA
                 </text>
@@ -579,8 +809,6 @@ export function MemoryBalloonGame() {
               </g>
             )
           })}
-
-          {/* Host RAM Bar */}
           <text x={VM_START_X} y={HOST_BAR_Y - 4} fill={TEXT_MUTED} fontSize={9} fontFamily={MONO}>
             Host Physical RAM ({TOTAL_RAM}MB)
           </text>
@@ -594,7 +822,6 @@ export function MemoryBalloonGame() {
             stroke={BORDER}
             strokeWidth={1}
           />
-          {/* Colored segments for each VM + free */}
           {segments.map((seg, i) => (
             <g key={i}>
               <rect
@@ -621,8 +848,6 @@ export function MemoryBalloonGame() {
               )}
             </g>
           ))}
-
-          {/* Event Log */}
           <rect
             x={VM_START_X}
             y={LOG_Y}
@@ -633,7 +858,6 @@ export function MemoryBalloonGame() {
             stroke={BORDER}
             strokeWidth={1}
           />
-          {/* Log header */}
           <rect x={VM_START_X} y={LOG_Y} width={barW} height={18} rx={4} fill={CARD_BG} />
           <rect x={VM_START_X} y={LOG_Y + 14} width={barW} height={4} fill={CARD_BG} />
           <line
@@ -648,7 +872,6 @@ export function MemoryBalloonGame() {
           <text x={VM_START_X + 34} y={LOG_Y + 13} fill={TEXT_MUTED} fontSize={8} fontFamily={MONO}>
             event log
           </text>
-          {/* Log entries */}
           {log.slice(0, 6).map((entry, i) => (
             <text
               key={entry.id}
