@@ -1,15 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 
 const STORAGE_KEY = 'fluid_has_visited'
 
+function getSnapshot() {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function subscribe() {
+  // No external changes to subscribe to
+  return () => {}
+}
+
 export function useReturningVisitor() {
-  const [isReturning, setIsReturning] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === '1'
-    } catch {
-      return false
-    }
-  })
+  const isReturning = useSyncExternalStore(subscribe, getSnapshot, () => false)
 
   useEffect(() => {
     try {
