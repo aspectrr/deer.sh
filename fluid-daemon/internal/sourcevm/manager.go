@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/shellutil"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshkeys"
 )
 
@@ -272,7 +273,7 @@ func (m *Manager) RunSourceCommand(ctx context.Context, vmName, command string, 
 // ReadSourceFile reads a file from a source VM via base64-encoded transfer.
 func (m *Manager) ReadSourceFile(ctx context.Context, vmName, path string) (string, error) {
 	// Use base64 encoding for safe binary transfer
-	command := fmt.Sprintf("base64 %s", path)
+	command := fmt.Sprintf("base64 -- %s", shellutil.Quote(path))
 
 	stdout, stderr, exitCode, err := m.RunSourceCommand(ctx, vmName, command, 30*time.Second)
 	if err != nil {
@@ -352,15 +353,14 @@ func (m *Manager) sshCmd(ctx context.Context, ip, user string, creds *sshkeys.Cr
 	args := []string{
 		"-i", creds.PrivateKeyPath,
 		"-o", "CertificateFile=" + creds.CertificatePath,
-		"-o", "StrictHostKeyChecking=no",
-		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "StrictHostKeyChecking=accept-new",
 		"-o", fmt.Sprintf("ConnectTimeout=%d", int(timeout.Seconds())),
 	}
 
 	if m.proxyJump != "" && m.identityFile != "" {
 		args = append(args, "-o", fmt.Sprintf(
-			"ProxyCommand=ssh -i %s -o StrictHostKeyChecking=no -W %%h:%%p %s",
-			m.identityFile, m.proxyJump))
+			"ProxyCommand=ssh -i %s -o StrictHostKeyChecking=accept-new -W %%h:%%p %s",
+			shellutil.Quote(m.identityFile), shellutil.Quote(m.proxyJump)))
 	} else if m.proxyJump != "" {
 		args = append(args, "-J", m.proxyJump)
 	}
@@ -391,15 +391,14 @@ func (m *Manager) sshCmdWithKey(ctx context.Context, ip, user, keyPath, command 
 
 	args := []string{
 		"-i", keyPath,
-		"-o", "StrictHostKeyChecking=no",
-		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "StrictHostKeyChecking=accept-new",
 		"-o", fmt.Sprintf("ConnectTimeout=%d", int(timeout.Seconds())),
 	}
 
 	if m.proxyJump != "" && m.identityFile != "" {
 		args = append(args, "-o", fmt.Sprintf(
-			"ProxyCommand=ssh -i %s -o StrictHostKeyChecking=no -W %%h:%%p %s",
-			m.identityFile, m.proxyJump))
+			"ProxyCommand=ssh -i %s -o StrictHostKeyChecking=accept-new -W %%h:%%p %s",
+			shellutil.Quote(m.identityFile), shellutil.Quote(m.proxyJump)))
 	} else if m.proxyJump != "" {
 		args = append(args, "-J", m.proxyJump)
 	}

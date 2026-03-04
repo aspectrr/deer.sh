@@ -46,6 +46,7 @@ type Logger struct {
 	seq          int64
 	mu           sync.Mutex
 	maxSizeBytes int64
+	dropped      int64
 }
 
 // NewLogger opens or creates an audit log file. It reads any existing entries
@@ -66,10 +67,14 @@ func NewLogger(logPath string, maxSizeMB int) (*Logger, error) {
 			}
 			var e Entry
 			if err := json.Unmarshal(line, &e); err != nil {
+				slog.Warn("audit: skipping unparseable entry during startup", "error", err)
 				continue
 			}
 			prevHash = e.Hash
 			seq = e.Seq
+		}
+		if err := scanner.Err(); err != nil {
+			slog.Warn("audit: error reading log during startup", "error", err)
 		}
 		_ = f.Close()
 	}
@@ -169,7 +174,8 @@ func (l *Logger) write(entry *Entry) {
 	// Enforce max file size if configured.
 	if l.maxSizeBytes > 0 {
 		if info, err := l.file.Stat(); err == nil && info.Size() >= l.maxSizeBytes {
-			slog.Warn("audit: log file at max size, skipping write", "size", info.Size(), "max", l.maxSizeBytes)
+			l.dropped++
+			slog.Warn("audit: log file at max size, dropping event", "size", info.Size(), "max", l.maxSizeBytes, "dropped_total", l.dropped)
 			return
 		}
 	}
@@ -184,6 +190,7 @@ func (l *Logger) write(entry *Entry) {
 
 	data, err := json.Marshal(entry)
 	if err != nil {
+		slog.Error("audit: failed to marshal entry", "error", err, "seq", entry.Seq)
 		return
 	}
 	data = append(data, '\n')
@@ -210,6 +217,7 @@ func hashEntry(entry *Entry) string {
 
 	canonical, err := json.Marshal(entry)
 	if err != nil {
+		slog.Error("audit: failed to marshal entry for hashing", "error", err)
 		return ""
 	}
 

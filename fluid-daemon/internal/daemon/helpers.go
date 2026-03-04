@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"fmt"
+	"net/url"
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
@@ -17,6 +18,11 @@ func (s *Server) adhocSourceVMManager(conn *fluidv1.SourceHostConnection) (*sour
 		return nil, fmt.Errorf("ssh_host is required in source_host_connection")
 	}
 
+	// Two SSH users are involved:
+	// - conn.GetSshUser() (default "fluid-daemon") connects to the remote libvirt
+	//   host for virsh/qemu operations (VM listing, snapshots, disk access).
+	// - "fluid-readonly" (passed to NewManager) connects to source VMs running on
+	//   that host for read-only file and command access.
 	user := conn.GetSshUser()
 	if user == "" {
 		user = "fluid-daemon"
@@ -24,7 +30,7 @@ func (s *Server) adhocSourceVMManager(conn *fluidv1.SourceHostConnection) (*sour
 
 	uri := fmt.Sprintf("qemu+ssh://%s@%s/system", user, host)
 	if s.sshIdentityFile != "" {
-		uri += fmt.Sprintf("?keyfile=%s", s.sshIdentityFile)
+		uri += fmt.Sprintf("?keyfile=%s", url.QueryEscape(s.sshIdentityFile))
 	}
 	proxyJump := fmt.Sprintf("%s@%s", user, host)
 

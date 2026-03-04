@@ -91,6 +91,10 @@ func ReadRecent(logPath string, n int) ([]Entry, error) {
 		all = append(all, entry)
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read audit log: %w", err)
+	}
+
 	if len(all) <= n {
 		return all, nil
 	}

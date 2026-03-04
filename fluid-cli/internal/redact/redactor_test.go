@@ -98,10 +98,10 @@ func TestAPIKeyRedaction(t *testing.T) {
 
 func TestBearerTokenRedaction(t *testing.T) {
 	r := New()
-	input := "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+	input := "Authorization: Bearer eyTHISISAFAKEJWTFORTESTINGONLY1234"
 	redacted := r.Redact(input)
 
-	if strings.Contains(redacted, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") {
+	if strings.Contains(redacted, "eyTHISISAFAKEJWTFORTESTINGONLY1234") {
 		t.Errorf("Bearer token should be redacted, got: %s", redacted)
 	}
 }
@@ -123,8 +123,8 @@ func TestSSHPrivateKeyRedaction(t *testing.T) {
 	r := New()
 	input := `config before
 -----BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/yGaT
-base64encodedkeydata1234567890abcdef
+MIIEpAIBAAKCAQEATHISISFAKEKEYTESTING
+base64encodedFAKEdata1234567890abcdef
 -----END RSA PRIVATE KEY-----
 config after`
 	redacted := r.Redact(input)

@@ -84,15 +84,15 @@ jobs:
 
           # Sign Release file
           gpg --batch --yes --pinentry-mode loopback \
-            --passphrase "$GPG_PASSPHRASE" \
-            --local-user "$GPG_FINGERPRINT" \
+            --passphrase "${GPG_PASSPHRASE}" \
+            --local-user "${GPG_FINGERPRINT}" \
             --armor --detach-sign \
             --output dists/stable/Release.gpg \
             dists/stable/Release
 
           gpg --batch --yes --pinentry-mode loopback \
-            --passphrase "$GPG_PASSPHRASE" \
-            --local-user "$GPG_FINGERPRINT" \
+            --passphrase "${GPG_PASSPHRASE}" \
+            --local-user "${GPG_FINGERPRINT}" \
             --armor --clearsign \
             --output dists/stable/InRelease \
             dists/stable/Release
@@ -118,8 +118,8 @@ jobs:
           # Sign RPMs
           for rpm in packages/yum/**/*.rpm; do
             [ -f "$rpm" ] && rpmsign --addsign \
-              --define "_gpg_name $GPG_FINGERPRINT" \
-              --define "__gpg_sign_cmd %{__gpg} gpg --batch --yes --pinentry-mode loopback --passphrase $GPG_PASSPHRASE -u '%{_gpg_name}' --detach-sign --armor -o %{__signature_filename} %{__plaintext_filename}" \
+              --define "_gpg_name ${GPG_FINGERPRINT}" \
+              --define "__gpg_sign_cmd %{__gpg} gpg --batch --yes --pinentry-mode loopback --passphrase '${GPG_PASSPHRASE}' -u '%{_gpg_name}' --detach-sign --armor -o %{__signature_filename} %{__plaintext_filename}" \
               "$rpm" 2>/dev/null || true
           done
 

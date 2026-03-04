@@ -114,7 +114,7 @@ log_info "Cleaning up ALL existing VMs..."
 # Get list of all VMs (running and shut off)
 VMS=$(virsh list --all --name 2>/dev/null || true)
 
-for VM in $VMS; do
+while IFS= read -r VM; do
     if [[ -n "$VM" ]]; then
         log_info "Removing VM: $VM"
         # Destroy (stop) if running
@@ -122,7 +122,7 @@ for VM in $VMS; do
         # Undefine and remove NVRAM if applicable
         virsh undefine "$VM" --nvram > /dev/null 2>&1 || virsh undefine "$VM" > /dev/null 2>&1 || true
     fi
-done
+done <<< "$VMS"
 
 # Clean up old cloud-init directories
 log_info "Cleaning up old cloud-init data..."

@@ -2,8 +2,11 @@ import { type ReactNode, isValidElement, Children } from 'react'
 import { IdeCodeBlock } from './ide-code-block'
 import { TerminalCodeBlock } from './terminal-code-block'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function BlogPreBlock(props: any) {
+interface BlogPreBlockProps extends React.HTMLAttributes<HTMLPreElement> {
+  children?: ReactNode
+}
+
+export function BlogPreBlock(props: BlogPreBlockProps) {
   const codeChild = findCodeChild(props.children)
   if (!codeChild) {
     return <pre {...props} />

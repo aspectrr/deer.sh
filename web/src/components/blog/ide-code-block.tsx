@@ -27,7 +27,7 @@ export function IdeCodeBlock({ code, lang, filename, className }: IdeCodeBlockPr
           lang: displayLang,
           theme: 'github-dark',
         })
-        setHtml(result)
+        setHtml(sanitizeHtml(result))
       } catch {
         setHtml(`<pre class="shiki"><code>${escapeHtml(trimmed)}</code></pre>`)
       }
@@ -102,6 +102,14 @@ function LineNumbers({ count }: { count: number }) {
       ))}
     </div>
   )
+}
+
+// Strip script tags and event handlers from HTML as defense-in-depth.
+// Shiki output is trusted but this guards against library vulnerabilities.
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
 }
 
 function escapeHtml(str: string): string {

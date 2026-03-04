@@ -52,6 +52,10 @@ func EnsureKeyPair(keyDir string) (privateKeyPath string, pubKeyContents string,
 	if err := os.WriteFile(privPath, privBytes, 0o600); err != nil {
 		return "", "", fmt.Errorf("write private key: %w", err)
 	}
+	// Ensure permissions are correct regardless of umask
+	if err := os.Chmod(privPath, 0o600); err != nil {
+		return "", "", fmt.Errorf("set private key permissions: %w", err)
+	}
 
 	// Marshal public key to authorized_keys format
 	sshPub, err := ssh.NewPublicKey(pubKey)

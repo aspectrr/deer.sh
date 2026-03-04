@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"strings"
 )
@@ -65,7 +66,11 @@ func Resolve(hostAlias string) (*ResolvedHost, error) {
 		result.Hostname = hostAlias
 	}
 	if result.User == "" {
-		result.User = "root"
+		if u, err := user.Current(); err == nil {
+			result.User = u.Username
+		} else {
+			result.User = "root"
+		}
 	}
 
 	return result, nil

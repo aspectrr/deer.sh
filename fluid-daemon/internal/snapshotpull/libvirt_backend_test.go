@@ -55,9 +55,9 @@ func TestLibvirtBackend_SSHOpts(t *testing.T) {
 		t.Errorf("expected opts to contain port, got: %s", opts)
 	}
 
-	// Should contain identity file
-	if !contains(opts, "-i /path/to/key") {
-		t.Errorf("expected opts to contain identity file, got: %s", opts)
+	// Should contain identity file (shell-quoted)
+	if !contains(opts, "-i '/path/to/key'") {
+		t.Errorf("expected opts to contain shell-quoted identity file, got: %s", opts)
 	}
 }
 
@@ -74,7 +74,7 @@ func TestLibvirtBackend_VirshCmd(t *testing.T) {
 	b := NewLibvirtBackend("host1", 22, "root", "", "qemu:///system", nil)
 	cmd := b.virshCmd("domblklist test-vm --details")
 
-	expected := "virsh -c qemu:///system domblklist test-vm --details"
+	expected := "virsh -c 'qemu:///system' domblklist test-vm --details"
 	if cmd != expected {
 		t.Errorf("expected %q, got %q", expected, cmd)
 	}
@@ -84,7 +84,7 @@ func TestLibvirtBackend_VirshCmd_CustomURI(t *testing.T) {
 	b := NewLibvirtBackend("host1", 22, "root", "", "qemu+tcp://localhost/system", nil)
 	cmd := b.virshCmd("list --all")
 
-	expected := "virsh -c qemu+tcp://localhost/system list --all"
+	expected := "virsh -c 'qemu+tcp://localhost/system' list --all"
 	if cmd != expected {
 		t.Errorf("expected %q, got %q", expected, cmd)
 	}
@@ -232,34 +232,6 @@ func TestWaitForBlockJob_RespectsContextCancellation(t *testing.T) {
 	}
 }
 
-func TestOverlayPath(t *testing.T) {
-	b := NewLibvirtBackend("host1", 22, "root", "", "", nil)
-
-	tests := []struct {
-		diskPath string
-		snapName string
-		expected string
-	}{
-		{
-			"/var/lib/libvirt/images/test-vm-1.qcow2",
-			"fluid-tmp-snap",
-			"/var/lib/libvirt/images/test-vm-1.fluid-tmp-snap",
-		},
-		{
-			"/data/vms/myvm.raw",
-			"fluid-tmp-snap",
-			"/data/vms/myvm.fluid-tmp-snap",
-		},
-	}
-
-	for _, tt := range tests {
-		got := b.overlayPath(tt.diskPath, tt.snapName)
-		if got != tt.expected {
-			t.Errorf("overlayPath(%q, %q) = %q, want %q", tt.diskPath, tt.snapName, got, tt.expected)
-		}
-	}
-}
-
 func TestIsFluidOverlay(t *testing.T) {
 	tests := []struct {
 		path     string
@@ -327,35 +299,6 @@ cluster_size: 65536`,
 				t.Errorf("backing file detection for %q = %v, want %v", tt.name, got, tt.expected)
 			}
 		})
-	}
-}
-
-func TestOverlayPath_WithTimestampedSnap(t *testing.T) {
-	b := NewLibvirtBackend("host1", 22, "root", "", "", nil)
-
-	tests := []struct {
-		diskPath string
-		snapName string
-		expected string
-	}{
-		{
-			"/var/lib/libvirt/images/test-vm-1.qcow2",
-			"fluid-tmp-snap-1709000000",
-			"/var/lib/libvirt/images/test-vm-1.fluid-tmp-snap-1709000000",
-		},
-		{
-			// Overlay-named disk as input (post-blockpull scenario)
-			"/var/lib/libvirt/images/test-vm-1.fluid-tmp-snap-1709000000",
-			"fluid-tmp-snap-1709000001",
-			"/var/lib/libvirt/images/test-vm-1.fluid-tmp-snap-1709000001",
-		},
-	}
-
-	for _, tt := range tests {
-		got := b.overlayPath(tt.diskPath, tt.snapName)
-		if got != tt.expected {
-			t.Errorf("overlayPath(%q, %q) = %q, want %q", tt.diskPath, tt.snapName, got, tt.expected)
-		}
 	}
 }
 

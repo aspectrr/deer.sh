@@ -5,6 +5,7 @@ package readonly
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -300,13 +301,16 @@ func splitPipeline(s string) []string {
 	return segments
 }
 
+// envAssignRe matches shell env var assignments like FOO=bar or _VAR=value.
+var envAssignRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
+
 // extractBaseCommand returns the first actual command token from a segment,
 // skipping leading environment variable assignments (VAR=value).
 func extractBaseCommand(seg string) string {
 	tokens := tokenize(seg)
 	for _, tok := range tokens {
-		// Skip env var assignments like FOO=bar
-		if strings.Contains(tok, "=") && !strings.HasPrefix(tok, "-") {
+		// Skip env var assignments like FOO=bar but not --config=/path
+		if envAssignRe.MatchString(tok) {
 			continue
 		}
 		// Handle path-qualified commands like /usr/bin/cat
@@ -327,7 +331,7 @@ func extractSubcommand(seg, baseCmd string) string {
 	for _, tok := range tokens {
 		if !foundBase {
 			// Skip env assignments
-			if strings.Contains(tok, "=") && !strings.HasPrefix(tok, "-") {
+			if envAssignRe.MatchString(tok) {
 				continue
 			}
 			base := tok

@@ -44,6 +44,15 @@ function findPost(slug: string) {
   return null
 }
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
 function ShareButton({ title }: { title: string }) {
   const [label, setLabel] = useState('share')
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -289,7 +298,7 @@ function BlogPost() {
                         text
                       </a>
                     )}
-                    {frontmatter.authorDiscord && (
+                    {frontmatter.authorDiscord && isSafeUrl(frontmatter.authorDiscord) && (
                       <a
                         href={frontmatter.authorDiscord}
                         target="_blank"

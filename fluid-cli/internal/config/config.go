@@ -49,10 +49,9 @@ type RedactConfig struct {
 
 // AuditConfig controls the hash-chained audit log.
 type AuditConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	LogPath    string `yaml:"log_path"`
-	MaxSizeMB  int    `yaml:"max_size_mb"`
-	RetainDays int    `yaml:"retain_days"`
+	Enabled   bool   `yaml:"enabled"`
+	LogPath   string `yaml:"log_path"`
+	MaxSizeMB int    `yaml:"max_size_mb"`
 }
 
 // ControlPlaneConfig configures the connection to the hosted control plane.
@@ -225,10 +224,9 @@ func DefaultConfig() *Config {
 			Enabled: true,
 		},
 		Audit: AuditConfig{
-			Enabled:    true,
-			LogPath:    filepath.Join(configDir, "audit.jsonl"),
-			MaxSizeMB:  50,
-			RetainDays: 90,
+			Enabled:   true,
+			LogPath:   filepath.Join(configDir, "audit.jsonl"),
+			MaxSizeMB: 50,
 		},
 		AIAgent: AIAgentConfig{
 			Provider: "openrouter",
@@ -369,10 +367,6 @@ func applyDefaults(cfg *Config) {
 	if cfg.Audit.MaxSizeMB == 0 {
 		cfg.Audit.MaxSizeMB = defaults.Audit.MaxSizeMB
 	}
-	if cfg.Audit.RetainDays == 0 {
-		cfg.Audit.RetainDays = defaults.Audit.RetainDays
-	}
-
 	// Migration: if ControlPlane.DaemonAddress is set and SandboxHosts is empty,
 	// auto-migrate the daemon address to a sandbox host entry.
 	if cfg.ControlPlane.DaemonAddress != "" && len(cfg.SandboxHosts) == 0 {

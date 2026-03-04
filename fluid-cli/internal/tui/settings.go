@@ -58,7 +58,6 @@ const (
 	FieldAuditEnabled
 	FieldAuditLogPath
 	FieldAuditMaxSizeMB
-	FieldAuditRetainDays
 
 	// Allowlist
 	FieldExtraAllowedCommands
@@ -109,7 +108,7 @@ func NewSettingsModel(cfg *config.Config, configPath string) SettingsModel {
 		// Redaction
 		"Redaction Enabled:", "Custom Patterns:", "Allowlist:",
 		// Audit
-		"Audit Enabled:", "Log Path:", "Max Size (MB):", "Retain Days:",
+		"Audit Enabled:", "Log Path:", "Max Size (MB):",
 		// Allowlist
 		"Extra Allowed Commands:",
 	}
@@ -129,7 +128,7 @@ func NewSettingsModel(cfg *config.Config, configPath string) SettingsModel {
 		// Redaction
 		"Redaction", "Redaction", "Redaction",
 		// Audit
-		"Audit", "Audit", "Audit", "Audit",
+		"Audit", "Audit", "Audit",
 		// Allowlist
 		"Allowlist",
 	}
@@ -214,9 +213,6 @@ func (m SettingsModel) getStaticConfigValue(field StaticSettingsField) string {
 		return m.cfg.Audit.LogPath
 	case FieldAuditMaxSizeMB:
 		return strconv.Itoa(m.cfg.Audit.MaxSizeMB)
-	case FieldAuditRetainDays:
-		return strconv.Itoa(m.cfg.Audit.RetainDays)
-
 	case FieldExtraAllowedCommands:
 		return strings.Join(m.cfg.ExtraAllowedCommands, ",")
 	}
@@ -512,10 +508,6 @@ func (m *SettingsModel) saveConfig() error {
 	if v, err := strconv.Atoi(getStatic(FieldAuditMaxSizeMB)); err == nil {
 		m.cfg.Audit.MaxSizeMB = v
 	}
-	if v, err := strconv.Atoi(getStatic(FieldAuditRetainDays)); err == nil {
-		m.cfg.Audit.RetainDays = v
-	}
-
 	// Allowlist
 	if cmds := getStatic(FieldExtraAllowedCommands); cmds != "" {
 		m.cfg.ExtraAllowedCommands = strings.Split(cmds, ",")

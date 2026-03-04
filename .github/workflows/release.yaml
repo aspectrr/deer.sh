@@ -16,6 +16,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Write GPG key to file
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "${GPG_PRIVATE_KEY}" > /tmp/gpg_private_key
+          chmod 600 /tmp/gpg_private_key
+
       - name: Build and Release
         env:
           CGO_ENABLED: 1
@@ -23,14 +30,13 @@ jobs:
           CXX_linux_arm64: aarch64-linux-gnu-g++
           GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
+            -v /tmp/gpg_private_key:/run/secrets/gpg_private_key:ro \
             -e GPG_FINGERPRINT \
             -e GPG_PASSPHRASE \
-            -e GPG_PRIVATE_KEY \
             -e GITHUB_TOKEN \
             -w /workspace \
             golang:1.24-bookworm \
@@ -48,10 +54,10 @@ jobs:
               # Mark workspace as safe for git
               git config --global --add safe.directory /workspace
 
-              # Import and configure GPG
+              # Import and configure GPG from mounted secret
               mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
-              if [ -n "$GPG_PRIVATE_KEY" ]; then
-                echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+              if [ -f /run/secrets/gpg_private_key ]; then
+                gpg --batch --import /run/secrets/gpg_private_key
               fi
               echo "use-agent" >> ~/.gnupg/gpg.conf
               echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
@@ -62,6 +68,10 @@ jobs:
               # Install and run goreleaser
               curl -sfL https://goreleaser.com/static/run | bash -s -- release --clean
             '
+
+      - name: Clean up GPG key file
+        if: always()
+        run: rm -f /tmp/gpg_private_key
 
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
