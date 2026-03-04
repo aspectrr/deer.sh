@@ -48,16 +48,16 @@ func (d *ipv4Detector) FindAll(text string) []Match {
 				valid = false
 				break
 			}
-			if n >= 10 {
+			if n > 3 {
 				allSmall = false
 			}
 		}
 		if !valid {
 			continue
 		}
-		// Skip version-number-like strings where all octets < 10 and there
-		// are exactly 4 parts (e.g. "1.2.3.4" could be a version).
-		// We keep it if any octet >= 10 since versions rarely look like that.
+		// Skip version-number-like strings where all octets <= 3 (e.g.
+		// "1.2.3.4", "2.0.0.1"). Real public IPs like 8.8.8.8 and 1.1.1.1
+		// have at least one octet > 3, so they are still redacted.
 		if allSmall {
 			continue
 		}

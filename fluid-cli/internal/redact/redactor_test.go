@@ -31,12 +31,22 @@ func TestIPv4Restoration(t *testing.T) {
 
 func TestIPv4SkipsVersionNumbers(t *testing.T) {
 	r := New()
-	// All octets < 10 - treated as version-like, should not be redacted.
-	input := "version 1.2.3.4 is stable"
+	// All octets <= 3 - treated as version-like, should not be redacted.
+	input := "version 2.0.0.1 is stable"
 	redacted := r.Redact(input)
 
 	if redacted != input {
 		t.Errorf("version-like string should not be redacted, got: %s", redacted)
+	}
+}
+
+func TestIPv4RedactsPublicDNS(t *testing.T) {
+	r := New()
+	// 8.8.8.8 has octets > 3, so it should be redacted.
+	input := "dns 8.8.8.8 configured"
+	redacted := r.Redact(input)
+	if strings.Contains(redacted, "8.8.8.8") {
+		t.Errorf("public DNS IP 8.8.8.8 should be redacted, got: %s", redacted)
 	}
 }
 

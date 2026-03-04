@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -165,12 +166,20 @@ func (l *Logger) write(entry *Entry) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Enforce max file size if configured.
+	if l.maxSizeBytes > 0 {
+		if info, err := l.file.Stat(); err == nil && info.Size() >= l.maxSizeBytes {
+			slog.Warn("audit: log file at max size, skipping write", "size", info.Size(), "max", l.maxSizeBytes)
+			return
+		}
+	}
+
 	l.seq++
 	entry.Seq = l.seq
 	entry.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 	entry.PrevHash = l.prevHash
 
-	entry.Hash = l.computeHash(entry)
+	entry.Hash = hashEntry(entry)
 	l.prevHash = entry.Hash
 
 	data, err := json.Marshal(entry)
@@ -179,13 +188,18 @@ func (l *Logger) write(entry *Entry) {
 	}
 	data = append(data, '\n')
 
-	_, _ = l.file.Write(data)
+	if _, err := l.file.Write(data); err != nil {
+		slog.Error("audit: write failed", "error", err)
+	}
+	if err := l.file.Sync(); err != nil {
+		slog.Error("audit: sync failed", "error", err)
+	}
 }
 
-// computeHash produces the SHA-256 hex digest for an entry.
+// hashEntry produces the SHA-256 hex digest for an entry.
 // Canonical form: JSON-encode the entry without the hash field, prepend
 // prev_hash + "|", then SHA-256.
-func (l *Logger) computeHash(entry *Entry) string {
+func hashEntry(entry *Entry) string {
 	// Save and clear hash so it is excluded from canonical JSON.
 	savedHash := entry.Hash
 	entry.Hash = ""

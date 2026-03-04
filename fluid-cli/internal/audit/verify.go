@@ -2,8 +2,6 @@ package audit
 
 import (
 	"bufio"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -47,7 +45,7 @@ func VerifyChain(logPath string) (valid bool, brokenAtSeq int64, err error) {
 		}
 
 		// Recompute hash from canonical form.
-		recomputed := recomputeHash(&entry)
+		recomputed := hashEntry(&entry)
 		if recomputed != entry.Hash {
 			return false, entry.Seq, nil
 		}
@@ -93,22 +91,4 @@ func ReadRecent(logPath string, n int) ([]Entry, error) {
 		return all, nil
 	}
 	return all[len(all)-n:], nil
-}
-
-// recomputeHash computes the expected hash for an entry using the same
-// canonical form as the logger: JSON-encode entry without hash field,
-// prepend prev_hash + "|", SHA-256 hex.
-func recomputeHash(entry *Entry) string {
-	savedHash := entry.Hash
-	entry.Hash = ""
-	defer func() { entry.Hash = savedHash }()
-
-	canonical, err := json.Marshal(entry)
-	if err != nil {
-		return ""
-	}
-
-	input := entry.PrevHash + "|" + string(canonical)
-	sum := sha256.Sum256([]byte(input))
-	return hex.EncodeToString(sum[:])
 }

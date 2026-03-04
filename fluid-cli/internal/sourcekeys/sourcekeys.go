@@ -78,6 +78,7 @@ func GetPublicKey(keyDir string) (string, error) {
 }
 
 // GetPrivateKeyPath returns the path to the private key in the key directory.
+// The returned path may not exist on disk if EnsureKeyPair has not been called.
 func GetPrivateKeyPath(keyDir string) string {
 	return filepath.Join(keyDir, privateKeyName)
 }

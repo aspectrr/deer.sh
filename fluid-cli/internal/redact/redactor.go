@@ -14,6 +14,9 @@ type RedactionStats struct {
 }
 
 // Redactor replaces sensitive values with deterministic tokens and can restore them.
+// Note: the mapping and reverse maps grow unboundedly for the lifetime of the
+// Redactor. For long-running sessions with many unique sensitive values this is
+// a memory trade-off - acceptable for CLI session lifetime.
 type Redactor struct {
 	mapping   map[string]string // token -> original value
 	reverse   map[string]string // original value -> token

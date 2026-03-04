@@ -15,6 +15,8 @@ import (
 type RunFunc func(ctx context.Context, command string) (stdout, stderr string, exitCode int, err error)
 
 // NewLocal returns a RunFunc that executes commands locally via bash.
+// Security: the command string is passed directly to "bash -c". Callers
+// must only pass trusted or pre-validated input to avoid shell injection.
 func NewLocal() RunFunc {
 	return func(ctx context.Context, command string) (string, string, int, error) {
 		cmd := exec.CommandContext(ctx, "bash", "-c", command)
@@ -273,6 +275,8 @@ func RunStreamingSSHAlias(ctx context.Context, hostAlias string, extraArgs []str
 
 // WithSudo wraps a RunFunc to execute commands with sudo via base64 encoding.
 // This avoids shell quoting issues with complex commands.
+// Security: callers must ensure commands have been validated (e.g. via
+// readonly.ValidateCommand) before reaching this path.
 func WithSudo(run RunFunc) RunFunc {
 	return func(ctx context.Context, command string) (string, string, int, error) {
 		encoded := base64.StdEncoding.EncodeToString([]byte(command))
