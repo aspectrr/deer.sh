@@ -115,13 +115,19 @@ func (s *Service) RunCommandStreaming(ctx context.Context, hostName, command str
 	}, nil
 }
 
+// shellQuote wraps a string in POSIX single quotes, escaping any embedded
+// single quotes with the '\” idiom.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // ReadFile reads a file from a source host via direct SSH.
 func (s *Service) ReadFile(ctx context.Context, hostName, path string) (string, error) {
 	if !strings.HasPrefix(path, "/") {
 		return "", fmt.Errorf("path must be absolute")
 	}
 
-	result, err := s.RunCommand(ctx, hostName, fmt.Sprintf("cat %s", path))
+	result, err := s.RunCommand(ctx, hostName, fmt.Sprintf("cat -- %s", shellQuote(path)))
 	if err != nil {
 		return "", err
 	}

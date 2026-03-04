@@ -78,6 +78,14 @@ func TestValidateCommand_Allowed(t *testing.T) {
 		"uname -a ; hostname",
 		// Env var prefix
 		"FOO=bar env",
+		// xargs with allowed commands
+		"find /etc | xargs grep pattern",
+		"find /etc | xargs cat",
+		"find /etc | xargs -0 grep pattern",
+		// xargs alone (defaults to /bin/echo, safe)
+		"echo foo | xargs",
+		// sed without -i is fine
+		"sed -n 's/foo/bar/p' file",
 	}
 
 	for _, cmd := range allowed {
@@ -124,6 +132,12 @@ func TestValidateCommand_Blocked(t *testing.T) {
 		{"sh -c 'rm -rf /'", "sh allows arbitrary code"},
 		{"vi /etc/hosts", "vi is an editor"},
 		{"nano /etc/hosts", "nano is an editor"},
+		// xargs with disallowed commands
+		{"find /etc | xargs rm -rf /", "xargs can invoke arbitrary commands"},
+		{"find /etc | xargs /usr/bin/rm", "xargs with path-qualified disallowed command"},
+		// sed -i (in-place editing)
+		{"sed -i 's/foo/bar/' file", "sed -i modifies files"},
+		{"sed --in-place 's/foo/bar/' file", "sed --in-place modifies files"},
 	}
 
 	for _, tc := range blocked {

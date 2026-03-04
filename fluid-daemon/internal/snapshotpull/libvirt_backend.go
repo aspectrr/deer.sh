@@ -13,6 +13,12 @@ import (
 
 const fluidSnapPrefix = "fluid-tmp-snap"
 
+// shellQuote wraps a string in POSIX single quotes, escaping any embedded
+// single quotes with the '\” idiom.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // LibvirtBackend snapshots and pulls a VM disk from a remote libvirt host via SSH.
 type LibvirtBackend struct {
 	sshHost         string
@@ -79,7 +85,7 @@ func (b *LibvirtBackend) SnapshotAndPull(ctx context.Context, vmName string, des
 		b.cleanupAllFluidSnapshots(ctx, vmName)
 	}()
 
-	// 5. Rsync the now read-only original disk to local destPath
+	// 4. Rsync the now read-only original disk to local destPath
 	if err := b.rsyncDisk(ctx, diskPath, destPath); err != nil {
 		return fmt.Errorf("rsync disk: %w", err)
 	}
@@ -90,7 +96,7 @@ func (b *LibvirtBackend) SnapshotAndPull(ctx context.Context, vmName string, des
 
 // findDiskPath uses virsh domblklist to find the primary disk path.
 func (b *LibvirtBackend) findDiskPath(ctx context.Context, vmName string) (string, error) {
-	out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("domblklist %s --details", vmName)))
+	out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("domblklist %s --details", shellQuote(vmName))))
 	if err != nil {
 		return "", err
 	}
@@ -109,7 +115,7 @@ func (b *LibvirtBackend) findDiskPath(ctx context.Context, vmName string) (strin
 func (b *LibvirtBackend) createSnapshot(ctx context.Context, vmName, snapName string) error {
 	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf(
 		"snapshot-create-as %s %s --disk-only --atomic",
-		vmName, snapName,
+		shellQuote(vmName), shellQuote(snapName),
 	)))
 	return err
 }
@@ -119,7 +125,7 @@ func (b *LibvirtBackend) createSnapshot(ctx context.Context, vmName, snapName st
 func (b *LibvirtBackend) waitForBlockJob(ctx context.Context, vmName string) error {
 	const pollInterval = 2 * time.Second
 	for {
-		out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --info", vmName)))
+		out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --info", shellQuote(vmName))))
 		if err != nil || strings.TrimSpace(out) == "" {
 			// No active block job (command errors or empty = no job)
 			return nil
@@ -134,7 +140,7 @@ func (b *LibvirtBackend) waitForBlockJob(ctx context.Context, vmName string) err
 		if strings.Contains(strings.ToLower(out), "ready") {
 			// Job completed merge phase, needs pivot
 			b.logger.Info("block job ready, pivoting", "vm", vmName)
-			_, _ = b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --pivot", vmName)))
+			_, _ = b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --pivot", shellQuote(vmName))))
 			continue // re-check after pivot
 		}
 
@@ -156,7 +162,7 @@ func (b *LibvirtBackend) blockcommit(ctx context.Context, vmName string) error {
 	}
 	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf(
 		"blockcommit %s vda --active --pivot --delete",
-		vmName,
+		shellQuote(vmName),
 	)))
 	return err
 }
@@ -212,7 +218,7 @@ func (b *LibvirtBackend) findCleanDiskPath(ctx context.Context, vmName string) (
 		b.logger.Warn("VM disk is stale overlay, recovering", "vm", vmName, "disk", diskPath)
 
 		// Abort any stuck block jobs before attempting blockcommit
-		_, _ = b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --abort", vmName)))
+		_, _ = b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockjob %s vda --abort", shellQuote(vmName))))
 		time.Sleep(time.Second)
 
 		// Try blockcommit first
@@ -234,7 +240,7 @@ func (b *LibvirtBackend) findCleanDiskPath(ctx context.Context, vmName string) (
 
 		// Remove the orphaned overlay file
 		b.logger.Warn("removing stale overlay file", "vm", vmName, "path", diskPath)
-		_, _ = b.sshCommand(ctx, fmt.Sprintf("rm -f %s", diskPath))
+		_, _ = b.sshCommand(ctx, fmt.Sprintf("rm -f %s", shellQuote(diskPath)))
 
 		// Re-query to get the real disk path after pivot
 		diskPath, err = b.findDiskPath(ctx, vmName)
@@ -264,7 +270,7 @@ func isFluidOverlay(diskPath string) bool {
 
 // hasBackingFile checks if a disk image has a backing file (is part of a chain).
 func (b *LibvirtBackend) hasBackingFile(ctx context.Context, diskPath string) (bool, error) {
-	out, err := b.sshCommand(ctx, fmt.Sprintf("qemu-img info %s", diskPath))
+	out, err := b.sshCommand(ctx, fmt.Sprintf("qemu-img info %s", shellQuote(diskPath)))
 	if err != nil {
 		return false, err
 	}
@@ -273,13 +279,13 @@ func (b *LibvirtBackend) hasBackingFile(ctx context.Context, diskPath string) (b
 
 // blockpull pulls backing data into the active overlay, making it standalone.
 func (b *LibvirtBackend) blockpull(ctx context.Context, vmName string) error {
-	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockpull %s vda --wait", vmName)))
+	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("blockpull %s vda --wait", shellQuote(vmName))))
 	return err
 }
 
 // cleanupAllFluidSnapshots removes all fluid snapshot metadata from a VM.
 func (b *LibvirtBackend) cleanupAllFluidSnapshots(ctx context.Context, vmName string) {
-	out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("snapshot-list %s --name", vmName)))
+	out, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf("snapshot-list %s --name", shellQuote(vmName))))
 	if err != nil {
 		return
 	}
@@ -300,6 +306,7 @@ func (b *LibvirtBackend) cleanupOrphanOverlayFiles(ctx context.Context, vmName, 
 		base = base[:dot]
 	}
 	pattern := dir + base + "." + fluidSnapPrefix + "*"
+	// Pattern is derived from virsh domblklist output (trusted), needs glob expansion so not quoted.
 	out, err := b.sshCommand(ctx, fmt.Sprintf("ls %s 2>/dev/null", pattern))
 	if err != nil || strings.TrimSpace(out) == "" {
 		return
@@ -308,7 +315,7 @@ func (b *LibvirtBackend) cleanupOrphanOverlayFiles(ctx context.Context, vmName, 
 		f = strings.TrimSpace(f)
 		if f != "" && f != currentDiskPath {
 			b.logger.Warn("removing orphaned overlay file", "vm", vmName, "path", f)
-			_, _ = b.sshCommand(ctx, fmt.Sprintf("rm -f %s", f))
+			_, _ = b.sshCommand(ctx, fmt.Sprintf("rm -f %s", shellQuote(f)))
 		}
 	}
 }
@@ -330,7 +337,7 @@ func (b *LibvirtBackend) overlayPath(diskPath, snapName string) string {
 func (b *LibvirtBackend) deleteSnapshotMetadata(ctx context.Context, vmName, snapName string) error {
 	_, err := b.sshCommand(ctx, b.virshCmd(fmt.Sprintf(
 		"snapshot-delete %s %s --metadata",
-		vmName, snapName,
+		shellQuote(vmName), shellQuote(snapName),
 	)))
 	return err
 }
@@ -358,7 +365,7 @@ func (b *LibvirtBackend) rsyncDisk(ctx context.Context, remotePath, localPath st
 // sshCommand runs a command on the remote host via SSH.
 func (b *LibvirtBackend) sshCommand(ctx context.Context, command string) (string, error) {
 	args := []string{
-		"-o", "StrictHostKeyChecking=no",
+		"-o", "StrictHostKeyChecking=accept-new",
 		"-o", "BatchMode=yes",
 		"-p", fmt.Sprintf("%d", b.sshPort),
 	}
@@ -380,7 +387,7 @@ func (b *LibvirtBackend) sshCommand(ctx context.Context, command string) (string
 
 // sshOpts returns the SSH option string for use with rsync -e.
 func (b *LibvirtBackend) sshOpts() string {
-	opts := fmt.Sprintf("-o StrictHostKeyChecking=no -o BatchMode=yes -p %d", b.sshPort)
+	opts := fmt.Sprintf("-o StrictHostKeyChecking=accept-new -o BatchMode=yes -p %d", b.sshPort)
 	if b.sshIdentityFile != "" {
 		opts += fmt.Sprintf(" -i %s", b.sshIdentityFile)
 	}

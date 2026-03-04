@@ -199,6 +199,9 @@ func (l *Logger) write(entry *Entry) {
 // hashEntry produces the SHA-256 hex digest for an entry.
 // Canonical form: JSON-encode the entry without the hash field, prepend
 // prev_hash + "|", then SHA-256.
+//
+// NOTE: This temporarily mutates entry.Hash in place and restores it via defer.
+// This is safe because all callers hold l.mu.
 func hashEntry(entry *Entry) string {
 	// Save and clear hash so it is excluded from canonical JSON.
 	savedHash := entry.Hash

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 )
 
@@ -61,6 +62,8 @@ func VerifyChain(logPath string) (valid bool, brokenAtSeq int64, err error) {
 }
 
 // ReadRecent reads the last n entries from the audit log.
+// All entries are loaded into memory, which is acceptable because log size
+// is bounded by maxSizeBytes.
 func ReadRecent(logPath string, n int) ([]Entry, error) {
 	f, err := os.Open(logPath)
 	if err != nil {
@@ -82,6 +85,7 @@ func ReadRecent(logPath string, n int) ([]Entry, error) {
 		}
 		var entry Entry
 		if err := json.Unmarshal(line, &entry); err != nil {
+			slog.Warn("audit: skipping unparseable log line", "error", err)
 			continue
 		}
 		all = append(all, entry)

@@ -44,8 +44,46 @@ var allowedCommands = map[string]bool{
 	"type": true, "echo": true, "test": true,
 
 	// Pipe targets
+	// NOTE: awk can write files via internal '>' redirection (e.g. awk '{print > "file"}').
+	// Blocking this requires parsing awk scripts, which is out of scope. Server-side
+	// shell provides defense-in-depth.
 	"grep": true, "awk": true, "sed": true, "sort": true, "uniq": true,
 	"cut": true, "tr": true, "xargs": true,
+}
+
+// blockedFlags maps commands to flags that must not appear anywhere in the
+// segment. For example, sed -i performs in-place editing which violates
+// read-only mode. Also catches variants like -i.bak (starts with -i).
+var blockedFlags = map[string][]string{
+	"sed": {"-i", "--in-place"},
+}
+
+// commandArgValidators maps commands to functions that validate their arguments
+// within a pipeline segment. For example, xargs can invoke arbitrary commands
+// so we validate that the first non-flag argument (if any) is in the allowlist.
+var commandArgValidators = map[string]func(tokens []string, allowed map[string]bool) error{
+	"xargs": validateXargsCommand,
+}
+
+// validateXargsCommand checks that xargs does not invoke a disallowed command.
+// xargs with no explicit command defaults to /bin/echo, which is safe.
+func validateXargsCommand(tokens []string, allowed map[string]bool) error {
+	// tokens[0] is "xargs" itself; scan remaining for first non-flag token
+	for _, tok := range tokens[1:] {
+		if strings.HasPrefix(tok, "-") {
+			continue
+		}
+		// Handle path-qualified commands like /usr/bin/rm
+		base := tok
+		if idx := strings.LastIndex(tok, "/"); idx >= 0 {
+			base = tok[idx+1:]
+		}
+		if !allowed[base] {
+			return fmt.Errorf("xargs command %q is not allowed in read-only mode", base)
+		}
+		return nil
+	}
+	return nil // no explicit command; xargs defaults to /bin/echo
 }
 
 // subcommandRestrictions maps commands to the set of allowed first arguments.
@@ -112,12 +150,32 @@ func ValidateCommand(command string) error {
 			return fmt.Errorf("command %q is not allowed in read-only mode", baseCmd)
 		}
 
+		// Check blocked flags (e.g. sed -i).
+		if flags, ok := blockedFlags[baseCmd]; ok {
+			tokens := tokenize(seg)
+			for _, tok := range tokens[1:] {
+				for _, blocked := range flags {
+					if tok == blocked || strings.HasPrefix(tok, blocked) {
+						return fmt.Errorf("%s flag %q is not allowed in read-only mode", baseCmd, blocked)
+					}
+				}
+			}
+		}
+
 		// Check subcommand restrictions if applicable.
 		if restrictions, ok := subcommandRestrictions[baseCmd]; ok {
 			subCmd := extractSubcommand(seg, baseCmd)
 			if subCmd != "" && !restrictions[subCmd] {
 				return fmt.Errorf("%s subcommand %q is not allowed in read-only mode (allowed: %s)",
 					baseCmd, subCmd, joinKeys(restrictions))
+			}
+		}
+
+		// Validate command arguments (e.g. xargs must invoke allowed commands).
+		if validator, ok := commandArgValidators[baseCmd]; ok {
+			tokens := tokenize(seg)
+			if err := validator(tokens, allowedCommands); err != nil {
+				return err
 			}
 		}
 	}
