@@ -2,6 +2,8 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { getSeriesSlugs, blogSeries } from '~/lib/blog-series'
+import { useAuth } from '~/lib/auth'
+import { useReturningVisitor } from '~/lib/use-returning-visitor'
 
 interface BlogFrontmatter {
   title: string
@@ -41,6 +43,7 @@ interface SeriesEntry {
   author: string
   authorImage: string
   pubDate: string
+  latestPubDate: string
   publishedCount: number
   totalCount: number
 }
@@ -72,6 +75,7 @@ function getFeed(): FeedEntry[] {
       }
       if (publishedDates.length === 0) return null
       const earliest = publishedDates.reduce((a, b) => (a < b ? a : b))
+      const latest = publishedDates.reduce((a, b) => (a > b ? a : b))
       return {
         kind: 'series' as const,
         id: s.id,
@@ -80,6 +84,7 @@ function getFeed(): FeedEntry[] {
         author: s.author,
         authorImage: s.authorImage,
         pubDate: earliest.toISOString(),
+        latestPubDate: latest.toISOString(),
         publishedCount: publishedDates.length,
         totalCount: s.chapters.length,
       }
@@ -96,6 +101,8 @@ export const Route = createFileRoute('/_public/blog/')({
 })
 
 function BlogIndex() {
+  const { isAuthenticated } = useAuth()
+  const isReturning = useReturningVisitor()
   const feed = getFeed()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -110,12 +117,15 @@ function BlogIndex() {
             >
               <span className="text-blue-400">$</span> fluid.sh
             </Link>
-            <div className="hidden gap-6 font-mono text-sm text-neutral-400 md:flex">
+            <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
               <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
                 Docs
               </Link>
               <Link to="/blog" className="text-neutral-200">
                 Blog
+              </Link>
+              <Link to="/pricing" className="transition-colors hover:text-neutral-200">
+                Pricing
               </Link>
               <a
                 href="https://github.com/aspectrr/fluid.sh"
@@ -133,6 +143,28 @@ function BlogIndex() {
               >
                 Discord
               </a>
+              {isAuthenticated ? (
+                <Link
+                  to="/dashboard"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Dashboard
+                </Link>
+              ) : isReturning ? (
+                <Link
+                  to="/login"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Login
+                </Link>
+              ) : (
+                <Link
+                  to="/register"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Sign Up
+                </Link>
+              )}
             </div>
             <button
               className="text-neutral-400 hover:text-white md:hidden"
@@ -166,6 +198,13 @@ function BlogIndex() {
                 >
                   Blog
                 </Link>
+                <Link
+                  to="/pricing"
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  Pricing
+                </Link>
                 <a
                   href="https://github.com/aspectrr/fluid.sh"
                   target="_blank"
@@ -184,6 +223,13 @@ function BlogIndex() {
                 >
                   Discord
                 </a>
+                <Link
+                  to={isAuthenticated ? '/dashboard' : isReturning ? '/login' : '/register'}
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  {isAuthenticated ? 'Dashboard' : isReturning ? 'Login' : 'Sign Up'}
+                </Link>
               </nav>
             </div>
           )}
@@ -199,13 +245,25 @@ function BlogIndex() {
                 to="/blog/series/hypervisor"
                 className="group block rounded-lg border border-blue-500/20 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-blue-500/40 hover:no-underline"
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] tracking-wider text-blue-400 uppercase">
-                    Technical Deep Dive
-                  </span>
-                  <span className="rounded bg-blue-500/10 px-1.5 py-0.5 font-mono text-[10px] text-blue-400">
-                    {entry.publishedCount}/{entry.totalCount} parts
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] tracking-wider text-blue-400 uppercase">
+                      Technical Deep Dive
+                    </span>
+                    <span className="rounded bg-blue-500/10 px-1.5 py-0.5 font-mono text-[10px] text-blue-400">
+                      {entry.publishedCount}/{entry.totalCount} parts
+                    </span>
+                  </div>
+                  <time
+                    dateTime={new Date(entry.latestPubDate).toISOString()}
+                    className="font-mono text-xs whitespace-nowrap text-neutral-600"
+                  >
+                    {new Date(entry.latestPubDate).toLocaleDateString('en-us', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </time>
                 </div>
                 <h2 className="mt-2 font-mono text-sm text-neutral-200 transition-colors group-hover:text-blue-400">
                   {entry.title}

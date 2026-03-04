@@ -1,7 +1,7 @@
 ---
 title: 'Changelog #003 v0.1.3'
 pubDate: 2026-02-23
-description: 'Changelog for v0.1.3'
+description: 'Fluid Daemon, MCP server with 17 tools, Proxmox support, control plane, and XDG directories'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'

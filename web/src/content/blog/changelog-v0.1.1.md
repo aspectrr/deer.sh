@@ -1,7 +1,7 @@
 ---
 title: 'Changelog #001 v0.1.1'
 pubDate: 2026-02-07
-description: 'Changelog for v0.1.1'
+description: 'Read-only mode, clearer project identity, and updated tool permissions'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'

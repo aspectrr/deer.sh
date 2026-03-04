@@ -2,6 +2,8 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { blogSeries } from '~/lib/blog-series'
+import { useAuth } from '~/lib/auth'
+import { useReturningVisitor } from '~/lib/use-returning-visitor'
 
 interface BlogFrontmatter {
   title: string
@@ -50,6 +52,8 @@ export const Route = createFileRoute('/_public/blog/series/hypervisor')({
 })
 
 function HypervisorSeries() {
+  const { isAuthenticated } = useAuth()
+  const isReturning = useReturningVisitor()
   const chapters = getChapterMeta()
   const [mobileOpen, setMobileOpen] = useState(false)
   const publishedCount = chapters.filter((ch) => ch.published).length
@@ -65,12 +69,15 @@ function HypervisorSeries() {
             >
               <span className="text-blue-400">$</span> fluid.sh
             </Link>
-            <div className="hidden gap-6 font-mono text-sm text-neutral-400 md:flex">
+            <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
               <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
                 Docs
               </Link>
               <Link to="/blog" className="transition-colors hover:text-neutral-200">
                 Blog
+              </Link>
+              <Link to="/pricing" className="transition-colors hover:text-neutral-200">
+                Pricing
               </Link>
               <a
                 href="https://github.com/aspectrr/fluid.sh"
@@ -88,6 +95,28 @@ function HypervisorSeries() {
               >
                 Discord
               </a>
+              {isAuthenticated ? (
+                <Link
+                  to="/dashboard"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Dashboard
+                </Link>
+              ) : isReturning ? (
+                <Link
+                  to="/login"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Login
+                </Link>
+              ) : (
+                <Link
+                  to="/register"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Sign Up
+                </Link>
+              )}
             </div>
             <button
               className="text-neutral-400 hover:text-white md:hidden"
@@ -120,6 +149,13 @@ function HypervisorSeries() {
                 >
                   Blog
                 </Link>
+                <Link
+                  to="/pricing"
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  Pricing
+                </Link>
                 <a
                   href="https://github.com/aspectrr/fluid.sh"
                   target="_blank"
@@ -138,6 +174,13 @@ function HypervisorSeries() {
                 >
                   Discord
                 </a>
+                <Link
+                  to={isAuthenticated ? '/dashboard' : isReturning ? '/login' : '/register'}
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  {isAuthenticated ? 'Dashboard' : isReturning ? 'Login' : 'Sign Up'}
+                </Link>
               </nav>
             </div>
           )}
@@ -146,16 +189,7 @@ function HypervisorSeries() {
 
       <main className="px-4 pb-24 sm:px-6">
         <div className="mx-auto max-w-2xl">
-          {/* Back to blog */}
-          <Link
-            to="/blog"
-            className="font-mono text-sm text-neutral-500 transition-colors hover:text-blue-400"
-          >
-            <span className="text-blue-400">$</span> cd /blog
-          </Link>
-
-          {/* Hero */}
-          <div className="mt-8">
+          <div>
             <span className="font-mono text-[10px] tracking-wider text-blue-400 uppercase">
               Technical Deep Dive - {publishedCount}/{series.chapters.length} parts
             </span>

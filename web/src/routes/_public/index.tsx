@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useCallback, useRef } from 'react'
-import { Menu, X, ChevronDown } from 'lucide-react'
+import { Menu, X, ChevronDown, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 import { ScriptedDemo } from '~/components/landing/scripted-demo'
@@ -8,6 +8,7 @@ import { ArchitectureAnimation } from '~/components/landing/architecture-animati
 import type { DiagramPhase } from '~/lib/diagram-phases'
 import { useAuth } from '~/lib/auth'
 import { usePostHog } from '~/lib/posthog'
+import { useReturningVisitor } from '~/lib/use-returning-visitor'
 
 export const Route = createFileRoute('/_public/')({
   component: LandingPage,
@@ -174,6 +175,7 @@ const installTabs = [
 
 function LandingPage() {
   const { isAuthenticated } = useAuth()
+  const isReturning = useReturningVisitor()
   const [activeTab, setActiveTab] = useState<string>('go')
   const [diagramPhase, setDiagramPhase] = useState<DiagramPhase>('idle')
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -197,6 +199,9 @@ function LandingPage() {
               <Link to="/blog" className="transition-colors hover:text-neutral-200">
                 Blog
               </Link>
+              <Link to="/pricing" className="transition-colors hover:text-neutral-200">
+                Pricing
+              </Link>
               <a
                 href="https://github.com/aspectrr/fluid.sh"
                 target="_blank"
@@ -213,12 +218,28 @@ function LandingPage() {
               >
                 Discord
               </a>
-              <Link
-                to={isAuthenticated ? '/dashboard' : '/login'}
-                className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
-              >
-                {isAuthenticated ? 'Dashboard' : 'Login'}
-              </Link>
+              {isAuthenticated ? (
+                <Link
+                  to="/dashboard"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Dashboard
+                </Link>
+              ) : isReturning ? (
+                <Link
+                  to="/login"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Login
+                </Link>
+              ) : (
+                <Link
+                  to="/register"
+                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                >
+                  Sign Up
+                </Link>
+              )}
             </div>
             <button
               className="text-neutral-400 hover:text-white md:hidden"
@@ -252,6 +273,13 @@ function LandingPage() {
                 >
                   Blog
                 </Link>
+                <Link
+                  to="/pricing"
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  Pricing
+                </Link>
                 <a
                   href="https://github.com/aspectrr/fluid.sh"
                   target="_blank"
@@ -271,11 +299,11 @@ function LandingPage() {
                   Discord
                 </a>
                 <Link
-                  to={isAuthenticated ? '/dashboard' : '/login'}
+                  to={isAuthenticated ? '/dashboard' : isReturning ? '/login' : '/register'}
                   onClick={() => setMobileOpen(false)}
                   className="transition-colors hover:text-white"
                 >
-                  {isAuthenticated ? 'Dashboard' : 'Login'}
+                  {isAuthenticated ? 'Dashboard' : isReturning ? 'Login' : 'Sign Up'}
                 </Link>
               </nav>
             </div>
@@ -287,6 +315,20 @@ function LandingPage() {
             Read-only shell access. PII redaction. Tamper-evident audit logs. Fluid gets just the
             access it needs to debug and manage your servers - nothing more.
           </p>
+          <div className="mt-4 flex items-center gap-3">
+            <a
+              href="#install"
+              className="inline-flex items-center gap-2 bg-blue-500 px-5 py-2 font-mono text-sm text-white transition-colors hover:bg-blue-600"
+            >
+              Get Started <ArrowRight className="h-4 w-4" />
+            </a>
+            <Link
+              to="/docs/quickstart"
+              className="inline-flex items-center gap-2 border border-neutral-700 px-5 py-2 font-mono text-sm text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+            >
+              Read the Docs
+            </Link>
+          </div>
         </div>
         <div className="mx-auto mt-6 max-w-2xl">
           <ScriptedDemo onPhase={setDiagramPhase} />
@@ -441,7 +483,9 @@ function LandingPage() {
 
           <FAQSection />
 
-          <h2 className="mt-24 mb-4 text-xl text-neutral-200">Installation</h2>
+          <h2 id="install" className="mt-24 mb-4 text-xl text-neutral-200">
+            Installation
+          </h2>
           <p className="my-2 text-neutral-400">
             This will install the <span className="text-blue-400">$</span>{' '}
             <span className="font-logo text-white">fluid.sh</span> terminal agent / mcp server meant

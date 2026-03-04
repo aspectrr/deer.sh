@@ -26,6 +26,7 @@ import { Route as DocsDaemonRouteImport } from './routes/docs/daemon'
 import { Route as DocsCliReferenceRouteImport } from './routes/docs/cli-reference'
 import { Route as DocsArchitectureRouteImport } from './routes/docs/architecture'
 import { Route as DocsApiRouteImport } from './routes/docs/api'
+import { Route as PublicPricingRouteImport } from './routes/_public/pricing'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
@@ -123,6 +124,11 @@ const DocsApiRoute = DocsApiRouteImport.update({
   path: '/api',
   getParentRoute: () => DocsRoute,
 } as any)
+const PublicPricingRoute = PublicPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => PublicRoute,
+} as any)
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRouteWithChildren
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
+  '/pricing': typeof PublicPricingRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
   '/docs/cli-reference': typeof DocsCliReferenceRoute
@@ -229,6 +236,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
+  '/pricing': typeof PublicPricingRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
   '/docs/cli-reference': typeof DocsCliReferenceRoute
@@ -263,6 +271,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
+  '/_public/pricing': typeof PublicPricingRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
   '/docs/cli-reference': typeof DocsCliReferenceRoute
@@ -295,6 +304,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/login'
     | '/register'
+    | '/pricing'
     | '/docs/api'
     | '/docs/architecture'
     | '/docs/cli-reference'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/pricing'
     | '/docs/api'
     | '/docs/architecture'
     | '/docs/cli-reference'
@@ -355,6 +366,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_auth/login'
     | '/_auth/register'
+    | '/_public/pricing'
     | '/docs/api'
     | '/docs/architecture'
     | '/docs/cli-reference'
@@ -507,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsApiRouteImport
       parentRoute: typeof DocsRoute
     }
+    '/_public/pricing': {
+      id: '/_public/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PublicPricingRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_auth/register': {
       id: '/_auth/register'
       path: '/register'
@@ -618,9 +637,7 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
   AppBillingIndexRoute: AppBillingIndexRoute,
 }
 
-const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(
-  AppBillingRouteChildren,
-)
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
 
 interface AppSettingsRouteChildren {
   AppSettingsHostsRoute: typeof AppSettingsHostsRoute
@@ -665,6 +682,7 @@ const AuthRouteChildren: AuthRouteChildren = {
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface PublicRouteChildren {
+  PublicPricingRoute: typeof PublicPricingRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicBlogSlugRoute: typeof PublicBlogSlugRoute
   PublicBlogIndexRoute: typeof PublicBlogIndexRoute
@@ -672,14 +690,14 @@ interface PublicRouteChildren {
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
+  PublicPricingRoute: PublicPricingRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicBlogSlugRoute: PublicBlogSlugRoute,
   PublicBlogIndexRoute: PublicBlogIndexRoute,
   PublicBlogSeriesHypervisorRoute: PublicBlogSeriesHypervisorRoute,
 }
 
-const PublicRouteWithChildren =
-  PublicRoute._addFileChildren(PublicRouteChildren)
+const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
 
 interface DocsRouteChildren {
   DocsApiRoute: typeof DocsApiRoute

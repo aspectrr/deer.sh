@@ -1,7 +1,7 @@
 ---
 title: 'Changelog #002 v0.1.2'
 pubDate: 2026-02-10
-description: 'Changelog for v0.1.2'
+description: 'Source VM read-only access, defense-in-depth security hardening, and the 4-phase strategy'
 author: 'Collin @ Fluid.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'

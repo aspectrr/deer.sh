@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_public')({
   component: PublicLayout,
@@ -10,10 +10,22 @@ function PublicLayout() {
       <Outlet />
       <footer className="border-t border-neutral-800 px-6 py-8">
         <div className="mx-auto flex max-w-2xl items-center justify-between text-xs text-neutral-600">
-          <span className="font-logo">
+          <Link
+            to="/"
+            className="font-logo no-underline transition-colors hover:text-neutral-400 hover:no-underline"
+          >
             <span className="text-blue-400">$</span> fluid.sh
-          </span>
+          </Link>
           <div className="flex gap-4 font-mono">
+            <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-400">
+              Docs
+            </Link>
+            <Link to="/blog" className="transition-colors hover:text-neutral-400">
+              Blog
+            </Link>
+            <Link to="/pricing" className="transition-colors hover:text-neutral-400">
+              Pricing
+            </Link>
             <a
               href="https://github.com/aspectrr/fluid.sh"
               target="_blank"
@@ -31,6 +43,7 @@ function PublicLayout() {
               Discord
             </a>
           </div>
+          <span className="font-mono">&copy; {new Date().getFullYear()} Fluid.sh</span>
         </div>
       </footer>
     </div>
