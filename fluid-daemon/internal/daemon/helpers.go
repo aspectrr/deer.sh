@@ -28,11 +28,23 @@ func (s *Server) adhocSourceVMManager(conn *fluidv1.SourceHostConnection) (*sour
 		user = "fluid-daemon"
 	}
 
-	uri := fmt.Sprintf("qemu+ssh://%s@%s/system", user, host)
+	port := conn.GetSshPort()
+	if port == 0 {
+		port = 22
+	}
+
+	uriHost := host
+	if port != 22 {
+		uriHost = fmt.Sprintf("%s:%d", host, port)
+	}
+	uri := fmt.Sprintf("qemu+ssh://%s@%s/system", user, uriHost)
 	if s.sshIdentityFile != "" {
 		uri += fmt.Sprintf("?keyfile=%s", url.QueryEscape(s.sshIdentityFile))
 	}
 	proxyJump := fmt.Sprintf("%s@%s", user, host)
+	if port != 22 {
+		proxyJump = fmt.Sprintf("%s@%s:%d", user, host, port)
+	}
 
 	return sourcevm.NewManager(uri, "default", s.keyMgr, "fluid-readonly", proxyJump, s.sshIdentityFile, s.caPubKey, s.logger), nil
 }

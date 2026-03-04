@@ -116,6 +116,7 @@ jobs:
           done
 
           # Sign RPMs
+          shopt -s globstar nullglob
           for rpm in packages/yum/**/*.rpm; do
             [ -f "$rpm" ] && rpmsign --addsign \
               --define "_gpg_name ${GPG_FINGERPRINT}" \

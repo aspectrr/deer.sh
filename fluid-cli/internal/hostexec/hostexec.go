@@ -74,13 +74,18 @@ type SSHOption func(args []string) []string
 func WithRelaxedHostKeys() SSHOption {
 	return func(args []string) []string {
 		var result []string
+		replaced := false
 		for i := 0; i < len(args); i++ {
 			if args[i] == "-o" && i+1 < len(args) && strings.HasPrefix(args[i+1], "StrictHostKeyChecking=") {
 				result = append(result, "-o", "StrictHostKeyChecking=no")
 				i++ // skip the original value
+				replaced = true
 				continue
 			}
 			result = append(result, args[i])
+		}
+		if !replaced {
+			result = append(result, "-o", "StrictHostKeyChecking=no")
 		}
 		return append(result, "-o", "UserKnownHostsFile=/dev/null")
 	}
@@ -238,6 +243,7 @@ func RunStreamingSSHAlias(ctx context.Context, hostAlias string, extraArgs []str
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stdoutPipe)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text() + "\n"
 			stdoutBuf.WriteString(line)
@@ -245,16 +251,27 @@ func RunStreamingSSHAlias(ctx context.Context, hostAlias string, extraArgs []str
 				onOutput(line, false)
 			}
 		}
+		if err := scanner.Err(); err != nil {
+			if onOutput != nil {
+				onOutput(fmt.Sprintf("[fluid] stdout scanner error: %v\n", err), true)
+			}
+		}
 	}()
 
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stderrPipe)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text() + "\n"
 			stderrBuf.WriteString(line)
 			if onOutput != nil {
 				onOutput(line, true)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			if onOutput != nil {
+				onOutput(fmt.Sprintf("[fluid] stderr scanner error: %v\n", err), true)
 			}
 		}
 	}()

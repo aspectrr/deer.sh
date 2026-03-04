@@ -113,7 +113,7 @@ func PrepareWithKey(ctx context.Context, sshRun SSHRunFunc, pubKey string, onPro
 	// 3. Deploy public key to authorized_keys
 	report(StepInstallCAKey, "Deploying SSH public key", false)
 	logger.Info("deploying SSH public key")
-	keyCmd := fmt.Sprintf(`mkdir -p /home/fluid-readonly/.ssh && chmod 700 /home/fluid-readonly/.ssh && echo '%s' > /home/fluid-readonly/.ssh/authorized_keys && chmod 600 /home/fluid-readonly/.ssh/authorized_keys && chown -R fluid-readonly:fluid-readonly /home/fluid-readonly/.ssh`, strings.TrimSpace(pubKey))
+	keyCmd := fmt.Sprintf("mkdir -p /home/fluid-readonly/.ssh && chmod 700 /home/fluid-readonly/.ssh && cat > /home/fluid-readonly/.ssh/authorized_keys << 'FLUID_KEY_EOF'\n%s\nFLUID_KEY_EOF\nchmod 600 /home/fluid-readonly/.ssh/authorized_keys && chown -R fluid-readonly:fluid-readonly /home/fluid-readonly/.ssh", strings.TrimSpace(pubKey))
 	stdout, stderr, code, err = sshRun(ctx, keyCmd)
 	if err != nil || code != 0 {
 		return result, fmt.Errorf("deploy public key: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)

@@ -86,11 +86,10 @@ function getAddrEntries(vm: VM): { gpa: string; hpa: string; reclaimed: boolean 
   const chunkSize = Math.floor(vm.allocated / 4) || 256
   for (let i = 0; i < 4; i++) {
     const offsetMB = i * chunkSize
-    const isActive = offsetMB < vm.allocated
     entries.push({
       gpa: hexAddr(vm.baseGPA, offsetMB),
       hpa: hexAddr(vm.baseHPA, offsetMB),
-      reclaimed: !isActive || offsetMB >= vm.allocated,
+      reclaimed: offsetMB >= vm.allocated,
     })
   }
   return entries

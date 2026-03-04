@@ -111,18 +111,25 @@ func TestWithRelaxedHostKeys(t *testing.T) {
 }
 
 func TestWithRelaxedHostKeys_NoExistingStrictCheck(t *testing.T) {
-	// If no StrictHostKeyChecking is present, should still add UserKnownHostsFile
+	// If no StrictHostKeyChecking is present, should still add both options
 	args := []string{"-o", "ConnectTimeout=15", "root@host", "--", "cmd"}
 	opt := WithRelaxedHostKeys()
 	result := opt(args)
 
 	foundKnownHosts := false
+	foundStrictCheck := false
 	for i, a := range result {
-		if a == "-o" && i+1 < len(result) && result[i+1] == "UserKnownHostsFile=/dev/null" {
-			foundKnownHosts = true
+		if a == "-o" && i+1 < len(result) {
+			if result[i+1] == "UserKnownHostsFile=/dev/null" {
+				foundKnownHosts = true
+			}
+			if result[i+1] == "StrictHostKeyChecking=no" {
+				foundStrictCheck = true
+			}
 		}
 	}
 	assert.True(t, foundKnownHosts, "should add UserKnownHostsFile even without existing StrictHostKeyChecking")
+	assert.True(t, foundStrictCheck, "should add StrictHostKeyChecking=no even when not originally present")
 }
 
 func TestNewSSHWithJump_WithOptions(t *testing.T) {
