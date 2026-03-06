@@ -46,6 +46,24 @@ type Config struct {
 
 	// Janitor configures TTL enforcement.
 	Janitor JanitorConfig `yaml:"janitor"`
+
+	// Telemetry configures anonymous usage telemetry.
+	Telemetry TelemetryConfig `yaml:"telemetry"`
+
+	// Audit configures the audit trail log.
+	Audit AuditConfig `yaml:"audit"`
+}
+
+// TelemetryConfig controls anonymous telemetry.
+type TelemetryConfig struct {
+	EnableAnonymousUsage bool `yaml:"enable_anonymous_usage"`
+}
+
+// AuditConfig controls the audit trail log.
+type AuditConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	LogPath   string `yaml:"log_path"`
+	MaxSizeMB int    `yaml:"max_size_mb"`
 }
 
 // DaemonConfig configures the inbound gRPC server for direct CLI access.
@@ -231,6 +249,11 @@ func DefaultConfig() Config {
 		Janitor: JanitorConfig{
 			Interval:   1 * time.Minute,
 			DefaultTTL: 24 * time.Hour,
+		},
+		Audit: AuditConfig{
+			Enabled:   true,
+			LogPath:   filepath.Join(fluidDir, "daemon-audit.jsonl"),
+			MaxSizeMB: 50,
 		},
 	}
 }

@@ -1,6 +1,6 @@
 # Fluid CLI - Development Guide
 
-The interactive TUI agent and MCP server for fluid.sh. Connects to fluid-daemon over gRPC to manage VM sandboxes.
+The interactive TUI agent and MCP server for fluid.sh. Connects directly to source hosts via SSH for read-only operations, and to fluid-daemon over gRPC to manage microVM sandboxes.
 
 ## Architecture
 
@@ -10,11 +10,12 @@ User
   v
 fluid CLI (TUI / MCP)
   |
-  v (gRPC :9091)
-fluid-daemon
+  +--- Direct SSH -------> Source Hosts (read-only)
   |
-  v
-libvirt/KVM
+  +--- gRPC :9091 -------> fluid-daemon
+                              |
+                              v
+                            QEMU microVMs
 ```
 
 ## Quick Start
@@ -106,7 +107,7 @@ ssh:
 ### Prerequisites
 
 - Go 1.24+
-- libvirt/KVM installed and running
+- QEMU/KVM installed and running
 
 ### Build
 

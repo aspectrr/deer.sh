@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 )
 
 type check struct {

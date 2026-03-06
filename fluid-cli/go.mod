@@ -1,4 +1,4 @@
-module github.com/aspectrr/fluid.sh/fluid
+module github.com/aspectrr/fluid.sh/fluid-cli
 
 go 1.24.0
 

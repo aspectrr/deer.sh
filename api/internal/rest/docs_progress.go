@@ -54,7 +54,8 @@ func (d *docsProgressStore) cleanup() {
 }
 
 type docsRegisterRequest struct {
-	StorageKey string `json:"storage_key"`
+	StorageKey  string `json:"storage_key"`
+	SessionCode string `json:"session_code"`
 }
 
 type docsRegisterResponse struct {
@@ -70,7 +71,10 @@ func (s *Server) handleDocsProgressRegister(w http.ResponseWriter, r *http.Reque
 
 	docsProgress.cleanup()
 
-	code := generateSessionCode()
+	code := req.SessionCode
+	if code == "" {
+		code = generateSessionCode()
+	}
 
 	docsProgress.mu.Lock()
 	if len(docsProgress.sessions) >= 10000 {

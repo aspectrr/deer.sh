@@ -1,28 +1,34 @@
 package tui
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/ansible"
-	"github.com/aspectrr/fluid.sh/fluid/internal/audit"
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid/internal/llm"
-	"github.com/aspectrr/fluid.sh/fluid/internal/readonly"
-	"github.com/aspectrr/fluid.sh/fluid/internal/redact"
-	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
-	"github.com/aspectrr/fluid.sh/fluid/internal/source"
-	"github.com/aspectrr/fluid.sh/fluid/internal/store"
-	"github.com/aspectrr/fluid.sh/fluid/internal/telemetry"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/ansible"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/audit"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/llm"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/redact"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/source"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sourcekeys"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sshconfig"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/store"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/telemetry"
 )
 
 // PendingApproval represents a sandbox creation waiting for memory approval
@@ -70,6 +76,9 @@ type FluidAgent struct {
 
 	// Read-only mode: only query tools are available to the LLM
 	readOnly bool
+
+	// Re-prepare warning: tracks the last host warned about re-prepare
+	lastPrepareWarned string
 }
 
 // PendingNetworkApproval represents a network access request waiting for approval
@@ -128,6 +137,39 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 
 		// Handle slash commands
 		if strings.HasPrefix(input, "/") {
+			cmdName := input
+			if idx := strings.Index(input[1:], " "); idx >= 0 {
+				cmdName = input[:idx+1]
+			}
+			a.telemetry.Track("tui_slash_command", map[string]any{"command": cmdName})
+
+			// Commands with arguments (checked before exact match switch)
+			if strings.HasPrefix(input, "/prepare ") {
+				hostname := strings.TrimSpace(strings.TrimPrefix(input, "/prepare "))
+				if hostname == "" {
+					a.sendStatus(AgentDoneMsg{})
+					return AgentResponseMsg{Response: AgentResponse{
+						Content: "Usage: `/prepare <hostname>` - specify an SSH host to prepare",
+						Done:    true,
+					}}
+				}
+				// Probe if host is already prepared
+				if probeFluidReadonly(hostname, a.cfg.SSH.SourceKeyDir) {
+					if a.lastPrepareWarned != hostname {
+						a.lastPrepareWarned = hostname
+						a.sendStatus(AgentDoneMsg{})
+						return AgentResponseMsg{Response: AgentResponse{
+							Content: fmt.Sprintf("Host %s is already prepared. Run `/prepare %s` again to re-prepare.", hostname, hostname),
+							Done:    true,
+						}}
+					}
+					a.lastPrepareWarned = ""
+				} else {
+					a.lastPrepareWarned = ""
+				}
+				return a.runPrepareInline(ctx, hostname)
+			}
+
 			switch input {
 			case "/vms":
 				a.sendStatus(AgentDoneMsg{})
@@ -230,6 +272,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				b.WriteString("- **/sandboxes**: List active sandboxes\n")
 				b.WriteString("- **/hosts**: List configured remote hosts\n")
 				b.WriteString("- **/playbooks**: List generated Ansible playbooks\n")
+				b.WriteString("- **/prepare <host>**: Prepare a host for read-only access\n")
 				b.WriteString("- **/allowlist**: Show the read-only command allowlist\n")
 				b.WriteString("- **/compact**: Summarize and compact conversation history\n")
 				b.WriteString("- **/context**: Show current context token usage\n")
@@ -245,7 +288,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			default:
 				a.sendStatus(AgentDoneMsg{})
 				return AgentResponseMsg{Response: AgentResponse{
-					Content: fmt.Sprintf("Unknown command: %s. Available: /vms, /sandboxes, /hosts, /playbooks, /allowlist, /compact, /context, /settings", input),
+					Content: fmt.Sprintf("Unknown command: %s. Available: /vms, /sandboxes, /hosts, /playbooks, /prepare, /allowlist, /compact, /context, /settings", input),
 					Done:    true,
 				}}
 			}
@@ -263,6 +306,15 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 		if a.llmClient == nil || a.cfg.AIAgent.APIKey == "" {
 			a.sendStatus(AgentDoneMsg{})
 			return AgentErrorMsg{Err: fmt.Errorf("LLM provider not configured. Please set OPENROUTER_API_KEY environment variable or configure it in /settings")}
+		}
+
+		// If no hosts configured at all, suggest /prepare instead of entering the LLM loop
+		if !a.cfg.HasSandboxHosts() && len(a.cfg.PreparedHosts()) == 0 {
+			a.sendStatus(AgentDoneMsg{})
+			return AgentResponseMsg{Response: AgentResponse{
+				Content: "No hosts configured. Prepare a host with `/prepare <hostname>` to give Fluid read-only SSH access to your servers.",
+				Done:    true,
+			}}
 		}
 
 		// Check if auto-compaction is needed before making LLM call
@@ -402,7 +454,13 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 					if a.auditLog != nil {
 						var toolArgs map[string]any
 						_ = json.Unmarshal([]byte(tc.Function.Arguments), &toolArgs)
-						a.auditLog.LogToolCall(tc.Function.Name, toolArgs, result, err, time.Since(toolStart).Milliseconds())
+						auditArgs := toolArgs
+						auditResult := result
+						if a.redactor != nil {
+							auditArgs = a.redactor.RedactMap(toolArgs)
+							auditResult = a.redactor.RedactAny(result)
+						}
+						a.auditLog.LogToolCall(tc.Function.Name, auditArgs, auditResult, err, time.Since(toolStart).Milliseconds())
 					}
 
 					// Send tool completion status to TUI
@@ -866,6 +924,106 @@ func (a *FluidAgent) HandleNetworkApprovalResponse(approved bool) {
 func (a *FluidAgent) HandleSourcePrepareApprovalResponse(approved bool) {
 	// No-op in remote mode - daemon handles source VM preparation
 	a.logger.Debug("source prepare approval response (no-op in remote mode)", "approved", approved)
+}
+
+// runPrepareInline runs source host preparation inline in the TUI, sending progress via SourcePrepareProgressMsg.
+func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.Msg {
+	// 1. Resolve SSH config
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Resolving SSH config", StepNum: 1, Total: 4})
+	resolved, err := sshconfig.Resolve(hostname)
+	if err != nil {
+		a.sendStatus(AgentDoneMsg{})
+		return AgentResponseMsg{Response: AgentResponse{
+			Content: fmt.Sprintf("Failed to resolve SSH config for %s: %v", hostname, err),
+			Done:    true,
+		}}
+	}
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Resolving SSH config", StepNum: 1, Total: 4, Done: true})
+
+	// 2. Ensure SSH key pair
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Generating SSH key pair", StepNum: 2, Total: 4})
+	_, pubKey, err := sourcekeys.EnsureKeyPair(a.cfg.SSH.SourceKeyDir)
+	if err != nil {
+		a.sendStatus(AgentDoneMsg{})
+		return AgentResponseMsg{Response: AgentResponse{
+			Content: fmt.Sprintf("Failed to generate key pair: %v", err),
+			Done:    true,
+		}}
+	}
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Generating SSH key pair", StepNum: 2, Total: 4, Done: true})
+
+	// 3. Prepare host for read-only access
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: 4})
+	sshRunFn := hostexec.NewSSHAlias(hostname)
+	sshRun := readonly.SSHRunFunc(sshRunFn)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	_, err = readonly.PrepareWithKey(ctx, sshRun, pubKey, nil, logger)
+	if err != nil {
+		a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: 4, Done: true})
+		a.sendStatus(AgentDoneMsg{})
+		return AgentResponseMsg{Response: AgentResponse{
+			Content: fmt.Sprintf("Preparation failed for %s: %v", hostname, err),
+			Done:    true,
+		}}
+	}
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: 4, Done: true})
+
+	// 4. Update config
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4})
+	found := false
+	for i, h := range a.cfg.Hosts {
+		if h.Name == hostname {
+			a.cfg.Hosts[i].Address = resolved.Hostname
+			a.cfg.Hosts[i].SSHUser = resolved.User
+			a.cfg.Hosts[i].SSHPort = resolved.Port
+			a.cfg.Hosts[i].Prepared = true
+			found = true
+			break
+		}
+	}
+	if !found {
+		a.cfg.Hosts = append(a.cfg.Hosts, config.HostConfig{
+			Name:     hostname,
+			Address:  resolved.Hostname,
+			SSHUser:  resolved.User,
+			SSHPort:  resolved.Port,
+			Prepared: true,
+		})
+	}
+
+	configPath, err := paths.ConfigFile()
+	if err == nil {
+		if saveErr := a.cfg.Save(configPath); saveErr != nil {
+			a.logger.Warn("could not save config after prepare", "error", saveErr)
+		}
+	}
+
+	// Report docs progress if session code is set
+	if a.cfg.DocsSessionCode != "" && a.cfg.APIURL != "" {
+		go reportDocsProgressFromAgent(a.cfg.APIURL, a.cfg.DocsSessionCode, 1)
+	}
+
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4, Done: true})
+	a.sendStatus(AgentDoneMsg{})
+
+	return AgentResponseMsg{Response: AgentResponse{
+		Content: fmt.Sprintf("Host %s is prepared.", hostname),
+		Done:    true,
+	}}
+}
+
+// reportDocsProgressFromAgent sends a fire-and-forget completion event to the docs-progress API.
+func reportDocsProgressFromAgent(apiURL, sessionCode string, stepIndex int) {
+	body, _ := json.Marshal(map[string]any{
+		"session_code": sessionCode,
+		"step_index":   stepIndex,
+	})
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Post(apiURL+"/v1/docs-progress/complete", "application/json", bytes.NewReader(body))
+	if err == nil {
+		_ = resp.Body.Close()
+	}
 }
 
 func (a *FluidAgent) destroySandbox(ctx context.Context, id string) (map[string]any, error) {

@@ -6,12 +6,12 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/ansible"
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
-	"github.com/aspectrr/fluid.sh/fluid/internal/source"
-	"github.com/aspectrr/fluid.sh/fluid/internal/store"
-	"github.com/aspectrr/fluid.sh/fluid/internal/telemetry"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/ansible"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/source"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/store"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/telemetry"
 )
 
 const (

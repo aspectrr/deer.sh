@@ -1,12 +1,24 @@
 BINARY_NAME=fluid-daemon
 BUILD_DIR=bin
 
-.PHONY: all build run clean fmt vet lint test test-coverage check deps tidy install help
+# PostHog key (empty by default for dev builds)
+POSTHOG_KEY ?=
+
+# Build flags
+LDFLAGS=
+ifneq ($(POSTHOG_KEY),)
+  LDFLAGS += -X github.com/aspectrr/fluid.sh/fluid-daemon/internal/telemetry.posthogAPIKey=$(POSTHOG_KEY)
+endif
+
+.PHONY: all build build-dev run clean fmt vet lint test test-coverage check deps tidy install help
 
 all: fmt vet test build
 
 build:
-	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/fluid-daemon
+	go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/fluid-daemon
+
+build-dev: POSTHOG_KEY=phc_QR3I1IKrEOqx5jIfJkBMfyznynIxRYd8kzmZM9o9fRZ
+build-dev: build ## Build with PostHog key
 
 run: build
 	./$(BUILD_DIR)/$(BINARY_NAME)

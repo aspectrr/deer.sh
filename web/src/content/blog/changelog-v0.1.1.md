@@ -20,7 +20,7 @@ Fluid.sh has been undergoing some major renovations.
 Update your CLI agent with `go install`
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest
+go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
 ```
 
 ## Clarity

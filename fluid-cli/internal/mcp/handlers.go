@@ -11,8 +11,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/ansible"
-	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/ansible"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
 )
 
 // jsonResult marshals v to JSON and returns it as a text tool result.

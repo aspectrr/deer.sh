@@ -13,8 +13,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
-	"github.com/aspectrr/fluid.sh/fluid/internal/store"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/store"
 )
 
 // Ensure interface compliance.

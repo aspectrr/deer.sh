@@ -8,8 +8,8 @@ if ! command -v go >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "Running: go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest"
-go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest
+echo "Running: go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest"
+go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
 
 echo ""
 echo "Fluid installed successfully!"

@@ -1,6 +1,6 @@
 # Fluid Daemon - Development Guide
 
-Background service that manages VM sandboxes on a sandbox host. One daemon runs per sandbox host, but each daemon can connect to multiple libvirt hosts over SSH for source VM access. Multiple daemons are typically needed for heavily NATed enterprise networks or separate data centers. Exposes a gRPC API for the CLI and optionally connects upstream to the control plane.
+Background service that manages microVM sandboxes on a sandbox host. One daemon runs per sandbox host. Multiple daemons are typically needed for heavily NATed enterprise networks or separate data centers. Exposes a gRPC API for the CLI and optionally connects upstream to the control plane.
 
 ## Architecture
 
@@ -10,7 +10,7 @@ fluid CLI (TUI/MCP)
   v (gRPC :9091)
 fluid-daemon
   |
-  +--- libvirt/KVM (sandbox VMs)
+  +--- QEMU microVMs (sandboxes)
   +--- SQLite (local state)
   +--- SSH CA (ephemeral certs)
   +--- Janitor (TTL cleanup)
@@ -22,7 +22,7 @@ control-plane
 ## Tech Stack
 
 - **Language**: Go
-- **VM Backend**: QEMU microVMs via libvirt
+- **VM Backend**: QEMU microVMs
 - **State**: SQLite
 - **Networking**: Bridge + TAP devices
 - **SSH**: Internal CA with ephemeral certificates
@@ -92,7 +92,7 @@ network:
 ### Prerequisites
 
 - Go 1.24+
-- libvirt/KVM
+- QEMU/KVM
 - Root access (for network/VM management)
 
 ### Testing

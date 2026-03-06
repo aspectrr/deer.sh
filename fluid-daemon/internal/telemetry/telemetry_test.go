@@ -1,12 +1,8 @@
 package telemetry
 
 import (
-	"os"
-	"path/filepath"
 	"runtime"
 	"testing"
-
-	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 )
 
 func TestNewNoopService(t *testing.T) {
@@ -15,9 +11,6 @@ func TestNewNoopService(t *testing.T) {
 		t.Fatal("expected non-nil service")
 	}
 
-	// Verify it implements Service interface
-	_ = svc
-
 	// NoopService should accept calls without panicking
 	svc.Track("test_event", nil)
 	svc.Track("test_event", map[string]any{"key": "value"})
@@ -25,44 +18,41 @@ func TestNewNoopService(t *testing.T) {
 }
 
 func TestNewServiceDisabled(t *testing.T) {
-	cfg := config.TelemetryConfig{
-		EnableAnonymousUsage: false,
-	}
-
-	svc, err := NewService(cfg)
+	cfg := Config{EnableAnonymousUsage: false}
+	svc, err := NewService(cfg, "host-123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if svc == nil {
-		t.Fatal("expected non-nil service")
-	}
-
-	// Should return a NoopService when disabled
 	if _, ok := svc.(*NoopService); !ok {
 		t.Errorf("expected *NoopService, got %T", svc)
 	}
 
-	// Should work without panicking
 	svc.Track("test_event", nil)
 	svc.Close()
+}
+
+func TestNewServiceNoAPIKey(t *testing.T) {
+	cfg := Config{EnableAnonymousUsage: true}
+	// posthogAPIKey is empty by default
+	svc, err := NewService(cfg, "host-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := svc.(*NoopService); !ok {
+		t.Errorf("expected *NoopService when API key is empty, got %T", svc)
+	}
 }
 
 func TestNoopServiceMethods(t *testing.T) {
 	svc := &NoopService{}
 
-	// Track should not panic with nil properties
 	svc.Track("event", nil)
-
-	// Track should not panic with properties
 	svc.Track("event", map[string]any{
 		"string": "value",
 		"int":    42,
 		"float":  3.14,
 		"bool":   true,
-		"nested": map[string]any{"inner": "value"},
 	})
-
-	// Close should not panic
 	svc.Close()
 }
 
@@ -100,40 +90,5 @@ func TestBuildTrackProperties_PreservesExisting(t *testing.T) {
 	}
 	if props["$ip"] != "0.0.0.0" {
 		t.Errorf("expected $ip=0.0.0.0, got %v", props["$ip"])
-	}
-}
-
-func TestGetOrCreateDistinctID_Persistence(t *testing.T) {
-	// Use a temp dir to avoid polluting the real config
-	tmpDir := t.TempDir()
-	idPath := filepath.Join(tmpDir, "telemetry_id")
-
-	// Simulate getOrCreateDistinctID by writing/reading directly
-	// (the function uses paths.ConfigDir which we can't override in a unit test,
-	// so we test the file read/write logic directly)
-
-	// File does not exist: should produce a valid UUID-length string
-	id1 := getOrCreateDistinctID()
-	if id1 == "" {
-		t.Fatal("expected non-empty distinct ID")
-	}
-
-	// Calling again should return the same ID (reads from persisted file)
-	id2 := getOrCreateDistinctID()
-	if id1 != id2 {
-		t.Errorf("expected persistent ID %q, got %q", id1, id2)
-	}
-
-	// Write a known ID and verify it's read back
-	knownID := "test-known-id-12345"
-	if err := os.WriteFile(idPath, []byte(knownID), 0o600); err != nil {
-		t.Fatalf("write test ID: %v", err)
-	}
-	data, err := os.ReadFile(idPath)
-	if err != nil {
-		t.Fatalf("read test ID: %v", err)
-	}
-	if string(data) != knownID {
-		t.Errorf("expected %q, got %q", knownID, string(data))
 	}
 }

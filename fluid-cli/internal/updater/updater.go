@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
 )
 
 const maxBinarySize = 500 * 1024 * 1024 // 500MB limit for tar entry reads

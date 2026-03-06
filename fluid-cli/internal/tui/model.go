@@ -12,8 +12,9 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid/internal/updater"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sshconfig"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/updater"
 )
 
 // State represents the current state of the TUI
@@ -123,6 +124,9 @@ type Model struct {
 	livePrepareSteps    []string // completed/in-progress step descriptions
 	livePrepareIndex    int      // index in conversation
 
+	// SSH host cache for /prepare autocomplete
+	sshHosts []string
+
 	// Markdown renderer
 	mdRenderer *glamour.TermRenderer
 
@@ -145,6 +149,7 @@ var allCommands = []commandSuggestion{
 	{"/sandboxes", "List active sandboxes"},
 	{"/hosts", "List configured remote hosts"},
 	{"/playbooks", "List generated Ansible playbooks"},
+	{"/prepare", "Prepare a host for read-only access"},
 	{"/compact", "Summarize and compact conversation history"},
 	{"/context", "Show current context token usage"},
 	{"/settings", "Open configuration settings"},
@@ -440,7 +445,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.suggestions) > 0 {
 			switch keyStr {
 			case "tab":
-				m.textarea.SetValue(m.suggestions[m.suggestionIndex].name + " ")
+				if strings.HasPrefix(m.textarea.Value(), "/prepare ") {
+					m.textarea.SetValue("/prepare " + m.suggestions[m.suggestionIndex].name)
+				} else {
+					m.textarea.SetValue(m.suggestions[m.suggestionIndex].name + " ")
+				}
 				m.textarea.SetCursor(len(m.textarea.Value()))
 				m.suggestions = nil
 				return m, nil
@@ -1212,7 +1221,15 @@ func (m Model) View() string {
 			Height(viewportHeight).
 			Align(lipgloss.Right).
 			AlignVertical(lipgloss.Bottom)
-		viewportContent = warnStyle.Render("Press Ctrl+C again to close fluid and destroy all sandboxes created during this session.")
+
+		lines := []string{}
+		if m.cfg.HasSandboxHosts() {
+			lines = append(lines, "Press Ctrl+C again to close Fluid and destroy all sandboxes created during this session.")
+		} else {
+			lines = append(lines, "Press Ctrl+C again to close Fluid.")
+		}
+
+		viewportContent = warnStyle.Render(strings.Join(lines, "\n"))
 	} else {
 		// Ensure viewport fills its allocated height
 		viewportContent = lipgloss.NewStyle().
@@ -1301,6 +1318,27 @@ func (m *Model) updateSuggestions() {
 	if !strings.HasPrefix(val, "/") {
 		m.suggestions = nil
 		m.suggestionIndex = 0
+		return
+	}
+
+	// Handle /prepare argument completion (SSH hosts)
+	if strings.HasPrefix(val, "/prepare ") {
+		prefix := strings.TrimPrefix(val, "/prepare ")
+		if m.sshHosts == nil {
+			m.sshHosts = sshconfig.ListHosts()
+		}
+		m.suggestions = nil
+		for _, h := range m.sshHosts {
+			if strings.HasPrefix(h, prefix) {
+				m.suggestions = append(m.suggestions, commandSuggestion{
+					name:        h,
+					description: "SSH host",
+				})
+			}
+		}
+		if m.suggestionIndex >= len(m.suggestions) {
+			m.suggestionIndex = 0
+		}
 		return
 	}
 
@@ -1574,7 +1612,12 @@ func (m *Model) updateViewportContent(forceScroll bool) {
 			}
 		default:
 			statusText = " Thinking"
-			if strings.HasPrefix(m.currentInput, "/") {
+			if strings.HasPrefix(m.currentInput, "/prepare ") {
+				host := strings.TrimSpace(strings.TrimPrefix(m.currentInput, "/prepare "))
+				if host != "" {
+					statusText = " Preparing " + host
+				}
+			} else if strings.HasPrefix(m.currentInput, "/") {
 				cmd := strings.TrimPrefix(m.currentInput, "/")
 				if cmd == "hosts" || cmd == "vms" || cmd == "playbooks" || cmd == "sandboxes" {
 					statusText = " Pulling " + cmd

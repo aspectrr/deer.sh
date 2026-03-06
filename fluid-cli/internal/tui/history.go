@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
 )
 
 // MaxHistoryEntries is the maximum number of history entries to keep.

@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
-	"github.com/aspectrr/fluid.sh/fluid/internal/store"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/store"
 )
 
 // --- helpers ---

@@ -9,7 +9,7 @@
 [![Discord](https://img.shields.io/discord/1465124928650215710?label=discord)](https://discord.gg/4WGGXJWm8J)
 [![GitHub stars](https://img.shields.io/github/stars/aspectrr/fluid.sh)](https://github.com/aspectrr/fluid.sh)
 
-Fluid is an AI agent built for the core steps of debugging infrastructure. Read-Only mode for getting context, Create a sandbox and make edits to test changes. Create an Ansible Playbook to recreate on prod.
+Fluid is an AI agent built for the core steps of debugging and managing Linux servers. Read-Only mode for getting context, Create a sandbox and make edits to test changes. Create an Ansible Playbook to recreate on prod.
 
 [Features](#features) | [Quick Start](#quick-start) | [Demo](#demo) | [Docs](https://fluid.sh/docs/quickstart)
 
@@ -23,14 +23,15 @@ AI agents can install packages, configure services, write scripts - autonomously
 
 ## Solution
 
-**fluid.sh** gives agents full root access in isolated VM sandboxes. They work autonomously. When done, a human reviews the diff and approves an auto-generated Ansible playbook before anything touches production.
+**fluid.sh** gives agents direct read-only SSH access to your servers for context gathering, then full root access in isolated VM sandboxes for testing changes. When done, a human reviews the diff and approves an auto-generated Ansible playbook before anything touches production.
 
 ```
-Agent Task  -->  Sandbox VM (autonomous)  -->  Human Approval  -->  Production
-                  - Full root access            - Review diff
-                  - Install packages            - Approve Ansible
-                  - Edit configs                - One-click apply
-                  - Run services
+                    Read-Only (direct SSH)
+Agent Task  -->  Source Host (inspect)  -->  Sandbox VM (autonomous)  -->  Human Approval  -->  Production
+                  - View logs                  - Full root access            - Review diff
+                  - Check configs              - Install packages            - Approve Ansible
+                  - Query services             - Edit configs                - One-click apply
+                  - Read files                 - Run services
 ```
 
 ## Demo
@@ -42,13 +43,55 @@ Agent Task  -->  Sandbox VM (autonomous)  -->  Human Approval  -->  Production
 | Feature | Description |
 |---------|-------------|
 | **Autonomous Execution** | Agents run commands, install packages, edit configs - no hand-holding |
-| **Full VM Isolation** | Each agent gets a dedicated KVM virtual machine with root access |
+| **Full VM Isolation** | Each agent gets a dedicated microVM with root access |
 | **Interactive TUI** | Natural language interface - just type what you want done |
 | **Human-in-the-Loop** | Blocking approval workflow before any production changes |
 | **Ansible Export** | Auto-generate playbooks from agent work for production apply |
 | **MCP Integration** | Use fluid tools from Claude Code, Cursor, Windsurf |
 | **Read-Only Mode** | Inspect source VMs safely without risk of modification |
 | **Multi-Host** | Scale across hosts with the daemon + control plane |
+
+## Read-Only Mode
+
+The CLI connects directly to your source hosts over SSH - no daemon required. A dedicated `fluid-readonly` user with a restricted shell ensures agents can only run read-only commands.
+
+**What agents can do:**
+- Read files, logs, and configs (`cat`, `journalctl`, `tail`, etc.)
+- Inspect processes and services (`ps`, `systemctl status`, `top`)
+- Query system state (`df`, `free`, `ip`, `ss`, `uname`)
+- Run diagnostic commands (`dig`, `ping`, `lsblk`)
+
+**What agents cannot do:**
+- Write, modify, or delete files
+- Install or remove packages
+- Start, stop, or restart services
+- Execute arbitrary scripts or interpreters
+
+Commands are validated twice: client-side against an allowlist in the CLI, and server-side by the restricted shell on the host. You can extend the default allowlist with `extra_allowed_commands` in your config.
+
+### Preparing a Host
+
+Before fluid can read from a host, you need to prepare it. This creates the `fluid-readonly` user with a restricted shell and deploys an SSH key.
+
+**Prerequisites:** The host must be accessible via SSH using your existing `~/.ssh/config` (any ProxyJump, port, or user settings are respected).
+
+```bash
+fluid source prepare <hostname>
+```
+
+This runs 4 steps on the remote host:
+
+1. Installs a restricted shell script at `/usr/local/bin/fluid-readonly-shell`
+2. Creates a `fluid-readonly` system user with that shell
+3. Deploys fluid's SSH public key to the user's `authorized_keys`
+4. Restarts sshd
+
+After prepare, the host appears in `/hosts` as prepared. The CLI generates an ed25519 key pair at `~/.config/fluid/keys/` on first run and reuses it for all hosts.
+
+```bash
+# List prepared hosts
+fluid source list
+```
 
 ## Quick Start
 
@@ -61,7 +104,7 @@ curl -fsSL https://fluid.sh/install.sh | bash
 Or with Go:
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid-cli@latest
+go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
 ```
 
 ### Launch the TUI
@@ -70,20 +113,26 @@ go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid-cli@latest
 fluid
 ```
 
-On first run, onboarding walks you through host setup, SSH CA generation, and LLM API key configuration.
+On first run, onboarding walks you through host setup, and LLM API key configuration.
 
 ### Architecture
 
 ```
-fluid (TUI/MCP)  --->  fluid-daemon (gRPC :9091)  --->  libvirt/KVM
-                            |
-                            +--- control-plane (optional, multi-host)
-                            |
-                            +--- web dashboard
+                          Direct SSH (read-only)
+fluid (TUI/MCP)  -------------------------------->  Source Hosts
+       |                                              - fluid-readonly user
+       |                                              - restricted shell
+       |                                              - command allowlist
+       |
+       +--- gRPC :9091 --->  fluid-daemon  --->  QEMU microVMs (sandboxes)
+                                   |
+                                   +--- control-plane (optional, multi-host)
+                                   |
+                                   +--- web dashboard
 ```
 
-- **fluid-cli**: Interactive TUI agent + MCP server
-- **fluid-daemon**: Background service managing sandboxes via libvirt
+- **fluid-cli**: Interactive TUI agent + MCP server. Connects directly to source hosts via SSH for read-only inspection, and to the daemon via gRPC for sandbox operations.
+- **fluid-daemon**: Background service managing microVM sandboxes
 - **control-plane (api)**: Multi-host orchestration, REST API, web dashboard
 - **web**: React dashboard for monitoring and approval
 
@@ -128,7 +177,7 @@ Copy text by dragging and holding `Shift`.
 
 - **mprocs** - Multi-process runner for local dev
 - **Go 1.24+**
-- **libvirt/KVM** - See [local setup docs](https://fluid.sh/docs/local-setup)
+- **QEMU/KVM** - See [local setup docs](https://fluid.sh/docs/local-setup)
 
 ### 30-Second Start
 
@@ -146,10 +195,10 @@ Services:
 
 ```
 fluid-cli/        # Go - Interactive TUI agent + MCP server
-fluid-daemon/     # Go - Background sandbox management daemon
+fluid-daemon/     # Go - Background microVM sandbox management daemon
 api/              # Go - Control plane REST API + gRPC
+sdk/              # Python - SDK for the API
 web/              # React - Dashboard UI
-demo-server/      # Go - WebSocket demo server
 proto/            # Protobuf definitions
 ```
 

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 )
 
 type openRouterClient struct {

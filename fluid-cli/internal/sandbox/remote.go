@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

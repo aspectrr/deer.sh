@@ -64,7 +64,7 @@ export function BlogCTA() {
         </div>
         <div className="mt-4 border-t border-neutral-800 pt-4">
           <p className="mb-3 text-sm text-neutral-400">
-            Debug and manage your Linux servers with AI - safely.
+            Spend most of your time managing or debugging Linux servers? Fluid can help.
           </p>
           <Link
             to="/docs/quickstart"

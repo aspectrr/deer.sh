@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
-	"github.com/aspectrr/fluid.sh/fluid/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
 )
 
 // CommandResult holds the result of running a command on a source host.

@@ -155,7 +155,6 @@ export function PacketJourney() {
         className="md:hidden"
         style={{
           width: '100%',
-          display: 'block',
           opacity: hasPlayed ? 1 : 0.3,
           transition: 'opacity 0.3s',
         }}
@@ -411,7 +410,6 @@ export function PacketJourney() {
         style={{
           width: '100%',
           minWidth: 500,
-          display: 'block',
           opacity: hasPlayed ? 1 : 0.3,
           transition: 'opacity 0.3s',
         }}

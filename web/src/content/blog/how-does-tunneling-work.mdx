@@ -58,7 +58,7 @@ Now let's watch the full path a packet takes from your laptop to YouTube through
 
 <PacketJourney />
 
-Notice how the dot changes from blue (encrypted) to green (plain HTTPS) after the VPN server decapsulates. From the VPN server to YouTube, it's a normal HTTPS connection - no tunnel needed. The tunnel only exists between your device and the VPN server.
+Notice how the dot changes from blue (encrypted) to green (plain HTTPS) after the VPN server decapsulates. From the VPN server to YouTube, it's a normal HTTPS connection. The tunnel only exists between your device and the VPN server.
 
 ## What the Firewall Actually Sees
 
@@ -212,15 +212,3 @@ This is the part that makes tunneling work. The firewall can only read the outer
 `}</style>
 
 The firewall sees a perfectly normal-looking UDP packet going to an IP that isn't on its blocklist. It has no way to inspect the encrypted payload without the VPN's encryption keys. So it lets it through.
-
-## Tunnel Protocols
-
-Not all tunnels work the same way. Here are the most common ones:
-
-**WireGuard** - the modern choice. Uses UDP, minimal codebase (~4,000 lines of kernel code), extremely fast. Encryption is Curve25519 + ChaCha20-Poly1305. This is what most modern VPN providers use under the hood. The protocol is stateless on the wire, which makes it harder to fingerprint and block.
-
-**OpenVPN** - battle-tested. Can run over TCP or UDP, highly configurable, supports certificate-based auth. More overhead than WireGuard, but its TCP mode can masquerade as regular HTTPS traffic on port 443, making it harder to block in restrictive networks.
-
-**IPsec/IKEv2** - the enterprise standard. Built into most operating systems natively (no app needed on iOS/macOS). Uses IKE for key exchange and ESP for the actual encryption. Fast reconnection when switching between WiFi and cellular, which is why your phone's VPN doesn't drop when you walk out of a building.
-
-Each protocol makes different tradeoffs between speed, compatibility, and stealth. WireGuard is fastest but easiest to fingerprint. OpenVPN is slowest but hardest to block. IPsec is the most widely supported but the most complex to configure.

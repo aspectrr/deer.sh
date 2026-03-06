@@ -106,27 +106,21 @@ export function StepTracker({
     [steps.length]
   )
 
-  // Register session when progressEndpoint is set (client-generated code only)
-  // Skip if code came from URL param or was restored from localStorage
+  // Register session when progressEndpoint is set.
+  // Always register (including restored codes) so the server has an active session for CLI updates.
+  // Idempotent: re-registering just creates a fresh session if the old one expired.
   useEffect(() => {
-    if (
-      !progressEndpoint ||
-      !sessionCode ||
-      externalCode ||
-      sessionState.restoredFromStorage ||
-      registeredRef.current
-    )
-      return
+    if (!progressEndpoint || !sessionCode || externalCode || registeredRef.current) return
     registeredRef.current = true
 
     fetch(`${progressEndpoint}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storage_key: storageKey }),
+      body: JSON.stringify({ storage_key: storageKey, session_code: sessionCode }),
     }).catch(() => {
       // Registration failed - polling won't find anything
     })
-  }, [progressEndpoint, storageKey, externalCode, sessionCode, sessionState.restoredFromStorage])
+  }, [progressEndpoint, storageKey, externalCode, sessionCode])
 
   // Poll for progress when we have a session code (exponential backoff)
   useEffect(() => {

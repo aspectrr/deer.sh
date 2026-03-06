@@ -12,7 +12,7 @@ GOMOD=$(GOCMD) mod
 
 # Binary names and paths
 CLI_BINARY=fluid
-CLI_PATH=./cmd/fluid-cli
+CLI_PATH=./cmd/fluid
 
 # Version injection
 VERSION ?= dev
@@ -25,7 +25,7 @@ POSTHOG_KEY ?=
 # Build flags
 LDFLAGS=-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
 ifneq ($(POSTHOG_KEY),)
-  LDFLAGS += -X github.com/aspectrr/fluid.sh/fluid/internal/telemetry.posthogAPIKey=$(POSTHOG_KEY)
+  LDFLAGS += -X github.com/aspectrr/fluid.sh/fluid-cli/internal/telemetry.posthogAPIKey=$(POSTHOG_KEY)
 endif
 TAGS=libvirt
 BUILD_FLAGS=-ldflags "$(LDFLAGS)" -tags "$(TAGS)"

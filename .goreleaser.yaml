@@ -45,7 +45,7 @@ builds:
       - -X main.date={{ .Date }}
   - id: fluid
     dir: fluid-cli
-    main: ./cmd/fluid-cli
+    main: ./cmd/fluid
     binary: fluid
     env:
       - CGO_ENABLED=0

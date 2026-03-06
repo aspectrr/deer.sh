@@ -1,33 +1,38 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/audit"
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid/internal/doctor"
-	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
-	fluidmcp "github.com/aspectrr/fluid.sh/fluid/internal/mcp"
-	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
-	"github.com/aspectrr/fluid.sh/fluid/internal/readonly"
-	"github.com/aspectrr/fluid.sh/fluid/internal/redact"
-	"github.com/aspectrr/fluid.sh/fluid/internal/sandbox"
-	"github.com/aspectrr/fluid.sh/fluid/internal/source"
-	"github.com/aspectrr/fluid.sh/fluid/internal/sourcekeys"
-	"github.com/aspectrr/fluid.sh/fluid/internal/sshconfig"
-	"github.com/aspectrr/fluid.sh/fluid/internal/store"
-	"github.com/aspectrr/fluid.sh/fluid/internal/store/sqlite"
-	"github.com/aspectrr/fluid.sh/fluid/internal/telemetry"
-	"github.com/aspectrr/fluid.sh/fluid/internal/tui"
-	"github.com/aspectrr/fluid.sh/fluid/internal/updater"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/audit"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/doctor"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
+	fluidmcp "github.com/aspectrr/fluid.sh/fluid-cli/internal/mcp"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/redact"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/source"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sourcekeys"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sshconfig"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/store"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/store/sqlite"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/telemetry"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/tui"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/updater"
 )
 
 var (
@@ -245,6 +250,19 @@ func resolveConfigPath() (string, error) {
 	return paths.ConfigFile()
 }
 
+// reportDocsProgress sends a fire-and-forget completion event to the docs-progress API.
+func reportDocsProgress(apiURL, sessionCode string, stepIndex int) {
+	body, _ := json.Marshal(map[string]any{
+		"session_code": sessionCode,
+		"step_index":   stepIndex,
+	})
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Post(apiURL+"/v1/docs-progress/complete", "application/json", bytes.NewReader(body))
+	if err == nil {
+		_ = resp.Body.Close()
+	}
+}
+
 // runSourcePrepare prepares a host for read-only fluid access.
 func runSourcePrepare(hostname string) error {
 	configPath, err := resolveConfigPath()
@@ -269,6 +287,24 @@ func runSourcePrepare(hostname string) error {
 			return "\033[31m" + s + "\033[0m"
 		}
 		return s
+	}
+
+	// 0. Probe if host is already prepared
+	probeKeyPath := sourcekeys.GetPrivateKeyPath(loadedCfg.SSH.SourceKeyDir)
+	probeCtx, probeCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	probeRun := hostexec.NewReadOnlySSHAlias(hostname, probeKeyPath)
+	_, _, probeCode, probeErr := probeRun(probeCtx, "echo ok")
+	probeCancel()
+	if probeErr == nil && probeCode == 0 {
+		fmt.Printf("  Host %s already has fluid-readonly access configured.\n", hostname)
+		fmt.Print("  Re-prepare? [y/N] ")
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer != "y" {
+			fmt.Println("  Skipped.")
+			return nil
+		}
 	}
 
 	// 1. Resolve SSH connection details
@@ -331,6 +367,11 @@ func runSourcePrepare(hostname string) error {
 
 	if err := loadedCfg.Save(configPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not save config: %v\n", err)
+	}
+
+	// Report step completion to docs-progress API (step 1 = "Prepare your source VMs")
+	if loadedCfg.DocsSessionCode != "" {
+		go reportDocsProgress(loadedCfg.APIURL, loadedCfg.DocsSessionCode, 1)
 	}
 
 	fmt.Println()
@@ -477,9 +518,12 @@ func runMCP() error {
 		return fmt.Errorf("init core services: %w", err)
 	}
 	defer func() { _ = core.store.Close() }()
+	defer core.telemetry.Close()
 	if core.auditLog != nil {
 		defer func() { _ = core.auditLog.Close() }()
 	}
+
+	core.telemetry.Track("cli_session_start", map[string]any{"mode": "mcp"})
 
 	svc := initSandboxService(cfg, logger)
 	defer func() { _ = svc.Close() }()
@@ -533,9 +577,12 @@ func runTUI() error {
 		return fmt.Errorf("init core services: %w", err)
 	}
 	defer func() { _ = core.store.Close() }()
+	defer core.telemetry.Close()
 	if core.auditLog != nil {
 		defer func() { _ = core.auditLog.Close() }()
 	}
+
+	core.telemetry.Track("cli_session_start", map[string]any{"mode": "tui"})
 
 	svc := initSandboxService(cfg, fileLogger)
 	defer func() { _ = svc.Close() }()

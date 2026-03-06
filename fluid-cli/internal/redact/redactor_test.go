@@ -327,6 +327,96 @@ func TestCustomPatterns(t *testing.T) {
 	}
 }
 
+func TestRedactMap(t *testing.T) {
+	r := New()
+	m := map[string]any{
+		"command":    "ssh root@192.168.1.100",
+		"sandbox_id": "sbx-123",
+		"nested": map[string]any{
+			"ip":  "10.0.0.55",
+			"key": "sk-abcdefghijklmnopqrstuvwxyz",
+		},
+		"count": 42,
+	}
+
+	result := r.RedactMap(m)
+
+	// IP in command should be redacted
+	if s, ok := result["command"].(string); ok {
+		if strings.Contains(s, "192.168.1.100") {
+			t.Errorf("IP in command should be redacted, got: %s", s)
+		}
+	}
+
+	// sandbox_id should be unchanged (no sensitive pattern)
+	if result["sandbox_id"] != "sbx-123" {
+		t.Errorf("sandbox_id should be unchanged, got: %v", result["sandbox_id"])
+	}
+
+	// Nested map values should be redacted
+	nested, ok := result["nested"].(map[string]any)
+	if !ok {
+		t.Fatal("nested should be a map")
+	}
+	if s, ok := nested["ip"].(string); ok {
+		if strings.Contains(s, "10.0.0.55") {
+			t.Errorf("nested IP should be redacted, got: %s", s)
+		}
+	}
+	if s, ok := nested["key"].(string); ok {
+		if strings.Contains(s, "sk-abcdefghijklmnopqrstuvwxyz") {
+			t.Errorf("nested API key should be redacted, got: %s", s)
+		}
+	}
+
+	// Non-string values should pass through
+	if result["count"] != 42 {
+		t.Errorf("non-string value should be unchanged, got: %v", result["count"])
+	}
+}
+
+func TestRedactMapNil(t *testing.T) {
+	r := New()
+	result := r.RedactMap(nil)
+	if result != nil {
+		t.Errorf("RedactMap(nil) should return nil, got: %v", result)
+	}
+}
+
+func TestRedactAny(t *testing.T) {
+	r := New()
+
+	// String with IP
+	s := r.RedactAny("connect to 192.168.1.100")
+	if str, ok := s.(string); ok {
+		if strings.Contains(str, "192.168.1.100") {
+			t.Errorf("string IP should be redacted, got: %s", str)
+		}
+	}
+
+	// Non-string passthrough
+	if r.RedactAny(42) != 42 {
+		t.Error("int should pass through")
+	}
+	if r.RedactAny(true) != true {
+		t.Error("bool should pass through")
+	}
+	if r.RedactAny(nil) != nil {
+		t.Error("nil should pass through")
+	}
+
+	// Slice
+	slice := r.RedactAny([]any{"10.0.0.55", 123, "hello"})
+	if arr, ok := slice.([]any); ok {
+		if s, ok := arr[0].(string); ok && strings.Contains(s, "10.0.0.55") {
+			t.Errorf("IP in slice should be redacted, got: %s", s)
+		}
+		if arr[1] != 123 {
+			t.Error("int in slice should pass through")
+		}
+	}
+}
+
 func TestMultipleIPsSameText(t *testing.T) {
 	r := New()
 	input := "from 192.168.1.10 to 10.0.0.20"

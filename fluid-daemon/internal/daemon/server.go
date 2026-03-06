@@ -11,11 +11,14 @@ import (
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/redact"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/snapshotpull"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshconfig"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshkeys"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/state"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/telemetry"
 
 	genid "github.com/aspectrr/fluid.sh/fluid-daemon/internal/id"
 	"google.golang.org/grpc/codes"
@@ -30,6 +33,9 @@ type Server struct {
 	store           *state.Store
 	puller          *snapshotpull.Puller
 	keyMgr          sshkeys.KeyProvider
+	telemetry       telemetry.Service
+	redactor        *redact.Redactor
+	auditLog        *audit.Logger
 	hostID          string
 	version         string
 	sshIdentityFile string
@@ -38,12 +44,15 @@ type Server struct {
 }
 
 // NewServer creates a new DaemonService server.
-func NewServer(prov provider.SandboxProvider, store *state.Store, puller *snapshotpull.Puller, keyMgr sshkeys.KeyProvider, hostID, version, sshIdentityFile, caPubKey string, logger *slog.Logger) *Server {
+func NewServer(prov provider.SandboxProvider, store *state.Store, puller *snapshotpull.Puller, keyMgr sshkeys.KeyProvider, tele telemetry.Service, redactor *redact.Redactor, auditLog *audit.Logger, hostID, version, sshIdentityFile, caPubKey string, logger *slog.Logger) *Server {
 	return &Server{
 		prov:            prov,
 		store:           store,
 		puller:          puller,
 		keyMgr:          keyMgr,
+		telemetry:       tele,
+		redactor:        redactor,
+		auditLog:        auditLog,
 		hostID:          hostID,
 		version:         version,
 		sshIdentityFile: sshIdentityFile,
@@ -53,6 +62,8 @@ func NewServer(prov provider.SandboxProvider, store *state.Store, puller *snapsh
 }
 
 func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCommand) (*fluidv1.SandboxCreated, error) {
+	start := time.Now()
+	s.telemetry.Track("daemon_sandbox_created", nil)
 	s.logger.Info("CreateSandbox", "base_image", req.GetBaseImage(), "source_vm", req.GetSourceVm(), "name", req.GetName())
 
 	sandboxID := req.GetSandboxId()
@@ -145,6 +156,13 @@ func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCo
 		s.logger.Warn("failed to persist sandbox state", "sandbox_id", result.SandboxID, "error", err)
 	}
 
+	s.logAudit(audit.TypeSandboxCreated, map[string]any{
+		"sandbox_id": result.SandboxID,
+		"source_vm":  req.GetSourceVm(),
+		"vcpus":      vcpus,
+		"memory_mb":  memMB,
+	}, nil, time.Since(start).Milliseconds())
+
 	return &fluidv1.SandboxCreated{
 		SandboxId:  result.SandboxID,
 		Name:       result.Name,
@@ -188,6 +206,9 @@ func (s *Server) ListSandboxes(ctx context.Context, _ *fluidv1.ListSandboxesRequ
 }
 
 func (s *Server) DestroySandbox(ctx context.Context, req *fluidv1.DestroySandboxCommand) (*fluidv1.SandboxDestroyed, error) {
+	start := time.Now()
+	s.telemetry.Track("daemon_sandbox_destroyed", nil)
+
 	id := req.GetSandboxId()
 	if id == "" {
 		return nil, status.Error(codes.InvalidArgument, "sandbox_id is required")
@@ -202,10 +223,17 @@ func (s *Server) DestroySandbox(ctx context.Context, req *fluidv1.DestroySandbox
 		s.logger.Warn("failed to delete sandbox from store", "sandbox_id", id, "error", err)
 	}
 
+	s.logAudit(audit.TypeSandboxDestroyed, map[string]any{
+		"sandbox_id": id,
+	}, nil, time.Since(start).Milliseconds())
+
 	return &fluidv1.SandboxDestroyed{SandboxId: id}, nil
 }
 
 func (s *Server) StartSandbox(ctx context.Context, req *fluidv1.StartSandboxCommand) (*fluidv1.SandboxStarted, error) {
+	start := time.Now()
+	s.telemetry.Track("daemon_sandbox_started", nil)
+
 	id := req.GetSandboxId()
 	if id == "" {
 		return nil, status.Error(codes.InvalidArgument, "sandbox_id is required")
@@ -226,6 +254,10 @@ func (s *Server) StartSandbox(ctx context.Context, req *fluidv1.StartSandboxComm
 		}
 	}
 
+	s.logAudit(audit.TypeSandboxStarted, map[string]any{
+		"sandbox_id": id,
+	}, nil, time.Since(start).Milliseconds())
+
 	return &fluidv1.SandboxStarted{
 		SandboxId: id,
 		State:     result.State,
@@ -234,6 +266,9 @@ func (s *Server) StartSandbox(ctx context.Context, req *fluidv1.StartSandboxComm
 }
 
 func (s *Server) StopSandbox(ctx context.Context, req *fluidv1.StopSandboxCommand) (*fluidv1.SandboxStopped, error) {
+	start := time.Now()
+	s.telemetry.Track("daemon_sandbox_stopped", nil)
+
 	id := req.GetSandboxId()
 	if id == "" {
 		return nil, status.Error(codes.InvalidArgument, "sandbox_id is required")
@@ -252,6 +287,10 @@ func (s *Server) StopSandbox(ctx context.Context, req *fluidv1.StopSandboxComman
 		}
 	}
 
+	s.logAudit(audit.TypeSandboxStopped, map[string]any{
+		"sandbox_id": id,
+	}, nil, time.Since(start).Milliseconds())
+
 	return &fluidv1.SandboxStopped{
 		SandboxId: id,
 		State:     "STOPPED",
@@ -259,6 +298,9 @@ func (s *Server) StopSandbox(ctx context.Context, req *fluidv1.StopSandboxComman
 }
 
 func (s *Server) RunCommand(ctx context.Context, req *fluidv1.RunCommandCommand) (*fluidv1.CommandResult, error) {
+	start := time.Now()
+	s.telemetry.Track("daemon_command_executed", nil)
+
 	id := req.GetSandboxId()
 	if id == "" {
 		return nil, status.Error(codes.InvalidArgument, "sandbox_id is required")
@@ -292,6 +334,12 @@ func (s *Server) RunCommand(ctx context.Context, req *fluidv1.RunCommandCommand)
 	}
 	_ = s.store.CreateCommand(ctx, cmdRecord)
 
+	s.logAudit(audit.TypeCommandExecuted, map[string]any{
+		"sandbox_id": id,
+		"command":    req.GetCommand(),
+		"exit_code":  result.ExitCode,
+	}, nil, time.Since(start).Milliseconds())
+
 	return &fluidv1.CommandResult{
 		SandboxId:  id,
 		Stdout:     result.Stdout,
@@ -302,6 +350,9 @@ func (s *Server) RunCommand(ctx context.Context, req *fluidv1.RunCommandCommand)
 }
 
 func (s *Server) CreateSnapshot(ctx context.Context, req *fluidv1.SnapshotCommand) (*fluidv1.SnapshotCreated, error) {
+	start := time.Now()
+	s.telemetry.Track("daemon_snapshot_created", nil)
+
 	id := req.GetSandboxId()
 	if id == "" {
 		return nil, status.Error(codes.InvalidArgument, "sandbox_id is required")
@@ -316,6 +367,11 @@ func (s *Server) CreateSnapshot(ctx context.Context, req *fluidv1.SnapshotComman
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create snapshot: %v", err)
 	}
+
+	s.logAudit(audit.TypeSnapshotCreated, map[string]any{
+		"sandbox_id":    id,
+		"snapshot_name": result.SnapshotName,
+	}, nil, time.Since(start).Milliseconds())
 
 	return &fluidv1.SnapshotCreated{
 		SandboxId:    id,
@@ -453,6 +509,7 @@ func (s *Server) PrepareSourceVM(ctx context.Context, req *fluidv1.PrepareSource
 }
 
 func (s *Server) RunSourceCommand(ctx context.Context, req *fluidv1.RunSourceCommandCommand) (*fluidv1.SourceCommandResult, error) {
+	start := time.Now()
 	if req.GetSourceVm() == "" {
 		return nil, status.Error(codes.InvalidArgument, "source_vm is required")
 	}
@@ -474,6 +531,10 @@ func (s *Server) RunSourceCommand(ctx context.Context, req *fluidv1.RunSourceCom
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "run source command: %v", err)
 		}
+		s.logAudit(audit.TypeSourceCommand, map[string]any{
+			"source_vm": req.GetSourceVm(),
+			"command":   req.GetCommand(),
+		}, nil, time.Since(start).Milliseconds())
 		return &fluidv1.SourceCommandResult{
 			SourceVm: req.GetSourceVm(),
 			ExitCode: int32(exitCode),
@@ -487,6 +548,11 @@ func (s *Server) RunSourceCommand(ctx context.Context, req *fluidv1.RunSourceCom
 		return nil, status.Errorf(codes.Internal, "run source command: %v", err)
 	}
 
+	s.logAudit(audit.TypeSourceCommand, map[string]any{
+		"source_vm": req.GetSourceVm(),
+		"command":   req.GetCommand(),
+	}, nil, time.Since(start).Milliseconds())
+
 	return &fluidv1.SourceCommandResult{
 		SourceVm: req.GetSourceVm(),
 		ExitCode: int32(result.ExitCode),
@@ -496,6 +562,7 @@ func (s *Server) RunSourceCommand(ctx context.Context, req *fluidv1.RunSourceCom
 }
 
 func (s *Server) ReadSourceFile(ctx context.Context, req *fluidv1.ReadSourceFileCommand) (*fluidv1.SourceFileResult, error) {
+	start := time.Now()
 	if req.GetSourceVm() == "" {
 		return nil, status.Error(codes.InvalidArgument, "source_vm is required")
 	}
@@ -512,6 +579,10 @@ func (s *Server) ReadSourceFile(ctx context.Context, req *fluidv1.ReadSourceFile
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "read source file: %v", err)
 		}
+		s.logAudit(audit.TypeFileRead, map[string]any{
+			"source_vm": req.GetSourceVm(),
+			"path":      req.GetPath(),
+		}, nil, time.Since(start).Milliseconds())
 		return &fluidv1.SourceFileResult{
 			SourceVm: req.GetSourceVm(),
 			Path:     req.GetPath(),
@@ -523,6 +594,11 @@ func (s *Server) ReadSourceFile(ctx context.Context, req *fluidv1.ReadSourceFile
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "read source file: %v", err)
 	}
+
+	s.logAudit(audit.TypeFileRead, map[string]any{
+		"source_vm": req.GetSourceVm(),
+		"path":      req.GetPath(),
+	}, nil, time.Since(start).Milliseconds())
 
 	return &fluidv1.SourceFileResult{
 		SourceVm: req.GetSourceVm(),
@@ -591,6 +667,17 @@ func (s *Server) DiscoverHosts(ctx context.Context, req *fluidv1.DiscoverHostsCo
 	}
 
 	return &fluidv1.DiscoverHostsResult{Hosts: discovered}, nil
+}
+
+// logAudit records an operation to the audit log with redaction.
+func (s *Server) logAudit(opType string, meta map[string]any, err error, durationMs int64) {
+	if s.auditLog == nil {
+		return
+	}
+	if s.redactor != nil {
+		meta = s.redactor.RedactMap(meta)
+	}
+	s.auditLog.LogOperation(opType, meta, err, durationMs)
 }
 
 // sandboxToInfo converts a state.Sandbox to a proto SandboxInfo.

@@ -10,7 +10,7 @@ fluid.sh lets AI agents do infrastructure work in isolated VM sandboxes. Agent w
 
 ```
 fluid-cli/        # Go CLI - Interactive TUI agent + MCP server
-fluid-daemon/     # Go - Background sandbox management daemon
+fluid-daemon/     # Go - Background microVM sandbox management daemon
 api/              # Go - Control plane REST API + gRPC server
 web/              # React - Dashboard UI for monitoring/approval
 demo-server/      # Go - WebSocket demo server for interactive docs

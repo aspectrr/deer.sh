@@ -14,9 +14,6 @@ type RedactionStats struct {
 }
 
 // Redactor replaces sensitive values with deterministic tokens and can restore them.
-// Note: the mapping and reverse maps grow unboundedly for the lifetime of the
-// Redactor. For long-running sessions with many unique sensitive values this is
-// a memory trade-off - acceptable for CLI session lifetime.
 type Redactor struct {
 	mapping   map[string]string // token -> original value
 	reverse   map[string]string // original value -> token
@@ -38,24 +35,6 @@ func WithAllowlist(values []string) Option {
 	}
 }
 
-// WithConfigValues injects known configuration values (hostnames, addresses, key paths)
-// so they are detected and redacted.
-func WithConfigValues(hosts, addresses, keyPaths []string) Option {
-	return func(r *Redactor) {
-		d := newConfigValueDetector(hosts, addresses, keyPaths)
-		if len(d.entries) > 0 {
-			r.patterns = append(r.patterns, d)
-		}
-	}
-}
-
-// WithCustomPatterns adds additional regex patterns that produce SECRET-category tokens.
-func WithCustomPatterns(patterns []string) Option {
-	return func(r *Redactor) {
-		r.patterns = append(r.patterns, newCustomPatternDetectors(patterns)...)
-	}
-}
-
 // New creates a Redactor with the default built-in detectors plus any supplied options.
 func New(opts ...Option) *Redactor {
 	r := &Redactor{
@@ -72,12 +51,10 @@ func New(opts ...Option) *Redactor {
 }
 
 // Redact replaces all detected sensitive values in text with deterministic tokens.
-// The same original value always maps to the same token within the Redactor's lifetime.
 func (r *Redactor) Redact(text string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Collect all matches from every detector.
 	type catMatch struct {
 		Match
 		category string
@@ -85,19 +62,13 @@ func (r *Redactor) Redact(text string) string {
 	var all []catMatch
 	for _, p := range r.patterns {
 		for _, m := range p.FindAll(text) {
-			cat := p.Category()
-			// For configValueDetector, use per-entry category.
-			if cvd, ok := p.(*configValueDetector); ok {
-				cat = cvd.categoryForValue(m.Value)
-			}
-			all = append(all, catMatch{Match: m, category: cat})
+			all = append(all, catMatch{Match: m, category: p.Category()})
 		}
 	}
 	if len(all) == 0 {
 		return text
 	}
 
-	// Sort by start position, then by length descending (longest first).
 	sort.Slice(all, func(i, j int) bool {
 		if all[i].Start != all[j].Start {
 			return all[i].Start < all[j].Start
@@ -105,21 +76,16 @@ func (r *Redactor) Redact(text string) string {
 		return len(all[i].Value) > len(all[j].Value)
 	})
 
-	// Deduplicate overlapping matches: longest match wins.
 	var deduped []catMatch
 	end := -1
 	for _, m := range all {
 		if m.Start < end {
-			// This match overlaps with the previous winning match.
-			// If it starts at the same position the longer one is already first
-			// (sorted above), so skip. If it starts inside the previous match, skip.
 			continue
 		}
 		deduped = append(deduped, m)
 		end = m.End
 	}
 
-	// Build result by replacing matches back-to-front to preserve offsets.
 	result := text
 	for i := len(deduped) - 1; i >= 0; i-- {
 		m := deduped[i]
@@ -138,7 +104,6 @@ func (r *Redactor) Restore(text string) string {
 	defer r.mu.Unlock()
 
 	result := text
-	// Replace longest tokens first to avoid partial replacement issues.
 	type kv struct {
 		token string
 		orig  string

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/hostexec"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 )
 
 // CheckResult holds the outcome of a single doctor check.

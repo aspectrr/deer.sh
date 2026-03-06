@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { StepTracker } from '~/components/docs/step-tracker'
-import { quickstartSteps } from '~/components/docs/quickstart-steps'
+import { quickstartSteps, DaemonUpgradeSection } from '~/components/docs/quickstart-steps'
 import { PrevNext } from '~/components/docs/prev-next'
 
 export const Route = createFileRoute('/docs/quickstart')({
@@ -27,16 +27,11 @@ function QuickstartPage() {
         steps={quickstartSteps}
       />
 
+      <DaemonUpgradeSection />
+
       <div className="border-border mt-8 border-t pt-6">
         <h2 className="mb-2 text-sm font-medium text-white">What's next?</h2>
         <ul className="ml-4 list-disc space-y-1 text-xs text-neutral-400">
-          <li>
-            Set up the{' '}
-            <a href="/docs/daemon" className="text-blue-400 hover:text-blue-300">
-              daemon
-            </a>{' '}
-            for persistent sandbox management
-          </li>
           <li>
             Learn about{' '}
             <a href="/docs/sandboxes" className="text-blue-400 hover:text-blue-300">

@@ -17,7 +17,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/ansible"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/ansible"
 )
 
 // PlaybooksCloseMsg is sent when the playbooks view is closed

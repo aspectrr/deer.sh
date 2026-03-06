@@ -20,7 +20,7 @@ This release brings a major addition to Fluid's read-only capabilities -- the ab
 Update your CLI agent with `go install`
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest
+go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
 ```
 
 ## Reading Source VMs

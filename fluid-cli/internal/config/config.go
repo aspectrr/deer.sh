@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/paths"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
 )
 
 // Config is the root configuration for virsh-sandbox API.
@@ -30,6 +30,9 @@ type Config struct {
 	Audit                AuditConfig         `yaml:"audit"`
 	ExtraAllowedCommands []string            `yaml:"extra_allowed_commands"` // Additional commands allowed in read-only mode
 	OnboardingComplete   bool                `yaml:"onboarding_complete"`    // Whether onboarding wizard has been completed
+	DocsSessionCode      string              `yaml:"docs_session_code,omitempty"`
+	APIURL               string              `yaml:"api_url,omitempty"` // Control plane API base URL
+	WebURL               string              `yaml:"web_url,omitempty"` // Web dashboard base URL
 }
 
 // SandboxHostConfig configures a remote host running fluid-daemon for sandbox operations.
@@ -180,6 +183,8 @@ func DefaultConfig() *Config {
 
 	return &Config{
 		Provider: "libvirt",
+		APIURL:   "https://api.fluid.sh",
+		WebURL:   "https://fluid.sh",
 		ControlPlane: ControlPlaneConfig{
 			DaemonInsecure: true,
 		},
@@ -367,6 +372,14 @@ func applyDefaults(cfg *Config) {
 	if cfg.Audit.MaxSizeMB == 0 {
 		cfg.Audit.MaxSizeMB = defaults.Audit.MaxSizeMB
 	}
+	// URL defaults
+	if cfg.APIURL == "" {
+		cfg.APIURL = defaults.APIURL
+	}
+	if cfg.WebURL == "" {
+		cfg.WebURL = defaults.WebURL
+	}
+
 	// Migration: if ControlPlane.DaemonAddress is set and SandboxHosts is empty,
 	// auto-migrate the daemon address to a sandbox host entry.
 	if cfg.ControlPlane.DaemonAddress != "" && len(cfg.SandboxHosts) == 0 {
@@ -447,6 +460,14 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("PROXMOX_NODE"); v != "" {
 		cfg.Proxmox.Node = v
+	}
+
+	// Fluid URL overrides
+	if v := os.Getenv("FLUID_API_URL"); v != "" {
+		cfg.APIURL = v
+	}
+	if v := os.Getenv("FLUID_WEB_URL"); v != "" {
+		cfg.WebURL = v
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/agent"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/daemon"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/id"
@@ -27,11 +28,13 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider"
 	lxcProvider "github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider/lxc"
 	microvmProvider "github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider/microvm"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/redact"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/snapshotpull"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sourcevm"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshca"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshkeys"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/state"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/telemetry"
 )
 
 const version = "0.1.0"
@@ -83,6 +86,16 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		"config", cfgPath,
 		"provider", cfg.Provider,
 	)
+
+	// Initialize telemetry
+	tele, err := telemetry.NewService(telemetry.Config{
+		EnableAnonymousUsage: cfg.Telemetry.EnableAnonymousUsage,
+	}, cfg.HostID)
+	if err != nil {
+		tele = telemetry.NewNoopService()
+	}
+	defer tele.Close()
+	tele.Track("daemon_session_start", map[string]any{"provider": cfg.Provider})
 
 	// Initialize SQLite state store
 	st, err := state.NewStore(cfg.State.DBPath)
@@ -138,9 +151,30 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	puller := snapshotpull.NewPuller(imgStore, st.DB(), logger)
 
+	// Initialize redactor
+	redactor := redact.New()
+
+	// Initialize audit logger
+	var auditLog *audit.Logger
+	if cfg.Audit.Enabled {
+		if err := os.MkdirAll(filepath.Dir(cfg.Audit.LogPath), 0o755); err != nil {
+			logger.Warn("failed to create audit log directory", "error", err)
+		} else {
+			al, err := audit.NewLogger(cfg.Audit.LogPath, cfg.Audit.MaxSizeMB)
+			if err != nil {
+				logger.Warn("failed to initialize audit logger", "error", err)
+			} else {
+				auditLog = al
+				auditLog.LogSessionStart()
+				defer auditLog.Close()
+				logger.Info("audit logger initialized", "path", cfg.Audit.LogPath)
+			}
+		}
+	}
+
 	// Start DaemonService gRPC server (inbound from CLI)
 	if cfg.Daemon.Enabled {
-		daemonSrv := daemon.NewServer(prov, st, puller, keyMgr, cfg.HostID, version, cfg.SSH.IdentityFile, caPubKey, logger)
+		daemonSrv := daemon.NewServer(prov, st, puller, keyMgr, tele, redactor, auditLog, cfg.HostID, version, cfg.SSH.IdentityFile, caPubKey, logger)
 		grpcServer := grpc.NewServer()
 		fluidv1.RegisterDaemonServiceServer(grpcServer, daemonSrv)
 

@@ -162,7 +162,7 @@ const installTabs = [
   {
     id: 'go',
     label: 'go',
-    command: 'go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest',
+    command: 'go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest',
     method: 'go_install',
   },
   {

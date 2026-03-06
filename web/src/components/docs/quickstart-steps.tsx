@@ -1,3 +1,5 @@
+import { useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { Step } from '~/components/docs/step-tracker'
 import { TerminalBlock } from '~/components/docs/terminal-block'
 import { CodeBlock } from '~/components/docs/code-block'
@@ -15,7 +17,7 @@ export const quickstartSteps: Step[] = [
         <TerminalBlock
           lines={[
             {
-              command: 'go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid-cli@latest',
+              command: 'go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest',
             },
           ]}
         />
@@ -27,86 +29,93 @@ export const quickstartSteps: Step[] = [
     ),
   },
   {
+    title: 'Prepare your source VMs',
+    content: (
+      <>
+        <p>
+          Set up read-only access on the VMs you want Fluid to inspect. This creates a restricted
+          user that Fluid uses to safely read logs, check configs, and run diagnostic commands -
+          without write access.
+        </p>
+        <TerminalBlock
+          lines={[
+            { command: 'fluid source prepare my-server' },
+            { output: '  Connecting to my-server...' },
+            { output: '  Creating read-only user...' },
+            { output: '  Installing SSH key...' },
+            { output: '  Verifying access...' },
+            { output: '' },
+            { output: 'Source VM my-server prepared successfully.' },
+          ]}
+        />
+        <Callout type="tip">
+          You can prepare multiple source VMs. Run{' '}
+          <code className="text-green-400">fluid source prepare</code> for each host you want Fluid
+          to access. See{' '}
+          <a href="/docs/source-prepare" className="text-blue-400 hover:text-blue-300">
+            source prepare docs
+          </a>{' '}
+          for details on what happens during preparation.
+        </Callout>
+      </>
+    ),
+  },
+  {
     title: 'Launch the TUI',
     content: (
       <>
         <p>
           Run <code className="text-blue-400">fluid</code> to start the interactive agent TUI. On
-          first run, onboarding walks you through host setup, SSH CA generation, and LLM API key
+          first run, onboarding walks you through source VM connection and LLM API key
           configuration.
         </p>
         <TerminalBlock
           lines={[
             { command: 'fluid' },
             { output: 'fluid.sh v0.1.0' },
-            { output: 'Connected to daemon at localhost:9091' },
             { output: '' },
             { output: 'Type your message... (type /settings to configure)' },
           ]}
         />
         <Callout type="tip">
-          Use <code className="text-green-400">/settings</code> to configure hosts, LLM provider,
-          and sandbox defaults at any time.
+          Use <code className="text-green-400">/prepare {'<hostname>'}</code> to set up read-only
+          access to a host directly from the TUI. Use{' '}
+          <code className="text-green-400">/settings</code> to configure hosts, LLM provider, and
+          sandbox defaults at any time.
         </Callout>
       </>
     ),
   },
   {
-    title: 'Set up the daemon',
+    title: 'Debug your source VMs',
     content: (
       <>
         <p>
-          The daemon manages sandboxes on the sandbox host. Choose a free host in your
-          infrastructure that can connect to the VMs that you want to work on over SSH. Install and
-          configure the daemon on each sandbox host - the CLI connects to it over gRPC.
-        </p>
-        <DaemonSubsteps />
-      </>
-    ),
-  },
-  {
-    title: 'Create a sandbox',
-    content: (
-      <>
-        <p>
-          In the TUI, type a natural language request. The agent will call the appropriate tools:
+          Ask Fluid to inspect your infrastructure. It uses read-only access to check logs, configs,
+          and system state on your source VMs:
         </p>
         <TerminalBlock
           lines={[
-            { command: 'create a sandbox from ubuntu-base' },
-            { output: '  ... create_sandbox source_vm=ubuntu-base' },
-            { output: '  v create_sandbox' },
+            { command: 'check the nginx logs on my-server' },
             {
-              output: '    -> {"sandbox_id":"SBX-a1b2c3d4","state":"RUNNING","ip":"10.0.0.2"}',
+              output:
+                '  ... run_source_command source_vm=my-server, command=journalctl -u nginx --no-pager -n 50',
+            },
+            { output: '  v run_source_command' },
+            {
+              output:
+                '    -> {"exit_code":0,"stdout":"Mar 05 12:01:32 my-server nginx[1234]: 192.168.1.10 - - [05/Mar/2026:12:01:32 +0000] \\"GET /api/health HTTP/1.1\\" 200 ...\\nMar 05 12:01:35 my-server nginx[1234]: 192.168.1.15 - - [05/Mar/2026:12:01:35 +0000] \\"POST /api/login HTTP/1.1\\" 502 ..."}',
             },
             { output: '' },
-            { output: 'Sandbox SBX-a1b2c3d4 created and running at 10.0.0.2' },
+            {
+              output:
+                'I can see 502 errors on POST /api/login starting around 12:01. The upstream backend may be down. Want me to check the backend service status?',
+            },
           ]}
         />
         <p>
-          The sandbox is a full copy-on-write clone with its own network interface. Changes stay
-          isolated from the source VM.
-        </p>
-      </>
-    ),
-  },
-  {
-    title: 'Run commands in the sandbox',
-    content: (
-      <>
-        <p>Ask the agent to run commands:</p>
-        <TerminalBlock
-          lines={[
-            { command: 'run whoami in the sandbox' },
-            { output: '  ... run_command sandbox_id=SBX-a1b2c3d4, command=whoami' },
-            { output: '  v run_command' },
-            { output: '    -> {"exit_code":0,"stdout":"root\\n"}' },
-            { output: '' },
-            { output: 'root' },
-          ]}
-        />
-        <p>
-          Commands execute over SSH using ephemeral CA-signed certificates. No passwords needed.
+          This is fully read-only - Fluid can diagnose issues but won't make changes to your source
+          VMs.
         </p>
       </>
     ),
@@ -166,3 +175,92 @@ export const quickstartSteps: Step[] = [
     ),
   },
 ]
+
+// -- Daemon upgrade section for bottom of quickstart page --
+
+interface CollapsibleSectionProps {
+  title: string
+  children: ReactNode
+  defaultOpen?: boolean
+}
+
+function CollapsibleSection({ title, children, defaultOpen = false }: CollapsibleSectionProps) {
+  const [expanded, setExpanded] = useState(defaultOpen)
+
+  return (
+    <div className="border-border overflow-hidden rounded-lg border">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left text-xs font-medium text-neutral-300 transition-colors hover:text-white"
+      >
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 text-neutral-500" />
+        ) : (
+          <ChevronRight className="h-3 w-3 text-neutral-500" />
+        )}
+        {title}
+      </button>
+      {expanded && <div className="docs-prose px-4 pb-4">{children}</div>}
+    </div>
+  )
+}
+
+export function DaemonUpgradeSection() {
+  return (
+    <div className="border-border mt-8 border-t pt-6">
+      <h2 className="mb-2 text-sm font-medium text-white">Want Fluid to fix issues it finds?</h2>
+      <p className="mb-4 text-xs text-neutral-400">
+        The daemon enables sandboxes - isolated copy-on-write clones of your VMs where Fluid can
+        make changes safely. Test fixes in a sandbox, then apply them to production when you're
+        ready.
+      </p>
+
+      <div className="space-y-3">
+        <CollapsibleSection title="Install the daemon on your sandbox host">
+          <p>
+            Choose a free host in your infrastructure that can connect to the VMs you want to work
+            on over SSH. Install and configure the daemon - the CLI connects to it over gRPC.
+          </p>
+          <DaemonSubsteps />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Create and use sandboxes">
+          <p>Once the daemon is running, ask Fluid to create sandboxes from your source VMs:</p>
+          <TerminalBlock
+            lines={[
+              { command: 'create a sandbox from my-server' },
+              { output: '  ... create_sandbox source_vm=my-server' },
+              { output: '  v create_sandbox' },
+              {
+                output: '    -> {"sandbox_id":"SBX-a1b2c3d4","state":"RUNNING","ip":"10.0.0.2"}',
+              },
+              { output: '' },
+              { output: 'Sandbox SBX-a1b2c3d4 created and running at 10.0.0.2' },
+            ]}
+          />
+          <p>
+            The sandbox is a full copy-on-write clone with its own network interface. Changes stay
+            isolated from the source VM.
+          </p>
+          <p className="mt-3">Run commands in the sandbox:</p>
+          <TerminalBlock
+            lines={[
+              { command: 'fix the nginx config in the sandbox' },
+              {
+                output: '  ... run_command sandbox_id=SBX-a1b2c3d4, command=nginx -t',
+              },
+              { output: '  v run_command' },
+              {
+                output:
+                  '    -> {"exit_code":0,"stdout":"nginx: configuration file /etc/nginx/nginx.conf test is successful"}',
+              },
+            ]}
+          />
+          <p>
+            Commands execute over SSH using ephemeral CA-signed certificates. No passwords needed.
+          </p>
+        </CollapsibleSection>
+      </div>
+    </div>
+  )
+}

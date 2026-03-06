@@ -12,7 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/aspectrr/fluid.sh/fluid/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 )
 
 // StaticSettingsField represents the fixed configuration fields
@@ -546,7 +546,9 @@ func EnsureConfigExists(configPath string) (*config.Config, error) {
 		return nil, err
 	}
 
-	return cfg, nil
+	// Apply env overrides on fresh config too
+	cfg, _, err := config.LoadWithEnvOverride(configPath)
+	return cfg, err
 }
 
 // parseDuration wraps time.ParseDuration for settings use.

@@ -20,7 +20,7 @@ This release brings a major rewrite to what Fluid can do and where it can operat
 Update your CLI agent with `go install`
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid/cmd/fluid@latest
+go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
 ```
 
 ## Fluid Daemon
