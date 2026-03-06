@@ -88,7 +88,7 @@ func ListHosts() []string {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var hosts []string
 	scanner := bufio.NewScanner(f)

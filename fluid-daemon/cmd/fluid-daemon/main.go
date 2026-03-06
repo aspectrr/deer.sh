@@ -166,7 +166,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 			} else {
 				auditLog = al
 				auditLog.LogSessionStart()
-				defer auditLog.Close()
+				defer func() { _ = auditLog.Close() }()
 				logger.Info("audit logger initialized", "path", cfg.Audit.LogPath)
 			}
 		}
