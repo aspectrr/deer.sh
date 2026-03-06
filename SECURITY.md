@@ -17,7 +17,7 @@ Security is enforced across multiple layers:
 9. **API authentication and authorization** - bcrypt passwords, session tokens, OAuth, RBAC
 10. **Transport security** - CORS lockdown, rate limiting, optional mTLS for gRPC
 11. **Encryption at rest** - AES-256-GCM for OAuth tokens and credentials
-12. **Telemetry privacy** - opt-in only, anonymous, no user content collected
+12. **Telemetry privacy** - enabled by default (opt-out), anonymous, no user content collected
 
 ## SSH Certificate Authority
 
@@ -219,13 +219,14 @@ Source: `fluid-cli/internal/config/config.go`
 
 ## Telemetry Privacy
 
-Telemetry is opt-in only and disabled by default.
+Telemetry is enabled by default (opt-out). Disable via `telemetry.enable_anonymous_usage: false` in config or `ENABLE_ANONYMOUS_USAGE=false` env var.
 
 - Requires build-time API key injection; defaults to a no-op service otherwise
-- Session-scoped anonymous UUID (not persisted across sessions)
+- Persistent anonymous UUID at `~/.config/fluid/telemetry_id` for cross-session correlation
+- `$ip` is set to `0.0.0.0` to prevent IP logging
 - Tracks only: tool names, message counts, OS/arch
 - Never collects: commands, file contents, IP addresses, hostnames, user input
-- Daemon: HostID is persisted but `$ip` is set to `0.0.0.0` to prevent IP logging
+- Daemon redaction scope: daemon audit uses built-in detectors only; CLI custom redaction patterns (`redact.custom_patterns`) do not apply on the daemon side
 
 Source: `fluid-cli/internal/telemetry/`, `fluid-daemon/internal/telemetry/`
 

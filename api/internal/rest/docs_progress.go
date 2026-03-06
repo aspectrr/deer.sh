@@ -77,6 +77,13 @@ func (s *Server) handleDocsProgressRegister(w http.ResponseWriter, r *http.Reque
 	}
 
 	docsProgress.mu.Lock()
+	// Idempotency: if client-supplied session code already exists, return it as-is
+	if existing, ok := docsProgress.sessions[code]; ok && req.SessionCode != "" {
+		_ = existing // keep existing session unchanged
+		docsProgress.mu.Unlock()
+		_ = serverJSON.RespondJSON(w, http.StatusOK, docsRegisterResponse{SessionCode: code})
+		return
+	}
 	if len(docsProgress.sessions) >= 10000 {
 		docsProgress.mu.Unlock()
 		serverError.RespondError(w, http.StatusServiceUnavailable, fmt.Errorf("too many active sessions"))

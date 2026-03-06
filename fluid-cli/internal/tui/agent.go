@@ -16,7 +16,6 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/ansible"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid-cli/internal/docsprogress"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/llm"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
@@ -970,39 +969,8 @@ func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.
 
 	// 4. Update config
 	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4})
-	found := false
-	for i, h := range a.cfg.Hosts {
-		if h.Name == hostname {
-			a.cfg.Hosts[i].Address = resolved.Hostname
-			a.cfg.Hosts[i].SSHUser = resolved.User
-			a.cfg.Hosts[i].SSHPort = resolved.Port
-			a.cfg.Hosts[i].Prepared = true
-			found = true
-			break
-		}
-	}
-	if !found {
-		a.cfg.Hosts = append(a.cfg.Hosts, config.HostConfig{
-			Name:     hostname,
-			Address:  resolved.Hostname,
-			SSHUser:  resolved.User,
-			SSHPort:  resolved.Port,
-			Prepared: true,
-		})
-	}
-
-	configPath, err := paths.ConfigFile()
-	if err == nil {
-		if saveErr := a.cfg.Save(configPath); saveErr != nil {
-			a.logger.Warn("could not save config after prepare", "error", saveErr)
-		}
-	}
-
-	// Report docs progress if session code is set
-	if a.cfg.DocsSessionCode != "" && a.cfg.APIURL != "" {
-		go docsprogress.ReportCompletion(a.cfg.APIURL, a.cfg.DocsSessionCode, 1)
-	}
-
+	configPath, _ := paths.ConfigFile()
+	source.SavePreparedHost(a.cfg, configPath, hostname, resolved)
 	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4, Done: true})
 	a.sendStatus(AgentDoneMsg{})
 

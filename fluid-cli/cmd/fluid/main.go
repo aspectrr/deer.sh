@@ -15,7 +15,6 @@ import (
 
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
-	"github.com/aspectrr/fluid.sh/fluid-cli/internal/docsprogress"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	fluidmcp "github.com/aspectrr/fluid.sh/fluid-cli/internal/mcp"
@@ -332,35 +331,7 @@ func runSourcePrepare(hostname string) error {
 	}
 
 	// 4. Update config
-	found := false
-	for i, h := range loadedCfg.Hosts {
-		if h.Name == hostname {
-			loadedCfg.Hosts[i].Address = resolved.Hostname
-			loadedCfg.Hosts[i].SSHUser = resolved.User
-			loadedCfg.Hosts[i].SSHPort = resolved.Port
-			loadedCfg.Hosts[i].Prepared = true
-			found = true
-			break
-		}
-	}
-	if !found {
-		loadedCfg.Hosts = append(loadedCfg.Hosts, config.HostConfig{
-			Name:     hostname,
-			Address:  resolved.Hostname,
-			SSHUser:  resolved.User,
-			SSHPort:  resolved.Port,
-			Prepared: true,
-		})
-	}
-
-	if err := loadedCfg.Save(configPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not save config: %v\n", err)
-	}
-
-	// Report step completion to docs-progress API (step 1 = "Prepare your source VMs")
-	if loadedCfg.DocsSessionCode != "" {
-		go docsprogress.ReportCompletion(loadedCfg.APIURL, loadedCfg.DocsSessionCode, 1)
-	}
+	source.SavePreparedHost(loadedCfg, configPath, hostname, resolved)
 
 	fmt.Println()
 	fmt.Printf("  %s Host %q is ready for read-only access.\n", green("[done]"), hostname)

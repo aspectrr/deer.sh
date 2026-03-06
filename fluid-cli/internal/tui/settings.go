@@ -530,6 +530,8 @@ func (m SettingsModel) GetConfig() *config.Config {
 }
 
 // EnsureConfigExists checks if config exists and creates it with defaults if not.
+// Both paths call LoadWithEnvOverride so env vars always take precedence over
+// the YAML file, whether the config already existed or was freshly created.
 func EnsureConfigExists(configPath string) (*config.Config, error) {
 	if _, err := os.Stat(configPath); err == nil {
 		cfg, _, err := config.LoadWithEnvOverride(configPath)

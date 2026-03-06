@@ -23,6 +23,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/source"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sourcekeys"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sshconfig"
 )
@@ -92,8 +93,6 @@ type OnboardingModel struct {
 	preparingHosts map[string]bool
 	preparedHosts  map[string]bool
 	prepareErrors  map[string]string
-	prepareSteps   map[string]string // current step name per host
-
 	// Re-prepare confirmation state
 	confirmHost         string
 	confirmingReprepare bool
@@ -103,11 +102,6 @@ type OnboardingModel struct {
 type apiKeyTestDoneMsg struct {
 	valid bool
 	err   error
-}
-
-type onboardingPrepareProgressMsg struct {
-	host     string
-	stepName string
 }
 
 type onboardingPrepareDoneMsg struct {
@@ -145,7 +139,6 @@ func NewOnboardingModel(cfg *config.Config, configPath string) OnboardingModel {
 		preparingHosts: make(map[string]bool),
 		preparedHosts:  make(map[string]bool),
 		prepareErrors:  make(map[string]string),
-		prepareSteps:   make(map[string]string),
 	}
 }
 
@@ -261,10 +254,6 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cfg.AIAgent.APIKey = m.textInput.Value()
 		m.step = StepPrepare
 		m.sshHosts = sshconfig.ListHosts()
-		return m, nil
-
-	case onboardingPrepareProgressMsg:
-		m.prepareSteps[msg.host] = msg.stepName
 		return m, nil
 
 	case onboardingProbeResultMsg:
@@ -395,36 +384,8 @@ func (m OnboardingModel) prepareHostCmd(hostname string) tea.Cmd {
 		}
 
 		// 4. Update config
-		found := false
-		for i, h := range cfg.Hosts {
-			if h.Name == hostname {
-				cfg.Hosts[i].Address = resolved.Hostname
-				cfg.Hosts[i].SSHUser = resolved.User
-				cfg.Hosts[i].SSHPort = resolved.Port
-				cfg.Hosts[i].Prepared = true
-				found = true
-				break
-			}
-		}
-		if !found {
-			cfg.Hosts = append(cfg.Hosts, config.HostConfig{
-				Name:     hostname,
-				Address:  resolved.Hostname,
-				SSHUser:  resolved.User,
-				SSHPort:  resolved.Port,
-				Prepared: true,
-			})
-		}
-
-		configPath, err := paths.ConfigFile()
-		if err == nil {
-			_ = cfg.Save(configPath)
-		}
-
-		// Report docs progress
-		if cfg.DocsSessionCode != "" && cfg.APIURL != "" {
-			go docsprogress.ReportCompletion(cfg.APIURL, cfg.DocsSessionCode, 1)
-		}
+		configPath, _ := paths.ConfigFile()
+		source.SavePreparedHost(cfg, configPath, hostname, resolved)
 
 		return onboardingPrepareDoneMsg{host: hostname}
 	}
@@ -575,11 +536,7 @@ func (m OnboardingModel) viewPrepare() string {
 		if m.preparedHosts[host] {
 			status = checkStyle.Render(" [ok]")
 		} else if m.preparingHosts[host] {
-			step := m.prepareSteps[host]
-			if step == "" {
-				step = "preparing"
-			}
-			status = " " + m.spinner.View() + " " + dimStyle.Render(step)
+			status = " " + m.spinner.View() + " " + dimStyle.Render("preparing")
 		} else if errMsg, ok := m.prepareErrors[host]; ok {
 			status = errStyle.Render(" [error: " + errMsg + "]")
 		}

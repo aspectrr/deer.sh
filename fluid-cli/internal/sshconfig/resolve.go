@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -79,6 +80,8 @@ func Resolve(hostAlias string) (*ResolvedHost, error) {
 }
 
 // ListHosts parses ~/.ssh/config and returns Host aliases, filtering out wildcards.
+// TODO: this does not follow Include directives in ~/.ssh/config. Resolve() uses
+// `ssh -G` which handles includes, so host resolution is unaffected.
 func ListHosts() []string {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -90,8 +93,14 @@ func ListHosts() []string {
 	}
 	defer func() { _ = f.Close() }()
 
+	return ListHostsFromReader(f)
+}
+
+// ListHostsFromReader scans an SSH config from r and returns Host aliases,
+// filtering out wildcard patterns.
+func ListHostsFromReader(r io.Reader) []string {
 	var hosts []string
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		// Skip comments and empty lines
