@@ -1,15 +1,23 @@
 # Security Model
 
-fluid.sh uses defense-in-depth to isolate AI agent workloads in VM sandboxes. This document describes the security architecture, covering SSH certificate management, read-only source VM enforcement, VM isolation, and credential lifecycle.
+fluid.sh uses defense-in-depth to isolate AI agent workloads in VM sandboxes. This document describes the security architecture across the CLI, daemon, and API control plane.
 
 ## Overview
 
-Four layers enforce isolation:
+Security is enforced across multiple layers:
 
 1. **SSH Certificate Authority** - short-lived certificates replace persistent credentials
 2. **Principal separation** - sandbox (`sandbox`) and read-only (`fluid-readonly`) access use distinct SSH principals
 3. **Read-only enforcement** - client-side allowlist + server-side restricted shell block destructive commands on source VMs
-4. **VM isolation** - KVM/libvirt hypervisor isolation with copy-on-write overlays
+4. **VM isolation** - QEMU microVM hypervisor isolation with copy-on-write overlays
+5. **Secrets redaction** - sensitive data stripped from LLM messages with deterministic tokens
+6. **Human approval workflow** - blocking confirmation dialogs for network access, resource limits, and source VM preparation
+7. **Hash-chained audit log** - tamper-evident append-only log of all agent actions
+8. **Input validation** - shell argument sanitization, path traversal prevention, file size limits
+9. **API authentication and authorization** - bcrypt passwords, session tokens, OAuth, RBAC
+10. **Transport security** - CORS lockdown, rate limiting, optional mTLS for gRPC
+11. **Encryption at rest** - AES-256-GCM for OAuth tokens and credentials
+12. **Telemetry privacy** - opt-in only, anonymous, no user content collected
 
 ## SSH Certificate Authority
 
@@ -33,7 +41,7 @@ user:{UserID}-vm:{VMID}-sbx:{SandboxID}-cert:{CertID}
 
 **Permission validation**: the CA enforces that private key files have mode 0600 or 0400 (no group/world access) before signing.
 
-Source: `fluid/internal/sshca/ca.go`
+Source: `fluid-daemon/internal/sshca/ca.go`
 
 ## Sandbox Credentials
 
@@ -49,11 +57,11 @@ Each sandbox gets ephemeral Ed25519 key pairs, generated on demand and cached un
 
 Pre-flight permission checks run before every SSH connection: the runner verifies the private key file has no group/world permissions (`perm & 0077 == 0`) and rejects the connection otherwise.
 
-Source: `fluid/internal/sshkeys/manager.go`
+Source: `fluid-daemon/internal/sshkeys/manager.go`
 
 ## Source VM Read-Only Mode
 
-Source (golden) VMs are accessible only for inspection, never modification. Three enforcement layers ensure this.
+Source (golden) VMs are accessible only for inspection, never modification. The CLI connects directly to source hosts via SSH for read-only operations (not through the daemon). Three enforcement layers ensure safety.
 
 ### Layer 1: Client-side allowlist
 
@@ -83,7 +91,7 @@ Source (golden) VMs are accessible only for inspection, never modification. Thre
 - Output redirection: `>` and `>>`
 - Newlines: `\n` and `\r`
 
-Source: `fluid/internal/readonly/validate.go`
+Source: `fluid-daemon/internal/readonly/validate.go`
 
 ### Layer 2: Server-side restricted shell
 
@@ -109,7 +117,7 @@ A bash script installed at `/usr/local/bin/fluid-readonly-shell` on source VMs a
 - Firewall: `iptables`, `ip6tables`, `nft`
 - Write tools: `sed -i`, `tee`, `install`
 
-Source: `fluid/internal/readonly/shell.go`
+Source: `fluid-daemon/internal/readonly/shell.go`
 
 ### Layer 3: SSH principal separation
 
@@ -127,17 +135,172 @@ Source VM preparation (`fluid source prepare`) is idempotent and performs:
 5. Create `/etc/ssh/authorized_principals/fluid-readonly` containing `fluid-readonly`
 6. Restart `sshd`
 
-Source: `fluid/internal/readonly/prepare.go`, `fluid/internal/sshkeys/manager.go`
+Source: `fluid-daemon/internal/readonly/prepare.go`, `fluid-daemon/internal/sshkeys/manager.go`
 
 ## VM Isolation
 
-- **Hypervisor**: libvirt/KVM provides hardware-level isolation between VMs
+- **Hypervisor**: QEMU microVMs provide hardware-level isolation between sandboxes
 - **Copy-on-write overlays**: sandboxes are linked clones from golden images via qcow2 overlay files, so the source disk is never modified
-- **Random MAC addresses**: each clone gets a random MAC in the `52:54:00` QEMU prefix via `generateMACAddress()`
-- **Cloud-init re-initialization**: each clone gets a unique `instance-id` in a fresh cloud-init ISO, forcing cloud-init to re-run and acquire a new DHCP lease
-- **Network isolation**: VMs connect to configurable libvirt networks; optional SSH `ProxyJump` for isolated networks not directly reachable from the host
+- **Random MAC addresses**: each clone gets a random MAC in the `52:54:00` QEMU prefix via crypto/rand
+- **Network isolation**: per-sandbox TAP devices attached to a bridge network; optional SSH `ProxyJump` for isolated networks not directly reachable from the host
 
-Source: `fluid/internal/libvirt/virsh.go`
+Source: `fluid-daemon/internal/microvm/manager.go`
+
+## Secrets Redaction
+
+Both the CLI and daemon include identical redaction packages that strip sensitive data from all outgoing LLM messages and restore tokens in responses before tool execution.
+
+**Built-in detectors**:
+- SSH private keys (`-----BEGIN ... PRIVATE KEY-----`)
+- Connection strings: PostgreSQL, MySQL, MongoDB, Redis
+- AWS access keys (`AKIA...`)
+- API keys (`sk-`, `key-`, `Bearer`)
+- IPv4 and IPv6 addresses
+
+**Token format**: `[REDACTED_CATEGORY_N]` - deterministic per category, allowing the LLM to reference redacted values without seeing them.
+
+**Configurability**: custom regex patterns and allowlists can be added.
+
+Source: `fluid-cli/internal/redact/`, `fluid-daemon/internal/redact/`
+
+## Human Approval Workflow
+
+The TUI enforces human-in-the-loop confirmation for potentially dangerous operations via blocking dialogs. All dialogs default to "No"; Escape maps to "No".
+
+**Network access**: blocking dialog before commands using `curl`, `wget`, `nc`, `ssh`, `scp`, `rsync`, and similar network tools. Default: deny.
+
+**Resource limits**: warning dialog when sandbox creation exceeds available memory, CPU, or storage. Default: deny.
+
+**Source VM preparation**: confirmation before running `fluid source prepare`. Default: deny.
+
+Source: `fluid-cli/internal/tui/confirm.go`, `fluid-cli/internal/tui/agent.go`
+
+## Hash-Chained Audit Log
+
+Append-only JSONL audit log at `~/.config/fluid/audit.jsonl` with 0600 permissions.
+
+**Hash chain**: each entry contains a SHA-256 hash computed from the previous entry's hash plus the current entry. The genesis entry uses an all-zeros hash.
+
+**Logged events**:
+- Session start/end
+- User input (length only, never content)
+- LLM requests and responses
+- Tool calls with arguments, results, and duration
+
+**Integrity verification**: `VerifyChain()` validates the entire chain and detects any tampering or insertion.
+
+**Size protection**: configurable max file size; events are dropped when the limit is reached.
+
+Source: `fluid-cli/internal/audit/`, `fluid-daemon/internal/audit/`
+
+## MCP Input Validation
+
+All MCP tool inputs are validated before execution.
+
+**Shell argument validation**: rejects empty strings, arguments over 32 KB, null bytes, and control characters.
+
+**Shell escaping**: POSIX single-quote wrapping for all shell arguments.
+
+**File path validation**: paths must be absolute, must not contain `..` after cleaning, and must not contain null bytes.
+
+**File size limit**: 10 MB maximum for file operations.
+
+Source: `fluid-cli/internal/mcp/validate.go`
+
+## Config File Security
+
+**Permission checking**: warns if config files are group- or world-readable (should be 0600).
+
+**Secret detection**: flags insecure permissions when API keys or tokens are present in the config.
+
+**File creation**: config files are saved with 0600 permissions.
+
+Source: `fluid-cli/internal/config/config.go`
+
+## Telemetry Privacy
+
+Telemetry is opt-in only and disabled by default.
+
+- Requires build-time API key injection; defaults to a no-op service otherwise
+- Session-scoped anonymous UUID (not persisted across sessions)
+- Tracks only: tool names, message counts, OS/arch
+- Never collects: commands, file contents, IP addresses, hostnames, user input
+- Daemon: HostID is persisted but `$ip` is set to `0.0.0.0` to prevent IP logging
+
+Source: `fluid-cli/internal/telemetry/`, `fluid-daemon/internal/telemetry/`
+
+## API Authentication
+
+**Password authentication**: bcrypt with cost factor 12, minimum 8-character passwords, generic error messages to prevent user enumeration.
+
+**Session tokens**: 32 cryptographically random bytes; only the SHA-256 hash is stored server-side. Cookies are `HttpOnly`, `Secure`, `SameSite=Strict`.
+
+**OAuth (GitHub, Google)**: CSRF state parameter uses 32 random bytes with constant-time comparison. OAuth tokens are encrypted at rest.
+
+**Host tokens**: SHA-256 hashed in the database with expiry enforced at lookup time.
+
+Source: `api/internal/auth/`
+
+## API Authorization (RBAC)
+
+Three roles with numeric levels: owner (3), admin (2), member (1).
+
+- Per-resource membership verification on every request
+- Escalated operations (create sandbox, manage hosts) require admin or higher
+- Organization deletion: owner-only
+- Role checks use numeric comparison for consistent enforcement
+
+Source: `api/internal/rest/`, `api/internal/store/`
+
+## API Transport Security
+
+**CORS**: origin locked to configured frontend URL (not wildcard), credentials allowed.
+
+**Rate limiting**: per-IP token bucket. Auth routes have custom limits:
+- Registration: 0.1 requests/sec, burst 5
+- Login: 0.2 requests/sec, burst 10
+
+**Proxy IP resolution**: `X-Forwarded-For` only trusted from configured CIDR ranges.
+
+Source: `api/internal/rest/server.go`, `api/internal/rest/ratelimit.go`
+
+## Encryption at Rest
+
+AES-256-GCM with random nonce for OAuth tokens and Proxmox credentials.
+
+Sensitive fields are excluded from JSON serialization: `PasswordHash`, tokens, and secrets are all tagged `json:"-"`.
+
+Source: `api/internal/crypto/crypto.go`
+
+## gRPC Security (Control Plane)
+
+**Daemon-to-API**: optional mTLS with client certificate and custom CA pool. Defaults to insecure for backwards compatibility.
+
+**API-to-daemon**: host token authentication via stream interceptor. Optional TLS (warns if disabled).
+
+**Concurrency limiting**: max 64 concurrent command handlers.
+
+Source: `api/internal/grpc/`, `fluid-daemon/internal/agent/`
+
+## Network Isolation (Daemon)
+
+- **Bridge name validation**: `^[a-zA-Z0-9_-]+$` regex
+- **Per-sandbox TAP devices**: each sandbox gets a dedicated TAP device attached to the bridge
+- **Random MAC addresses**: QEMU OUI prefix (`52:54:00`) with crypto/rand for remaining octets
+- **IP discovery**: reads DHCP leases and ARP table; no direct guest communication required
+- **Lease file path sanitization**: `filepath.Base()` prevents path traversal
+
+Source: `fluid-daemon/internal/network/`
+
+## Sandbox Lifecycle (Janitor)
+
+Background TTL enforcement for automatic sandbox cleanup.
+
+- **Default TTL**: 24 hours, with per-sandbox override
+- **Check interval**: every 1 minute
+- **Cleanup**: destroys expired sandboxes (VM process + storage + state)
+
+Source: `fluid-daemon/internal/janitor/`
 
 ## Command Execution Security
 
@@ -147,7 +310,7 @@ Source: `fluid/internal/libvirt/virsh.go`
 - **IP conflict detection**: before every command execution, the service re-discovers the VM IP and validates it is not assigned to another running or starting sandbox
 - **StrictHostKeyChecking disabled**: ephemeral VMs have no stable host keys; trust is established via the CA certificate chain instead
 
-Source: `fluid/internal/vm/service.go`
+Source: `fluid-daemon/internal/microvm/manager.go`
 
 ## Path Traversal Prevention
 
@@ -159,7 +322,7 @@ regex: [^A-Za-z0-9_-]  ->  replaced with underscore
 
 This prevents `../` sequences and absolute path injection in source VM names when constructing key directories.
 
-Source: `fluid/internal/sshkeys/manager.go`
+Source: `fluid-daemon/internal/sshkeys/manager.go`
 
 ## File Permissions Summary
 
@@ -172,14 +335,21 @@ Source: `fluid/internal/sshkeys/manager.go`
 | Certificates | 0644 | Standard SSH certificate permissions |
 | CA work directory | 0700 | Temp directory for certificate operations |
 | Restricted shell | 0755 | Executable on source VMs |
+| Config file | 0600 | Warns if group/world readable |
+| Audit log | 0600 | Append-only JSONL |
+| State DB | default | SQLite, unencrypted |
 
 ## Timeouts
 
 | Operation | Default | Notes |
 |-----------|---------|-------|
 | Command execution | 10 minutes | Configurable per-call |
-| IP discovery | 2 minutes | Polls libvirt leases or ARP table |
+| IP discovery | 2 minutes | Polls DHCP leases or ARP table |
 | SSH readiness | 60 seconds | Exponential backoff probes after IP discovery |
 | SSH connect | 15 seconds | Per-connection `ConnectTimeout` |
 | Certificate TTL | 30 minutes | Max 60 minutes, min 1 minute |
 | Credential refresh | 30 seconds before expiry | Auto-regenerates keys and certificates |
+| Sandbox TTL | 24 hours | Per-sandbox override; janitor enforced |
+| Janitor interval | 1 minute | Background cleanup cycle |
+| OAuth state cookie | 600 seconds | CSRF state parameter lifetime |
+| Rate limiter cleanup | 10 minutes | Expired per-IP bucket removal |
