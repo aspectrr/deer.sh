@@ -958,7 +958,6 @@ func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.
 
 	_, err = readonly.PrepareWithKey(ctx, sshRun, pubKey, nil, logger)
 	if err != nil {
-		a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: 4, Done: true})
 		a.sendStatus(AgentDoneMsg{})
 		return AgentResponseMsg{Response: AgentResponse{
 			Content: fmt.Sprintf("Preparation failed for %s: %v", hostname, err),
@@ -970,7 +969,9 @@ func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.
 	// 4. Update config
 	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4})
 	configPath, _ := paths.ConfigFile()
-	source.SavePreparedHost(a.cfg, configPath, hostname, resolved)
+	if err := source.SavePreparedHost(a.cfg, configPath, hostname, resolved); err != nil {
+		a.logger.Warn("failed to save config after prepare", "error", err)
+	}
 	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4, Done: true})
 	a.sendStatus(AgentDoneMsg{})
 

@@ -8,7 +8,7 @@ import (
 
 // SavePreparedHost updates the config with resolved host details after a
 // successful prepare, saves to disk, and fires a docs-progress report.
-func SavePreparedHost(cfg *config.Config, configPath, hostname string, resolved *sshconfig.ResolvedHost) {
+func SavePreparedHost(cfg *config.Config, configPath, hostname string, resolved *sshconfig.ResolvedHost) error {
 	found := false
 	for i, h := range cfg.Hosts {
 		if h.Name == hostname {
@@ -30,11 +30,14 @@ func SavePreparedHost(cfg *config.Config, configPath, hostname string, resolved 
 		})
 	}
 
+	var saveErr error
 	if configPath != "" {
-		_ = cfg.Save(configPath)
+		saveErr = cfg.Save(configPath)
 	}
 
 	if cfg.DocsSessionCode != "" && cfg.APIURL != "" {
 		go docsprogress.ReportCompletion(cfg.APIURL, cfg.DocsSessionCode, 1)
 	}
+
+	return saveErr
 }

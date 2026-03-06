@@ -125,7 +125,8 @@ type Model struct {
 	livePrepareIndex    int      // index in conversation
 
 	// SSH host cache for /prepare autocomplete
-	sshHosts []string
+	sshHosts          []string
+	sshHostsUpdatedAt time.Time
 
 	// Markdown renderer
 	mdRenderer *glamour.TermRenderer
@@ -1324,8 +1325,9 @@ func (m *Model) updateSuggestions() {
 	// Handle /prepare argument completion (SSH hosts)
 	if strings.HasPrefix(val, "/prepare ") {
 		prefix := strings.TrimPrefix(val, "/prepare ")
-		if m.sshHosts == nil {
+		if m.sshHosts == nil || time.Since(m.sshHostsUpdatedAt) > 30*time.Second {
 			m.sshHosts = sshconfig.ListHosts()
+			m.sshHostsUpdatedAt = time.Now()
 		}
 		m.suggestions = nil
 		for _, h := range m.sshHosts {

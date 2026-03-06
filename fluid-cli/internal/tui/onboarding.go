@@ -385,7 +385,9 @@ func (m OnboardingModel) prepareHostCmd(hostname string) tea.Cmd {
 
 		// 4. Update config
 		configPath, _ := paths.ConfigFile()
-		source.SavePreparedHost(cfg, configPath, hostname, resolved)
+		if err := source.SavePreparedHost(cfg, configPath, hostname, resolved); err != nil {
+			return onboardingPrepareDoneMsg{host: hostname, err: err}
+		}
 
 		return onboardingPrepareDoneMsg{host: hostname}
 	}
@@ -627,7 +629,10 @@ func RunOnboarding(cfg *config.Config, configPath string) (*config.Config, error
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
+		cfg.DocsSessionCode = ""
 		return cfg, err
 	}
-	return finalModel.(OnboardingModel).GetConfig(), nil
+	result := finalModel.(OnboardingModel).GetConfig()
+	result.DocsSessionCode = ""
+	return result, nil
 }

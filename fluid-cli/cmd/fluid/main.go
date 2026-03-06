@@ -331,7 +331,9 @@ func runSourcePrepare(hostname string) error {
 	}
 
 	// 4. Update config
-	source.SavePreparedHost(loadedCfg, configPath, hostname, resolved)
+	if err := source.SavePreparedHost(loadedCfg, configPath, hostname, resolved); err != nil {
+		return fmt.Errorf("saving config after prepare: %w", err)
+	}
 
 	fmt.Println()
 	fmt.Printf("  %s Host %q is ready for read-only access.\n", green("[done]"), hostname)
