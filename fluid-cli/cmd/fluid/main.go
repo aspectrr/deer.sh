@@ -2,13 +2,10 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +15,7 @@ import (
 
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/docsprogress"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	fluidmcp "github.com/aspectrr/fluid.sh/fluid-cli/internal/mcp"
@@ -250,19 +248,6 @@ func resolveConfigPath() (string, error) {
 	return paths.ConfigFile()
 }
 
-// reportDocsProgress sends a fire-and-forget completion event to the docs-progress API.
-func reportDocsProgress(apiURL, sessionCode string, stepIndex int) {
-	body, _ := json.Marshal(map[string]any{
-		"session_code": sessionCode,
-		"step_index":   stepIndex,
-	})
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Post(apiURL+"/v1/docs-progress/complete", "application/json", bytes.NewReader(body))
-	if err == nil {
-		_ = resp.Body.Close()
-	}
-}
-
 // runSourcePrepare prepares a host for read-only fluid access.
 func runSourcePrepare(hostname string) error {
 	configPath, err := resolveConfigPath()
@@ -337,7 +322,10 @@ func runSourcePrepare(hostname string) error {
 		}
 	}
 
-	_, err = readonly.PrepareWithKey(context.Background(), sshRun, pubKey, progress, logger)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	_, err = readonly.PrepareWithKey(ctx, sshRun, pubKey, progress, logger)
 	if err != nil {
 		fmt.Printf("  %s Preparation failed: %v\n", red("[error]"), err)
 		return err
@@ -371,7 +359,7 @@ func runSourcePrepare(hostname string) error {
 
 	// Report step completion to docs-progress API (step 1 = "Prepare your source VMs")
 	if loadedCfg.DocsSessionCode != "" {
-		go reportDocsProgress(loadedCfg.APIURL, loadedCfg.DocsSessionCode, 1)
+		go docsprogress.ReportCompletion(loadedCfg.APIURL, loadedCfg.DocsSessionCode, 1)
 	}
 
 	fmt.Println()

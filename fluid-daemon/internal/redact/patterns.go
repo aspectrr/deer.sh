@@ -1,3 +1,8 @@
+// Package redact provides PII/sensitive data redaction.
+//
+// NOTE: The CLI has a parallel copy at fluid-cli/internal/redact/ with
+// additional detectors (config values, custom patterns). Changes to
+// shared detectors should be mirrored in both locations.
 package redact
 
 import (

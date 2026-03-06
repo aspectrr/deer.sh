@@ -1,14 +1,12 @@
 package tui
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,6 +16,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/ansible"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/audit"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/docsprogress"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/llm"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
@@ -1001,7 +1000,7 @@ func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.
 
 	// Report docs progress if session code is set
 	if a.cfg.DocsSessionCode != "" && a.cfg.APIURL != "" {
-		go reportDocsProgressFromAgent(a.cfg.APIURL, a.cfg.DocsSessionCode, 1)
+		go docsprogress.ReportCompletion(a.cfg.APIURL, a.cfg.DocsSessionCode, 1)
 	}
 
 	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4, Done: true})
@@ -1011,19 +1010,6 @@ func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.
 		Content: fmt.Sprintf("Host %s is prepared.", hostname),
 		Done:    true,
 	}}
-}
-
-// reportDocsProgressFromAgent sends a fire-and-forget completion event to the docs-progress API.
-func reportDocsProgressFromAgent(apiURL, sessionCode string, stepIndex int) {
-	body, _ := json.Marshal(map[string]any{
-		"session_code": sessionCode,
-		"step_index":   stepIndex,
-	})
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Post(apiURL+"/v1/docs-progress/complete", "application/json", bytes.NewReader(body))
-	if err == nil {
-		_ = resp.Body.Close()
-	}
 }
 
 func (a *FluidAgent) destroySandbox(ctx context.Context, id string) (map[string]any, error) {

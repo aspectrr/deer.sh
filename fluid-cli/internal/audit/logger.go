@@ -92,6 +92,13 @@ func NewLogger(logPath string, maxSizeMB int) (*Logger, error) {
 	}, nil
 }
 
+// Dropped returns the number of audit events dropped due to the file size limit.
+func (l *Logger) Dropped() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.dropped
+}
+
 // Close closes the underlying log file.
 func (l *Logger) Close() error {
 	l.mu.Lock()
@@ -172,6 +179,7 @@ func (l *Logger) write(entry *Entry) {
 	defer l.mu.Unlock()
 
 	// Enforce max file size if configured.
+	// TODO: implement log rotation instead of dropping events.
 	if l.maxSizeBytes > 0 {
 		if info, err := l.file.Stat(); err == nil && info.Size() >= l.maxSizeBytes {
 			l.dropped++

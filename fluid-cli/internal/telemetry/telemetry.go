@@ -49,8 +49,8 @@ type posthogService struct {
 }
 
 // NewService creates a new telemetry service based on configuration.
-// When enabled, telemetry is fully anonymous: a random UUID per session,
-// $ip set to 0.0.0.0, and only OS/arch/go_version tracked.
+// When enabled, telemetry is fully anonymous: a persistent UUID stored in
+// ~/.config/fluid/telemetry_id, $ip set to 0.0.0.0, and only OS/arch/go_version tracked.
 func NewService(cfg config.TelemetryConfig) (Service, error) {
 	if !cfg.EnableAnonymousUsage || posthogAPIKey == "" {
 		return &NoopService{}, nil
@@ -76,7 +76,12 @@ func getOrCreateDistinctID() string {
 	if err != nil {
 		return uuid.New().String()
 	}
+	return getOrCreateDistinctIDInDir(dir)
+}
 
+// getOrCreateDistinctIDInDir reads or creates a telemetry ID in the given directory.
+// Extracted for testability.
+func getOrCreateDistinctIDInDir(dir string) string {
 	idPath := filepath.Join(dir, "telemetry_id")
 
 	data, err := os.ReadFile(idPath)

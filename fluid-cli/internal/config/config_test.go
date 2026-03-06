@@ -126,7 +126,7 @@ func TestApplyEnvOverrides_AllFields(t *testing.T) {
 
 	applyEnvOverrides(cfg)
 
-	assert.Equal(t, false, cfg.Telemetry.EnableAnonymousUsage)
+	assert.Equal(t, false, cfg.Telemetry.EnableAnonymousUsage) // env override: "false"
 	assert.Equal(t, "debug", cfg.Logging.Level)
 	assert.Equal(t, "json", cfg.Logging.Format)
 	assert.Equal(t, "test-api-key", cfg.AIAgent.APIKey)

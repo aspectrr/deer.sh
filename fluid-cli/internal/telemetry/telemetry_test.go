@@ -104,36 +104,28 @@ func TestBuildTrackProperties_PreservesExisting(t *testing.T) {
 }
 
 func TestGetOrCreateDistinctID_Persistence(t *testing.T) {
-	// Use a temp dir to avoid polluting the real config
 	tmpDir := t.TempDir()
-	idPath := filepath.Join(tmpDir, "telemetry_id")
 
-	// Simulate getOrCreateDistinctID by writing/reading directly
-	// (the function uses paths.ConfigDir which we can't override in a unit test,
-	// so we test the file read/write logic directly)
-
-	// File does not exist: should produce a valid UUID-length string
-	id1 := getOrCreateDistinctID()
+	// First call creates a new UUID
+	id1 := getOrCreateDistinctIDInDir(tmpDir)
 	if id1 == "" {
 		t.Fatal("expected non-empty distinct ID")
 	}
 
-	// Calling again should return the same ID (reads from persisted file)
-	id2 := getOrCreateDistinctID()
+	// Second call returns the same ID (reads from persisted file)
+	id2 := getOrCreateDistinctIDInDir(tmpDir)
 	if id1 != id2 {
 		t.Errorf("expected persistent ID %q, got %q", id1, id2)
 	}
 
 	// Write a known ID and verify it's read back
 	knownID := "test-known-id-12345"
+	idPath := filepath.Join(tmpDir, "telemetry_id")
 	if err := os.WriteFile(idPath, []byte(knownID), 0o600); err != nil {
 		t.Fatalf("write test ID: %v", err)
 	}
-	data, err := os.ReadFile(idPath)
-	if err != nil {
-		t.Fatalf("read test ID: %v", err)
-	}
-	if string(data) != knownID {
-		t.Errorf("expected %q, got %q", knownID, string(data))
+	id3 := getOrCreateDistinctIDInDir(tmpDir)
+	if id3 != knownID {
+		t.Errorf("expected %q, got %q", knownID, id3)
 	}
 }

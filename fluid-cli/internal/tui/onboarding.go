@@ -1,14 +1,13 @@
 package tui
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log/slog"
-	"math/rand"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -20,6 +19,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/docsprogress"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
@@ -41,9 +41,17 @@ func probeFluidReadonly(hostname, keyDir string) bool {
 const sessionCodeCharset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 func generateSessionCode() string {
+	const chars = sessionCodeCharset
 	b := make([]byte, 6)
 	for i := range b {
-		b[i] = sessionCodeCharset[rand.Intn(len(sessionCodeCharset))]
+		for {
+			_, _ = rand.Read(b[i : i+1])
+			idx := int(b[i])
+			if idx < 256-(256%len(chars)) {
+				b[i] = chars[idx%len(chars)]
+				break
+			}
+		}
 	}
 	return string(b)
 }
@@ -142,20 +150,13 @@ func NewOnboardingModel(cfg *config.Config, configPath string) OnboardingModel {
 }
 
 func (m OnboardingModel) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, tea.EnterAltScreen, m.openDocsCmd(), m.registerSessionCmd())
+	return tea.Batch(m.spinner.Tick, tea.EnterAltScreen)
 }
 
 // registerSessionCmd registers the session code with the API (fire-and-forget).
 func (m OnboardingModel) registerSessionCmd() tea.Cmd {
 	return func() tea.Msg {
-		body, _ := json.Marshal(map[string]string{
-			"session_code": m.sessionCode,
-		})
-		client := &http.Client{Timeout: 5 * time.Second}
-		resp, err := client.Post(m.cfg.APIURL+"/v1/docs-progress/register", "application/json", bytes.NewReader(body))
-		if err == nil {
-			_ = resp.Body.Close()
-		}
+		docsprogress.RegisterSession(m.cfg.APIURL, m.sessionCode)
 		return nil
 	}
 }
@@ -163,7 +164,10 @@ func (m OnboardingModel) registerSessionCmd() tea.Cmd {
 // openDocsCmd returns a tea.Cmd that opens the quickstart docs in a browser.
 func (m OnboardingModel) openDocsCmd() tea.Cmd {
 	return func() tea.Msg {
-		openBrowser(m.cfg.WebURL + "/docs/quickstart?code=" + m.sessionCode)
+		u, err := url.JoinPath(m.cfg.WebURL, "/docs/quickstart")
+		if err == nil {
+			openBrowser(u + "?code=" + m.sessionCode)
+		}
 		return nil
 	}
 }
@@ -203,7 +207,11 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "enter" {
 				m.step = StepAPIKey
 				m.textInput.Focus()
-				return m, textinput.Blink
+				cmds := []tea.Cmd{textinput.Blink, m.openDocsCmd()}
+				if m.cfg.APIURL != "" {
+					cmds = append(cmds, m.registerSessionCmd())
+				}
+				return m, tea.Batch(cmds...)
 			}
 
 		case StepAPIKey:
@@ -226,6 +234,10 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case StepComplete:
 			if msg.String() == "enter" {
+				m.cfg.DocsSessionCode = ""
+				if configPath, err := paths.ConfigFile(); err == nil {
+					_ = m.cfg.Save(configPath)
+				}
 				return m, tea.Quit
 			}
 		}
@@ -374,7 +386,10 @@ func (m OnboardingModel) prepareHostCmd(hostname string) tea.Cmd {
 		sshRun := readonly.SSHRunFunc(sshRunFn)
 		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-		_, err = readonly.PrepareWithKey(context.Background(), sshRun, pubKey, nil, logger)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		_, err = readonly.PrepareWithKey(ctx, sshRun, pubKey, nil, logger)
 		if err != nil {
 			return onboardingPrepareDoneMsg{host: hostname, err: err}
 		}
@@ -408,22 +423,10 @@ func (m OnboardingModel) prepareHostCmd(hostname string) tea.Cmd {
 
 		// Report docs progress
 		if cfg.DocsSessionCode != "" && cfg.APIURL != "" {
-			go reportOnboardingDocsProgress(cfg.APIURL, cfg.DocsSessionCode, 1)
+			go docsprogress.ReportCompletion(cfg.APIURL, cfg.DocsSessionCode, 1)
 		}
 
 		return onboardingPrepareDoneMsg{host: hostname}
-	}
-}
-
-func reportOnboardingDocsProgress(apiURL, sessionCode string, stepIndex int) {
-	body, _ := json.Marshal(map[string]any{
-		"session_code": sessionCode,
-		"step_index":   stepIndex,
-	})
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Post(apiURL+"/v1/docs-progress/complete", "application/json", bytes.NewReader(body))
-	if err == nil {
-		_ = resp.Body.Close()
 	}
 }
 
@@ -546,7 +549,8 @@ func (m OnboardingModel) viewPrepare() string {
 
 	linkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
 	b.WriteString(subtitleStyle.Render("Learn more: "))
-	b.WriteString(linkStyle.Render(m.cfg.WebURL + "/docs/source-prepare"))
+	srcPrepURL, _ := url.JoinPath(m.cfg.WebURL, "/docs/source-prepare")
+	b.WriteString(linkStyle.Render(srcPrepURL))
 	b.WriteString("\n\n")
 
 	if len(m.sshHosts) == 0 {
@@ -623,7 +627,8 @@ func (m OnboardingModel) viewComplete() string {
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("243"))
 	b.WriteString(dimStyle.Render("The agent can inspect your servers with read-only SSH access."))
 	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("To create sandboxes, set up a daemon host: " + m.cfg.WebURL + "/docs/daemon"))
+	daemonURL, _ := url.JoinPath(m.cfg.WebURL, "/docs/daemon")
+	b.WriteString(dimStyle.Render("To create sandboxes, set up a daemon host: " + daemonURL))
 	b.WriteString("\n\n")
 
 	b.WriteString(dimStyle.Render("Press Enter to finish."))

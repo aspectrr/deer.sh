@@ -28,11 +28,11 @@ type Config struct {
 	SandboxHosts         []SandboxHostConfig `yaml:"sandbox_hosts"` // Daemon hosts for sandbox operations
 	Redact               RedactConfig        `yaml:"redact"`
 	Audit                AuditConfig         `yaml:"audit"`
-	ExtraAllowedCommands []string            `yaml:"extra_allowed_commands"` // Additional commands allowed in read-only mode
-	OnboardingComplete   bool                `yaml:"onboarding_complete"`    // Whether onboarding wizard has been completed
-	DocsSessionCode      string              `yaml:"docs_session_code,omitempty"`
-	APIURL               string              `yaml:"api_url,omitempty"` // Control plane API base URL
-	WebURL               string              `yaml:"web_url,omitempty"` // Web dashboard base URL
+	ExtraAllowedCommands []string            `yaml:"extra_allowed_commands"`      // Additional commands allowed in read-only mode
+	OnboardingComplete   bool                `yaml:"onboarding_complete"`         // Whether onboarding wizard has been completed
+	DocsSessionCode      string              `yaml:"docs_session_code,omitempty"` // Persisted for cross-session docs progress tracking
+	APIURL               string              `yaml:"api_url,omitempty"`           // Control plane API base URL
+	WebURL               string              `yaml:"web_url,omitempty"`           // Web dashboard base URL
 }
 
 // SandboxHostConfig configures a remote host running fluid-daemon for sandbox operations.
@@ -195,7 +195,7 @@ func DefaultConfig() *Config {
 			VMIDEnd:   9999,
 		},
 		Telemetry: TelemetryConfig{
-			EnableAnonymousUsage: false,
+			EnableAnonymousUsage: true,
 		},
 		Libvirt: LibvirtConfig{
 			URI:                "qemu:///system",
