@@ -3,7 +3,7 @@ version: 2
 project_name: fluid
 before:
   hooks:
-    - sh -c "VER=$(git describe --tags --abbrev=0 --match 'v*') && for d in api fluid-daemon fluid-cli; do cd $d && GOWORK=off go get github.com/aspectrr/fluid.sh/proto/gen/go@$VER && GOWORK=off go mod tidy && cd ..; done"
+    - sh -c "VER=$(git describe --tags --abbrev=0 --match 'v*') && for d in api fluid-daemon fluid-cli; do (cd $d && GOWORK=off go get github.com/aspectrr/fluid.sh/proto/gen/go@$VER && GOWORK=off go mod tidy) || exit 1; done"
 builds:
   - id: api
     dir: api

@@ -325,6 +325,11 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			a.logger.Debug("LLM loop iteration", "iteration", iteration, "history_len", len(a.history))
 			systemPrompt := a.cfg.AIAgent.DefaultSystem
 			tools := llm.GetTools()
+			// Tool selection precedence:
+			// 1. No sandbox hosts AND no prepared hosts: minimal tools, nudge to /prepare
+			// 2. No sandbox hosts but has prepared hosts: source-only read access
+			// 3. Has sandbox hosts but read-only mode: observation-only tools
+			// 4. Default: full tool set
 			if !a.cfg.HasSandboxHosts() && len(a.cfg.PreparedHosts()) == 0 {
 				tools = llm.GetNoSourceTools()
 				systemPrompt += "\n\nThe user has not prepared any source hosts yet. You have no access to any servers. " +

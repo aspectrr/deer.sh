@@ -21,7 +21,7 @@ jobs:
           VER="${GITHUB_REF#refs/tags/}"
           PROTO_TAG="proto/gen/go/${VER}"
           echo "Creating proto tag: $PROTO_TAG"
-          git tag "$PROTO_TAG"
+          git tag "$PROTO_TAG" 2>/dev/null || true
           git push origin "$PROTO_TAG"
 
       - name: Write GPG key to file
