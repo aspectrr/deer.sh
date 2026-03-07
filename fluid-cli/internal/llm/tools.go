@@ -46,6 +46,26 @@ func GetSourceOnlyTools() []Tool {
 	return tools
 }
 
+// noSourceTools is the set of tool names available when no sources are prepared at all.
+var noSourceTools = map[string]bool{
+	"list_hosts":        true,
+	"create_playbook":   true,
+	"add_playbook_task": true,
+	"list_playbooks":    true,
+	"get_playbook":      true,
+}
+
+// GetNoSourceTools returns tools for when no source hosts are prepared.
+func GetNoSourceTools() []Tool {
+	var tools []Tool
+	for _, t := range GetTools() {
+		if noSourceTools[t.Function.Name] {
+			tools = append(tools, t)
+		}
+	}
+	return tools
+}
+
 // GetTools returns the list of tools available to the LLM.
 func GetTools() []Tool {
 	return []Tool{

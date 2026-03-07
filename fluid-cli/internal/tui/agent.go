@@ -306,15 +306,6 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			return AgentErrorMsg{Err: fmt.Errorf("LLM provider not configured. Please set OPENROUTER_API_KEY environment variable or configure it in /settings")}
 		}
 
-		// If no hosts configured at all, suggest /prepare instead of entering the LLM loop
-		if !a.cfg.HasSandboxHosts() && len(a.cfg.PreparedHosts()) == 0 {
-			a.sendStatus(AgentDoneMsg{})
-			return AgentResponseMsg{Response: AgentResponse{
-				Content: "No hosts configured. Prepare a host with `/prepare <hostname>` to give Fluid read-only SSH access to your servers.",
-				Done:    true,
-			}}
-		}
-
 		// Check if auto-compaction is needed before making LLM call
 		if a.NeedsCompaction() {
 			a.sendStatus(CompactStartMsg{})
@@ -334,7 +325,13 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			a.logger.Debug("LLM loop iteration", "iteration", iteration, "history_len", len(a.history))
 			systemPrompt := a.cfg.AIAgent.DefaultSystem
 			tools := llm.GetTools()
-			if !a.cfg.HasSandboxHosts() {
+			if !a.cfg.HasSandboxHosts() && len(a.cfg.PreparedHosts()) == 0 {
+				tools = llm.GetNoSourceTools()
+				systemPrompt += "\n\nThe user has not prepared any source hosts yet. You have no access to any servers. " +
+					"You can still answer questions about infrastructure, Linux, DevOps, and help plan tasks. " +
+					"If the user asks you to do anything that requires server access (running commands, reading files, diagnosing issues), " +
+					"let them know they need to prepare a host first with `/prepare <hostname>` or `fluid prepare <hostname>` to give you read-only SSH access to their servers."
+			} else if !a.cfg.HasSandboxHosts() {
 				tools = llm.GetSourceOnlyTools()
 				systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a sandbox host to enable this: https://fluid.sh/docs/daemon\""
 			} else if a.readOnly {
