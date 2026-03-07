@@ -133,4 +133,12 @@ Ballooning works well when at least some VMs have memory to spare. It breaks dow
 
 **Latency-sensitive workloads.** Even well-functioning ballooning introduces memory pressure in the guest, which can trigger page reclamation at unpredictable times. For latency-critical VMs (databases, real-time systems), the right answer is to pin their memory and exclude them from ballooning entirely.
 
-**Aggressive overcommit.** If you promise 64GB total to VMs on a host with 32GB of physical RAM, you're relying on not all VMs needing their full allocation simultaneously. This works until it doesn't - and when it fails, it fails hard.
+**Aggressive overcommit.** If you promise 64GB total to VMs on a host with 32GB of physical RAM, you're relying on not all VMs needing their full allocation simultaneously. This works until it doesn't and it can fail hard.
+
+## Conclusion
+
+Memory Ballooning is an important part of the hypervisor that prevents worse issues like VM's overcommiting memory and having host stack overflows, no fun! This is just one tiny part of the amazing engineering that is virtual machines. Hopefully this deep dive gave a better perspective and showed hoe ballooning works in practice.
+
+What part of virtual machines should we cover next? Join our [Discord community](https://discord.gg/4WGGXJWm8J) and let me know.
+
+Happy hacking!

@@ -16,6 +16,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Tag proto module with matching version
+        run: |
+          VER="${GITHUB_REF#refs/tags/}"
+          PROTO_TAG="proto/gen/go/${VER}"
+          echo "Creating proto tag: $PROTO_TAG"
+          git tag "$PROTO_TAG"
+          git push origin "$PROTO_TAG"
+
       - name: Write GPG key to file
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}

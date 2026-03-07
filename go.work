@@ -1,0 +1,8 @@
+go 1.24.0
+
+use (
+	./api
+	./fluid-cli
+	./fluid-daemon
+	./proto/gen/go
+)
