@@ -39,6 +39,7 @@ make build
 | `/sandboxes` | List active sandboxes |
 | `/hosts` | List configured remote hosts |
 | `/playbooks` | List generated Ansible playbooks |
+| `/prepare` | Prepare a source VM for sandbox cloning |
 | `/compact` | Summarize and compact conversation history |
 | `/context` | Show current context token usage |
 | `/settings` | Open configuration settings |
