@@ -31,19 +31,27 @@ export function StepTracker({
 }: StepTrackerProps) {
   const fullKey = `fluid-docs-progress-${storageKey}`
 
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => {
+  const [initialCompleted] = useState<Set<number>>(() => {
+    const set = new Set<number>()
     try {
       const saved = localStorage.getItem(fullKey)
-      return saved ? new Set(JSON.parse(saved) as number[]) : new Set()
+      if (saved) for (const n of JSON.parse(saved) as number[]) set.add(n)
     } catch {
-      return new Set()
+      // localStorage unavailable
     }
+    if (externalCode) {
+      set.add(0) // Install CLI
+      set.add(1) // Launch TUI
+    }
+    return set
   })
+
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => initialCompleted)
 
   const [expandedStep, setExpandedStep] = useState<number>(() => {
     // Find first incomplete step
     for (let i = 0; i < steps.length; i++) {
-      if (!completedSteps.has(i)) return i
+      if (!initialCompleted.has(i)) return i
     }
     return steps.length - 1
   })

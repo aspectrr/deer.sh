@@ -36,7 +36,7 @@ func SavePreparedHost(cfg *config.Config, configPath, hostname string, resolved 
 	}
 
 	if cfg.DocsSessionCode != "" && cfg.APIURL != "" {
-		go docsprogress.ReportCompletion(cfg.APIURL, cfg.DocsSessionCode, 1)
+		go docsprogress.ReportCompletion(cfg.APIURL, cfg.DocsSessionCode, 2)
 	}
 
 	return saveErr

@@ -29,6 +29,30 @@ export const quickstartSteps: Step[] = [
     ),
   },
   {
+    title: 'Launch the TUI',
+    content: (
+      <>
+        <p>
+          Run <code className="text-blue-400">fluid</code> to start the interactive agent TUI. On
+          first run, onboarding walks you through source VM connection and LLM API key
+          configuration.
+        </p>
+        <TerminalBlock
+          lines={[
+            { command: 'fluid' },
+            { output: 'fluid.sh v0.1.0' },
+            { output: '' },
+            { output: 'Type your message... (type /settings to configure)' },
+          ]}
+        />
+        <Callout type="tip">
+          Use <code className="text-green-400">/settings</code> to configure hosts, LLM provider,
+          and sandbox defaults at any time.
+        </Callout>
+      </>
+    ),
+  },
+  {
     title: 'Prepare your source VMs',
     content: (
       <>
@@ -61,32 +85,6 @@ export const quickstartSteps: Step[] = [
             source prepare docs
           </a>{' '}
           for details on what happens during preparation.
-        </Callout>
-      </>
-    ),
-  },
-  {
-    title: 'Launch the TUI',
-    content: (
-      <>
-        <p>
-          Run <code className="text-blue-400">fluid</code> to start the interactive agent TUI. On
-          first run, onboarding walks you through source VM connection and LLM API key
-          configuration.
-        </p>
-        <TerminalBlock
-          lines={[
-            { command: 'fluid' },
-            { output: 'fluid.sh v0.1.0' },
-            { output: '' },
-            { output: 'Type your message... (type /settings to configure)' },
-          ]}
-        />
-        <Callout type="tip">
-          Use <code className="text-green-400">/prepare {'<hostname>'}</code> to set up read-only
-          access to a host directly from the TUI. Use{' '}
-          <code className="text-green-400">/settings</code> to configure hosts, LLM provider, and
-          sandbox defaults at any time.
         </Callout>
       </>
     ),
