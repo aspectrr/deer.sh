@@ -224,9 +224,14 @@ export function StepTracker({
                       setExpandedStep(i)
                       // Bidirectional: mark 0..i-1 complete, unmark i and beyond
                       setCompletedSteps(() => {
-                        const next = new Set<number>()
+                        const next = new Set<number>(initialCompleted)
                         for (let j = 0; j < i; j++) {
                           next.add(j)
+                        }
+                        for (let j = i; j < steps.length; j++) {
+                          if (!initialCompleted.has(j)) {
+                            next.delete(j)
+                          }
                         }
                         return next
                       })
