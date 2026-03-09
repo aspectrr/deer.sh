@@ -48,6 +48,11 @@ export const quickstartSteps: Step[] = [
             { output: 'Source VM my-server prepared successfully.' },
           ]}
         />
+        <Callout type="info">
+          During onboarding, you'll be asked to prepare the source VMs of your choosing. You can
+          always prepare additional sources later in the TUI with{' '}
+          <code className="text-green-400">/prepare</code>.
+        </Callout>
         <Callout type="tip">
           You can prepare multiple source VMs. Run{' '}
           <code className="text-green-400">fluid source prepare</code> for each host you want Fluid
