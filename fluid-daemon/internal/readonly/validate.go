@@ -120,6 +120,10 @@ var subcommandRestrictions = map[string]map[string]bool{
 		"crl":      true,
 		"version":  true,
 		"ciphers":  true,
+		// req is allowed for read-only inspection (e.g., openssl req -text -noout).
+		// Dangerous operations like "openssl req -new" are blocked by the shell-level
+		// blocklist in shell.go.
+		"req": true,
 	},
 }
 

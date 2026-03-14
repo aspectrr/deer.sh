@@ -67,7 +67,8 @@ var blockedFlags = map[string][]string{
 // within a pipeline segment. For example, xargs can invoke arbitrary commands
 // so we validate that the first non-flag argument (if any) is in the allowlist.
 var commandArgValidators = map[string]func(tokens []string, allowed map[string]bool) error{
-	"xargs": validateXargsCommand,
+	"xargs":   validateXargsCommand,
+	"openssl": validateOpenSSLArgs,
 }
 
 // validateXargsCommand checks that xargs does not invoke a disallowed command.
@@ -89,6 +90,28 @@ func validateXargsCommand(tokens []string, allowed map[string]bool) error {
 		return nil
 	}
 	return nil // no explicit command; xargs defaults to /bin/echo
+}
+
+// validateOpenSSLArgs checks that specific openssl subcommands don't use
+// dangerous flags. For example, "openssl req -new" can create CSRs.
+func validateOpenSSLArgs(tokens []string, allowed map[string]bool) error {
+	// Find the subcommand (e.g., "req", "x509", "genrsa")
+	var subCmd string
+	for _, tok := range tokens[1:] {
+		if !strings.HasPrefix(tok, "-") {
+			subCmd = tok
+			break
+		}
+	}
+	// Block dangerous openssl req operations
+	if subCmd == "req" {
+		for _, tok := range tokens {
+			if tok == "-new" || tok == "-signkey" || tok == "-x509" {
+				return fmt.Errorf("openssl req %s is not allowed in read-only mode", tok)
+			}
+		}
+	}
+	return nil
 }
 
 // subcommandRestrictions maps commands to the set of allowed first arguments.
@@ -122,6 +145,10 @@ var subcommandRestrictions = map[string]map[string]bool{
 		"crl":      true,
 		"version":  true,
 		"ciphers":  true,
+		// req is allowed for read-only inspection (e.g., openssl req -text -noout).
+		// Dangerous operations like "openssl req -new" are blocked by the shell-level
+		// blocklist in shell.go.
+		"req": true,
 	},
 }
 

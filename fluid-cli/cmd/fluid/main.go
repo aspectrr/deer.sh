@@ -401,17 +401,20 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		_ = svc.Close()
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := svc.Health(ctx); err != nil {
+	// 1. Health check with its own timeout
+	healthCtx, healthCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := svc.Health(healthCtx); err != nil {
+		healthCancel()
 		fmt.Printf("  %s Health check failed: %v\n", red("[error]"), err)
 		return err
 	}
+	healthCancel()
 	fmt.Printf("  %s Health check passed\n", green("[ok]"))
 
-	// 2. Get host info
-	info, err := svc.GetHostInfo(ctx)
+	// 2. Get host info with its own timeout
+	infoCtx, infoCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	info, err := svc.GetHostInfo(infoCtx)
+	infoCancel()
 	if err != nil {
 		fmt.Printf("  %s Failed to get host info: %v\n", red("[error]"), err)
 		return err

@@ -273,7 +273,7 @@ func (m ConnectModel) View() string {
 	case StepAddress:
 		// Address and Name text input fields
 		labels := []string{"  Address:", "  Name:   "}
-		for i := range int(fieldInsecure) {
+		for i := range fieldInsecure {
 			prefix := "  "
 			if connectField(i) == m.focused {
 				prefix = "> "
@@ -384,11 +384,6 @@ func (m ConnectModel) resolveAddress() (string, error) {
 		return "", fmt.Errorf("invalid address: empty host")
 	} else if port == "" {
 		addr = net.JoinHostPort(host, "9091")
-	}
-
-	// Validate host is not empty after parsing
-	if _, _, err := net.SplitHostPort(addr); err != nil {
-		return "", fmt.Errorf("invalid address format: %s", m.inputs[fieldAddress].Value())
 	}
 
 	return addr, nil

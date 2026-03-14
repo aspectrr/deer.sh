@@ -135,7 +135,10 @@ func (a *FluidAgent) SetReadOnly(ro bool) {
 }
 
 // SetSandboxService hot-swaps the sandbox service (e.g. after /connect).
+// Must be called after Cancel() to avoid race conditions with running agent.
 func (a *FluidAgent) SetSandboxService(svc sandbox.Service) {
+	a.cancelMu.Lock()
+	defer a.cancelMu.Unlock()
 	if a.service != nil {
 		_ = a.service.Close()
 	}
@@ -157,6 +160,28 @@ func (a *FluidAgent) Cancel() {
 		a.cancelFunc()
 		a.cancelFunc = nil
 	}
+}
+
+// withAutoReadOnly temporarily enables read-only mode for source VM operations.
+// It sets currentSourceVM, enables auto-read-only mode, and restores the previous
+// state when the function returns.
+func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (any, error) {
+	a.currentSourceVM = sourceVM
+	wasAutoReadOnly := a.autoReadOnly
+	if !a.readOnly {
+		a.autoReadOnly = true
+		a.readOnly = true
+		a.sendStatus(AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: true})
+	}
+	defer func() {
+		a.currentSourceVM = ""
+		if a.autoReadOnly && !wasAutoReadOnly {
+			a.autoReadOnly = false
+			a.readOnly = false
+			a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+		}
+	}()
+	return fn()
 }
 
 // Run executes a command and returns the result
@@ -694,33 +719,23 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		a.currentSourceVM = args.Host
-		wasAutoReadOnly := a.autoReadOnly
-		if !a.readOnly {
-			a.autoReadOnly = true
-			a.readOnly = true
-			a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
-		}
-		defer func() {
-			a.currentSourceVM = ""
-			if a.autoReadOnly && !wasAutoReadOnly {
-				a.autoReadOnly = false
-				a.readOnly = false
-				a.sendStatus(AutoReadOnlyMsg{Enabled: false})
-			}
-		}()
 		if a.sourceService != nil {
-			result, err := a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
-				func(chunk string, isStderr bool) {
-					a.sendStatus(CommandOutputChunkMsg{
-						SandboxID: args.Host,
-						IsStderr:  isStderr,
-						Chunk:     chunk,
+			var result *source.CommandResult
+			var cmdErr error
+			_, cmdErr = a.withAutoReadOnly(args.Host, func() (any, error) {
+				result, cmdErr = a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
+					func(chunk string, isStderr bool) {
+						a.sendStatus(CommandOutputChunkMsg{
+							SandboxID: args.Host,
+							IsStderr:  isStderr,
+							Chunk:     chunk,
+						})
 					})
-				})
+				return result, cmdErr
+			})
 			a.sendStatus(CommandOutputDoneMsg{SandboxID: args.Host})
-			if err != nil {
-				return nil, err
+			if cmdErr != nil {
+				return nil, cmdErr
 			}
 			return map[string]any{
 				"host":      args.Host,
@@ -729,7 +744,9 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 				"stderr":    result.Stderr,
 			}, nil
 		}
-		return a.runSourceCommand(ctx, args.Host, args.Command)
+		return a.withAutoReadOnly(args.Host, func() (any, error) {
+			return a.runSourceCommand(ctx, args.Host, args.Command)
+		})
 	case "read_source_file":
 		var args struct {
 			Host string `json:"host"`
@@ -738,31 +755,20 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		a.currentSourceVM = args.Host
-		wasAutoReadOnly := a.autoReadOnly
-		if !a.readOnly {
-			a.autoReadOnly = true
-			a.readOnly = true
-			a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
-		}
-		defer func() {
-			a.currentSourceVM = ""
-			if a.autoReadOnly && !wasAutoReadOnly {
-				a.autoReadOnly = false
-				a.readOnly = false
-				a.sendStatus(AutoReadOnlyMsg{Enabled: false})
-			}
-		}()
 		if a.sourceService != nil {
-			content, err := a.sourceService.ReadFile(ctx, args.Host, args.Path)
-			if err != nil {
-				return nil, err
+			var content string
+			var cmdErr error
+			_, cmdErr = a.withAutoReadOnly(args.Host, func() (any, error) {
+				content, cmdErr = a.sourceService.ReadFile(ctx, args.Host, args.Path)
+				return content, cmdErr
+			})
+			if cmdErr != nil {
+				return nil, cmdErr
 			}
 			content, wasRedacted := redactPrivateKeys(content)
 			if wasRedacted {
 				a.sendStatus(SensitiveContentRedactedMsg{Path: args.Path, Host: args.Host})
 			}
-			// Show file content in live output box
 			a.sendStatus(CommandOutputStartMsg{SandboxID: args.Host})
 			a.sendStatus(CommandOutputChunkMsg{
 				SandboxID: args.Host,
@@ -775,7 +781,9 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 				"content":   content,
 			}, nil
 		}
-		return a.readSourceFile(ctx, args.Host, args.Path)
+		return a.withAutoReadOnly(args.Host, func() (any, error) {
+			return a.readSourceFile(ctx, args.Host, args.Path)
+		})
 	case "list_hosts":
 		if a.sourceService != nil {
 			return a.sourceService.ListHosts(), nil

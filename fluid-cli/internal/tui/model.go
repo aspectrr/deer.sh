@@ -808,6 +808,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case ToolCompleteMsg:
+		// Drop tool results if we've already returned to idle (e.g., after ESC cancel)
+		if m.state == StateIdle {
+			return m, nil
+		}
 		// Add tool result to conversation
 		tr := ToolResult{
 			Name:   msg.ToolName,
@@ -827,7 +831,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case CommandOutputStartMsg:
-		// Pre-initialize live output box before chunks arrive
+		// Pre-initialize live output box before chunks arrive.
+		// If live output is already active (e.g., from a quick succession of calls),
+		// silently merge into existing output - this is intentional to avoid
+		// disrupting the current output display.
 		if !m.showingLiveOutput {
 			m.showingLiveOutput = true
 			m.liveOutputSandbox = msg.SandboxID
@@ -871,6 +878,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case CommandOutputChunkMsg:
+		// Drop chunks if we've already returned to idle (e.g., after ESC cancel)
+		if m.state == StateIdle {
+			return m, nil
+		}
 		// Clear retry when output arrives
 		m.currentRetry = nil
 
@@ -940,6 +951,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case CommandOutputDoneMsg:
+		// Drop done signal if we've already returned to idle (e.g., after ESC cancel)
+		if m.state == StateIdle {
+			return m, nil
+		}
 		m.showingLiveOutput = false
 		m.currentRetry = nil
 		// Clear output buffer as it's no longer needed (result will be shown via ToolCompleteMsg)

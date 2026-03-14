@@ -93,6 +93,7 @@ func TestValidateCommand_Allowed(t *testing.T) {
 		"openssl version",
 		"openssl ciphers",
 		"openssl crl -in /etc/ssl/crl.pem -text -noout",
+		"openssl req -text -noout -in /tmp/csr.pem",
 	}
 
 	for _, cmd := range allowed {
