@@ -88,10 +88,10 @@ func NewConnectModel(hosts []config.HostConfig) ConnectModel {
 	nameInput.CharLimit = 128
 
 	insecureInput := textinput.New()
-	insecureInput.Placeholder = "true"
+	insecureInput.Placeholder = "false"
 	insecureInput.Prompt = ""
 	insecureInput.CharLimit = 5
-	insecureInput.SetValue("true")
+	insecureInput.SetValue("false")
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -349,14 +349,14 @@ func (m ConnectModel) buildConfig() config.SandboxHostConfig {
 	return config.SandboxHostConfig{
 		Name:          name,
 		DaemonAddress: addr,
-		Insecure:      insecure == "" || insecure == "true" || insecure == "yes" || insecure == "1",
+		Insecure:      insecure == "true" || insecure == "yes" || insecure == "1",
 	}
 }
 
 // attemptConnect dials the daemon and checks health + host info.
 func (m ConnectModel) attemptConnect(addr string) tea.Cmd {
 	insecure := strings.TrimSpace(m.inputs[fieldInsecure].Value())
-	isInsecure := insecure == "" || insecure == "true" || insecure == "yes" || insecure == "1"
+	isInsecure := insecure == "true" || insecure == "yes" || insecure == "1"
 	hosts := m.hosts
 
 	return func() tea.Msg {

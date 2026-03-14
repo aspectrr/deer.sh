@@ -708,7 +708,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.agentRunner != nil {
 					m.agentRunner.Cancel()
 				}
-				m.addSystemMessage("Agent stopped.")
 				m.state = StateIdle
 				m.thinking = false
 				m.updateViewportContent(false)

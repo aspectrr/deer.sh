@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -81,6 +82,7 @@ type FluidAgent struct {
 
 	// cancelFunc cancels the active agent Run context when ESC is pressed
 	cancelFunc context.CancelFunc
+	cancelMu   sync.Mutex
 }
 
 // PendingNetworkApproval represents a network access request waiting for approval
@@ -142,6 +144,8 @@ func (a *FluidAgent) sendStatus(msg tea.Msg) {
 
 // Cancel stops the currently running agent loop
 func (a *FluidAgent) Cancel() {
+	a.cancelMu.Lock()
+	defer a.cancelMu.Unlock()
 	if a.cancelFunc != nil {
 		a.cancelFunc()
 		a.cancelFunc = nil
@@ -152,10 +156,14 @@ func (a *FluidAgent) Cancel() {
 func (a *FluidAgent) Run(input string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithCancel(context.Background())
+		a.cancelMu.Lock()
 		a.cancelFunc = cancel
+		a.cancelMu.Unlock()
 		defer func() {
 			cancel()
+			a.cancelMu.Lock()
 			a.cancelFunc = nil
+			a.cancelMu.Unlock()
 		}()
 
 		// Handle slash commands
@@ -563,25 +571,6 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		})
 	}
 
-	// Sticky mode transitions: only change mode when tool category changes
-	switch tc.Function.Name {
-	case "run_source_command", "read_source_file":
-		if !a.readOnly {
-			a.autoReadOnly = true
-			a.readOnly = true
-			a.sendStatus(AutoReadOnlyMsg{SourceVM: "", Enabled: true})
-		}
-	case "create_sandbox", "destroy_sandbox", "run_command", "start_sandbox",
-		"stop_sandbox", "create_snapshot", "edit_file", "read_file",
-		"create_playbook", "add_playbook_task":
-		if a.autoReadOnly {
-			a.autoReadOnly = false
-			a.readOnly = false
-			a.currentSourceVM = ""
-			a.sendStatus(AutoReadOnlyMsg{SourceVM: "", Enabled: false})
-		}
-	}
-
 	switch tc.Function.Name {
 	case "list_sandboxes":
 		return a.listSandboxes(ctx)
@@ -708,9 +697,17 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
+		a.autoReadOnly = true
+		a.readOnly = true
+		a.currentSourceVM = args.Host
+		a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
+		defer func() {
+			a.autoReadOnly = false
+			a.readOnly = false
+			a.currentSourceVM = ""
+			a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+		}()
 		if a.sourceService != nil {
-			a.currentSourceVM = args.Host
-
 			result, err := a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
 				func(chunk string, isStderr bool) {
 					a.sendStatus(CommandOutputChunkMsg{
@@ -739,9 +736,17 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
+		a.autoReadOnly = true
+		a.readOnly = true
+		a.currentSourceVM = args.Host
+		a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
+		defer func() {
+			a.autoReadOnly = false
+			a.readOnly = false
+			a.currentSourceVM = ""
+			a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+		}()
 		if a.sourceService != nil {
-			a.currentSourceVM = args.Host
-
 			content, err := a.sourceService.ReadFile(ctx, args.Host, args.Path)
 			if err != nil {
 				return nil, err

@@ -7,8 +7,8 @@ set -euo pipefail
 # The root cause is discoverable through logs in /var/log.
 #
 # Usage:
-#   ./demo/haproxy-ssl-debug.sh <ssh-host>          # Setup the broken scenario
-#   ./demo/haproxy-ssl-debug.sh <ssh-host> --cleanup # Tear everything down
+#   ./scripts/haproxy-ssl-debug.sh <ssh-host>          # Setup the broken scenario
+#   ./scripts/haproxy-ssl-debug.sh <ssh-host> --cleanup # Tear everything down
 
 usage() {
     echo "Usage: $0 <ssh-host> [--cleanup]"

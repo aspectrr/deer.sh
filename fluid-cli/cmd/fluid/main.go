@@ -244,7 +244,7 @@ func init() {
 	doctorCmd.Flags().String("host", "", "host name from config (default: localhost)")
 
 	connectCmd.Flags().String("name", "", "display name for this daemon (default: hostname from daemon)")
-	connectCmd.Flags().Bool("insecure", true, "skip TLS verification")
+	connectCmd.Flags().Bool("insecure", false, "skip TLS verification")
 	connectCmd.Flags().Bool("no-save", false, "test connection without saving to config")
 
 	sourceCmd.AddCommand(sourcePrepareCmd)
@@ -412,9 +412,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		return err
 	}
 	defer func() {
-		if skipSave {
-			_ = svc.Close()
-		}
+		_ = svc.Close()
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

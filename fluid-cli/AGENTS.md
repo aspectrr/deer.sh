@@ -143,10 +143,6 @@ make tidy           # Tidy and verify
 make install-tools  # Install gofumpt, golangci-lint, swag
 ```
 
-## Makefile Targets
-
-| Target | Description |
-|--------|-------------|
 ### CLI Subcommands
 
 | Command | Description |
