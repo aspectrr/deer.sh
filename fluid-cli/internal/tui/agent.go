@@ -31,6 +31,13 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/telemetry"
 )
 
+const tlsDebuggingGuidance = "\n\nWhen debugging TLS/SSL issues on source hosts:\n" +
+	"- If you get permission denied reading certificate files, don't retry - these files are intentionally restricted\n" +
+	"- Use `journalctl -u <service> --no-pager -n 100` to find SSL errors in service logs\n" +
+	"- Use `grep -i <service> /var/log/syslog` as a fallback if journalctl has no results\n" +
+	"- Use `openssl s_client -connect localhost:<port>` to inspect the live certificate chain (no file access needed)\n" +
+	"- Use `ls -la` on cert directories to check ownership and permissions as a diagnostic"
+
 // PendingApproval represents a sandbox creation waiting for memory approval
 type PendingApproval struct {
 	Request      MemoryApprovalRequest
@@ -376,12 +383,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			} else if !a.cfg.HasSandboxHosts() {
 				tools = llm.GetSourceOnlyTools()
 				systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a daemon host (https://fluid.sh/docs/daemon) then use /connect to link it.\"" +
-					"\n\nWhen debugging TLS/SSL issues on source hosts:\n" +
-					"- If you get permission denied reading certificate files, don't retry - these files are intentionally restricted\n" +
-					"- Use `journalctl -u <service> --no-pager -n 100` to find SSL errors in service logs\n" +
-					"- Use `grep -i <service> /var/log/syslog` as a fallback if journalctl has no results\n" +
-					"- Use `openssl s_client -connect localhost:<port>` to inspect the live certificate chain (no file access needed)\n" +
-					"- Use `ls -la` on cert directories to check ownership and permissions as a diagnostic"
+					tlsDebuggingGuidance
 			} else if a.readOnly {
 				tools = llm.GetReadOnlyTools()
 				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources."
@@ -389,12 +391,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 
 			// Add TLS debugging guidance when the agent has source host access
 			if len(a.cfg.PreparedHosts()) > 0 && (a.cfg.HasSandboxHosts() && !a.readOnly) {
-				systemPrompt += "\n\nWhen debugging TLS/SSL issues on source hosts:\n" +
-					"- If you get permission denied reading certificate files, don't retry - these files are intentionally restricted\n" +
-					"- Use `journalctl -u <service> --no-pager -n 100` to find SSL errors in service logs\n" +
-					"- Use `grep -i <service> /var/log/syslog` as a fallback if journalctl has no results\n" +
-					"- Use `openssl s_client -connect localhost:<port>` to inspect the live certificate chain (no file access needed)\n" +
-					"- Use `ls -la` on cert directories to check ownership and permissions as a diagnostic"
+				systemPrompt += tlsDebuggingGuidance
 			}
 
 			// Build messages, applying redaction if enabled

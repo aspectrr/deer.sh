@@ -780,11 +780,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case AgentCancelledMsg:
-		m.addSystemMessage("Agent stopped.")
-		m.state = StateIdle
-		m.thinking = false
-		m.updateViewportContent(false)
-		m.textarea.Focus()
+		if m.state != StateIdle {
+			m.addSystemMessage("Agent stopped.")
+			m.state = StateIdle
+			m.thinking = false
+			m.updateViewportContent(false)
+			m.textarea.Focus()
+		}
 		return m, nil
 
 	case AgentDoneMsg:

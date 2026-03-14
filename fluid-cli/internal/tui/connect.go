@@ -28,13 +28,14 @@ const (
 	StepDone
 )
 
-// connectField indexes into the text inputs on the address step.
+// connectField indexes into the address-step fields. Only fieldAddress and
+// fieldName have backing text inputs; fieldInsecure is a boolean toggle.
 type connectField int
 
 const (
-	fieldAddress connectField = iota
-	fieldName
-	fieldInsecure
+	fieldAddress  connectField = iota
+	fieldName                  // last real text input
+	fieldInsecure              // virtual: boolean checkbox, no text input
 	connectFieldCount
 )
 
@@ -53,13 +54,14 @@ type ConnectDoctorResultMsg struct {
 
 // ConnectModel implements the 4-step connect wizard modal.
 type ConnectModel struct {
-	step    ConnectStep
-	inputs  [connectFieldCount]textinput.Model
-	focused connectField
-	spinner spinner.Model
-	width   int
-	height  int
-	styles  Styles
+	step     ConnectStep
+	inputs   [fieldInsecure]textinput.Model // only address + name have text inputs
+	focused  connectField
+	insecure bool
+	spinner  spinner.Model
+	width    int
+	height   int
+	styles   Styles
 
 	// Connection result
 	service  sandbox.Service
@@ -87,19 +89,13 @@ func NewConnectModel(hosts []config.HostConfig) ConnectModel {
 	nameInput.Prompt = ""
 	nameInput.CharLimit = 128
 
-	insecureInput := textinput.New()
-	insecureInput.Placeholder = "false"
-	insecureInput.Prompt = ""
-	insecureInput.CharLimit = 5
-	insecureInput.SetValue("false")
-
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6"))
 
 	return ConnectModel{
 		step:    StepAddress,
-		inputs:  [connectFieldCount]textinput.Model{addrInput, nameInput, insecureInput},
+		inputs:  [fieldInsecure]textinput.Model{addrInput, nameInput},
 		focused: fieldAddress,
 		spinner: s,
 		styles:  DefaultStyles(),
@@ -147,8 +143,8 @@ func (m ConnectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 	}
 
-	// Forward to focused input on address step
-	if m.step == StepAddress {
+	// Forward to focused text input on address step (skip the insecure toggle)
+	if m.step == StepAddress && m.focused < fieldInsecure {
 		var cmd tea.Cmd
 		m.inputs[m.focused], cmd = m.inputs[m.focused].Update(msg)
 		return m, cmd
@@ -166,15 +162,25 @@ func (m ConnectModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return m, func() tea.Msg { return ConnectCloseMsg{} }
 		case "tab", "down":
-			m.inputs[m.focused].Blur()
+			if m.focused < fieldInsecure {
+				m.inputs[m.focused].Blur()
+			}
 			m.focused = (m.focused + 1) % connectFieldCount
-			m.inputs[m.focused].Focus()
-			return m, textinput.Blink
+			if m.focused < fieldInsecure {
+				m.inputs[m.focused].Focus()
+				return m, textinput.Blink
+			}
+			return m, nil
 		case "shift+tab", "up":
-			m.inputs[m.focused].Blur()
+			if m.focused < fieldInsecure {
+				m.inputs[m.focused].Blur()
+			}
 			m.focused = (m.focused - 1 + connectFieldCount) % connectFieldCount
-			m.inputs[m.focused].Focus()
-			return m, textinput.Blink
+			if m.focused < fieldInsecure {
+				m.inputs[m.focused].Focus()
+				return m, textinput.Blink
+			}
+			return m, nil
 		case "enter":
 			addr := m.resolveAddress()
 			if addr == "" {
@@ -183,10 +189,29 @@ func (m ConnectModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.step = StepConnecting
 			m.connErr = nil
 			return m, tea.Batch(m.spinner.Tick, m.attemptConnect(addr))
-		default:
+		case " ", "y", "n":
+			// Toggle insecure when focused on the insecure checkbox
+			if m.focused == fieldInsecure {
+				if key == "n" {
+					m.insecure = false
+				} else {
+					m.insecure = !m.insecure
+				}
+				return m, nil
+			}
+			// Otherwise let the text input handle it
 			var cmd tea.Cmd
-			m.inputs[m.focused], cmd = m.inputs[m.focused].Update(msg)
+			if m.focused < fieldInsecure {
+				m.inputs[m.focused], cmd = m.inputs[m.focused].Update(msg)
+			}
 			return m, cmd
+		default:
+			if m.focused < fieldInsecure {
+				var cmd tea.Cmd
+				m.inputs[m.focused], cmd = m.inputs[m.focused].Update(msg)
+				return m, cmd
+			}
+			return m, nil
 		}
 
 	case StepConnecting:
@@ -238,14 +263,25 @@ func (m ConnectModel) View() string {
 
 	switch m.step {
 	case StepAddress:
-		labels := []string{"  Address:", "  Name:   ", "  Insecure:"}
-		for i := range connectFieldCount {
+		// Address and Name text input fields
+		labels := []string{"  Address:", "  Name:   "}
+		for i := range int(fieldInsecure) {
 			prefix := "  "
 			if connectField(i) == m.focused {
 				prefix = "> "
 			}
 			b.WriteString(fmt.Sprintf("%s%s %s\n", prefix, labels[i], m.inputs[i].View()))
 		}
+		// Insecure boolean toggle
+		insecurePrefix := "  "
+		if m.focused == fieldInsecure {
+			insecurePrefix = "> "
+		}
+		checkbox := "[ ]"
+		if m.insecure {
+			checkbox = "[x]"
+		}
+		b.WriteString(fmt.Sprintf("%s  Insecure: %s  (space/y/n to toggle)\n", insecurePrefix, checkbox))
 		b.WriteString("\n")
 		b.WriteString(dimStyle.Render("  Enter: connect  Tab: next field  Esc: cancel"))
 
@@ -334,6 +370,11 @@ func (m ConnectModel) resolveAddress() string {
 	return addr
 }
 
+// isLocalHost reports whether the host is a loopback address or empty.
+func isLocalHost(host string) bool {
+	return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == ""
+}
+
 // buildConfig creates a SandboxHostConfig from wizard inputs.
 func (m ConnectModel) buildConfig() config.SandboxHostConfig {
 	addr := m.resolveAddress()
@@ -344,25 +385,23 @@ func (m ConnectModel) buildConfig() config.SandboxHostConfig {
 	if name == "" {
 		name = "default"
 	}
-	insecure := strings.TrimSpace(m.inputs[fieldInsecure].Value())
 
 	return config.SandboxHostConfig{
 		Name:          name,
 		DaemonAddress: addr,
-		Insecure:      insecure == "true" || insecure == "yes" || insecure == "1",
+		Insecure:      m.insecure,
 	}
 }
 
 // attemptConnect dials the daemon and checks health + host info.
 func (m ConnectModel) attemptConnect(addr string) tea.Cmd {
-	insecure := strings.TrimSpace(m.inputs[fieldInsecure].Value())
-	isInsecure := insecure == "true" || insecure == "yes" || insecure == "1"
+	insecure := m.insecure
 	hosts := m.hosts
 
 	return func() tea.Msg {
 		cpCfg := config.ControlPlaneConfig{
 			DaemonAddress:  addr,
-			DaemonInsecure: isInsecure,
+			DaemonInsecure: insecure,
 		}
 		svc, err := sandbox.NewRemoteService(addr, cpCfg, hosts)
 		if err != nil {
@@ -399,7 +438,7 @@ func (m ConnectModel) runDoctorChecks() tea.Cmd {
 			host = addr
 		}
 		// Skip doctor checks for localhost - they require SSH
-		if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "" {
+		if isLocalHost(host) {
 			return ConnectDoctorResultMsg{}
 		}
 

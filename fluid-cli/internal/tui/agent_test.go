@@ -150,6 +150,17 @@ func TestRedactPrivateKeys_MultipleKeys(t *testing.T) {
 	}
 }
 
+func TestRedactPrivateKeys_CRLF(t *testing.T) {
+	input := "-----BEGIN RSA PRIVATE KEY-----\r\nMIIEowIBAAKCAQEA...\r\n-----END RSA PRIVATE KEY-----"
+	result, redacted := redactPrivateKeys(input)
+	if !redacted {
+		t.Fatal("expected redaction")
+	}
+	if !strings.Contains(result, "[REDACTED: private key content not sent to LLM]") {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
 func TestRedactPrivateKeys_CertificateNotRedacted(t *testing.T) {
 	input := "-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWgAwIBAgIJ...\n-----END CERTIFICATE-----"
 	result, redacted := redactPrivateKeys(input)

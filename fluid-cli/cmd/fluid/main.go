@@ -260,6 +260,21 @@ func init() {
 	rootCmd.AddCommand(auditCmd)
 }
 
+// isLocalHost reports whether the host is a loopback address or empty.
+func isLocalHost(host string) bool {
+	return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == ""
+}
+
+// colorFunc returns an ANSI color wrapper when useColor is true.
+func colorFunc(useColor bool, code string) func(string) string {
+	return func(s string) string {
+		if useColor {
+			return code + s + "\033[0m"
+		}
+		return s
+	}
+}
+
 // resolveConfigPath returns the config file path, using the flag or default.
 func resolveConfigPath() (string, error) {
 	if cfgFile != "" {
@@ -281,18 +296,8 @@ func runSourcePrepare(hostname string) error {
 	}
 
 	useColor := os.Getenv("NO_COLOR") == ""
-	green := func(s string) string {
-		if useColor {
-			return "\033[32m" + s + "\033[0m"
-		}
-		return s
-	}
-	red := func(s string) string {
-		if useColor {
-			return "\033[31m" + s + "\033[0m"
-		}
-		return s
-	}
+	green := colorFunc(useColor, "\033[32m")
+	red := colorFunc(useColor, "\033[31m")
 
 	// 0. Probe if host is already prepared
 	probeKeyPath := sourcekeys.GetPrivateKeyPath(loadedCfg.SSH.SourceKeyDir)
@@ -380,24 +385,9 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	}
 
 	useColor := os.Getenv("NO_COLOR") == ""
-	green := func(s string) string {
-		if useColor {
-			return "\033[32m" + s + "\033[0m"
-		}
-		return s
-	}
-	red := func(s string) string {
-		if useColor {
-			return "\033[31m" + s + "\033[0m"
-		}
-		return s
-	}
-	dim := func(s string) string {
-		if useColor {
-			return "\033[90m" + s + "\033[0m"
-		}
-		return s
-	}
+	green := colorFunc(useColor, "\033[32m")
+	red := colorFunc(useColor, "\033[31m")
+	dim := colorFunc(useColor, "\033[90m")
 
 	// 1. Connect and health check
 	fmt.Printf("\n  Connecting to %s...\n", addr)
@@ -419,7 +409,6 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	defer cancel()
 
 	if err := svc.Health(ctx); err != nil {
-		_ = svc.Close()
 		fmt.Printf("  %s Health check failed: %v\n", red("[error]"), err)
 		return err
 	}
@@ -428,7 +417,6 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	// 2. Get host info
 	info, err := svc.GetHostInfo(ctx)
 	if err != nil {
-		_ = svc.Close()
 		fmt.Printf("  %s Failed to get host info: %v\n", red("[error]"), err)
 		return err
 	}
@@ -447,7 +435,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	if splitErr != nil {
 		host = addr
 	}
-	isLocal := host == "localhost" || host == "127.0.0.1" || host == "::1" || host == ""
+	isLocal := isLocalHost(host)
 
 	if !isLocal {
 		fmt.Printf("  Running doctor checks on %s...\n\n", host)
