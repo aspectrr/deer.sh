@@ -316,7 +316,7 @@ func (m ConnectModel) renderDoctorResults(b *strings.Builder, successStyle, errS
 	}
 	fmt.Fprintf(b, "\n  %d/%d passed", passed, passed+failed)
 	if failed > 0 {
-		b.WriteString(fmt.Sprintf(", %d failed", failed))
+		fmt.Fprintf(b, ", %d failed", failed)
 	}
 	b.WriteString("\n")
 }
