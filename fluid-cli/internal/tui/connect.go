@@ -292,7 +292,7 @@ func (m ConnectModel) renderHostInfo(b *strings.Builder, successStyle, dimStyle 
 
 func (m ConnectModel) renderDoctorResults(b *strings.Builder, successStyle, errStyle lipgloss.Style) {
 	if m.doctorErr != nil {
-		b.WriteString(fmt.Sprintf("  Doctor checks skipped: %v\n", m.doctorErr))
+		fmt.Fprintf(b, "  Doctor checks skipped: %v\n", m.doctorErr)
 		return
 	}
 	if len(m.doctorResults) == 0 {
@@ -311,10 +311,10 @@ func (m ConnectModel) renderDoctorResults(b *strings.Builder, successStyle, errS
 		}
 		b.WriteString("\n")
 		if !r.Passed && r.FixCmd != "" {
-			b.WriteString(fmt.Sprintf("     Fix: %s\n", r.FixCmd))
+			fmt.Fprintf(b, "     Fix: %s\n", r.FixCmd)
 		}
 	}
-	b.WriteString(fmt.Sprintf("\n  %d/%d passed", passed, passed+failed))
+	fmt.Fprintf(b, "\n  %d/%d passed", passed, passed+failed)
 	if failed > 0 {
 		b.WriteString(fmt.Sprintf(", %d failed", failed))
 	}
