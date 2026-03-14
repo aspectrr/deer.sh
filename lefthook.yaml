@@ -5,7 +5,7 @@ pre-commit:
     fmt-fluid-cli:
       glob: "*.go"
       root: "fluid-cli"
-      run: gofumpt -w .
+      run: "$(go env GOPATH)/bin/gofumpt -w ."
       stage_fixed: true
 
     # Go - fluid daemon
