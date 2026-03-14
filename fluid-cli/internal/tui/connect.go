@@ -284,9 +284,9 @@ func (m ConnectModel) renderHostInfo(b *strings.Builder, successStyle, dimStyle 
 		fmt.Fprintf(b, "  Hostname:    %s\n", info.Hostname)
 		fmt.Fprintf(b, "  Version:     %s\n", info.Version)
 		fmt.Fprintf(b, "  CPUs:        %d\n", info.TotalCPUs)
-		b.WriteString(fmt.Sprintf("  Memory:      %d MB\n", info.TotalMemoryMB))
-		b.WriteString(fmt.Sprintf("  Sandboxes:   %d active\n", info.ActiveSandboxes))
-		b.WriteString(fmt.Sprintf("  Images:      %d available\n", len(info.BaseImages)))
+		fmt.Fprintf(b, "  Memory:      %d MB\n", info.TotalMemoryMB)
+		fmt.Fprintf(b, "  Sandboxes:   %d active\n", info.ActiveSandboxes)
+		fmt.Fprintf(b, "  Images:      %d available\n", len(info.BaseImages))
 	}
 }
 
