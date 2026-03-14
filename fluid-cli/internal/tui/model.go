@@ -101,6 +101,10 @@ type Model struct {
 	playbooksModel PlaybooksModel
 	inPlaybooks    bool
 
+	// Connect wizard
+	connectModel ConnectModel
+	inConnect    bool
+
 	// Autocomplete
 	suggestions     []commandSuggestion
 	suggestionIndex int
@@ -115,6 +119,7 @@ type Model struct {
 	liveOutputPending string
 	showingLiveOutput bool
 	liveOutputSandbox string
+	liveOutputCommand string
 	liveOutputIndex   int // Index in conversation where live output is displayed
 	currentRetry      *RetryAttemptMsg
 
@@ -153,6 +158,7 @@ var allCommands = []commandSuggestion{
 	{"/prepare", "Prepare a host for read-only access"},
 	{"/compact", "Summarize and compact conversation history"},
 	{"/context", "Show current context token usage"},
+	{"/connect", "Connect to a fluid daemon"},
 	{"/settings", "Open configuration settings"},
 	{"/allowlist", "Show the read-only command allowlist"},
 	{"/clear", "Clear conversation history"},
@@ -167,6 +173,8 @@ type AgentRunner interface {
 	SetStatusCallback(func(tea.Msg))
 	// SetReadOnly toggles read-only mode (only query tools available)
 	SetReadOnly(bool)
+	// Cancel stops the currently running agent loop
+	Cancel()
 }
 
 // NewModel creates a new TUI model
@@ -315,6 +323,54 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle ConnectCloseMsg
+	if closeMsg, ok := msg.(ConnectCloseMsg); ok {
+		m.inConnect = false
+		m.state = StateIdle
+		if closeMsg.Saved {
+			// Update or append sandbox host config
+			found := false
+			for i, sh := range m.cfg.SandboxHosts {
+				if sh.Name == closeMsg.Config.Name || sh.DaemonAddress == closeMsg.Config.DaemonAddress {
+					m.cfg.SandboxHosts[i] = closeMsg.Config
+					found = true
+					break
+				}
+			}
+			if !found {
+				m.cfg.SandboxHosts = append(m.cfg.SandboxHosts, closeMsg.Config)
+			}
+			if err := m.cfg.Save(m.configPath); err != nil {
+				m.addSystemMessage(fmt.Sprintf("Failed to save config: %v", err))
+			} else {
+				m.addSystemMessage(fmt.Sprintf("Connected to %s (%s). Config saved.", closeMsg.Config.Name, closeMsg.Config.DaemonAddress))
+			}
+			// Hot-swap sandbox service if available
+			if svc := m.connectModel.GetService(); svc != nil {
+				if agent, ok := m.agentRunner.(*FluidAgent); ok {
+					agent.SetSandboxService(svc)
+				}
+			}
+		} else {
+			// Close the service if not saving
+			if svc := m.connectModel.GetService(); svc != nil {
+				_ = svc.Close()
+			}
+			m.addSystemMessage("Connect cancelled.")
+		}
+		m.updateViewportContent(false)
+		m.textarea.Focus()
+		return m, nil
+	}
+
+	// If in connect mode, delegate to connect model
+	if m.inConnect {
+		var cmd tea.Cmd
+		connectModel, cmd := m.connectModel.Update(msg)
+		m.connectModel = connectModel.(ConnectModel)
+		return m, cmd
+	}
+
 	// If in playbooks mode, delegate to playbooks model
 	if m.inPlaybooks {
 		var cmd tea.Cmd
@@ -424,7 +480,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.MouseMsg:
-		if !m.inSettings && !m.inPlaybooks && !m.inMemoryConfirm &&
+		if !m.inSettings && !m.inPlaybooks && !m.inConnect && !m.inMemoryConfirm &&
 			!m.inNetworkConfirm && !m.inSourcePrepareConfirm && !m.inCleanup {
 			switch msg.Button {
 			case tea.MouseButtonWheelUp:
@@ -570,6 +626,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				m.currentInput = input
 
+				// Handle /connect command
+				if input == "/connect" || input == "connect" {
+					m.inConnect = true
+					m.connectModel = NewConnectModel(m.cfg.Hosts)
+					var cmd tea.Cmd
+					if m.width > 0 && m.height > 0 {
+						connectModel, _ := m.connectModel.Update(tea.WindowSizeMsg{
+							Width:  m.width,
+							Height: m.height,
+						})
+						m.connectModel = connectModel.(ConnectModel)
+					}
+					return m, tea.Batch(m.connectModel.Init(), cmd)
+				}
+
 				// Handle /settings command
 				if input == "/settings" || input == "settings" {
 					m.inSettings = true
@@ -633,6 +704,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "esc":
+			if m.state == StateThinking {
+				if m.agentRunner != nil {
+					m.agentRunner.Cancel()
+				}
+				m.addSystemMessage("Agent stopped.")
+				m.state = StateIdle
+				m.thinking = false
+				m.updateViewportContent(false)
+				m.textarea.Focus()
+				return m, nil
+			}
 			if m.state == StateSettings {
 				m.state = StateIdle
 				m.textarea.Focus()
@@ -698,6 +780,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, ThinkingCmd()
 		}
 
+	case AgentCancelledMsg:
+		m.addSystemMessage("Agent stopped.")
+		m.state = StateIdle
+		m.thinking = false
+		m.updateViewportContent(false)
+		m.textarea.Focus()
+		return m, nil
+
 	case AgentDoneMsg:
 		// Agent finished, don't restart the status listener
 		return m, nil
@@ -762,7 +852,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.liveOutputSandbox = msg.SandboxID
 			m.liveOutputLines = nil
 			m.liveOutputPending = ""
+			m.liveOutputCommand = ""
 			m.liveOutputIndex = len(m.conversation)
+
+			// Extract command or path from current tool args for the header
+			if m.currentToolArgs != nil {
+				if cmd, ok := m.currentToolArgs["command"].(string); ok {
+					if len(cmd) > 60 {
+						cmd = cmd[:57] + "..."
+					}
+					m.liveOutputCommand = cmd
+				} else if path, ok := m.currentToolArgs["path"].(string); ok {
+					m.liveOutputCommand = path
+				}
+			}
 			m.conversation = append(m.conversation, ConversationEntry{
 				Role:    "live_output",
 				Content: "",
@@ -843,12 +946,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.GotoBottom()
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
+	case SensitiveContentRedactedMsg:
+		m.addSystemMessage(fmt.Sprintf("Private key detected in %s - redacted before sending to LLM", msg.Path))
+		m.updateViewportContent(false)
+		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
+
 	case AutoReadOnlyMsg:
 		m.readOnly = msg.Enabled
 		if msg.Enabled {
 			m.addSystemMessage(fmt.Sprintf("Auto read-only: accessing source VM %s", msg.SourceVM))
 		} else {
-			m.addSystemMessage("Auto read-only: restored edit mode")
+			m.addSystemMessage("Auto read-only: switched to edit mode")
 		}
 		m.updateViewportContent(false)
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
@@ -1114,6 +1222,11 @@ func (m Model) View() string {
 	// Show settings screen if in settings mode
 	if m.inSettings {
 		return m.settingsModel.View()
+	}
+
+	// Show connect wizard if in connect mode
+	if m.inConnect {
+		return m.connectModel.View()
 	}
 
 	// Show playbooks browser if in playbooks mode
@@ -1530,10 +1643,14 @@ func (m *Model) updateViewportContent(forceScroll bool) {
 				Padding(0, 1).
 				Width(boxWidth)
 
+			headerText := fmt.Sprintf("$ Live output (%s):", m.liveOutputSandbox)
+			if m.liveOutputCommand != "" {
+				headerText = fmt.Sprintf("$ Live output (%s): %s", m.liveOutputSandbox, m.liveOutputCommand)
+			}
 			header := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#3B82F6")).
 				Bold(true).
-				Render(fmt.Sprintf("$ Live output (%s):", m.liveOutputSandbox))
+				Render(headerText)
 
 			// Content is already word-wrapped by formatLiveOutput
 			content := lipgloss.NewStyle().
@@ -1848,6 +1965,68 @@ func (m *Model) formatToolOutput(toolName string, args, result map[string]any) s
 		}
 		if name, ok := result["name"]; ok {
 			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Name: %v", name)))
+			b.WriteString("\n")
+		}
+
+	case "run_source_command":
+		if args != nil {
+			if cmd, ok := args["command"].(string); ok {
+				if len(cmd) > 80 {
+					cmd = cmd[:77] + "..."
+				}
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      $ %s", cmd)))
+				b.WriteString("\n")
+			}
+		}
+		if exitCode, ok := result["exit_code"]; ok {
+			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      exit: %v", exitCode)))
+			b.WriteString("\n")
+		}
+		if stdout, ok := result["stdout"].(string); ok && stdout != "" {
+			stdout = strings.TrimSpace(stdout)
+			lines := strings.Split(stdout, "\n")
+			if len(lines) > 5 {
+				lines = append(lines[:5], fmt.Sprintf("... (%d more lines)", len(lines)-5))
+			}
+			for _, line := range lines {
+				if len(line) > 100 {
+					line = line[:97] + "..."
+				}
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      %s", line)))
+				b.WriteString("\n")
+			}
+		}
+		if stderr, ok := result["stderr"].(string); ok && stderr != "" {
+			stderr = strings.TrimSpace(stderr)
+			lines := strings.Split(stderr, "\n")
+			var filteredLines []string
+			for _, line := range lines {
+				if !isSSHWarningLine(line) && strings.TrimSpace(line) != "" {
+					filteredLines = append(filteredLines, line)
+				}
+			}
+			if len(filteredLines) > 3 {
+				filteredLines = append(filteredLines[:3], "...")
+			}
+			for _, line := range filteredLines {
+				if len(line) > 100 {
+					line = line[:97] + "..."
+				}
+				b.WriteString(m.styles.ToolDetailsError.Render(fmt.Sprintf("      stderr: %s", line)))
+				b.WriteString("\n")
+			}
+		}
+
+	case "read_source_file", "read_file":
+		if args != nil {
+			if path, ok := args["path"].(string); ok {
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      path: %s", path)))
+				b.WriteString("\n")
+			}
+		}
+		if content, ok := result["content"].(string); ok {
+			lines := strings.Split(content, "\n")
+			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      %d lines", len(lines))))
 			b.WriteString("\n")
 		}
 

@@ -4,6 +4,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 )
 
 // Message types for the TUI
@@ -77,6 +79,9 @@ type ToolCompleteMsg struct {
 // AgentDoneMsg is sent through the status channel when the agent finishes
 // This unblocks the status listener
 type AgentDoneMsg struct{}
+
+// AgentCancelledMsg is sent when the user cancels the agent via ESC
+type AgentCancelledMsg struct{}
 
 // ClearThinkingMsg is sent to clear the thinking indicator
 type ClearThinkingMsg struct{}
@@ -222,4 +227,17 @@ type AutoReadOnlyMsg struct {
 // UpdateAvailableMsg is sent when a newer version is available
 type UpdateAvailableMsg struct {
 	Version string
+}
+
+// SensitiveContentRedactedMsg is sent when private key content is detected
+// and redacted from a file before sending to the LLM.
+type SensitiveContentRedactedMsg struct {
+	Path string
+	Host string
+}
+
+// ConnectCloseMsg is sent when the connect wizard is closed
+type ConnectCloseMsg struct {
+	Saved  bool
+	Config config.SandboxHostConfig
 }

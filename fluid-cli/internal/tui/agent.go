@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -77,6 +78,9 @@ type FluidAgent struct {
 
 	// Re-prepare warning: tracks the last host warned about re-prepare
 	lastPrepareWarned string
+
+	// cancelFunc cancels the active agent Run context when ESC is pressed
+	cancelFunc context.CancelFunc
 }
 
 // PendingNetworkApproval represents a network access request waiting for approval
@@ -121,6 +125,14 @@ func (a *FluidAgent) SetReadOnly(ro bool) {
 	a.readOnly = ro
 }
 
+// SetSandboxService hot-swaps the sandbox service (e.g. after /connect).
+func (a *FluidAgent) SetSandboxService(svc sandbox.Service) {
+	if a.service != nil {
+		_ = a.service.Close()
+	}
+	a.service = svc
+}
+
 // sendStatus sends a status message through the callback if set
 func (a *FluidAgent) sendStatus(msg tea.Msg) {
 	if a.statusCallback != nil {
@@ -128,10 +140,23 @@ func (a *FluidAgent) sendStatus(msg tea.Msg) {
 	}
 }
 
+// Cancel stops the currently running agent loop
+func (a *FluidAgent) Cancel() {
+	if a.cancelFunc != nil {
+		a.cancelFunc()
+		a.cancelFunc = nil
+	}
+}
+
 // Run executes a command and returns the result
 func (a *FluidAgent) Run(input string) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		a.cancelFunc = cancel
+		defer func() {
+			cancel()
+			a.cancelFunc = nil
+		}()
 
 		// Handle slash commands
 		if strings.HasPrefix(input, "/") {
@@ -322,6 +347,10 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 
 		// LLM-driven execution loop
 		for iteration := 0; ; iteration++ {
+			if ctx.Err() != nil {
+				a.sendStatus(AgentDoneMsg{})
+				return AgentCancelledMsg{}
+			}
 			a.logger.Debug("LLM loop iteration", "iteration", iteration, "history_len", len(a.history))
 			systemPrompt := a.cfg.AIAgent.DefaultSystem
 			tools := llm.GetTools()
@@ -338,10 +367,26 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 					"let them know they need to prepare a host first with `/prepare <hostname>` or `fluid prepare <hostname>` to give you read-only SSH access to their servers."
 			} else if !a.cfg.HasSandboxHosts() {
 				tools = llm.GetSourceOnlyTools()
-				systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a sandbox host to enable this: https://fluid.sh/docs/daemon\""
+				systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a daemon host (https://fluid.sh/docs/daemon) then use /connect to link it.\"" +
+					"\n\nWhen debugging TLS/SSL issues on source hosts:\n" +
+					"- If you get permission denied reading certificate files, don't retry - these files are intentionally restricted\n" +
+					"- Use `journalctl -u <service> --no-pager -n 100` to find SSL errors in service logs\n" +
+					"- Use `grep -i <service> /var/log/syslog` as a fallback if journalctl has no results\n" +
+					"- Use `openssl s_client -connect localhost:<port>` to inspect the live certificate chain (no file access needed)\n" +
+					"- Use `ls -la` on cert directories to check ownership and permissions as a diagnostic"
 			} else if a.readOnly {
 				tools = llm.GetReadOnlyTools()
 				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources."
+			}
+
+			// Add TLS debugging guidance when the agent has source host access
+			if len(a.cfg.PreparedHosts()) > 0 && (a.cfg.HasSandboxHosts() && !a.readOnly) {
+				systemPrompt += "\n\nWhen debugging TLS/SSL issues on source hosts:\n" +
+					"- If you get permission denied reading certificate files, don't retry - these files are intentionally restricted\n" +
+					"- Use `journalctl -u <service> --no-pager -n 100` to find SSL errors in service logs\n" +
+					"- Use `grep -i <service> /var/log/syslog` as a fallback if journalctl has no results\n" +
+					"- Use `openssl s_client -connect localhost:<port>` to inspect the live certificate chain (no file access needed)\n" +
+					"- Use `ls -la` on cert directories to check ownership and permissions as a diagnostic"
 			}
 
 			// Build messages, applying redaction if enabled
@@ -428,6 +473,10 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 
 				// Handle tool calls
 				for _, tc := range msg.ToolCalls {
+					if ctx.Err() != nil {
+						a.sendStatus(AgentDoneMsg{})
+						return AgentCancelledMsg{}
+					}
 					a.logger.Debug("executing tool call", "tool", tc.Function.Name, "call_id", tc.ID)
 					toolStart := time.Now()
 					result, err := a.executeTool(ctx, tc)
@@ -512,6 +561,25 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		a.telemetry.Track("agent_tool_call", map[string]any{
 			"tool_name": tc.Function.Name,
 		})
+	}
+
+	// Sticky mode transitions: only change mode when tool category changes
+	switch tc.Function.Name {
+	case "run_source_command", "read_source_file":
+		if !a.readOnly {
+			a.autoReadOnly = true
+			a.readOnly = true
+			a.sendStatus(AutoReadOnlyMsg{SourceVM: "", Enabled: true})
+		}
+	case "create_sandbox", "destroy_sandbox", "run_command", "start_sandbox",
+		"stop_sandbox", "create_snapshot", "edit_file", "read_file",
+		"create_playbook", "add_playbook_task":
+		if a.autoReadOnly {
+			a.autoReadOnly = false
+			a.readOnly = false
+			a.currentSourceVM = ""
+			a.sendStatus(AutoReadOnlyMsg{SourceVM: "", Enabled: false})
+		}
 	}
 
 	switch tc.Function.Name {
@@ -641,6 +709,8 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			return nil, err
 		}
 		if a.sourceService != nil {
+			a.currentSourceVM = args.Host
+
 			result, err := a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
 				func(chunk string, isStderr bool) {
 					a.sendStatus(CommandOutputChunkMsg{
@@ -670,7 +740,27 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			return nil, err
 		}
 		if a.sourceService != nil {
-			return a.sourceService.ReadFile(ctx, args.Host, args.Path)
+			a.currentSourceVM = args.Host
+
+			content, err := a.sourceService.ReadFile(ctx, args.Host, args.Path)
+			if err != nil {
+				return nil, err
+			}
+			content, wasRedacted := redactPrivateKeys(content)
+			if wasRedacted {
+				a.sendStatus(SensitiveContentRedactedMsg{Path: args.Path, Host: args.Host})
+			}
+			// Show file content in live output box
+			a.sendStatus(CommandOutputChunkMsg{
+				SandboxID: args.Host,
+				Chunk:     content + "\n",
+			})
+			a.sendStatus(CommandOutputDoneMsg{SandboxID: args.Host})
+			return map[string]any{
+				"source_vm": args.Host,
+				"path":      args.Path,
+				"content":   content,
+			}, nil
 		}
 		return a.readSourceFile(ctx, args.Host, args.Path)
 	case "list_hosts":
@@ -1214,6 +1304,17 @@ func (a *FluidAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newS
 	}, nil
 }
 
+// privateKeyRe matches PEM-encoded private key blocks.
+var privateKeyRe = regexp.MustCompile(`(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----`)
+
+// redactPrivateKeys replaces any PEM private key blocks in content with a
+// redaction notice. Returns the (possibly modified) content and whether any
+// redaction occurred.
+func redactPrivateKeys(content string) (string, bool) {
+	redacted := privateKeyRe.ReplaceAllString(content, "[REDACTED: private key content not sent to LLM]")
+	return redacted, redacted != content
+}
+
 // readFile reads the contents of a file on a sandbox VM via SSH.
 // This operates on files inside the sandbox - not local files or playbooks.
 func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[string]any, error) {
@@ -1245,10 +1346,16 @@ func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[
 		return nil, fmt.Errorf("failed to decode file content: %w", err)
 	}
 
+	content := string(decoded)
+	content, wasRedacted := redactPrivateKeys(content)
+	if wasRedacted {
+		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sandboxID})
+	}
+
 	return map[string]any{
 		"sandbox_id": sandboxID,
 		"path":       path,
-		"content":    string(decoded),
+		"content":    content,
 	}, nil
 }
 
@@ -1699,21 +1806,7 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 	}
 	a.logger.Debug("run source command", "source_vm", sourceVM, "command", truncCmd)
 
-	// Auto-enable read-only mode while operating on source VM
 	a.currentSourceVM = sourceVM
-	if !a.readOnly {
-		a.autoReadOnly = true
-		a.readOnly = true
-		a.sendStatus(AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: true})
-	}
-	defer func() {
-		a.currentSourceVM = ""
-		if a.autoReadOnly {
-			a.autoReadOnly = false
-			a.readOnly = false
-			a.sendStatus(AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: false})
-		}
-	}()
 
 	result, err := a.service.RunSourceCommand(ctx, sourceVM, command, 0)
 	if err != nil {
@@ -1753,27 +1846,25 @@ func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) 
 
 	a.logger.Debug("read source file", "source_vm", sourceVM, "path", path)
 
-	// Auto-enable read-only mode while operating on source VM
 	a.currentSourceVM = sourceVM
-	if !a.readOnly {
-		a.autoReadOnly = true
-		a.readOnly = true
-		a.sendStatus(AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: true})
-	}
-	defer func() {
-		a.currentSourceVM = ""
-		if a.autoReadOnly {
-			a.autoReadOnly = false
-			a.readOnly = false
-			a.sendStatus(AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: false})
-		}
-	}()
 
 	content, err := a.service.ReadSourceFile(ctx, sourceVM, path)
 	if err != nil {
 		a.logger.Error("failed to read file from source VM", "source_vm", sourceVM, "path", path, "error", err)
 		return nil, fmt.Errorf("failed to read file from source VM: %w", err)
 	}
+
+	content, wasRedacted := redactPrivateKeys(content)
+	if wasRedacted {
+		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sourceVM})
+	}
+
+	// Show file content in live output box
+	a.sendStatus(CommandOutputChunkMsg{
+		SandboxID: sourceVM,
+		Chunk:     content + "\n",
+	})
+	a.sendStatus(CommandOutputDoneMsg{SandboxID: sourceVM})
 
 	return map[string]any{
 		"source_vm": sourceVM,

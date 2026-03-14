@@ -227,8 +227,27 @@ export function DaemonUpgradeSection() {
           <DaemonSubsteps />
         </CollapsibleSection>
 
+        <CollapsibleSection title="Connect the CLI to your daemon">
+          <p>
+            After the daemon is running, connect your CLI to it. This saves the daemon address to
+            your config so Fluid can create sandboxes:
+          </p>
+          <TerminalBlock
+            lines={[
+              { command: 'fluid connect your-sandbox-host:9091' },
+              { output: '  [ok] Health check passed' },
+              { output: '  [ok] Host info retrieved' },
+              { output: '  [ok] Saved "your-sandbox-host" (your-sandbox-host:9091) to config' },
+            ]}
+          />
+          <p>
+            Or use <code className="text-green-400">/connect</code> inside the TUI for a guided
+            wizard.
+          </p>
+        </CollapsibleSection>
+
         <CollapsibleSection title="Create and use sandboxes">
-          <p>Once the daemon is running, ask Fluid to create sandboxes from your source VMs:</p>
+          <p>Once connected, ask Fluid to create sandboxes from your source VMs:</p>
           <TerminalBlock
             lines={[
               { command: 'create a sandbox from my-server' },

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -193,6 +194,21 @@ var sourceListCmd = &cobra.Command{
 	},
 }
 
+// --- connect command ---
+
+var connectCmd = &cobra.Command{
+	Use:   "connect <address>",
+	Short: "Connect to a fluid daemon and save config",
+	Long:  "Test the gRPC connection to a fluid-daemon, run doctor checks via SSH, display host info, and save the daemon to your config.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name, _ := cmd.Flags().GetString("name")
+		insecure, _ := cmd.Flags().GetBool("insecure")
+		skipSave, _ := cmd.Flags().GetBool("no-save")
+		return runConnect(args[0], name, insecure, skipSave)
+	},
+}
+
 // --- audit commands ---
 
 var auditCmd = &cobra.Command{
@@ -227,6 +243,10 @@ func init() {
 	}
 	doctorCmd.Flags().String("host", "", "host name from config (default: localhost)")
 
+	connectCmd.Flags().String("name", "", "display name for this daemon (default: hostname from daemon)")
+	connectCmd.Flags().Bool("insecure", true, "skip TLS verification")
+	connectCmd.Flags().Bool("no-save", false, "test connection without saving to config")
+
 	sourceCmd.AddCommand(sourcePrepareCmd)
 	sourceCmd.AddCommand(sourceListCmd)
 	auditCmd.AddCommand(auditVerifyCmd)
@@ -235,6 +255,7 @@ func init() {
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(doctorCmd)
+	rootCmd.AddCommand(connectCmd)
 	rootCmd.AddCommand(sourceCmd)
 	rootCmd.AddCommand(auditCmd)
 }
@@ -338,6 +359,151 @@ func runSourcePrepare(hostname string) error {
 	fmt.Println()
 	fmt.Printf("  %s Host %q is ready for read-only access.\n", green("[done]"), hostname)
 	fmt.Printf("  Run `fluid` to start the agent and inspect this host.\n")
+	return nil
+}
+
+// runConnect tests a daemon connection, runs doctor checks, and saves config.
+func runConnect(addr, name string, insecure, skipSave bool) error {
+	// Append default gRPC port if not specified
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		addr = net.JoinHostPort(addr, "9091")
+	}
+
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	useColor := os.Getenv("NO_COLOR") == ""
+	green := func(s string) string {
+		if useColor {
+			return "\033[32m" + s + "\033[0m"
+		}
+		return s
+	}
+	red := func(s string) string {
+		if useColor {
+			return "\033[31m" + s + "\033[0m"
+		}
+		return s
+	}
+	dim := func(s string) string {
+		if useColor {
+			return "\033[90m" + s + "\033[0m"
+		}
+		return s
+	}
+
+	// 1. Connect and health check
+	fmt.Printf("\n  Connecting to %s...\n", addr)
+
+	cpCfg := config.ControlPlaneConfig{
+		DaemonAddress:  addr,
+		DaemonInsecure: insecure,
+	}
+	svc, err := sandbox.NewRemoteService(addr, cpCfg, loadedCfg.Hosts)
+	if err != nil {
+		fmt.Printf("  %s Failed to dial: %v\n", red("[error]"), err)
+		return err
+	}
+	defer func() {
+		if skipSave {
+			_ = svc.Close()
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := svc.Health(ctx); err != nil {
+		_ = svc.Close()
+		fmt.Printf("  %s Health check failed: %v\n", red("[error]"), err)
+		return err
+	}
+	fmt.Printf("  %s Health check passed\n", green("[ok]"))
+
+	// 2. Get host info
+	info, err := svc.GetHostInfo(ctx)
+	if err != nil {
+		_ = svc.Close()
+		fmt.Printf("  %s Failed to get host info: %v\n", red("[error]"), err)
+		return err
+	}
+	fmt.Printf("  %s Host info retrieved\n\n", green("[ok]"))
+
+	fmt.Printf("  Hostname:    %s\n", info.Hostname)
+	fmt.Printf("  Version:     %s\n", info.Version)
+	fmt.Printf("  CPUs:        %d\n", info.TotalCPUs)
+	fmt.Printf("  Memory:      %d MB\n", info.TotalMemoryMB)
+	fmt.Printf("  Sandboxes:   %d active\n", info.ActiveSandboxes)
+	fmt.Printf("  Images:      %d available\n", len(info.BaseImages))
+	fmt.Println()
+
+	// 3. Doctor checks via SSH (skip for localhost)
+	host, _, splitErr := net.SplitHostPort(addr)
+	if splitErr != nil {
+		host = addr
+	}
+	isLocal := host == "localhost" || host == "127.0.0.1" || host == "::1" || host == ""
+
+	if !isLocal {
+		fmt.Printf("  Running doctor checks on %s...\n\n", host)
+		run := hostexec.NewSSHAlias(host)
+		doctorCtx, doctorCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer doctorCancel()
+		results := doctor.RunAll(doctorCtx, run)
+		doctor.PrintResults(results, os.Stdout, useColor)
+		fmt.Println()
+	} else {
+		fmt.Println(dim("  Doctor checks skipped (localhost)"))
+		fmt.Println()
+	}
+
+	// 4. Save config
+	if skipSave {
+		fmt.Println(dim("  --no-save: config not modified"))
+		fmt.Println()
+		return nil
+	}
+
+	if name == "" {
+		if info.Hostname != "" {
+			name = info.Hostname
+		} else {
+			name = "default"
+		}
+	}
+
+	entry := config.SandboxHostConfig{
+		Name:          name,
+		DaemonAddress: addr,
+		Insecure:      insecure,
+	}
+
+	// Update existing or append
+	found := false
+	for i, sh := range loadedCfg.SandboxHosts {
+		if sh.Name == name || sh.DaemonAddress == addr {
+			loadedCfg.SandboxHosts[i] = entry
+			found = true
+			break
+		}
+	}
+	if !found {
+		loadedCfg.SandboxHosts = append(loadedCfg.SandboxHosts, entry)
+	}
+
+	if err := loadedCfg.Save(configPath); err != nil {
+		fmt.Printf("  %s Failed to save config: %v\n", red("[error]"), err)
+		return err
+	}
+	fmt.Printf("  %s Saved %q (%s) to config\n", green("[ok]"), name, addr)
+	fmt.Println()
 	return nil
 }
 

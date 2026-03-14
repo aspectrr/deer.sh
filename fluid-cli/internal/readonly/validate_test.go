@@ -86,6 +86,13 @@ func TestValidateCommand_Allowed(t *testing.T) {
 		"echo foo | xargs",
 		// sed without -i is fine
 		"sed -n 's/foo/bar/p' file",
+		// openssl read-only subcommands
+		"openssl x509 -in /etc/ssl/cert.pem -text -noout",
+		"openssl s_client -connect host:443",
+		"openssl verify -CAfile /etc/ssl/ca.pem /etc/ssl/cert.pem",
+		"openssl version",
+		"openssl ciphers",
+		"openssl crl -in /etc/ssl/crl.pem -text -noout",
 	}
 
 	for _, cmd := range allowed {
@@ -138,6 +145,15 @@ func TestValidateCommand_Blocked(t *testing.T) {
 		// sed -i (in-place editing)
 		{"sed -i 's/foo/bar/' file", "sed -i modifies files"},
 		{"sed --in-place 's/foo/bar/' file", "sed --in-place modifies files"},
+		// openssl dangerous subcommands
+		{"openssl genrsa 2048", "genrsa generates keys"},
+		{"openssl genpkey -algorithm RSA", "genpkey generates keys"},
+		{"openssl req -new -key server.key", "req creates CSRs"},
+		{"openssl enc -aes-256-cbc -in file", "enc encrypts/decrypts"},
+		{"openssl ca -in req.pem", "ca is a CA operation"},
+		{"openssl pkcs12 -export -in cert.pem", "pkcs12 can export"},
+		{"openssl rand 32", "rand generates random data"},
+		{"openssl s_server -port 4433", "s_server starts a server"},
 	}
 
 	for _, tc := range blocked {

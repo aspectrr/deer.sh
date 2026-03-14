@@ -39,6 +39,7 @@ make build
 | `/sandboxes` | List active sandboxes |
 | `/hosts` | List configured remote hosts |
 | `/playbooks` | List generated Ansible playbooks |
+| `/connect` | Connect to a fluid daemon |
 | `/prepare` | Prepare a source VM for sandbox cloning |
 | `/compact` | Summarize and compact conversation history |
 | `/context` | Show current context token usage |
@@ -141,6 +142,22 @@ make deps           # Download dependencies
 make tidy           # Tidy and verify
 make install-tools  # Install gofumpt, golangci-lint, swag
 ```
+
+## Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+### CLI Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `fluid` | Launch the interactive TUI agent (default) |
+| `fluid connect <address>` | Connect to a fluid daemon and save config |
+| `fluid mcp` | Start MCP server on stdio |
+| `fluid doctor` | Check daemon setup on a host |
+| `fluid source prepare <host>` | Prepare a host for read-only access |
+| `fluid source list` | List configured source hosts |
+| `fluid update` | Self-update to the latest release |
 
 ## Makefile Targets
 

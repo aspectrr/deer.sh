@@ -24,6 +24,9 @@ var allowedCommands = map[string]bool{
 	"ss": true, "netstat": true, "ip": true, "ifconfig": true,
 	"dig": true, "nslookup": true, "ping": true,
 
+	// TLS/cert diagnostics
+	"openssl": true,
+
 	// Disk
 	"df": true, "lsblk": true, "blkid": true,
 
@@ -109,6 +112,14 @@ var subcommandRestrictions = map[string]map[string]bool{
 	},
 	"pip": {
 		"list": true,
+	},
+	"openssl": {
+		"x509":     true,
+		"verify":   true,
+		"s_client": true,
+		"crl":      true,
+		"version":  true,
+		"ciphers":  true,
 	},
 }
 

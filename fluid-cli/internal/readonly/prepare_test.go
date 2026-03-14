@@ -186,16 +186,21 @@ func TestPrepare_CommandContent(t *testing.T) {
 		t.Error("step 3 should be usermod fixup")
 	}
 
-	// Step 4: install CA key - should contain our CA key content
-	if !strings.Contains(decoded[3], caPubKey) {
-		t.Error("step 4 should contain the CA public key")
-	}
-	if !strings.Contains(decoded[3], "/etc/ssh/fluid_ca.pub") {
-		t.Error("step 4 should write to /etc/ssh/fluid_ca.pub")
+	// Step 4: journal group membership (best-effort)
+	if !strings.Contains(decoded[3], "systemd-journal") {
+		t.Error("step 4 should add systemd-journal group")
 	}
 
-	// Steps 5-6: sshd config - TrustedUserCAKeys and AuthorizedPrincipalsFile
-	sshdConfigCommands := decoded[4] + " " + decoded[5]
+	// Step 5: install CA key - should contain our CA key content
+	if !strings.Contains(decoded[4], caPubKey) {
+		t.Error("step 5 should contain the CA public key")
+	}
+	if !strings.Contains(decoded[4], "/etc/ssh/fluid_ca.pub") {
+		t.Error("step 5 should write to /etc/ssh/fluid_ca.pub")
+	}
+
+	// Steps 6-7: sshd config - TrustedUserCAKeys and AuthorizedPrincipalsFile
+	sshdConfigCommands := decoded[5] + " " + decoded[6]
 	if !strings.Contains(sshdConfigCommands, "TrustedUserCAKeys") {
 		t.Error("sshd config steps should reference TrustedUserCAKeys")
 	}
@@ -203,8 +208,8 @@ func TestPrepare_CommandContent(t *testing.T) {
 		t.Error("sshd config steps should reference AuthorizedPrincipalsFile")
 	}
 
-	// Steps 7-9: principals
-	principalsAll := strings.Join(decoded[6:9], " ")
+	// Steps 8-10: principals
+	principalsAll := strings.Join(decoded[7:10], " ")
 	if !strings.Contains(principalsAll, "/etc/ssh/authorized_principals") {
 		t.Error("principals steps should reference /etc/ssh/authorized_principals")
 	}
@@ -226,8 +231,8 @@ func TestPrepare_CAKeyTrimmed(t *testing.T) {
 	}
 
 	commands := mock.getCommands()
-	// Find the CA key install command (step 4, index 3)
-	caCmd, err := decodeBase64Command(commands[3])
+	// Find the CA key install command (step 5, index 4)
+	caCmd, err := decodeBase64Command(commands[4])
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
@@ -357,8 +362,8 @@ func TestPrepare_FailAtCreateUser(t *testing.T) {
 
 func TestPrepare_FailAtCAKeyInstall(t *testing.T) {
 	mock := newMockSSHRun()
-	// Steps 1-3 succeed (install shell, create user, usermod fixup), step 4 fails (CA key)
-	mock.failAt(3, sshResponse{stderr: "write failed", exitCode: 1})
+	// Steps 1-4 succeed (install shell, create user, usermod fixup, journal groups), step 5 fails (CA key)
+	mock.failAt(4, sshResponse{stderr: "write failed", exitCode: 1})
 	caPubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test-ca"
 
 	result, err := Prepare(context.Background(), mock.run, caPubKey, nil, nil)
@@ -381,8 +386,8 @@ func TestPrepare_FailAtCAKeyInstall(t *testing.T) {
 
 func TestPrepare_FailAtSSHDConfig(t *testing.T) {
 	mock := newMockSSHRun()
-	// Steps 1-4 succeed, step 5 (first sshd config command) fails
-	mock.failAt(4, sshResponse{stderr: "sshd_config locked", exitCode: 1})
+	// Steps 1-5 succeed, step 6 (first sshd config command) fails
+	mock.failAt(5, sshResponse{stderr: "sshd_config locked", exitCode: 1})
 	caPubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test-ca"
 
 	result, err := Prepare(context.Background(), mock.run, caPubKey, nil, nil)
@@ -402,8 +407,8 @@ func TestPrepare_FailAtSSHDConfig(t *testing.T) {
 
 func TestPrepare_FailAtPrincipals(t *testing.T) {
 	mock := newMockSSHRun()
-	// Steps 1-6 succeed, step 7 (first principals command) fails
-	mock.failAt(6, sshResponse{stderr: "mkdir failed", exitCode: 1})
+	// Steps 1-7 succeed, step 8 (first principals command) fails
+	mock.failAt(7, sshResponse{stderr: "mkdir failed", exitCode: 1})
 	caPubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test-ca"
 
 	result, err := Prepare(context.Background(), mock.run, caPubKey, nil, nil)
@@ -423,8 +428,8 @@ func TestPrepare_FailAtPrincipals(t *testing.T) {
 
 func TestPrepare_FailAtRestartSSHD(t *testing.T) {
 	mock := newMockSSHRun()
-	// All steps succeed except the last one (restart sshd, index 9)
-	mock.failAt(9, sshResponse{stderr: "sshd restart failed", exitCode: 1})
+	// All steps succeed except the last one (restart sshd, index 10)
+	mock.failAt(10, sshResponse{stderr: "sshd restart failed", exitCode: 1})
 	caPubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test-ca"
 
 	result, err := Prepare(context.Background(), mock.run, caPubKey, nil, nil)
@@ -505,15 +510,16 @@ func TestPrepare_CommandCount(t *testing.T) {
 	// 1: install shell script
 	// 2: create user (useradd)
 	// 3: usermod fixup
-	// 4: install CA key
-	// 5: sshd config - TrustedUserCAKeys
-	// 6: sshd config - AuthorizedPrincipalsFile
-	// 7: mkdir authorized_principals
-	// 8: write principals file
-	// 9: chmod principals file
-	// 10: restart sshd
-	if len(commands) != 10 {
-		t.Errorf("expected 10 SSH commands, got %d", len(commands))
+	// 4: journal group membership
+	// 5: install CA key
+	// 6: sshd config - TrustedUserCAKeys
+	// 7: sshd config - AuthorizedPrincipalsFile
+	// 8: mkdir authorized_principals
+	// 9: write principals file
+	// 10: chmod principals file
+	// 11: restart sshd
+	if len(commands) != 11 {
+		t.Errorf("expected 11 SSH commands, got %d", len(commands))
 		for i, cmd := range commands {
 			decoded, _ := decodeBase64Command(cmd)
 			summary := decoded
@@ -646,8 +652,8 @@ func TestPrepare_SSHDConfigIdempotent(t *testing.T) {
 	}
 
 	commands := mock.getCommands()
-	// sshd config commands are at indices 4 and 5
-	for _, idx := range []int{4, 5} {
+	// sshd config commands are at indices 5 and 6
+	for _, idx := range []int{5, 6} {
 		cmd, err := decodeBase64Command(commands[idx])
 		if err != nil {
 			t.Fatalf("decode command %d failed: %v", idx, err)

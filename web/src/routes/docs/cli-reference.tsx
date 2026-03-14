@@ -8,7 +8,11 @@ export const Route = createFileRoute('/docs/cli-reference')({
 
 const cliEntryPoints = [
   { name: 'fluid', description: 'Launch the interactive TUI agent (default)' },
+  { name: 'fluid connect <address>', description: 'Connect to a fluid daemon and save config' },
   { name: 'fluid mcp', description: 'Start MCP server on stdio for editor integration' },
+  { name: 'fluid doctor', description: 'Check daemon setup on a host' },
+  { name: 'fluid source prepare <host>', description: 'Prepare a host for read-only access' },
+  { name: 'fluid source list', description: 'List configured source hosts' },
   { name: 'fluid update', description: 'Self-update to the latest release' },
   { name: 'fluid --version', description: 'Print version info' },
   { name: 'fluid --config <path>', description: 'Use a custom config file' },
@@ -19,6 +23,8 @@ const slashCommands = [
   { name: '/sandboxes', description: 'List active sandboxes' },
   { name: '/hosts', description: 'List configured remote hosts' },
   { name: '/playbooks', description: 'List generated Ansible playbooks' },
+  { name: '/connect', description: 'Connect to a fluid daemon' },
+  { name: '/prepare', description: 'Prepare a host for read-only access' },
   { name: '/compact', description: 'Summarize and compact conversation history' },
   { name: '/context', description: 'Show current context token usage' },
   { name: '/settings', description: 'Open configuration settings' },

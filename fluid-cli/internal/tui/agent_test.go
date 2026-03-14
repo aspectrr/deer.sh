@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -74,6 +75,89 @@ func TestShellEscape(t *testing.T) {
 				t.Errorf("shellEscape(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestRedactPrivateKeys_RSAKey(t *testing.T) {
+	input := "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----"
+	result, redacted := redactPrivateKeys(input)
+	if !redacted {
+		t.Fatal("expected redaction")
+	}
+	if result != "[REDACTED: private key content not sent to LLM]" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestRedactPrivateKeys_ECKey(t *testing.T) {
+	input := "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEI...\n-----END EC PRIVATE KEY-----"
+	result, redacted := redactPrivateKeys(input)
+	if !redacted {
+		t.Fatal("expected redaction")
+	}
+	if result != "[REDACTED: private key content not sent to LLM]" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestRedactPrivateKeys_GenericKey(t *testing.T) {
+	input := "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...\n-----END PRIVATE KEY-----"
+	result, redacted := redactPrivateKeys(input)
+	if !redacted {
+		t.Fatal("expected redaction")
+	}
+	if result != "[REDACTED: private key content not sent to LLM]" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestRedactPrivateKeys_NoKey(t *testing.T) {
+	input := "just some normal file content\nwith multiple lines"
+	result, redacted := redactPrivateKeys(input)
+	if redacted {
+		t.Fatal("expected no redaction")
+	}
+	if result != input {
+		t.Errorf("content should be unchanged")
+	}
+}
+
+func TestRedactPrivateKeys_MixedContent(t *testing.T) {
+	input := "# Config file\nssl_key: |\n-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\nssl_port: 443"
+	result, redacted := redactPrivateKeys(input)
+	if !redacted {
+		t.Fatal("expected redaction")
+	}
+	if !strings.Contains(result, "ssl_port: 443") {
+		t.Error("non-key content should be preserved")
+	}
+	if strings.Contains(result, "MIIEpAIBAAKCAQEA") {
+		t.Error("key content should be removed")
+	}
+}
+
+func TestRedactPrivateKeys_MultipleKeys(t *testing.T) {
+	input := "-----BEGIN RSA PRIVATE KEY-----\nkey1\n-----END RSA PRIVATE KEY-----\nsome text\n-----BEGIN EC PRIVATE KEY-----\nkey2\n-----END EC PRIVATE KEY-----"
+	result, redacted := redactPrivateKeys(input)
+	if !redacted {
+		t.Fatal("expected redaction")
+	}
+	if strings.Contains(result, "key1") || strings.Contains(result, "key2") {
+		t.Error("both keys should be redacted")
+	}
+	if !strings.Contains(result, "some text") {
+		t.Error("text between keys should be preserved")
+	}
+}
+
+func TestRedactPrivateKeys_CertificateNotRedacted(t *testing.T) {
+	input := "-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWgAwIBAgIJ...\n-----END CERTIFICATE-----"
+	result, redacted := redactPrivateKeys(input)
+	if redacted {
+		t.Fatal("certificates should not be redacted")
+	}
+	if result != input {
+		t.Errorf("certificate content should be unchanged")
 	}
 }
 

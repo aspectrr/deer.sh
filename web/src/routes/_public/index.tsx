@@ -80,9 +80,9 @@ function SecuritySection({
 
 const faqs = [
   {
-    question: 'You want me to give an AI agent SSH access to my production VMs?',
+    question: 'What is Fluid and how does it work?',
     answer:
-      'Not unrestricted SSH access. Fluid creates a dedicated fluid-readonly user with a restricted login shell. A client-side allowlist validates every command against ~50 permitted read-only commands (cat, ls, grep, ps, journalctl, etc.) before it is even sent. Server-side, the restricted shell blocks 50+ destructive patterns - sudo, rm, mv, chmod, wget, python, bash - at the OS level. Command substitution ($(...), backticks), output redirection, and subshells are all blocked. Even if the AI constructs something creative, the shell will not execute it.',
+      'Fluid is an AI agent built for working on Linux servers. It uses tools you already know like ssh, login shells, and Ansible playbooks to investigate Linux servers. Fluid creates a dedicated fluid-readonly user with a restricted login shell. A client-side allowlist validates every command against ~50 permitted read-only commands (cat, ls, grep, ps, journalctl, etc.) before it is even sent. Server-side, the restricted shell blocks 50+ destructive patterns - sudo, rm, mv, chmod, wget, python, bash - at the OS level. Command substitution ($(...), backticks), output redirection, and subshells are all blocked. Even if the AI constructs something creative, the shell will not execute it. If a sandbox host is configured and a possible fix can be constructed, Fluid will create a sandbox of the server to test changes and updates. Finally, Fluid will create an ansible playbook that can be applied to production to fix the issue.',
   },
   {
     question: 'What data leaves my environment?',

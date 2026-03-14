@@ -588,6 +588,8 @@ func (m OnboardingModel) viewComplete() string {
 	b.WriteString("\n")
 	daemonURL, _ := url.JoinPath(m.cfg.WebURL, "/docs/daemon")
 	b.WriteString(dimStyle.Render("To create sandboxes, set up a daemon host: " + daemonURL))
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("Then use /connect in the TUI to connect to it."))
 	b.WriteString("\n\n")
 
 	b.WriteString(dimStyle.Render("Press Enter to finish."))

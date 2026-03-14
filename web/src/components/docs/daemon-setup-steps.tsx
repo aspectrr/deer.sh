@@ -170,6 +170,38 @@ export const daemonSetupSteps: Step[] = [
     ),
   },
   {
+    title: 'Connect from the CLI',
+    content: (
+      <>
+        <p>
+          Once the daemon is running, connect your CLI to it. This tests the gRPC connection, runs
+          health checks, and saves the daemon address to your config:
+        </p>
+        <TerminalBlock
+          lines={[
+            { command: 'fluid connect your-sandbox-host:9091' },
+            { output: '  [ok] Health check passed' },
+            { output: '  [ok] Host info retrieved' },
+            { output: '' },
+            { output: '  Hostname:    your-sandbox-host' },
+            { output: '  Version:     0.1.3' },
+            { output: '  CPUs:        4' },
+            { output: '  Memory:      8192 MB' },
+            { output: '  Sandboxes:   0 active' },
+            { output: '  Images:      2 available' },
+            { output: '' },
+            { output: '  [ok] Saved "your-sandbox-host" (your-sandbox-host:9091) to config' },
+          ]}
+        />
+        <Callout type="tip">
+          You can also use <code className="text-green-400">/connect</code> inside the TUI for a
+          guided wizard experience. Use{' '}
+          <code className="text-green-400">fluid connect --no-save</code> to test without saving.
+        </Callout>
+      </>
+    ),
+  },
+  {
     title: 'Connect to control plane (optional)',
     content: (
       <>

@@ -115,6 +115,14 @@ BLOCKED_PATTERNS=(
     "^pip uninstall"
     "^pip3 install"
     "^pip3 uninstall"
+    "^openssl genrsa"
+    "^openssl genpkey"
+    "^openssl req "
+    "^openssl enc "
+    "^openssl ca "
+    "^openssl pkcs12 "
+    "^openssl rand "
+    "^openssl s_server"
 )
 
 # Block command substitution and subshells
