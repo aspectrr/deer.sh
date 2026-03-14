@@ -363,6 +363,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Close any service arriving after ESC cancellation
+	if healthMsg, ok := msg.(ConnectHealthResultMsg); ok && !m.inConnect {
+		if healthMsg.Service != nil {
+			_ = healthMsg.Service.Close()
+		}
+		return m, nil
+	}
+
 	// If in connect mode, delegate to connect model
 	if m.inConnect {
 		var cmd tea.Cmd
@@ -630,7 +638,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if input == "/connect" || input == "connect" {
 					m.inConnect = true
 					m.connectModel = NewConnectModel(m.cfg.Hosts)
-					var cmd tea.Cmd
 					if m.width > 0 && m.height > 0 {
 						connectModel, _ := m.connectModel.Update(tea.WindowSizeMsg{
 							Width:  m.width,
@@ -638,7 +645,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						})
 						m.connectModel = connectModel.(ConnectModel)
 					}
-					return m, tea.Batch(m.connectModel.Init(), cmd)
+					return m, m.connectModel.Init()
 				}
 
 				// Handle /settings command
@@ -817,6 +824,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentToolName = ""
 		m.currentToolArgs = nil
 		m.updateViewportContent(false)
+		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
+
+	case CommandOutputStartMsg:
+		// Pre-initialize live output box before chunks arrive
+		if !m.showingLiveOutput {
+			m.showingLiveOutput = true
+			m.liveOutputSandbox = msg.SandboxID
+			m.liveOutputLines = nil
+			m.liveOutputPending = ""
+			m.liveOutputCommand = ""
+			m.liveOutputIndex = len(m.conversation)
+			if m.currentToolArgs != nil {
+				if cmd, ok := m.currentToolArgs["command"].(string); ok {
+					if len(cmd) > 60 {
+						cmd = cmd[:57] + "..."
+					}
+					m.liveOutputCommand = cmd
+				} else if path, ok := m.currentToolArgs["path"].(string); ok {
+					m.liveOutputCommand = path
+				}
+			}
+			m.conversation = append(m.conversation, ConversationEntry{
+				Role:    "live_output",
+				Content: "",
+			})
+			m.updateViewportContent(false)
+		}
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case CommandOutputResetMsg:

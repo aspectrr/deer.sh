@@ -390,7 +390,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			}
 
 			// Add TLS debugging guidance when the agent has source host access
-			if len(a.cfg.PreparedHosts()) > 0 && (a.cfg.HasSandboxHosts() && !a.readOnly) {
+			if len(a.cfg.PreparedHosts()) > 0 && a.cfg.HasSandboxHosts() && !a.readOnly {
 				systemPrompt += tlsDebuggingGuidance
 			}
 
@@ -694,15 +694,20 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		a.autoReadOnly = true
-		a.readOnly = true
 		a.currentSourceVM = args.Host
-		a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
+		wasAutoReadOnly := a.autoReadOnly
+		if !a.readOnly {
+			a.autoReadOnly = true
+			a.readOnly = true
+			a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
+		}
 		defer func() {
-			a.autoReadOnly = false
-			a.readOnly = false
 			a.currentSourceVM = ""
-			a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+			if a.autoReadOnly && !wasAutoReadOnly {
+				a.autoReadOnly = false
+				a.readOnly = false
+				a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+			}
 		}()
 		if a.sourceService != nil {
 			result, err := a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
@@ -733,15 +738,20 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		a.autoReadOnly = true
-		a.readOnly = true
 		a.currentSourceVM = args.Host
-		a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
+		wasAutoReadOnly := a.autoReadOnly
+		if !a.readOnly {
+			a.autoReadOnly = true
+			a.readOnly = true
+			a.sendStatus(AutoReadOnlyMsg{SourceVM: args.Host, Enabled: true})
+		}
 		defer func() {
-			a.autoReadOnly = false
-			a.readOnly = false
 			a.currentSourceVM = ""
-			a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+			if a.autoReadOnly && !wasAutoReadOnly {
+				a.autoReadOnly = false
+				a.readOnly = false
+				a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+			}
 		}()
 		if a.sourceService != nil {
 			content, err := a.sourceService.ReadFile(ctx, args.Host, args.Path)
@@ -753,6 +763,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 				a.sendStatus(SensitiveContentRedactedMsg{Path: args.Path, Host: args.Host})
 			}
 			// Show file content in live output box
+			a.sendStatus(CommandOutputStartMsg{SandboxID: args.Host})
 			a.sendStatus(CommandOutputChunkMsg{
 				SandboxID: args.Host,
 				Chunk:     content + "\n",
@@ -1808,8 +1819,6 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 	}
 	a.logger.Debug("run source command", "source_vm", sourceVM, "command", truncCmd)
 
-	a.currentSourceVM = sourceVM
-
 	result, err := a.service.RunSourceCommand(ctx, sourceVM, command, 0)
 	if err != nil {
 		a.logger.Error("source command failed", "source_vm", sourceVM, "error", err)
@@ -1848,8 +1857,6 @@ func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) 
 
 	a.logger.Debug("read source file", "source_vm", sourceVM, "path", path)
 
-	a.currentSourceVM = sourceVM
-
 	content, err := a.service.ReadSourceFile(ctx, sourceVM, path)
 	if err != nil {
 		a.logger.Error("failed to read file from source VM", "source_vm", sourceVM, "path", path, "error", err)
@@ -1862,6 +1869,7 @@ func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) 
 	}
 
 	// Show file content in live output box
+	a.sendStatus(CommandOutputStartMsg{SandboxID: sourceVM})
 	a.sendStatus(CommandOutputChunkMsg{
 		SandboxID: sourceVM,
 		Chunk:     content + "\n",

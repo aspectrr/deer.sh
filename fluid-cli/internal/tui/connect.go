@@ -15,6 +15,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/netutil"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
 )
 
@@ -67,6 +68,7 @@ type ConnectModel struct {
 	service  sandbox.Service
 	hostInfo *sandbox.HostInfo
 	connErr  error
+	addrErr  string // address validation error message
 
 	// Doctor results
 	doctorResults []doctor.CheckResult
@@ -182,10 +184,12 @@ func (m ConnectModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "enter":
-			addr := m.resolveAddress()
-			if addr == "" {
+			addr, err := m.resolveAddress()
+			if err != nil {
+				m.addrErr = err.Error()
 				return m, nil
 			}
+			m.addrErr = ""
 			m.step = StepConnecting
 			m.connErr = nil
 			return m, tea.Batch(m.spinner.Tick, m.attemptConnect(addr))
@@ -221,7 +225,11 @@ func (m ConnectModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.connErr != nil {
 				// Retry
-				addr := m.resolveAddress()
+				addr, err := m.resolveAddress()
+				if err != nil {
+					m.connErr = err
+					return m, nil
+				}
 				m.connErr = nil
 				return m, tea.Batch(m.spinner.Tick, m.attemptConnect(addr))
 			}
@@ -282,11 +290,14 @@ func (m ConnectModel) View() string {
 			checkbox = "[x]"
 		}
 		b.WriteString(fmt.Sprintf("%s  Insecure: %s  (space/y/n to toggle)\n", insecurePrefix, checkbox))
+		if m.addrErr != "" {
+			b.WriteString(errStyle.Render(fmt.Sprintf("  Error: %s\n", m.addrErr)))
+		}
 		b.WriteString("\n")
 		b.WriteString(dimStyle.Render("  Enter: connect  Tab: next field  Esc: cancel"))
 
 	case StepConnecting:
-		addr := m.resolveAddress()
+		addr, _ := m.resolveAddress()
 		if m.connErr != nil {
 			b.WriteString(errStyle.Render(fmt.Sprintf("  Failed to connect to %s", addr)))
 			b.WriteString("\n")
@@ -358,26 +369,34 @@ func (m ConnectModel) renderDoctorResults(b *strings.Builder, successStyle, errS
 }
 
 // resolveAddress returns the address from input, defaulting to localhost:9091.
-func (m ConnectModel) resolveAddress() string {
+func (m ConnectModel) resolveAddress() (string, error) {
 	addr := strings.TrimSpace(m.inputs[fieldAddress].Value())
 	if addr == "" {
 		addr = "localhost:9091"
 	}
-	// Append default gRPC port if not specified
-	if _, _, err := net.SplitHostPort(addr); err != nil {
-		addr = net.JoinHostPort(addr, "9091")
-	}
-	return addr
-}
 
-// isLocalHost reports whether the host is a loopback address or empty.
-func isLocalHost(host string) bool {
-	return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == ""
+	// Append default gRPC port if not specified
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		// Not in host:port format, try appending default port
+		addr = net.JoinHostPort(addr, "9091")
+	} else if host == "" {
+		return "", fmt.Errorf("invalid address: empty host")
+	} else if port == "" {
+		addr = net.JoinHostPort(host, "9091")
+	}
+
+	// Validate host is not empty after parsing
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		return "", fmt.Errorf("invalid address format: %s", m.inputs[fieldAddress].Value())
+	}
+
+	return addr, nil
 }
 
 // buildConfig creates a SandboxHostConfig from wizard inputs.
 func (m ConnectModel) buildConfig() config.SandboxHostConfig {
-	addr := m.resolveAddress()
+	addr, _ := m.resolveAddress()
 	name := strings.TrimSpace(m.inputs[fieldName].Value())
 	if name == "" && m.hostInfo != nil && m.hostInfo.Hostname != "" {
 		name = m.hostInfo.Hostname
@@ -431,14 +450,13 @@ func (m ConnectModel) attemptConnect(addr string) tea.Cmd {
 
 // runDoctorChecks runs doctor checks over SSH to the host.
 func (m ConnectModel) runDoctorChecks() tea.Cmd {
-	addr := m.resolveAddress()
+	addr, _ := m.resolveAddress()
 	return func() tea.Msg {
 		host, _, err := net.SplitHostPort(addr)
 		if err != nil {
 			host = addr
 		}
-		// Skip doctor checks for localhost - they require SSH
-		if isLocalHost(host) {
+		if netutil.IsLocalHost(host) {
 			return ConnectDoctorResultMsg{}
 		}
 

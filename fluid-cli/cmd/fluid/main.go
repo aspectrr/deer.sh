@@ -19,6 +19,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	fluidmcp "github.com/aspectrr/fluid.sh/fluid-cli/internal/mcp"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/netutil"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/redact"
@@ -260,11 +261,6 @@ func init() {
 	rootCmd.AddCommand(auditCmd)
 }
 
-// isLocalHost reports whether the host is a loopback address or empty.
-func isLocalHost(host string) bool {
-	return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == ""
-}
-
 // colorFunc returns an ANSI color wrapper when useColor is true.
 func colorFunc(useColor bool, code string) func(string) string {
 	return func(s string) string {
@@ -435,7 +431,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	if splitErr != nil {
 		host = addr
 	}
-	isLocal := isLocalHost(host)
+	isLocal := netutil.IsLocalHost(host)
 
 	if !isLocal {
 		fmt.Printf("  Running doctor checks on %s...\n\n", host)

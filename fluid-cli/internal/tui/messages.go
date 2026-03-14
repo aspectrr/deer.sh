@@ -152,6 +152,11 @@ type CompactErrorMsg struct {
 	Err error
 }
 
+// CommandOutputStartMsg signals that command output is about to begin
+type CommandOutputStartMsg struct {
+	SandboxID string
+}
+
 // CommandOutputChunkMsg is sent when streaming output arrives from a command
 type CommandOutputChunkMsg struct {
 	SandboxID string
