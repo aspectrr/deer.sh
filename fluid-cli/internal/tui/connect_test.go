@@ -221,7 +221,7 @@ func TestUpdate_EscapeCancels(t *testing.T) {
 
 	// Press escape on address step
 	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	m = updatedModel.(ConnectModel)
+	_ = updatedModel.(ConnectModel)
 
 	// Should return ConnectCloseMsg
 	msg := cmd()
