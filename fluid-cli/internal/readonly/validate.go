@@ -4,11 +4,26 @@
 package readonly
 
 import (
+	"sort"
+
 	"github.com/aspectrr/fluid.sh/shared/readonly"
 )
 
 func AllowedCommandsList() []string {
 	return readonly.AllowedCommandsList()
+}
+
+func SubcommandRestrictions() map[string][]string {
+	result := make(map[string][]string, len(readonly.SubcommandRestrictions()))
+	for cmd, subs := range readonly.SubcommandRestrictions() {
+		keys := make([]string, 0, len(subs))
+		for k := range subs {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		result[cmd] = keys
+	}
+	return result
 }
 
 // ValidateCommand checks that every command in a pipeline is allowed for read-only mode.

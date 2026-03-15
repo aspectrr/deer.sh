@@ -80,6 +80,14 @@ type Model struct {
 	settingsModel SettingsModel
 	inSettings    bool
 
+	// Allowlist screen
+	allowlistModel AllowlistModel
+	inAllowlist    bool
+
+	// Redaction screen
+	redactionModel RedactionModel
+	inRedaction    bool
+
 	// Memory approval dialog
 	confirmModel    ConfirmModel
 	inMemoryConfirm bool
@@ -162,7 +170,8 @@ var allCommands = []commandSuggestion{
 	{"/context", "Show current context token usage"},
 	{"/connect", "Connect to a fluid daemon"},
 	{"/settings", "Open configuration settings"},
-	{"/allowlist", "Show the read-only command allowlist"},
+	{"/allowlist", "Show and edit read-only command allowlist"},
+	{"/redaction", "Show and edit redaction patterns"},
 	{"/clear", "Clear conversation history"},
 	{"/help", "Show available commands"},
 }
@@ -360,6 +369,44 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle AllowlistCloseMsg
+	if closeMsg, ok := msg.(AllowlistCloseMsg); ok {
+		m.inAllowlist = false
+		m.state = StateIdle
+		if closeMsg.Saved {
+			m.cfg = m.allowlistModel.GetConfig()
+			if err := m.cfg.Save(m.configPath); err != nil {
+				m.addSystemMessage(fmt.Sprintf("Failed to save config: %v", err))
+			} else {
+				m.addSystemMessage("Allowlist saved.")
+			}
+		} else {
+			m.addSystemMessage("Allowlist cancelled.")
+		}
+		m.updateViewportContent(false)
+		m.textarea.Focus()
+		return m, nil
+	}
+
+	// Handle RedactionCloseMsg
+	if closeMsg, ok := msg.(RedactionCloseMsg); ok {
+		m.inRedaction = false
+		m.state = StateIdle
+		if closeMsg.Saved {
+			m.cfg = m.redactionModel.GetConfig()
+			if err := m.cfg.Save(m.configPath); err != nil {
+				m.addSystemMessage(fmt.Sprintf("Failed to save config: %v", err))
+			} else {
+				m.addSystemMessage("Redaction patterns saved.")
+			}
+		} else {
+			m.addSystemMessage("Redaction cancelled.")
+		}
+		m.updateViewportContent(false)
+		m.textarea.Focus()
+		return m, nil
+	}
+
 	// Handle SandboxServiceSwapResultMsg (async result from SetSandboxService)
 	if swapMsg, ok := msg.(SandboxServiceSwapResultMsg); ok {
 		if swapMsg.Err != nil {
@@ -384,6 +431,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		connectModel, cmd := m.connectModel.Update(msg)
 		m.connectModel = connectModel.(ConnectModel)
+		return m, cmd
+	}
+
+	// If in allowlist mode, delegate to allowlist model
+	if m.inAllowlist {
+		var cmd tea.Cmd
+		allowlistModel, cmd := m.allowlistModel.Update(msg)
+		m.allowlistModel = allowlistModel.(AllowlistModel)
+		return m, cmd
+	}
+
+	// If in redaction mode, delegate to redaction model
+	if m.inRedaction {
+		var cmd tea.Cmd
+		redactionModel, cmd := m.redactionModel.Update(msg)
+		m.redactionModel = redactionModel.(RedactionModel)
 		return m, cmd
 	}
 
@@ -497,7 +560,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.MouseMsg:
 		if !m.inSettings && !m.inPlaybooks && !m.inConnect && !m.inMemoryConfirm &&
-			!m.inNetworkConfirm && !m.inSourcePrepareConfirm && !m.inCleanup {
+			!m.inNetworkConfirm && !m.inSourcePrepareConfirm && !m.inCleanup &&
+			!m.inAllowlist && !m.inRedaction {
 			switch msg.Button {
 			case tea.MouseButtonWheelUp:
 				m.viewport.ScrollUp(3)
@@ -661,6 +725,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.inSettings = true
 					m.settingsModel = NewSettingsModel(m.cfg, m.configPath)
 					return m, m.settingsModel.Init()
+				}
+
+				// Handle /allowlist command
+				if input == "/allowlist" || input == "allowlist" {
+					m.inAllowlist = true
+					m.allowlistModel = NewAllowlistModel(m.cfg)
+					if m.width > 0 && m.height > 0 {
+						allowlistModel, _ := m.allowlistModel.Update(tea.WindowSizeMsg{
+							Width:  m.width,
+							Height: m.height,
+						})
+						m.allowlistModel = allowlistModel.(AllowlistModel)
+					}
+					return m, m.allowlistModel.Init()
+				}
+
+				// Handle /redaction command
+				if input == "/redaction" || input == "redaction" {
+					m.inRedaction = true
+					m.redactionModel = NewRedactionModel(m.cfg)
+					if m.width > 0 && m.height > 0 {
+						redactionModel, _ := m.redactionModel.Update(tea.WindowSizeMsg{
+							Width:  m.width,
+							Height: m.height,
+						})
+						m.redactionModel = redactionModel.(RedactionModel)
+					}
+					return m, m.redactionModel.Init()
 				}
 
 				// Handle /clear command
@@ -1278,6 +1370,16 @@ func (m Model) View() string {
 	// Show settings screen if in settings mode
 	if m.inSettings {
 		return m.settingsModel.View()
+	}
+
+	// Show allowlist screen if in allowlist mode
+	if m.inAllowlist {
+		return m.allowlistModel.View()
+	}
+
+	// Show redaction screen if in redaction mode
+	if m.inRedaction {
+		return m.redactionModel.View()
 	}
 
 	// Show connect wizard if in connect mode

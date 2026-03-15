@@ -447,6 +447,15 @@ func AllowedCommandsListMap() map[string]bool {
 	return result
 }
 
+// SubcommandRestrictions returns a map of commands to their allowed subcommands.
+func SubcommandRestrictions() map[string]map[string]bool {
+	result := make(map[string]map[string]bool)
+	for k, v := range subcommandRestrictions {
+		result[k] = v
+	}
+	return result
+}
+
 // ValidateCommandWithExtra checks that every command in a pipeline is allowed,
 // using both the default allowlist and extra user-configured commands.
 func ValidateCommandWithExtra(command string, extraAllowed []string) error {

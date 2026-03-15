@@ -49,18 +49,10 @@ const (
 	// Telemetry
 	FieldTelemetryEnabled
 
-	// Redaction
-	FieldRedactEnabled
-	FieldRedactCustomPatterns
-	FieldRedactAllowlist
-
 	// Audit
 	FieldAuditEnabled
 	FieldAuditLogPath
 	FieldAuditMaxSizeMB
-
-	// Allowlist
-	FieldExtraAllowedCommands
 
 	StaticFieldCount
 )
@@ -105,12 +97,8 @@ func NewSettingsModel(cfg *config.Config, configPath string) SettingsModel {
 		"Log Level:", "Log Format:",
 		// Telemetry
 		"Enable Anonymous Usage:",
-		// Redaction
-		"Redaction Enabled:", "Custom Patterns:", "Allowlist:",
 		// Audit
 		"Audit Enabled:", "Log Path:", "Max Size (MB):",
-		// Allowlist
-		"Extra Allowed Commands:",
 	}
 
 	staticSections := []string{
@@ -125,12 +113,8 @@ func NewSettingsModel(cfg *config.Config, configPath string) SettingsModel {
 		"Logging", "Logging",
 		// Telemetry
 		"Telemetry",
-		// Redaction
-		"Redaction", "Redaction", "Redaction",
 		// Audit
 		"Audit", "Audit", "Audit",
-		// Allowlist
-		"Allowlist",
 	}
 
 	for i := range StaticFieldCount {
@@ -200,21 +184,12 @@ func (m SettingsModel) getStaticConfigValue(field StaticSettingsField) string {
 	case FieldTelemetryEnabled:
 		return strconv.FormatBool(m.cfg.Telemetry.EnableAnonymousUsage)
 
-	case FieldRedactEnabled:
-		return strconv.FormatBool(m.cfg.Redact.Enabled)
-	case FieldRedactCustomPatterns:
-		return strings.Join(m.cfg.Redact.CustomPatterns, ",")
-	case FieldRedactAllowlist:
-		return strings.Join(m.cfg.Redact.Allowlist, ",")
-
 	case FieldAuditEnabled:
 		return strconv.FormatBool(m.cfg.Audit.Enabled)
 	case FieldAuditLogPath:
 		return m.cfg.Audit.LogPath
 	case FieldAuditMaxSizeMB:
 		return strconv.Itoa(m.cfg.Audit.MaxSizeMB)
-	case FieldExtraAllowedCommands:
-		return strings.Join(m.cfg.ExtraAllowedCommands, ",")
 	}
 	return ""
 }
@@ -489,30 +464,11 @@ func (m *SettingsModel) saveConfig() error {
 	// Telemetry
 	m.cfg.Telemetry.EnableAnonymousUsage = getStatic(FieldTelemetryEnabled) == "true"
 
-	// Redaction
-	m.cfg.Redact.Enabled = getStatic(FieldRedactEnabled) == "true"
-	if patterns := getStatic(FieldRedactCustomPatterns); patterns != "" {
-		m.cfg.Redact.CustomPatterns = strings.Split(patterns, ",")
-	} else {
-		m.cfg.Redact.CustomPatterns = nil
-	}
-	if allowlist := getStatic(FieldRedactAllowlist); allowlist != "" {
-		m.cfg.Redact.Allowlist = strings.Split(allowlist, ",")
-	} else {
-		m.cfg.Redact.Allowlist = nil
-	}
-
 	// Audit
 	m.cfg.Audit.Enabled = getStatic(FieldAuditEnabled) == "true"
 	m.cfg.Audit.LogPath = getStatic(FieldAuditLogPath)
 	if v, err := strconv.Atoi(getStatic(FieldAuditMaxSizeMB)); err == nil {
 		m.cfg.Audit.MaxSizeMB = v
-	}
-	// Allowlist
-	if cmds := getStatic(FieldExtraAllowedCommands); cmds != "" {
-		m.cfg.ExtraAllowedCommands = strings.Split(cmds, ",")
-	} else {
-		m.cfg.ExtraAllowedCommands = nil
 	}
 
 	// Ensure config directory exists

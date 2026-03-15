@@ -252,6 +252,16 @@ type ConnectCloseMsg struct {
 	Config config.SandboxHostConfig
 }
 
+// AllowlistCloseMsg is sent when the allowlist screen is closed
+type AllowlistCloseMsg struct {
+	Saved bool
+}
+
+// RedactionCloseMsg is sent when the redaction screen is closed
+type RedactionCloseMsg struct {
+	Saved bool
+}
+
 // SandboxServiceSwapResultMsg is sent when SetSandboxService completes asynchronously.
 type SandboxServiceSwapResultMsg struct {
 	Svc sandbox.Service

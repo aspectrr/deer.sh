@@ -385,3 +385,37 @@ func TestAllowedCommandsList(t *testing.T) {
 		}
 	}
 }
+
+func TestSubcommandRestrictions(t *testing.T) {
+	restrs := SubcommandRestrictions()
+	if len(restrs) == 0 {
+		t.Error("expected non-empty result")
+	}
+
+	// Check systemctl has restrictions
+	subs, ok := restrs["systemctl"]
+	if !ok {
+		t.Error("expected systemctl to have subcommand restrictions")
+	}
+	if len(subs) == 0 {
+		t.Error("expected systemctl to have at least one subcommand")
+	}
+
+	// Verify values are sorted
+	for cmd, subs := range restrs {
+		if !sort.StringsAreSorted(subs) {
+			t.Errorf("expected %q subcommands to be sorted, got %v", cmd, subs)
+		}
+	}
+
+	// Spot check systemctl
+	found := false
+	for _, s := range subs {
+		if s == "status" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected 'status' in systemctl subcommands")
+	}
+}
