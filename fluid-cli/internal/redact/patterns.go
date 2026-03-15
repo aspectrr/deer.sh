@@ -220,6 +220,12 @@ func (d *base64PEMDetector) FindAll(text string) []Match {
 // k8sSecretDetector detects Kubernetes secret data fields containing base64 values.
 // Matches patterns like "tls.key: <base64>" or "ssh-privatekey: <base64>" in YAML,
 // and their JSON equivalents.
+//
+// NOTE: This intentionally over-redacts - any YAML/JSON field whose key matches a
+// known secret field name and whose value looks like base64 (64+ chars of [A-Za-z0-9+/=])
+// will be redacted, even if the value is not actually a secret. This is acceptable
+// because these field names are strongly associated with secret material, and
+// false-positive redaction is preferable to leaking a real key.
 type k8sSecretDetector struct{}
 
 func (d *k8sSecretDetector) Name() string     { return "k8s_secret" }

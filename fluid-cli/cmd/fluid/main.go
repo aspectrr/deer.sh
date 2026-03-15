@@ -408,7 +408,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	}()
 
 	// 2. Health check with its own timeout
-	healthCtx, healthCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	healthCtx, healthCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := svc.Health(healthCtx); err != nil {
 		healthCancel()
 		fmt.Printf("  %s Health check failed: %v\n", red("[error]"), err)
@@ -418,7 +418,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	fmt.Printf("  %s Health check passed\n", green("[ok]"))
 
 	// 3. Get host info with its own timeout
-	infoCtx, infoCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	infoCtx, infoCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	info, err := svc.GetHostInfo(infoCtx)
 	infoCancel()
 	if err != nil {

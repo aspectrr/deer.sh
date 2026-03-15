@@ -114,8 +114,12 @@ func validateOpenSSLArgs(tokens []string, allowed map[string]bool) error {
 		}
 	}
 	// Restrict s_client -connect to localhost only
+	// NOTE: keep this s_client block in sync with fluid-daemon/internal/readonly/validate.go
 	if subCmd == "s_client" {
 		for i, tok := range tokens {
+			if tok == "-proxy" {
+				return fmt.Errorf("openssl s_client -proxy is not allowed in read-only mode")
+			}
 			if tok == "-connect" && i+1 < len(tokens) {
 				hostPort := tokens[i+1]
 				var host string

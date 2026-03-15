@@ -343,6 +343,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if agent, ok := m.agentRunner.(*FluidAgent); ok {
 					if err := agent.SetSandboxService(svc); err != nil {
 						m.addSystemMessage(fmt.Sprintf("Failed to swap sandbox service: %v", err))
+						_ = svc.Close()
 					}
 				}
 			}

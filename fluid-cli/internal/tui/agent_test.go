@@ -1,12 +1,134 @@
 package tui
 
 import (
+	"context"
 	"encoding/base64"
 	"strings"
 	"testing"
 
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/redact"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
 )
+
+// stubService is a minimal sandbox.Service for testing SetSandboxService.
+type stubService struct {
+	closed bool
+}
+
+func (s *stubService) CreateSandbox(context.Context, sandbox.CreateRequest) (*sandbox.SandboxInfo, error) {
+	return nil, nil
+}
+
+func (s *stubService) GetSandbox(context.Context, string) (*sandbox.SandboxInfo, error) {
+	return nil, nil
+}
+
+func (s *stubService) ListSandboxes(context.Context) ([]*sandbox.SandboxInfo, error) {
+	return nil, nil
+}
+func (s *stubService) DestroySandbox(context.Context, string) error { return nil }
+func (s *stubService) StartSandbox(context.Context, string) (*sandbox.SandboxInfo, error) {
+	return nil, nil
+}
+func (s *stubService) StopSandbox(context.Context, string, bool) error { return nil }
+func (s *stubService) RunCommand(context.Context, string, string, int, map[string]string) (*sandbox.CommandResult, error) {
+	return nil, nil
+}
+
+func (s *stubService) CreateSnapshot(context.Context, string, string) (*sandbox.SnapshotInfo, error) {
+	return nil, nil
+}
+func (s *stubService) ListVMs(context.Context) ([]*sandbox.VMInfo, error) { return nil, nil }
+func (s *stubService) ValidateSourceVM(context.Context, string) (*sandbox.ValidationInfo, error) {
+	return nil, nil
+}
+
+func (s *stubService) PrepareSourceVM(context.Context, string, string, string) (*sandbox.PrepareInfo, error) {
+	return nil, nil
+}
+
+func (s *stubService) RunSourceCommand(context.Context, string, string, int) (*sandbox.SourceCommandResult, error) {
+	return nil, nil
+}
+
+func (s *stubService) ReadSourceFile(context.Context, string, string) (string, error) {
+	return "", nil
+}
+func (s *stubService) GetHostInfo(context.Context) (*sandbox.HostInfo, error) { return nil, nil }
+func (s *stubService) Health(context.Context) error                           { return nil }
+func (s *stubService) Close() error {
+	s.closed = true
+	return nil
+}
+
+func TestSetSandboxService_AfterCancel(t *testing.T) {
+	a := &FluidAgent{}
+	svc := &stubService{}
+	if err := a.SetSandboxService(svc); err != nil {
+		t.Fatalf("SetSandboxService on idle agent should succeed: %v", err)
+	}
+	if a.service != svc {
+		t.Fatal("expected service to be set")
+	}
+}
+
+func TestSetSandboxService_WhileRunning(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	a := &FluidAgent{
+		cancelFunc: cancel,
+		done:       make(chan struct{}),
+	}
+	// Simulate a running agent by keeping ctx alive
+	_ = ctx
+	svc := &stubService{}
+	err := a.SetSandboxService(svc)
+	if err == nil {
+		t.Fatal("expected error when agent is running")
+	}
+	if !strings.Contains(err.Error(), "cancel first") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSetSandboxService_ClosesOldService(t *testing.T) {
+	oldSvc := &stubService{}
+	a := &FluidAgent{service: oldSvc}
+	newSvc := &stubService{}
+	if err := a.SetSandboxService(newSvc); err != nil {
+		t.Fatalf("SetSandboxService should succeed: %v", err)
+	}
+	if !oldSvc.closed {
+		t.Fatal("expected old service to be closed")
+	}
+	if a.service != newSvc {
+		t.Fatal("expected new service to be set")
+	}
+}
+
+func TestSetSandboxService_WaitsForDone(t *testing.T) {
+	done := make(chan struct{})
+	a := &FluidAgent{done: done}
+	// Close done channel to simulate goroutine finishing
+	close(done)
+	svc := &stubService{}
+	if err := a.SetSandboxService(svc); err != nil {
+		t.Fatalf("SetSandboxService should succeed after done: %v", err)
+	}
+}
+
+func TestSetSandboxService_TimesOut(t *testing.T) {
+	done := make(chan struct{}) // never closed
+	a := &FluidAgent{done: done}
+	svc := &stubService{}
+	err := a.SetSandboxService(svc)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
 
 func TestShellEscape(t *testing.T) {
 	tests := []struct {

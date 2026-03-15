@@ -794,10 +794,10 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 					})
 				return result, innerErr
 			})
-			a.sendStatus(CommandOutputDoneMsg{SandboxID: args.Host})
 			if cmdErr != nil {
 				return nil, cmdErr
 			}
+			a.sendStatus(CommandOutputDoneMsg{SandboxID: args.Host})
 			stdout, stdoutRedacted := a.redactContent(result.Stdout)
 			stderr, stderrRedacted := a.redactContent(result.Stderr)
 			if stdoutRedacted || stderrRedacted {

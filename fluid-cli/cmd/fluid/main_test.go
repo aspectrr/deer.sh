@@ -81,6 +81,18 @@ func TestUpsertSandboxHost(t *testing.T) {
 			wantName:  "host2",
 			wantAddr:  "10.0.0.2:9091",
 		},
+		{
+			name: "dedup conflicting name and address entries",
+			hosts: []config.SandboxHostConfig{
+				{Name: "A", DaemonAddress: "X"},
+				{Name: "B", DaemonAddress: "Y"},
+			},
+			entry:     config.SandboxHostConfig{Name: "A", DaemonAddress: "Y"},
+			wantLen:   1,
+			wantIndex: 0,
+			wantName:  "A",
+			wantAddr:  "Y",
+		},
 	}
 
 	for _, tc := range tests {

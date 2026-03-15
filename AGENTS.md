@@ -1,6 +1,6 @@
 # fluid.sh
 
-Claude Code for Working on Linux Servers -- with human approval.
+The AI Sys-Admin for Enterprise.
 
 ## What This Is
 

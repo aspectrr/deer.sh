@@ -102,8 +102,11 @@ fluid audit verify`}
 
       <H2>Enterprise</H2>
       <Callout type="info">
-        Need exportable audit logs across your whole team? Reach out to Collin
-        (cpfeifer@madcactus.org) about enterprise plans.
+        Need exportable audit logs across your whole team? Reach out to{' '}
+        <a className="text-blue-400 hover:text-blue-300" href="mailto:cpfeifer@madcactus.org">
+          Collin
+        </a>{' '}
+        about enterprise plans.
       </Callout>
 
       <PrevNext />
