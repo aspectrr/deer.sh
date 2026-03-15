@@ -139,6 +139,9 @@ func (a *FluidAgent) SetReadOnly(ro bool) {
 func (a *FluidAgent) SetSandboxService(svc sandbox.Service) {
 	a.cancelMu.Lock()
 	defer a.cancelMu.Unlock()
+	if a.cancelFunc != nil {
+		panic("SetSandboxService called while agent is running; call Cancel() first")
+	}
 	if a.service != nil {
 		_ = a.service.Close()
 	}
@@ -721,9 +724,9 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		}
 		if a.sourceService != nil {
 			var result *source.CommandResult
-			var cmdErr error
-			_, cmdErr = a.withAutoReadOnly(args.Host, func() (any, error) {
-				result, cmdErr = a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
+			_, cmdErr := a.withAutoReadOnly(args.Host, func() (any, error) {
+				var innerErr error
+				result, innerErr = a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
 					func(chunk string, isStderr bool) {
 						a.sendStatus(CommandOutputChunkMsg{
 							SandboxID: args.Host,
@@ -731,17 +734,22 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 							Chunk:     chunk,
 						})
 					})
-				return result, cmdErr
+				return result, innerErr
 			})
 			a.sendStatus(CommandOutputDoneMsg{SandboxID: args.Host})
 			if cmdErr != nil {
 				return nil, cmdErr
 			}
+			stdout, stdoutRedacted := redactPrivateKeys(result.Stdout)
+			stderr, stderrRedacted := redactPrivateKeys(result.Stderr)
+			if stdoutRedacted || stderrRedacted {
+				a.sendStatus(SensitiveContentRedactedMsg{Host: args.Host})
+			}
 			return map[string]any{
 				"host":      args.Host,
 				"exit_code": result.ExitCode,
-				"stdout":    result.Stdout,
-				"stderr":    result.Stderr,
+				"stdout":    stdout,
+				"stderr":    stderr,
 			}, nil
 		}
 		return a.withAutoReadOnly(args.Host, func() (any, error) {
@@ -757,10 +765,10 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		}
 		if a.sourceService != nil {
 			var content string
-			var cmdErr error
-			_, cmdErr = a.withAutoReadOnly(args.Host, func() (any, error) {
-				content, cmdErr = a.sourceService.ReadFile(ctx, args.Host, args.Path)
-				return content, cmdErr
+			_, cmdErr := a.withAutoReadOnly(args.Host, func() (any, error) {
+				var innerErr error
+				content, innerErr = a.sourceService.ReadFile(ctx, args.Host, args.Path)
+				return content, innerErr
 			})
 			if cmdErr != nil {
 				return nil, cmdErr
@@ -1831,22 +1839,32 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 	if err != nil {
 		a.logger.Error("source command failed", "source_vm", sourceVM, "error", err)
 		if result != nil {
+			stdout, stdoutRedacted := redactPrivateKeys(result.Stdout)
+			stderr, stderrRedacted := redactPrivateKeys(result.Stderr)
+			if stdoutRedacted || stderrRedacted {
+				a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
+			}
 			return map[string]any{
 				"source_vm": sourceVM,
 				"exit_code": result.ExitCode,
-				"stdout":    result.Stdout,
-				"stderr":    result.Stderr,
+				"stdout":    stdout,
+				"stderr":    stderr,
 				"error":     err.Error(),
 			}, nil
 		}
 		return nil, err
 	}
 
+	stdout, stdoutRedacted := redactPrivateKeys(result.Stdout)
+	stderr, stderrRedacted := redactPrivateKeys(result.Stderr)
+	if stdoutRedacted || stderrRedacted {
+		a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
+	}
 	return map[string]any{
 		"source_vm": sourceVM,
 		"exit_code": result.ExitCode,
-		"stdout":    result.Stdout,
-		"stderr":    result.Stderr,
+		"stdout":    stdout,
+		"stderr":    stderr,
 	}, nil
 }
 

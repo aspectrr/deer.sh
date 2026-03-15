@@ -531,6 +531,36 @@ func TestPrepare_CommandCount(t *testing.T) {
 	}
 }
 
+func TestPrepareWithKey_CommandCount(t *testing.T) {
+	mock := newMockSSHRun()
+	pubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test@host"
+
+	_, err := PrepareWithKey(context.Background(), mock.run, pubKey, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	commands := mock.getCommands()
+	// Expected commands:
+	// 1: install shell script
+	// 2: create user (useradd)
+	// 3: usermod shell fixup (best-effort)
+	// 4: usermod journal groups (best-effort)
+	// 5: deploy key
+	// 6: restart sshd
+	if len(commands) != 6 {
+		t.Errorf("expected 6 SSH commands, got %d", len(commands))
+		for i, cmd := range commands {
+			decoded, _ := decodeBase64Command(cmd)
+			summary := decoded
+			if len(summary) > 80 {
+				summary = summary[:80] + "..."
+			}
+			t.Logf("  command %d: %s", i, summary)
+		}
+	}
+}
+
 func TestPrepare_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately

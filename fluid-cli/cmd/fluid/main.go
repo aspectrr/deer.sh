@@ -401,7 +401,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		_ = svc.Close()
 	}()
 
-	// 1. Health check with its own timeout
+	// 2. Health check with its own timeout
 	healthCtx, healthCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	if err := svc.Health(healthCtx); err != nil {
 		healthCancel()
@@ -411,7 +411,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	healthCancel()
 	fmt.Printf("  %s Health check passed\n", green("[ok]"))
 
-	// 2. Get host info with its own timeout
+	// 3. Get host info with its own timeout
 	infoCtx, infoCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	info, err := svc.GetHostInfo(infoCtx)
 	infoCancel()
@@ -429,7 +429,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	fmt.Printf("  Images:      %d available\n", len(info.BaseImages))
 	fmt.Println()
 
-	// 3. Doctor checks via SSH (skip for localhost)
+	// 4. Doctor checks via SSH (skip for localhost)
 	host, _, splitErr := net.SplitHostPort(addr)
 	if splitErr != nil {
 		host = addr
@@ -449,7 +449,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		fmt.Println()
 	}
 
-	// 4. Save config
+	// 5. Save config
 	if skipSave {
 		fmt.Println(dim("  --no-save: config not modified"))
 		fmt.Println()
