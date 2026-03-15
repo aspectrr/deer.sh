@@ -87,9 +87,10 @@ type FluidAgent struct {
 	// Re-prepare warning: tracks the last host warned about re-prepare
 	lastPrepareWarned string
 
-	// cancelFunc cancels the active agent Run context when ESC is pressed
+	// cancelFunc cancels the active agent Run context when ESC is pressed.
+	// mu protects cancelFunc, currentSourceVM, autoReadOnly, and readOnly.
 	cancelFunc context.CancelFunc
-	cancelMu   sync.Mutex
+	mu         sync.Mutex
 }
 
 // PendingNetworkApproval represents a network access request waiting for approval
@@ -131,14 +132,16 @@ func (a *FluidAgent) SetStatusCallback(callback func(tea.Msg)) {
 
 // SetReadOnly toggles read-only mode on the agent
 func (a *FluidAgent) SetReadOnly(ro bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	a.readOnly = ro
 }
 
 // SetSandboxService hot-swaps the sandbox service (e.g. after /connect).
 // Must be called after Cancel() to avoid race conditions with running agent.
 func (a *FluidAgent) SetSandboxService(svc sandbox.Service) error {
-	a.cancelMu.Lock()
-	defer a.cancelMu.Unlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.cancelFunc != nil {
 		return fmt.Errorf("cannot swap sandbox service while agent is running; cancel first")
 	}
@@ -158,8 +161,8 @@ func (a *FluidAgent) sendStatus(msg tea.Msg) {
 
 // Cancel stops the currently running agent loop
 func (a *FluidAgent) Cancel() {
-	a.cancelMu.Lock()
-	defer a.cancelMu.Unlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.cancelFunc != nil {
 		a.cancelFunc()
 		a.cancelFunc = nil
@@ -170,19 +173,27 @@ func (a *FluidAgent) Cancel() {
 // It sets currentSourceVM, enables auto-read-only mode, and restores the previous
 // state when the function returns.
 func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (any, error) {
+	a.mu.Lock()
 	a.currentSourceVM = sourceVM
 	wasAutoReadOnly := a.autoReadOnly
 	if !a.readOnly {
 		a.autoReadOnly = true
 		a.readOnly = true
+		a.mu.Unlock()
 		a.sendStatus(AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: true})
+	} else {
+		a.mu.Unlock()
 	}
 	defer func() {
+		a.mu.Lock()
 		a.currentSourceVM = ""
 		if a.autoReadOnly && !wasAutoReadOnly {
 			a.autoReadOnly = false
 			a.readOnly = false
+			a.mu.Unlock()
 			a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+		} else {
+			a.mu.Unlock()
 		}
 	}()
 	return fn()
@@ -192,14 +203,14 @@ func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (
 func (a *FluidAgent) Run(input string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithCancel(context.Background())
-		a.cancelMu.Lock()
+		a.mu.Lock()
 		a.cancelFunc = cancel
-		a.cancelMu.Unlock()
+		a.mu.Unlock()
 		defer func() {
 			cancel()
-			a.cancelMu.Lock()
+			a.mu.Lock()
 			a.cancelFunc = nil
-			a.cancelMu.Unlock()
+			a.mu.Unlock()
 		}()
 
 		// Handle slash commands
@@ -398,6 +409,10 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			a.logger.Debug("LLM loop iteration", "iteration", iteration, "history_len", len(a.history))
 			systemPrompt := a.cfg.AIAgent.DefaultSystem
 			tools := llm.GetTools()
+			// Snapshot readOnly under lock
+			a.mu.Lock()
+			isReadOnly := a.readOnly
+			a.mu.Unlock()
 			// Tool selection precedence:
 			// 1. No sandbox hosts AND no prepared hosts: minimal tools, nudge to /prepare
 			// 2. No sandbox hosts but has prepared hosts: source-only read access
@@ -413,7 +428,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				tools = llm.GetSourceOnlyTools()
 				systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a daemon host (https://fluid.sh/docs/daemon) then use /connect to link it.\"" +
 					tlsDebuggingGuidance
-			} else if a.readOnly {
+			} else if isReadOnly {
 				tools = llm.GetReadOnlyTools()
 				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources."
 			}
@@ -421,7 +436,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			// Add TLS debugging guidance when the agent has source host access AND sandbox hosts.
 			// This is mutually exclusive with the branch above that appends tlsDebuggingGuidance
 			// when !HasSandboxHosts (source-only mode) - so the guidance is never appended twice.
-			if len(a.cfg.PreparedHosts()) > 0 && a.cfg.HasSandboxHosts() && !a.readOnly {
+			if len(a.cfg.PreparedHosts()) > 0 && a.cfg.HasSandboxHosts() && !isReadOnly {
 				systemPrompt += tlsDebuggingGuidance
 			}
 
@@ -2053,10 +2068,14 @@ func (a *FluidAgent) GetCurrentSandboxBaseImage() string {
 
 // GetCurrentSourceVM returns the source VM currently being operated on
 func (a *FluidAgent) GetCurrentSourceVM() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	return a.currentSourceVM
 }
 
 // ClearAutoReadOnly clears the auto read-only flag (for manual override via Shift+Tab)
 func (a *FluidAgent) ClearAutoReadOnly() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	a.autoReadOnly = false
 }

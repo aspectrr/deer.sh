@@ -111,6 +111,24 @@ func validateOpenSSLArgs(tokens []string, allowed map[string]bool) error {
 			}
 		}
 	}
+	// Restrict s_client -connect to localhost only
+	if subCmd == "s_client" {
+		for i, tok := range tokens {
+			if tok == "-connect" && i+1 < len(tokens) {
+				hostPort := tokens[i+1]
+				host := hostPort
+				if idx := strings.LastIndex(hostPort, ":"); idx >= 0 {
+					host = hostPort[:idx]
+				}
+				// Strip IPv6 brackets
+				host = strings.TrimPrefix(host, "[")
+				host = strings.TrimSuffix(host, "]")
+				if host != "localhost" && host != "127.0.0.1" && host != "::1" && host != "" {
+					return fmt.Errorf("openssl s_client -connect only allowed to localhost, got %q", host)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -141,8 +159,7 @@ var subcommandRestrictions = map[string]map[string]bool{
 	"openssl": {
 		"x509":   true,
 		"verify": true,
-		// s_client makes outbound TLS connections to inspect remote certificates.
-		// Acceptable for diagnostics but be aware it can reach arbitrary hosts.
+		// s_client restricted to localhost connections by validateOpenSSLArgs.
 		"s_client": true,
 		"crl":      true,
 		"version":  true,

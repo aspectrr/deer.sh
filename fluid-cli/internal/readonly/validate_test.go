@@ -88,7 +88,9 @@ func TestValidateCommand_Allowed(t *testing.T) {
 		"sed -n 's/foo/bar/p' file",
 		// openssl read-only subcommands
 		"openssl x509 -in /etc/ssl/cert.pem -text -noout",
-		"openssl s_client -connect host:443",
+		"openssl s_client -connect localhost:443",
+		"openssl s_client -connect 127.0.0.1:443",
+		"openssl s_client -connect [::1]:443",
 		"openssl verify -CAfile /etc/ssl/ca.pem /etc/ssl/cert.pem",
 		"openssl version",
 		"openssl ciphers",
@@ -154,6 +156,7 @@ func TestValidateCommand_Blocked(t *testing.T) {
 		{"openssl ca -in req.pem", "ca is a CA operation"},
 		{"openssl pkcs12 -export -in cert.pem", "pkcs12 can export"},
 		{"openssl rand 32", "rand generates random data"},
+		{"openssl s_client -connect remote.host:443", "s_client to remote host"},
 		{"openssl s_server -port 4433", "s_server starts a server"},
 	}
 

@@ -245,7 +245,7 @@ func init() {
 	doctorCmd.Flags().String("host", "", "host name from config (default: localhost)")
 
 	connectCmd.Flags().String("name", "", "display name for this daemon (default: hostname from daemon)")
-	connectCmd.Flags().Bool("insecure", false, "skip TLS verification")
+	connectCmd.Flags().Bool("insecure", false, "skip TLS verification (INSECURE: use only for local/dev daemons)")
 	connectCmd.Flags().Bool("no-save", false, "test connection without saving to config")
 
 	sourceCmd.AddCommand(sourcePrepareCmd)
@@ -470,18 +470,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		Insecure:      insecure,
 	}
 
-	// Update existing or append
-	found := false
-	for i, sh := range loadedCfg.SandboxHosts {
-		if sh.Name == name || sh.DaemonAddress == addr {
-			loadedCfg.SandboxHosts[i] = entry
-			found = true
-			break
-		}
-	}
-	if !found {
-		loadedCfg.SandboxHosts = append(loadedCfg.SandboxHosts, entry)
-	}
+	loadedCfg.SandboxHosts = upsertSandboxHost(loadedCfg.SandboxHosts, entry)
 
 	if err := loadedCfg.Save(configPath); err != nil {
 		fmt.Printf("  %s Failed to save config: %v\n", red("[error]"), err)
@@ -490,6 +479,18 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	fmt.Printf("  %s Saved %q (%s) to config\n", green("[ok]"), name, addr)
 	fmt.Println()
 	return nil
+}
+
+// upsertSandboxHost updates an existing host entry matched by name or address,
+// or appends a new entry. Returns the updated slice.
+func upsertSandboxHost(hosts []config.SandboxHostConfig, entry config.SandboxHostConfig) []config.SandboxHostConfig {
+	for i, sh := range hosts {
+		if sh.Name == entry.Name || sh.DaemonAddress == entry.DaemonAddress {
+			hosts[i] = entry
+			return hosts
+		}
+	}
+	return append(hosts, entry)
 }
 
 // runSourceList lists configured source hosts.
