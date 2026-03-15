@@ -226,7 +226,7 @@ func (d *k8sSecretDetector) Name() string     { return "k8s_secret" }
 func (d *k8sSecretDetector) Category() string { return "KEY" }
 
 var k8sSecretKeyNames = []string{
-	"tls.key", "tls.crt", "ssh-privatekey", "private-key",
+	"tls.key", "ssh-privatekey", "private-key",
 	"private_key", "secret_key", "service-account-key",
 	"ca.key", "server.key", "client.key",
 }

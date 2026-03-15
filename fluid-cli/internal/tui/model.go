@@ -55,6 +55,7 @@ type Model struct {
 	agentStatus     AgentStatus
 	currentToolName string
 	currentToolArgs map[string]any
+	currentRunID    uint64
 
 	// Status channel for agent updates
 	statusChan chan tea.Msg
@@ -175,6 +176,8 @@ type AgentRunner interface {
 	SetReadOnly(bool)
 	// Cancel stops the currently running agent loop
 	Cancel()
+	// RunID returns the current run generation counter
+	RunID() uint64
 }
 
 // NewModel creates a new TUI model
@@ -695,8 +698,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// Run agent
 				if m.agentRunner != nil {
+					cmd := m.agentRunner.Run(input)
+					m.currentRunID = m.agentRunner.RunID()
 					return m, tea.Batch(
-						m.agentRunner.Run(input),
+						cmd,
 						ThinkingCmd(),
 						m.listenForStatus(),
 					)
@@ -782,6 +787,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case AgentCancelledMsg:
+		if msg.RunID != m.currentRunID {
+			// Stale cancellation from a previous run - ignore it
+			return m, nil
+		}
 		if m.state != StateIdle {
 			m.addSystemMessage("Agent stopped.")
 			m.state = StateIdle
@@ -1051,8 +1060,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.agentRunner != nil {
 				m.state = StateThinking
 				m.thinking = true
+				cmd := m.agentRunner.Run("Review approved by human. You may proceed.")
+				m.currentRunID = m.agentRunner.RunID()
 				return m, tea.Batch(
-					m.agentRunner.Run("Review approved by human. You may proceed."),
+					cmd,
 					ThinkingCmd(),
 				)
 			}

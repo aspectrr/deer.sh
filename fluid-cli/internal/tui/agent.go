@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -88,8 +87,10 @@ type FluidAgent struct {
 	lastPrepareWarned string
 
 	// cancelFunc cancels the active agent Run context when ESC is pressed.
-	// mu protects cancelFunc, currentSourceVM, autoReadOnly, and readOnly.
+	// mu protects cancelFunc, runID, done, currentSourceVM, autoReadOnly, and readOnly.
 	cancelFunc context.CancelFunc
+	runID      uint64
+	done       chan struct{}
 	mu         sync.Mutex
 }
 
@@ -139,12 +140,28 @@ func (a *FluidAgent) SetReadOnly(ro bool) {
 
 // SetSandboxService hot-swaps the sandbox service (e.g. after /connect).
 // Must be called after Cancel() to avoid race conditions with running agent.
+// Waits for the running goroutine to finish before swapping.
 func (a *FluidAgent) SetSandboxService(svc sandbox.Service) error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	if a.cancelFunc != nil {
+		a.mu.Unlock()
 		return fmt.Errorf("cannot swap sandbox service while agent is running; cancel first")
 	}
+	doneCh := a.done
+	a.mu.Unlock()
+
+	// Wait for any in-flight goroutine to finish (cancel was already called but
+	// the goroutine may still be mid-tool-call).
+	if doneCh != nil {
+		select {
+		case <-doneCh:
+		case <-time.After(2 * time.Second):
+			return fmt.Errorf("timed out waiting for previous agent run to finish")
+		}
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.service != nil {
 		_ = a.service.Close()
 	}
@@ -157,6 +174,13 @@ func (a *FluidAgent) sendStatus(msg tea.Msg) {
 	if a.statusCallback != nil {
 		a.statusCallback(msg)
 	}
+}
+
+// RunID returns the current run generation counter.
+func (a *FluidAgent) RunID() uint64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.runID
 }
 
 // Cancel stops the currently running agent loop
@@ -205,16 +229,25 @@ func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (
 
 // Run executes a command and returns the result
 func (a *FluidAgent) Run(input string) tea.Cmd {
+	// Increment runID eagerly so the caller can read it via RunID() immediately.
+	a.mu.Lock()
+	a.runID++
+	currentRunID := a.runID
+	a.mu.Unlock()
+
 	return func() tea.Msg {
 		ctx, cancel := context.WithCancel(context.Background())
+		doneCh := make(chan struct{})
 		a.mu.Lock()
 		a.cancelFunc = cancel
+		a.done = doneCh
 		a.mu.Unlock()
 		defer func() {
 			cancel()
 			a.mu.Lock()
 			a.cancelFunc = nil
 			a.mu.Unlock()
+			close(doneCh)
 		}()
 
 		// Handle slash commands
@@ -408,7 +441,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 		for iteration := 0; ; iteration++ {
 			if ctx.Err() != nil {
 				a.sendStatus(AgentDoneMsg{})
-				return AgentCancelledMsg{}
+				return AgentCancelledMsg{RunID: currentRunID}
 			}
 			a.logger.Debug("LLM loop iteration", "iteration", iteration, "history_len", len(a.history))
 			systemPrompt := a.cfg.AIAgent.DefaultSystem
@@ -530,7 +563,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				for _, tc := range msg.ToolCalls {
 					if ctx.Err() != nil {
 						a.sendStatus(AgentDoneMsg{})
-						return AgentCancelledMsg{}
+						return AgentCancelledMsg{RunID: currentRunID}
 					}
 					a.logger.Debug("executing tool call", "tool", tc.Function.Name, "call_id", tc.ID)
 					toolStart := time.Now()
@@ -762,8 +795,8 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			if cmdErr != nil {
 				return nil, cmdErr
 			}
-			stdout, stdoutRedacted := redactSensitiveKeys(result.Stdout)
-			stderr, stderrRedacted := redactSensitiveKeys(result.Stderr)
+			stdout, stdoutRedacted := a.redactContent(result.Stdout)
+			stderr, stderrRedacted := a.redactContent(result.Stderr)
 			if stdoutRedacted || stderrRedacted {
 				a.sendStatus(SensitiveContentRedactedMsg{Host: args.Host})
 			}
@@ -795,7 +828,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			if cmdErr != nil {
 				return nil, cmdErr
 			}
-			content, wasRedacted := redactSensitiveKeys(content)
+			content, wasRedacted := a.redactContent(content)
 			if wasRedacted {
 				a.sendStatus(SensitiveContentRedactedMsg{Path: args.Path, Host: args.Host})
 			}
@@ -1355,45 +1388,13 @@ func (a *FluidAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newS
 	}, nil
 }
 
-// privateKeyRe matches PEM-encoded private key blocks.
-var privateKeyRe = regexp.MustCompile(`(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----`)
-
-// sensitiveBase64PEMRe matches base64 blobs starting with the encoding of "-----BEGIN ".
-var sensitiveBase64PEMRe = regexp.MustCompile(`LS0tLS1CRUdJTi[A-Za-z0-9+/\s]+=*`)
-
-// sensitiveK8sSecretRe matches Kubernetes secret data fields with base64 values.
-var sensitiveK8sSecretRe = regexp.MustCompile(
-	`(?:tls\.key|tls\.crt|ssh-privatekey|private-key|private_key|` +
-		`secret_key|service-account-key|ca\.key|server\.key|client\.key)` +
-		`["']?\s*:\s*["']?[A-Za-z0-9+/=\s]{64,}["']?`)
-
-// stripWhitespace removes spaces, newlines, carriage returns, and tabs from s.
-func stripWhitespace(s string) string {
-	return strings.Map(func(r rune) rune {
-		if r == ' ' || r == '\n' || r == '\r' || r == '\t' {
-			return -1
-		}
-		return r
-	}, s)
-}
-
-// redactSensitiveKeys replaces PEM private key blocks, base64-encoded PEM keys,
-// and Kubernetes secret fields in content with redaction notices. Returns the
-// (possibly modified) content and whether any redaction occurred.
-func redactSensitiveKeys(content string) (string, bool) {
-	result := privateKeyRe.ReplaceAllString(content, "[REDACTED: private key content not sent to LLM]")
-	result = sensitiveBase64PEMRe.ReplaceAllStringFunc(result, func(match string) string {
-		cleaned := stripWhitespace(match)
-		decoded, err := base64.StdEncoding.DecodeString(cleaned)
-		if err != nil {
-			return match
-		}
-		if strings.Contains(string(decoded), "PRIVATE KEY") {
-			return "[REDACTED: base64-encoded private key not sent to LLM]"
-		}
-		return match
-	})
-	result = sensitiveK8sSecretRe.ReplaceAllString(result, "[REDACTED: secret key data not sent to LLM]")
+// redactContent runs the Redactor on content and returns whether any redaction occurred.
+// If the redactor is nil (redaction disabled), content passes through unchanged.
+func (a *FluidAgent) redactContent(content string) (string, bool) {
+	if a.redactor == nil {
+		return content, false
+	}
+	result := a.redactor.Redact(content)
 	return result, result != content
 }
 
@@ -1429,7 +1430,7 @@ func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[
 	}
 
 	content := string(decoded)
-	content, wasRedacted := redactSensitiveKeys(content)
+	content, wasRedacted := a.redactContent(content)
 	if wasRedacted {
 		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sandboxID})
 	}
@@ -1892,8 +1893,8 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 	if err != nil {
 		a.logger.Error("source command failed", "source_vm", sourceVM, "error", err)
 		if result != nil {
-			stdout, stdoutRedacted := redactSensitiveKeys(result.Stdout)
-			stderr, stderrRedacted := redactSensitiveKeys(result.Stderr)
+			stdout, stdoutRedacted := a.redactContent(result.Stdout)
+			stderr, stderrRedacted := a.redactContent(result.Stderr)
 			if stdoutRedacted || stderrRedacted {
 				a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
 			}
@@ -1908,8 +1909,8 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 		return nil, err
 	}
 
-	stdout, stdoutRedacted := redactSensitiveKeys(result.Stdout)
-	stderr, stderrRedacted := redactSensitiveKeys(result.Stderr)
+	stdout, stdoutRedacted := a.redactContent(result.Stdout)
+	stderr, stderrRedacted := a.redactContent(result.Stderr)
 	if stdoutRedacted || stderrRedacted {
 		a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
 	}
@@ -1942,7 +1943,7 @@ func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) 
 		return nil, fmt.Errorf("failed to read file from source VM: %w", err)
 	}
 
-	content, wasRedacted := redactSensitiveKeys(content)
+	content, wasRedacted := a.redactContent(content)
 	if wasRedacted {
 		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sourceVM})
 	}

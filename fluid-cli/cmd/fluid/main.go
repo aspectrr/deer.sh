@@ -198,10 +198,12 @@ var sourceListCmd = &cobra.Command{
 // --- connect command ---
 
 var connectCmd = &cobra.Command{
-	Use:   "connect <address>",
-	Short: "Connect to a fluid daemon and save config",
-	Long:  "Test the gRPC connection to a fluid-daemon, run doctor checks via SSH, display host info, and save the daemon to your config.",
-	Args:  cobra.ExactArgs(1),
+	Use:           "connect <address>",
+	Short:         "Connect to a fluid daemon and save config",
+	Long:          "Test the gRPC connection to a fluid-daemon, run doctor checks via SSH, display host info, and save the daemon to your config.",
+	Args:          cobra.ExactArgs(1),
+	SilenceErrors: true,
+	SilenceUsage:  true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name, _ := cmd.Flags().GetString("name")
 		insecure, _ := cmd.Flags().GetBool("insecure")

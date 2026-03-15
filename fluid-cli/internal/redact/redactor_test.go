@@ -191,6 +191,17 @@ func TestK8sSecretJSONRedaction(t *testing.T) {
 	}
 }
 
+func TestK8sTLSCertNotRedacted(t *testing.T) {
+	r := New()
+	// tls.crt is a public certificate, not secret material - should not be redacted
+	input := "  tls.crt: " + strings.Repeat("ABCDEFGHIJKLMNOP", 5)
+	redacted := r.Redact(input)
+
+	if redacted != input {
+		t.Errorf("tls.crt (public cert) should not be redacted, got: %s", redacted)
+	}
+}
+
 func TestK8sPublicKeyNotRedacted(t *testing.T) {
 	r := New()
 	// "public_key" is not in the known secret field names

@@ -80,8 +80,12 @@ type ToolCompleteMsg struct {
 // This unblocks the status listener
 type AgentDoneMsg struct{}
 
-// AgentCancelledMsg is sent when the user cancels the agent via ESC
-type AgentCancelledMsg struct{}
+// AgentCancelledMsg is sent when the user cancels the agent via ESC.
+// RunID identifies which agent run this cancellation belongs to, so stale
+// cancellations from a previous run don't corrupt a newly-started run.
+type AgentCancelledMsg struct {
+	RunID uint64
+}
 
 // ClearThinkingMsg is sent to clear the thinking indicator
 type ClearThinkingMsg struct{}

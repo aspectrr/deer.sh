@@ -125,6 +125,7 @@ BLOCKED_PATTERNS=(
     "^openssl pkcs12 "
     "^openssl rand "
     "^openssl s_server"
+    "^openssl s_client"
 )
 
 # Block command substitution and subshells
