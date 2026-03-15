@@ -6,6 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/aspectrr/fluid.sh/proto/gen/go v0.1.5
+	github.com/aspectrr/fluid.sh/shared v0.0.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/posthog/posthog-go v1.10.0
@@ -39,3 +40,5 @@ require (
 	modernc.org/memory v1.8.0 // indirect
 	modernc.org/sqlite v1.33.1 // indirect
 )
+
+replace github.com/aspectrr/fluid.sh/shared => ../shared

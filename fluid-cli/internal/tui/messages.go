@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
 )
 
 // Message types for the TUI
@@ -249,4 +250,10 @@ type SensitiveContentRedactedMsg struct {
 type ConnectCloseMsg struct {
 	Saved  bool
 	Config config.SandboxHostConfig
+}
+
+// SandboxServiceSwapResultMsg is sent when SetSandboxService completes asynchronously.
+type SandboxServiceSwapResultMsg struct {
+	Svc sandbox.Service
+	Err error
 }

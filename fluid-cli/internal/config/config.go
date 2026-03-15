@@ -521,6 +521,9 @@ func (c *Config) HasSandboxHosts() bool {
 // UpsertSandboxHost updates an existing host entry matched by name or address,
 // or appends a new entry. Removes any remaining entries that conflict on name
 // or address after the update to prevent duplicates. Returns the updated slice.
+//
+// Filter in-place: safe because write index <= read index. Deduplicates entries
+// matching on name or address.
 func UpsertSandboxHost(hosts []SandboxHostConfig, entry SandboxHostConfig) []SandboxHostConfig {
 	updated := false
 	for i, sh := range hosts {

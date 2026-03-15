@@ -5,4 +5,5 @@ use (
 	./fluid-cli
 	./fluid-daemon
 	./proto/gen/go
+	./shared
 )

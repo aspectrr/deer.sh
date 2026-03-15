@@ -409,18 +409,17 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 
 	// 2. Health check with its own timeout
 	healthCtx, healthCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer healthCancel()
 	if err := svc.Health(healthCtx); err != nil {
-		healthCancel()
 		fmt.Printf("  %s Health check failed: %v\n", red("[error]"), err)
 		return err
 	}
-	healthCancel()
 	fmt.Printf("  %s Health check passed\n", green("[ok]"))
 
 	// 3. Get host info with its own timeout
 	infoCtx, infoCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer infoCancel()
 	info, err := svc.GetHostInfo(infoCtx)
-	infoCancel()
 	if err != nil {
 		fmt.Printf("  %s Failed to get host info: %v\n", red("[error]"), err)
 		return err
@@ -797,6 +796,9 @@ func initSandboxService(loadedCfg *config.Config, logger *slog.Logger) sandbox.S
 
 	// Use the first sandbox host
 	sh := loadedCfg.SandboxHosts[0]
+	if sh.Insecure {
+		fmt.Printf("  \033[33m[warning]\033[0m: connecting to %s with TLS verification disabled (from saved config)\n", sh.DaemonAddress)
+	}
 	svc, err := sandbox.NewRemoteService(sh.DaemonAddress, config.ControlPlaneConfig{
 		DaemonAddress:  sh.DaemonAddress,
 		DaemonInsecure: sh.Insecure,

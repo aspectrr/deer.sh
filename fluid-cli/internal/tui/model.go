@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sshconfig"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/updater"
 )
@@ -178,6 +179,8 @@ type AgentRunner interface {
 	Cancel()
 	// RunID returns the current run generation counter
 	RunID() uint64
+	// SetSandboxService hot-swaps the sandbox service (for /connect)
+	SetSandboxService(sandbox.Service) error
 }
 
 // NewModel creates a new TUI model
@@ -338,13 +341,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.addSystemMessage(fmt.Sprintf("Connected to %s (%s). Config saved.", closeMsg.Config.Name, closeMsg.Config.DaemonAddress))
 			}
-			// Hot-swap sandbox service if available
+			// Hot-swap sandbox service if available (async to avoid blocking TUI)
 			if svc := m.connectModel.GetService(); svc != nil {
-				if agent, ok := m.agentRunner.(*FluidAgent); ok {
-					if err := agent.SetSandboxService(svc); err != nil {
-						m.addSystemMessage(fmt.Sprintf("Failed to swap sandbox service: %v", err))
-						_ = svc.Close()
-					}
+				return m, func() tea.Msg {
+					err := m.agentRunner.SetSandboxService(svc)
+					return SandboxServiceSwapResultMsg{Svc: svc, Err: err}
 				}
 			}
 		} else {
@@ -353,6 +354,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				_ = svc.Close()
 			}
 			m.addSystemMessage("Connect cancelled.")
+		}
+		m.updateViewportContent(false)
+		m.textarea.Focus()
+		return m, nil
+	}
+
+	// Handle SandboxServiceSwapResultMsg (async result from SetSandboxService)
+	if swapMsg, ok := msg.(SandboxServiceSwapResultMsg); ok {
+		if swapMsg.Err != nil {
+			m.addSystemMessage(fmt.Sprintf("Failed to swap sandbox service: %v", swapMsg.Err))
+			_ = swapMsg.Svc.Close()
 		}
 		m.updateViewportContent(false)
 		m.textarea.Focus()

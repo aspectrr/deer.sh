@@ -227,10 +227,12 @@ func (m ConnectModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				// Retry
 				addr, err := m.resolveAddress()
 				if err != nil {
-					m.connErr = err
+					m.addrErr = err.Error()
+					m.step = StepAddress
 					return m, nil
 				}
 				m.connErr = nil
+				m.addrErr = ""
 				return m, tea.Batch(m.spinner.Tick, m.attemptConnect(addr))
 			}
 		}

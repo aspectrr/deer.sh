@@ -86,6 +86,12 @@ type FluidAgent struct {
 	// Re-prepare warning: tracks the last host warned about re-prepare
 	lastPrepareWarned string
 
+	// Timeout for SetSandboxService swap operation (default 2s, configurable for tests)
+	swapTimeout time.Duration
+
+	// Dedup tracking for sensitive content redaction messages
+	redactedSeen map[string]bool
+
 	// cancelFunc cancels the active agent Run context when ESC is pressed.
 	// mu protects cancelFunc, runID, done, currentSourceVM, autoReadOnly, and readOnly.
 	cancelFunc context.CancelFunc
@@ -123,6 +129,8 @@ func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcS
 		auditLog:        auditLog,
 		logger:          logger,
 		history:         make([]llm.Message, 0),
+		swapTimeout:     2 * time.Second,
+		redactedSeen:    make(map[string]bool),
 	}
 }
 
@@ -155,7 +163,7 @@ func (a *FluidAgent) SetSandboxService(svc sandbox.Service) error {
 	if doneCh != nil {
 		select {
 		case <-doneCh:
-		case <-time.After(2 * time.Second):
+		case <-time.After(a.swapTimeout):
 			return fmt.Errorf("timed out waiting for previous agent run to finish")
 		}
 	}
@@ -177,6 +185,20 @@ func (a *FluidAgent) sendStatus(msg tea.Msg) {
 	if a.statusCallback != nil {
 		a.statusCallback(msg)
 	}
+}
+
+// sendRedactedMsg sends a SensitiveContentRedactedMsg with dedup by host/path.
+// Only sends the message the first time per unique key per agent run.
+func (a *FluidAgent) sendRedactedMsg(host, path string) {
+	key := host
+	if path != "" {
+		key = host + ":" + path
+	}
+	if a.redactedSeen[key] {
+		return
+	}
+	a.redactedSeen[key] = true
+	a.sendStatus(SensitiveContentRedactedMsg{Host: host, Path: path})
 }
 
 // RunID returns the current run generation counter.
@@ -801,7 +823,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			stdout, stdoutRedacted := a.redactContent(result.Stdout)
 			stderr, stderrRedacted := a.redactContent(result.Stderr)
 			if stdoutRedacted || stderrRedacted {
-				a.sendStatus(SensitiveContentRedactedMsg{Host: args.Host})
+				a.sendRedactedMsg(args.Host, "")
 			}
 			return map[string]any{
 				"host":      args.Host,
@@ -833,7 +855,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			}
 			content, wasRedacted := a.redactContent(content)
 			if wasRedacted {
-				a.sendStatus(SensitiveContentRedactedMsg{Path: args.Path, Host: args.Host})
+				a.sendRedactedMsg(args.Host, args.Path)
 			}
 			a.sendStatus(CommandOutputStartMsg{SandboxID: args.Host})
 			a.sendStatus(CommandOutputChunkMsg{
@@ -1435,7 +1457,7 @@ func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[
 	content := string(decoded)
 	content, wasRedacted := a.redactContent(content)
 	if wasRedacted {
-		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sandboxID})
+		a.sendRedactedMsg(sandboxID, path)
 	}
 
 	return map[string]any{
@@ -1899,7 +1921,7 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 			stdout, stdoutRedacted := a.redactContent(result.Stdout)
 			stderr, stderrRedacted := a.redactContent(result.Stderr)
 			if stdoutRedacted || stderrRedacted {
-				a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
+				a.sendRedactedMsg(sourceVM, "")
 			}
 			return map[string]any{
 				"source_vm": sourceVM,
@@ -1915,7 +1937,7 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 	stdout, stdoutRedacted := a.redactContent(result.Stdout)
 	stderr, stderrRedacted := a.redactContent(result.Stderr)
 	if stdoutRedacted || stderrRedacted {
-		a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
+		a.sendRedactedMsg(sourceVM, "")
 	}
 	return map[string]any{
 		"source_vm": sourceVM,
@@ -1948,7 +1970,7 @@ func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) 
 
 	content, wasRedacted := a.redactContent(content)
 	if wasRedacted {
-		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sourceVM})
+		a.sendRedactedMsg(sourceVM, path)
 	}
 
 	// Show file content in live output box
