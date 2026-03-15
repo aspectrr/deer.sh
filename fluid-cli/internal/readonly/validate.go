@@ -118,13 +118,20 @@ func validateOpenSSLArgs(tokens []string, allowed map[string]bool) error {
 		for i, tok := range tokens {
 			if tok == "-connect" && i+1 < len(tokens) {
 				hostPort := tokens[i+1]
-				host := hostPort
-				if idx := strings.LastIndex(hostPort, ":"); idx >= 0 {
-					host = hostPort[:idx]
+				var host string
+				if strings.HasPrefix(hostPort, "[") {
+					// IPv6 bracket notation: extract host between [ and ]
+					if end := strings.Index(hostPort, "]"); end >= 0 {
+						host = hostPort[1:end]
+					} else {
+						host = strings.TrimPrefix(hostPort, "[")
+					}
+				} else {
+					host = hostPort
+					if idx := strings.LastIndex(hostPort, ":"); idx >= 0 {
+						host = hostPort[:idx]
+					}
 				}
-				// Strip IPv6 brackets
-				host = strings.TrimPrefix(host, "[")
-				host = strings.TrimSuffix(host, "]")
 				if host != "localhost" && host != "127.0.0.1" && host != "::1" && host != "" {
 					return fmt.Errorf("openssl s_client -connect only allowed to localhost, got %q", host)
 				}

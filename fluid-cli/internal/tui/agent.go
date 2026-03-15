@@ -162,6 +162,9 @@ func (a *FluidAgent) SetSandboxService(svc sandbox.Service) error {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.cancelFunc != nil {
+		return fmt.Errorf("a new agent run started while waiting; cancel first")
+	}
 	if a.service != nil {
 		_ = a.service.Close()
 	}

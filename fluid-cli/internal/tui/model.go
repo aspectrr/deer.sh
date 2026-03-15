@@ -982,9 +982,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case SensitiveContentRedactedMsg:
 		if msg.Path != "" {
-			m.addSystemMessage(fmt.Sprintf("Private key detected in %s - redacted before sending to LLM", msg.Path))
+			m.addSystemMessage(fmt.Sprintf("Sensitive content detected in %s - redacted before sending to LLM", msg.Path))
 		} else {
-			m.addSystemMessage(fmt.Sprintf("Private key detected in command output on %s - redacted before sending to LLM", msg.Host))
+			m.addSystemMessage(fmt.Sprintf("Sensitive content detected in command output on %s - redacted before sending to LLM", msg.Host))
 		}
 		m.updateViewportContent(false)
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
@@ -1542,7 +1542,6 @@ func (m *Model) addToolResult(tr ToolResult) {
 	})
 }
 
-// formatLiveOutput formats the live output for display, truncating to last N lines
 // extractLiveOutputCommand extracts a display label from the current tool args
 // (command truncated to 60 chars, or file path) for the live output header.
 func (m *Model) extractLiveOutputCommand() string {
@@ -1561,6 +1560,7 @@ func (m *Model) extractLiveOutputCommand() string {
 	return ""
 }
 
+// formatLiveOutput formats the live output for display, truncating to last N lines.
 func (m *Model) formatLiveOutput() string {
 	var lines []string
 	if len(m.liveOutputLines) > 0 {

@@ -91,6 +91,7 @@ func TestValidateCommand_Allowed(t *testing.T) {
 		"openssl s_client -connect localhost:443",
 		"openssl s_client -connect 127.0.0.1:443",
 		"openssl s_client -connect [::1]:443",
+		"openssl s_client -connect [::1]",
 		"openssl verify -CAfile /etc/ssl/ca.pem /etc/ssl/cert.pem",
 		"openssl version",
 		"openssl ciphers",
