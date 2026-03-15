@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 )
@@ -80,7 +81,7 @@ func TestShellEscape(t *testing.T) {
 
 func TestRedactPrivateKeys_RSAKey(t *testing.T) {
 	input := "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if !redacted {
 		t.Fatal("expected redaction")
 	}
@@ -91,7 +92,7 @@ func TestRedactPrivateKeys_RSAKey(t *testing.T) {
 
 func TestRedactPrivateKeys_ECKey(t *testing.T) {
 	input := "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEI...\n-----END EC PRIVATE KEY-----"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if !redacted {
 		t.Fatal("expected redaction")
 	}
@@ -102,7 +103,7 @@ func TestRedactPrivateKeys_ECKey(t *testing.T) {
 
 func TestRedactPrivateKeys_GenericKey(t *testing.T) {
 	input := "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg...\n-----END PRIVATE KEY-----"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if !redacted {
 		t.Fatal("expected redaction")
 	}
@@ -113,7 +114,7 @@ func TestRedactPrivateKeys_GenericKey(t *testing.T) {
 
 func TestRedactPrivateKeys_NoKey(t *testing.T) {
 	input := "just some normal file content\nwith multiple lines"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if redacted {
 		t.Fatal("expected no redaction")
 	}
@@ -124,7 +125,7 @@ func TestRedactPrivateKeys_NoKey(t *testing.T) {
 
 func TestRedactPrivateKeys_MixedContent(t *testing.T) {
 	input := "# Config file\nssl_key: |\n-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\nssl_port: 443"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if !redacted {
 		t.Fatal("expected redaction")
 	}
@@ -138,7 +139,7 @@ func TestRedactPrivateKeys_MixedContent(t *testing.T) {
 
 func TestRedactPrivateKeys_MultipleKeys(t *testing.T) {
 	input := "-----BEGIN RSA PRIVATE KEY-----\nkey1\n-----END RSA PRIVATE KEY-----\nsome text\n-----BEGIN EC PRIVATE KEY-----\nkey2\n-----END EC PRIVATE KEY-----"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if !redacted {
 		t.Fatal("expected redaction")
 	}
@@ -152,7 +153,7 @@ func TestRedactPrivateKeys_MultipleKeys(t *testing.T) {
 
 func TestRedactPrivateKeys_CRLF(t *testing.T) {
 	input := "-----BEGIN RSA PRIVATE KEY-----\r\nMIIEowIBAAKCAQEA...\r\n-----END RSA PRIVATE KEY-----"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if !redacted {
 		t.Fatal("expected redaction")
 	}
@@ -161,9 +162,78 @@ func TestRedactPrivateKeys_CRLF(t *testing.T) {
 	}
 }
 
+func TestRedactSensitiveKeys_Base64PEM(t *testing.T) {
+	pem := "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----"
+	encoded := base64.StdEncoding.EncodeToString([]byte(pem))
+	result, redacted := redactSensitiveKeys(encoded)
+	if !redacted {
+		t.Fatal("expected base64 PEM key to be redacted")
+	}
+	if strings.Contains(result, "LS0tLS1CRUdJTi") {
+		t.Error("base64 PEM content should be replaced")
+	}
+}
+
+func TestRedactSensitiveKeys_Base64ECPEM(t *testing.T) {
+	pem := "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEI...\n-----END EC PRIVATE KEY-----"
+	encoded := base64.StdEncoding.EncodeToString([]byte(pem))
+	result, redacted := redactSensitiveKeys(encoded)
+	if !redacted {
+		t.Fatal("expected base64 EC PEM key to be redacted")
+	}
+	if strings.Contains(result, "LS0tLS1CRUdJTi") {
+		t.Error("base64 EC PEM content should be replaced")
+	}
+}
+
+func TestRedactSensitiveKeys_K8sYAMLSecret(t *testing.T) {
+	input := "  tls.key: " + strings.Repeat("ABCDEFGHIJKLMNOP", 5)
+	result, redacted := redactSensitiveKeys(input)
+	if !redacted {
+		t.Fatal("expected K8s tls.key field to be redacted")
+	}
+	if !strings.Contains(result, "[REDACTED: secret key data not sent to LLM]") {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestRedactSensitiveKeys_K8sJSONSecret(t *testing.T) {
+	input := `"private_key": "` + strings.Repeat("ABCDEFGHIJKLMNOP", 5) + `"`
+	result, redacted := redactSensitiveKeys(input)
+	if !redacted {
+		t.Fatal("expected K8s private_key field to be redacted")
+	}
+	if !strings.Contains(result, "[REDACTED: secret key data not sent to LLM]") {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestRedactSensitiveKeys_RegularBase64NotRedacted(t *testing.T) {
+	// Base64 that decodes to regular text, not a private key
+	input := base64.StdEncoding.EncodeToString([]byte("just some regular content"))
+	result, redacted := redactSensitiveKeys(input)
+	if redacted {
+		t.Fatal("regular base64 should not be redacted")
+	}
+	if result != input {
+		t.Error("content should be unchanged")
+	}
+}
+
+func TestRedactSensitiveKeys_NoKeys(t *testing.T) {
+	input := "just some normal file content\nwith multiple lines"
+	result, redacted := redactSensitiveKeys(input)
+	if redacted {
+		t.Fatal("expected no redaction")
+	}
+	if result != input {
+		t.Error("content should be unchanged")
+	}
+}
+
 func TestRedactPrivateKeys_CertificateNotRedacted(t *testing.T) {
 	input := "-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWgAwIBAgIJ...\n-----END CERTIFICATE-----"
-	result, redacted := redactPrivateKeys(input)
+	result, redacted := redactSensitiveKeys(input)
 	if redacted {
 		t.Fatal("certificates should not be redacted")
 	}

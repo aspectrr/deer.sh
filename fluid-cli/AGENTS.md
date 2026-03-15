@@ -183,3 +183,49 @@ State is stored in SQLite at `~/.fluid/state.db`:
 The database is auto-migrated on first run.
 
 If you remove a parameter from a function, don't just pass in nil/null/empty string in a different layer, make sure to remove the extra parameter from every place.
+
+## Security: Sensitive Data Redaction
+
+All tool output (command results, file contents) is scanned for sensitive data before being sent to the LLM. Redaction is applied in two layers:
+
+### Layer 1: Inline redaction (agent.go)
+Applied at tool execution time via `redactSensitiveKeys()`. Runs on every `readFile`, `readSourceFile`, `runCommand`, and `runSourceCommand` result.
+
+**What it detects:**
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| PEM private keys | `-----BEGIN ... PRIVATE KEY-----` blocks | RSA, EC, ED25519, OPENSSH private keys |
+| Base64-encoded PEM keys | Base64 blobs that decode to PEM private keys | `cat key.pem \| base64` output |
+| Kubernetes secret data | Known key field names with base64 values (64+ chars) | `tls.key`, `ssh-privatekey`, `private_key`, `secret_key`, `ca.key`, `server.key`, `client.key` in YAML/JSON |
+
+Redacted content is replaced with `[REDACTED: ... not sent to LLM]` notices.
+
+### Layer 2: Pattern-based redaction (redact package)
+Applied to all messages before LLM API calls. Uses the `Redactor` from `internal/redact/`.
+
+**Built-in detectors:**
+- SSH/PEM private key blocks
+- Base64-encoded PEM private keys
+- Kubernetes secret data fields
+- IPv4 and IPv6 addresses
+- API keys (`sk-...`, `key-...`, Bearer tokens)
+- AWS access keys (`AKIA...`)
+- Connection strings (postgres://, mysql://, etc.)
+- Configured host names, addresses, and key paths
+
+### Coverage
+
+| Tool | Layer 1 | Layer 2 | Notes |
+|------|---------|---------|-------|
+| `run_command` | stdout, stderr | all fields | |
+| `run_source_command` | stdout, stderr | all fields | |
+| `read_file` | file content | all fields | |
+| `read_source_file` | file content | all fields | |
+| Other tools | - | all fields | Layer 2 covers all tool results |
+
+### Limitations
+- Base64-PEM detection requires the PEM block to be at the start of the encoded content (standard for key files)
+- Kubernetes secret detection uses a fixed list of known field names
+- Hex-encoded keys and non-standard key formats are not detected
+- Keys embedded inside nested encodings (e.g., base64 of JSON of base64) are not detected

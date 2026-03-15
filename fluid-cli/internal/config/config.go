@@ -518,6 +518,18 @@ func (c *Config) HasSandboxHosts() bool {
 	return len(c.SandboxHosts) > 0
 }
 
+// UpsertSandboxHost updates an existing host entry matched by name or address,
+// or appends a new entry. Returns the updated slice.
+func UpsertSandboxHost(hosts []SandboxHostConfig, entry SandboxHostConfig) []SandboxHostConfig {
+	for i, sh := range hosts {
+		if sh.Name == entry.Name || sh.DaemonAddress == entry.DaemonAddress {
+			hosts[i] = entry
+			return hosts
+		}
+	}
+	return append(hosts, entry)
+}
+
 // PreparedHosts returns only the hosts that have been prepared for read-only access.
 func (c *Config) PreparedHosts() []HostConfig {
 	var result []HostConfig

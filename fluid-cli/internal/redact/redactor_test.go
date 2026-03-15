@@ -1,6 +1,7 @@
 package redact
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 )
@@ -140,6 +141,64 @@ config after`
 	}
 	if !strings.Contains(redacted, "config after") {
 		t.Errorf("non-sensitive text should be preserved, got: %s", redacted)
+	}
+}
+
+func TestBase64PEMKeyRedaction(t *testing.T) {
+	r := New()
+	pem := "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEATHISISFAKEKEYTESTING\n-----END RSA PRIVATE KEY-----"
+	encoded := base64.StdEncoding.EncodeToString([]byte(pem))
+	redacted := r.Redact(encoded)
+
+	if strings.Contains(redacted, "LS0tLS1CRUdJTi") {
+		t.Errorf("base64 PEM key should be redacted, got: %s", redacted)
+	}
+	if !strings.Contains(redacted, "[REDACTED_KEY_") {
+		t.Errorf("expected REDACTED_KEY token, got: %s", redacted)
+	}
+}
+
+func TestBase64NonKeyNotRedacted(t *testing.T) {
+	r := New()
+	// Base64 of "-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWg\n-----END CERTIFICATE-----"
+	pem := "-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWg\n-----END CERTIFICATE-----"
+	encoded := base64.StdEncoding.EncodeToString([]byte(pem))
+	redacted := r.Redact(encoded)
+
+	// Certificate should not be redacted - only private keys
+	if redacted != encoded {
+		t.Errorf("base64 certificate should not be redacted, got: %s", redacted)
+	}
+}
+
+func TestK8sSecretYAMLRedaction(t *testing.T) {
+	r := New()
+	input := "  tls.key: " + strings.Repeat("ABCDEFGHIJKLMNOP", 5)
+	redacted := r.Redact(input)
+
+	if !strings.Contains(redacted, "[REDACTED_KEY_") {
+		t.Errorf("K8s tls.key field should be redacted, got: %s", redacted)
+	}
+}
+
+func TestK8sSecretJSONRedaction(t *testing.T) {
+	r := New()
+	input := `"private_key": "` + strings.Repeat("ABCDEFGHIJKLMNOP", 5) + `"`
+	redacted := r.Redact(input)
+
+	if !strings.Contains(redacted, "[REDACTED_KEY_") {
+		t.Errorf("K8s private_key field should be redacted, got: %s", redacted)
+	}
+}
+
+func TestK8sPublicKeyNotRedacted(t *testing.T) {
+	r := New()
+	// "public_key" is not in the known secret field names
+	input := `public_key: ` + strings.Repeat("ABCDEFGHIJKLMNOP", 5)
+	redacted := r.Redact(input)
+
+	if redacted != input {
+		t.Errorf("public_key field should not be redacted, got: %s", redacted)
 	}
 }
 

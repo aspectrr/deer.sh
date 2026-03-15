@@ -329,17 +329,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = StateIdle
 		if closeMsg.Saved {
 			// Update or append sandbox host config
-			found := false
-			for i, sh := range m.cfg.SandboxHosts {
-				if sh.Name == closeMsg.Config.Name || sh.DaemonAddress == closeMsg.Config.DaemonAddress {
-					m.cfg.SandboxHosts[i] = closeMsg.Config
-					found = true
-					break
-				}
-			}
-			if !found {
-				m.cfg.SandboxHosts = append(m.cfg.SandboxHosts, closeMsg.Config)
-			}
+			m.cfg.SandboxHosts = config.UpsertSandboxHost(m.cfg.SandboxHosts, closeMsg.Config)
 			if err := m.cfg.Save(m.configPath); err != nil {
 				m.addSystemMessage(fmt.Sprintf("Failed to save config: %v", err))
 			} else {
@@ -719,6 +709,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.state = StateIdle
 				m.thinking = false
+				m.agentStatus = StatusThinking
+				m.currentToolName = ""
+				m.currentToolArgs = nil
 				m.updateViewportContent(false)
 				m.textarea.Focus()
 				return m, nil
@@ -793,6 +786,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addSystemMessage("Agent stopped.")
 			m.state = StateIdle
 			m.thinking = false
+			m.agentStatus = StatusThinking
+			m.currentToolName = ""
+			m.currentToolArgs = nil
 			m.updateViewportContent(false)
 			m.textarea.Focus()
 		}
@@ -1023,6 +1019,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AgentErrorMsg:
 		m.thinking = false
 		m.state = StateIdle
+		m.agentStatus = StatusThinking
+		m.currentToolName = ""
+		m.currentToolArgs = nil
 		m.addSystemMessage(fmt.Sprintf("Error: %v", msg.Err))
 		m.updateViewportContent(true)
 		m.textarea.Focus()

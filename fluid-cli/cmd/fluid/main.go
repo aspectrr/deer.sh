@@ -385,6 +385,10 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	red := colorFunc(useColor, "\033[31m")
 	dim := colorFunc(useColor, "\033[90m")
 
+	if insecure {
+		fmt.Println("  WARNING: using insecure TLS (no certificate verification)")
+	}
+
 	// 1. Connect and health check
 	fmt.Printf("\n  Connecting to %s...\n", addr)
 
@@ -470,7 +474,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		Insecure:      insecure,
 	}
 
-	loadedCfg.SandboxHosts = upsertSandboxHost(loadedCfg.SandboxHosts, entry)
+	loadedCfg.SandboxHosts = config.UpsertSandboxHost(loadedCfg.SandboxHosts, entry)
 
 	if err := loadedCfg.Save(configPath); err != nil {
 		fmt.Printf("  %s Failed to save config: %v\n", red("[error]"), err)
@@ -479,18 +483,6 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	fmt.Printf("  %s Saved %q (%s) to config\n", green("[ok]"), name, addr)
 	fmt.Println()
 	return nil
-}
-
-// upsertSandboxHost updates an existing host entry matched by name or address,
-// or appends a new entry. Returns the updated slice.
-func upsertSandboxHost(hosts []config.SandboxHostConfig, entry config.SandboxHostConfig) []config.SandboxHostConfig {
-	for i, sh := range hosts {
-		if sh.Name == entry.Name || sh.DaemonAddress == entry.DaemonAddress {
-			hosts[i] = entry
-			return hosts
-		}
-	}
-	return append(hosts, entry)
 }
 
 // runSourceList lists configured source hosts.

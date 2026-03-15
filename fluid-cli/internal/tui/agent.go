@@ -176,24 +176,28 @@ func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (
 	a.mu.Lock()
 	a.currentSourceVM = sourceVM
 	wasAutoReadOnly := a.autoReadOnly
+	var enterMsg *AutoReadOnlyMsg
 	if !a.readOnly {
 		a.autoReadOnly = true
 		a.readOnly = true
-		a.mu.Unlock()
-		a.sendStatus(AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: true})
-	} else {
-		a.mu.Unlock()
+		enterMsg = &AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: true}
+	}
+	a.mu.Unlock()
+	if enterMsg != nil {
+		a.sendStatus(*enterMsg)
 	}
 	defer func() {
 		a.mu.Lock()
 		a.currentSourceVM = ""
+		var exitMsg *AutoReadOnlyMsg
 		if a.autoReadOnly && !wasAutoReadOnly {
 			a.autoReadOnly = false
 			a.readOnly = false
-			a.mu.Unlock()
-			a.sendStatus(AutoReadOnlyMsg{Enabled: false})
-		} else {
-			a.mu.Unlock()
+			exitMsg = &AutoReadOnlyMsg{Enabled: false}
+		}
+		a.mu.Unlock()
+		if exitMsg != nil {
+			a.sendStatus(*exitMsg)
 		}
 	}()
 	return fn()
@@ -758,8 +762,8 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			if cmdErr != nil {
 				return nil, cmdErr
 			}
-			stdout, stdoutRedacted := redactPrivateKeys(result.Stdout)
-			stderr, stderrRedacted := redactPrivateKeys(result.Stderr)
+			stdout, stdoutRedacted := redactSensitiveKeys(result.Stdout)
+			stderr, stderrRedacted := redactSensitiveKeys(result.Stderr)
 			if stdoutRedacted || stderrRedacted {
 				a.sendStatus(SensitiveContentRedactedMsg{Host: args.Host})
 			}
@@ -791,7 +795,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			if cmdErr != nil {
 				return nil, cmdErr
 			}
-			content, wasRedacted := redactPrivateKeys(content)
+			content, wasRedacted := redactSensitiveKeys(content)
 			if wasRedacted {
 				a.sendStatus(SensitiveContentRedactedMsg{Path: args.Path, Host: args.Host})
 			}
@@ -1354,12 +1358,43 @@ func (a *FluidAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newS
 // privateKeyRe matches PEM-encoded private key blocks.
 var privateKeyRe = regexp.MustCompile(`(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----`)
 
-// redactPrivateKeys replaces any PEM private key blocks in content with a
-// redaction notice. Returns the (possibly modified) content and whether any
-// redaction occurred.
-func redactPrivateKeys(content string) (string, bool) {
-	redacted := privateKeyRe.ReplaceAllString(content, "[REDACTED: private key content not sent to LLM]")
-	return redacted, redacted != content
+// sensitiveBase64PEMRe matches base64 blobs starting with the encoding of "-----BEGIN ".
+var sensitiveBase64PEMRe = regexp.MustCompile(`LS0tLS1CRUdJTi[A-Za-z0-9+/\s]+=*`)
+
+// sensitiveK8sSecretRe matches Kubernetes secret data fields with base64 values.
+var sensitiveK8sSecretRe = regexp.MustCompile(
+	`(?:tls\.key|tls\.crt|ssh-privatekey|private-key|private_key|` +
+		`secret_key|service-account-key|ca\.key|server\.key|client\.key)` +
+		`["']?\s*:\s*["']?[A-Za-z0-9+/=\s]{64,}["']?`)
+
+// stripWhitespace removes spaces, newlines, carriage returns, and tabs from s.
+func stripWhitespace(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == ' ' || r == '\n' || r == '\r' || r == '\t' {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// redactSensitiveKeys replaces PEM private key blocks, base64-encoded PEM keys,
+// and Kubernetes secret fields in content with redaction notices. Returns the
+// (possibly modified) content and whether any redaction occurred.
+func redactSensitiveKeys(content string) (string, bool) {
+	result := privateKeyRe.ReplaceAllString(content, "[REDACTED: private key content not sent to LLM]")
+	result = sensitiveBase64PEMRe.ReplaceAllStringFunc(result, func(match string) string {
+		cleaned := stripWhitespace(match)
+		decoded, err := base64.StdEncoding.DecodeString(cleaned)
+		if err != nil {
+			return match
+		}
+		if strings.Contains(string(decoded), "PRIVATE KEY") {
+			return "[REDACTED: base64-encoded private key not sent to LLM]"
+		}
+		return match
+	})
+	result = sensitiveK8sSecretRe.ReplaceAllString(result, "[REDACTED: secret key data not sent to LLM]")
+	return result, result != content
 }
 
 // readFile reads the contents of a file on a sandbox VM via SSH.
@@ -1394,7 +1429,7 @@ func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[
 	}
 
 	content := string(decoded)
-	content, wasRedacted := redactPrivateKeys(content)
+	content, wasRedacted := redactSensitiveKeys(content)
 	if wasRedacted {
 		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sandboxID})
 	}
@@ -1857,8 +1892,8 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 	if err != nil {
 		a.logger.Error("source command failed", "source_vm", sourceVM, "error", err)
 		if result != nil {
-			stdout, stdoutRedacted := redactPrivateKeys(result.Stdout)
-			stderr, stderrRedacted := redactPrivateKeys(result.Stderr)
+			stdout, stdoutRedacted := redactSensitiveKeys(result.Stdout)
+			stderr, stderrRedacted := redactSensitiveKeys(result.Stderr)
 			if stdoutRedacted || stderrRedacted {
 				a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
 			}
@@ -1873,8 +1908,8 @@ func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command str
 		return nil, err
 	}
 
-	stdout, stdoutRedacted := redactPrivateKeys(result.Stdout)
-	stderr, stderrRedacted := redactPrivateKeys(result.Stderr)
+	stdout, stdoutRedacted := redactSensitiveKeys(result.Stdout)
+	stderr, stderrRedacted := redactSensitiveKeys(result.Stderr)
 	if stdoutRedacted || stderrRedacted {
 		a.sendStatus(SensitiveContentRedactedMsg{Host: sourceVM})
 	}
@@ -1907,7 +1942,7 @@ func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) 
 		return nil, fmt.Errorf("failed to read file from source VM: %w", err)
 	}
 
-	content, wasRedacted := redactPrivateKeys(content)
+	content, wasRedacted := redactSensitiveKeys(content)
 	if wasRedacted {
 		a.sendStatus(SensitiveContentRedactedMsg{Path: path, Host: sourceVM})
 	}

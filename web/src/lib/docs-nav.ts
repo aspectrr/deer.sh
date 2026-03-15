@@ -25,6 +25,8 @@ export const docsNav: NavSection[] = [
     items: [
       { label: 'Architecture', to: '/docs/architecture', icon: '[~]' },
       { label: 'Sandboxes', to: '/docs/sandboxes', icon: 'ls' },
+      { label: 'PII Redaction', to: '/docs/pii-redaction', icon: '**' },
+      { label: 'Audit Logs', to: '/docs/audit-logs', icon: '#!' },
       { label: 'Upgrade to Hosted', to: '/docs/upgrade', icon: '/' },
     ],
   },

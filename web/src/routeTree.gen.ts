@@ -20,10 +20,12 @@ import { Route as DocsUpgradeRouteImport } from './routes/docs/upgrade'
 import { Route as DocsSourcePrepareRouteImport } from './routes/docs/source-prepare'
 import { Route as DocsSandboxesRouteImport } from './routes/docs/sandboxes'
 import { Route as DocsQuickstartRouteImport } from './routes/docs/quickstart'
+import { Route as DocsPiiRedactionRouteImport } from './routes/docs/pii-redaction'
 import { Route as DocsMcpRouteImport } from './routes/docs/mcp'
 import { Route as DocsLocalSetupRouteImport } from './routes/docs/local-setup'
 import { Route as DocsDaemonRouteImport } from './routes/docs/daemon'
 import { Route as DocsCliReferenceRouteImport } from './routes/docs/cli-reference'
+import { Route as DocsAuditLogsRouteImport } from './routes/docs/audit-logs'
 import { Route as DocsArchitectureRouteImport } from './routes/docs/architecture'
 import { Route as DocsApiRouteImport } from './routes/docs/api'
 import { Route as PublicPricingRouteImport } from './routes/_public/pricing'
@@ -94,6 +96,11 @@ const DocsQuickstartRoute = DocsQuickstartRouteImport.update({
   path: '/quickstart',
   getParentRoute: () => DocsRoute,
 } as any)
+const DocsPiiRedactionRoute = DocsPiiRedactionRouteImport.update({
+  id: '/pii-redaction',
+  path: '/pii-redaction',
+  getParentRoute: () => DocsRoute,
+} as any)
 const DocsMcpRoute = DocsMcpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
@@ -112,6 +119,11 @@ const DocsDaemonRoute = DocsDaemonRouteImport.update({
 const DocsCliReferenceRoute = DocsCliReferenceRouteImport.update({
   id: '/cli-reference',
   path: '/cli-reference',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsAuditLogsRoute = DocsAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
   getParentRoute: () => DocsRoute,
 } as any)
 const DocsArchitectureRoute = DocsArchitectureRouteImport.update({
@@ -194,11 +206,12 @@ const AppBillingCalculatorRoute = AppBillingCalculatorRouteImport.update({
   path: '/calculator',
   getParentRoute: () => AppBillingRoute,
 } as any)
-const PublicBlogSeriesHypervisorRoute = PublicBlogSeriesHypervisorRouteImport.update({
-  id: '/blog/series/hypervisor',
-  path: '/blog/series/hypervisor',
-  getParentRoute: () => PublicRoute,
-} as any)
+const PublicBlogSeriesHypervisorRoute =
+  PublicBlogSeriesHypervisorRouteImport.update({
+    id: '/blog/series/hypervisor',
+    path: '/blog/series/hypervisor',
+    getParentRoute: () => PublicRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
@@ -211,10 +224,12 @@ export interface FileRoutesByFullPath {
   '/pricing': typeof PublicPricingRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/audit-logs': typeof DocsAuditLogsRoute
   '/docs/cli-reference': typeof DocsCliReferenceRoute
   '/docs/daemon': typeof DocsDaemonRoute
   '/docs/local-setup': typeof DocsLocalSetupRoute
   '/docs/mcp': typeof DocsMcpRoute
+  '/docs/pii-redaction': typeof DocsPiiRedactionRoute
   '/docs/quickstart': typeof DocsQuickstartRoute
   '/docs/sandboxes': typeof DocsSandboxesRoute
   '/docs/source-prepare': typeof DocsSourcePrepareRoute
@@ -239,10 +254,12 @@ export interface FileRoutesByTo {
   '/pricing': typeof PublicPricingRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/audit-logs': typeof DocsAuditLogsRoute
   '/docs/cli-reference': typeof DocsCliReferenceRoute
   '/docs/daemon': typeof DocsDaemonRoute
   '/docs/local-setup': typeof DocsLocalSetupRoute
   '/docs/mcp': typeof DocsMcpRoute
+  '/docs/pii-redaction': typeof DocsPiiRedactionRoute
   '/docs/quickstart': typeof DocsQuickstartRoute
   '/docs/sandboxes': typeof DocsSandboxesRoute
   '/docs/source-prepare': typeof DocsSourcePrepareRoute
@@ -274,10 +291,12 @@ export interface FileRoutesById {
   '/_public/pricing': typeof PublicPricingRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/audit-logs': typeof DocsAuditLogsRoute
   '/docs/cli-reference': typeof DocsCliReferenceRoute
   '/docs/daemon': typeof DocsDaemonRoute
   '/docs/local-setup': typeof DocsLocalSetupRoute
   '/docs/mcp': typeof DocsMcpRoute
+  '/docs/pii-redaction': typeof DocsPiiRedactionRoute
   '/docs/quickstart': typeof DocsQuickstartRoute
   '/docs/sandboxes': typeof DocsSandboxesRoute
   '/docs/source-prepare': typeof DocsSourcePrepareRoute
@@ -307,10 +326,12 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/docs/api'
     | '/docs/architecture'
+    | '/docs/audit-logs'
     | '/docs/cli-reference'
     | '/docs/daemon'
     | '/docs/local-setup'
     | '/docs/mcp'
+    | '/docs/pii-redaction'
     | '/docs/quickstart'
     | '/docs/sandboxes'
     | '/docs/source-prepare'
@@ -335,10 +356,12 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/docs/api'
     | '/docs/architecture'
+    | '/docs/audit-logs'
     | '/docs/cli-reference'
     | '/docs/daemon'
     | '/docs/local-setup'
     | '/docs/mcp'
+    | '/docs/pii-redaction'
     | '/docs/quickstart'
     | '/docs/sandboxes'
     | '/docs/source-prepare'
@@ -369,10 +392,12 @@ export interface FileRouteTypes {
     | '/_public/pricing'
     | '/docs/api'
     | '/docs/architecture'
+    | '/docs/audit-logs'
     | '/docs/cli-reference'
     | '/docs/daemon'
     | '/docs/local-setup'
     | '/docs/mcp'
+    | '/docs/pii-redaction'
     | '/docs/quickstart'
     | '/docs/sandboxes'
     | '/docs/source-prepare'
@@ -477,6 +502,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsQuickstartRouteImport
       parentRoute: typeof DocsRoute
     }
+    '/docs/pii-redaction': {
+      id: '/docs/pii-redaction'
+      path: '/pii-redaction'
+      fullPath: '/docs/pii-redaction'
+      preLoaderRoute: typeof DocsPiiRedactionRouteImport
+      parentRoute: typeof DocsRoute
+    }
     '/docs/mcp': {
       id: '/docs/mcp'
       path: '/mcp'
@@ -503,6 +535,13 @@ declare module '@tanstack/react-router' {
       path: '/cli-reference'
       fullPath: '/docs/cli-reference'
       preLoaderRoute: typeof DocsCliReferenceRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/audit-logs': {
+      id: '/docs/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/docs/audit-logs'
+      preLoaderRoute: typeof DocsAuditLogsRouteImport
       parentRoute: typeof DocsRoute
     }
     '/docs/architecture': {
@@ -637,7 +676,9 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
   AppBillingIndexRoute: AppBillingIndexRoute,
 }
 
-const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(
+  AppBillingRouteChildren,
+)
 
 interface AppSettingsRouteChildren {
   AppSettingsHostsRoute: typeof AppSettingsHostsRoute
@@ -653,7 +694,9 @@ const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
-const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(AppSettingsRouteChildren)
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
 
 interface AppRouteChildren {
   AppBillingRoute: typeof AppBillingRouteWithChildren
@@ -697,15 +740,18 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicBlogSeriesHypervisorRoute: PublicBlogSeriesHypervisorRoute,
 }
 
-const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
 
 interface DocsRouteChildren {
   DocsApiRoute: typeof DocsApiRoute
   DocsArchitectureRoute: typeof DocsArchitectureRoute
+  DocsAuditLogsRoute: typeof DocsAuditLogsRoute
   DocsCliReferenceRoute: typeof DocsCliReferenceRoute
   DocsDaemonRoute: typeof DocsDaemonRoute
   DocsLocalSetupRoute: typeof DocsLocalSetupRoute
   DocsMcpRoute: typeof DocsMcpRoute
+  DocsPiiRedactionRoute: typeof DocsPiiRedactionRoute
   DocsQuickstartRoute: typeof DocsQuickstartRoute
   DocsSandboxesRoute: typeof DocsSandboxesRoute
   DocsSourcePrepareRoute: typeof DocsSourcePrepareRoute
@@ -716,10 +762,12 @@ interface DocsRouteChildren {
 const DocsRouteChildren: DocsRouteChildren = {
   DocsApiRoute: DocsApiRoute,
   DocsArchitectureRoute: DocsArchitectureRoute,
+  DocsAuditLogsRoute: DocsAuditLogsRoute,
   DocsCliReferenceRoute: DocsCliReferenceRoute,
   DocsDaemonRoute: DocsDaemonRoute,
   DocsLocalSetupRoute: DocsLocalSetupRoute,
   DocsMcpRoute: DocsMcpRoute,
+  DocsPiiRedactionRoute: DocsPiiRedactionRoute,
   DocsQuickstartRoute: DocsQuickstartRoute,
   DocsSandboxesRoute: DocsSandboxesRoute,
   DocsSourcePrepareRoute: DocsSourcePrepareRoute,

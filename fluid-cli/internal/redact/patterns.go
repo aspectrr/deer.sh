@@ -6,6 +6,7 @@
 package redact
 
 import (
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -180,6 +181,76 @@ func (d *sshPrivateKeyDetector) FindAll(text string) []Match {
 }
 
 // -------------------------------------------------------------------
+// Base64-encoded PEM private keys
+// -------------------------------------------------------------------
+
+type base64PEMDetector struct{}
+
+func (d *base64PEMDetector) Name() string     { return "base64_pem_key" }
+func (d *base64PEMDetector) Category() string { return "KEY" }
+
+// Matches base64 blobs starting with the encoding of "-----BEGIN ".
+var base64PEMRe = regexp.MustCompile(`LS0tLS1CRUdJTi[A-Za-z0-9+/\s]+=*`)
+
+func (d *base64PEMDetector) FindAll(text string) []Match {
+	var matches []Match
+	for _, loc := range base64PEMRe.FindAllStringIndex(text, -1) {
+		val := text[loc[0]:loc[1]]
+		cleaned := strings.Map(func(r rune) rune {
+			if r == ' ' || r == '\n' || r == '\r' || r == '\t' {
+				return -1
+			}
+			return r
+		}, val)
+		decoded, err := base64.StdEncoding.DecodeString(cleaned)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(decoded), "PRIVATE KEY") {
+			matches = append(matches, Match{Value: val, Start: loc[0], End: loc[1]})
+		}
+	}
+	return matches
+}
+
+// -------------------------------------------------------------------
+// Kubernetes secret data fields
+// -------------------------------------------------------------------
+
+// k8sSecretDetector detects Kubernetes secret data fields containing base64 values.
+// Matches patterns like "tls.key: <base64>" or "ssh-privatekey: <base64>" in YAML,
+// and their JSON equivalents.
+type k8sSecretDetector struct{}
+
+func (d *k8sSecretDetector) Name() string     { return "k8s_secret" }
+func (d *k8sSecretDetector) Category() string { return "KEY" }
+
+var k8sSecretKeyNames = []string{
+	"tls.key", "tls.crt", "ssh-privatekey", "private-key",
+	"private_key", "secret_key", "service-account-key",
+	"ca.key", "server.key", "client.key",
+}
+
+var k8sSecretRe *regexp.Regexp
+
+func init() {
+	escaped := make([]string, len(k8sSecretKeyNames))
+	for i, name := range k8sSecretKeyNames {
+		escaped[i] = regexp.QuoteMeta(name)
+	}
+	pattern := `(?:` + strings.Join(escaped, "|") + `)["']?\s*:\s*["']?([A-Za-z0-9+/=\s]{64,})["']?`
+	k8sSecretRe = regexp.MustCompile(pattern)
+}
+
+func (d *k8sSecretDetector) FindAll(text string) []Match {
+	var matches []Match
+	for _, loc := range k8sSecretRe.FindAllStringIndex(text, -1) {
+		matches = append(matches, Match{Value: text[loc[0]:loc[1]], Start: loc[0], End: loc[1]})
+	}
+	return matches
+}
+
+// -------------------------------------------------------------------
 // Connection strings
 // -------------------------------------------------------------------
 
@@ -270,6 +341,8 @@ func (d *regexDetector) FindAll(text string) []Match {
 func defaultDetectors() []PatternDetector {
 	return []PatternDetector{
 		&sshPrivateKeyDetector{},
+		&base64PEMDetector{},
+		&k8sSecretDetector{},
 		&connectionStringDetector{},
 		&awsKeyDetector{},
 		&apiKeyDetector{},

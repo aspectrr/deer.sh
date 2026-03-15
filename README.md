@@ -2,7 +2,7 @@
 
 # 🌊 fluid.sh
 
-### Claude Code for Debugging VMs
+### The AI Sys-Admin for Enterprise
 
 [![Commit Activity](https://img.shields.io/github/commit-activity/m/aspectrr/fluid.sh?color=blue)](https://github.com/aspectrr/fluid.sh/commits/main)
 [![License](https://img.shields.io/github/license/aspectrr/fluid.sh?color=blue)](https://github.com/aspectrr/fluid.sh/blob/main/LICENSE)
@@ -92,6 +92,23 @@ After prepare, the host appears in `/hosts` as prepared. The CLI generates an ed
 # List prepared hosts
 fluid source list
 ```
+
+## Sensitive Data Redaction
+
+All tool output is scanned for sensitive data before it reaches the AI agent. This prevents accidental exposure of credentials through commands like `cat /etc/ssl/private/server.key` or `kubectl get secret -o yaml`.
+
+**What gets redacted:**
+
+| Type | Examples |
+|------|---------|
+| PEM private keys | RSA, EC, ED25519, OPENSSH private key blocks |
+| Base64-encoded keys | Output of `cat key.pem \| base64`, Kubernetes secret values |
+| Kubernetes secrets | `tls.key`, `ssh-privatekey`, `private_key`, `secret_key` fields |
+| API keys & tokens | `sk-...`, `key-...`, Bearer tokens, AWS access keys (`AKIA...`) |
+| Connection strings | `postgres://`, `mysql://`, `mongodb://`, `redis://` URIs |
+| IP addresses | IPv4 and IPv6 addresses |
+
+Redaction runs at two layers: inline when each tool returns results, and again before the full conversation is sent to the LLM. The agent sees `[REDACTED: ...]` placeholders instead of the actual values.
 
 ## Quick Start
 

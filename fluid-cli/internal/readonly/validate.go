@@ -103,7 +103,9 @@ func validateOpenSSLArgs(tokens []string, allowed map[string]bool) error {
 			break
 		}
 	}
-	// Block dangerous openssl req operations
+	// Block dangerous openssl req operations.
+	// Note: -key is not blocked here. While "openssl req -new -key" generates a CSR,
+	// -new is already blocked above. Using -key alone is read-only and safe.
 	if subCmd == "req" {
 		for _, tok := range tokens {
 			if tok == "-new" || tok == "-signkey" || tok == "-x509" {

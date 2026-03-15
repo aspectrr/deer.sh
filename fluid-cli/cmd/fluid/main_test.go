@@ -8,50 +8,55 @@ import (
 
 func TestUpsertSandboxHost(t *testing.T) {
 	tests := []struct {
-		name     string
-		hosts    []config.SandboxHostConfig
-		entry    config.SandboxHostConfig
-		wantLen  int
-		wantName string
-		wantAddr string
+		name      string
+		hosts     []config.SandboxHostConfig
+		entry     config.SandboxHostConfig
+		wantLen   int
+		wantIndex int
+		wantName  string
+		wantAddr  string
 	}{
 		{
-			name:     "append to empty list",
-			hosts:    nil,
-			entry:    config.SandboxHostConfig{Name: "host1", DaemonAddress: "10.0.0.1:9091"},
-			wantLen:  1,
-			wantName: "host1",
-			wantAddr: "10.0.0.1:9091",
+			name:      "append to empty list",
+			hosts:     nil,
+			entry:     config.SandboxHostConfig{Name: "host1", DaemonAddress: "10.0.0.1:9091"},
+			wantLen:   1,
+			wantIndex: 0,
+			wantName:  "host1",
+			wantAddr:  "10.0.0.1:9091",
 		},
 		{
 			name: "append to existing list",
 			hosts: []config.SandboxHostConfig{
 				{Name: "host1", DaemonAddress: "10.0.0.1:9091"},
 			},
-			entry:    config.SandboxHostConfig{Name: "host2", DaemonAddress: "10.0.0.2:9091"},
-			wantLen:  2,
-			wantName: "host2",
-			wantAddr: "10.0.0.2:9091",
+			entry:     config.SandboxHostConfig{Name: "host2", DaemonAddress: "10.0.0.2:9091"},
+			wantLen:   2,
+			wantIndex: 1,
+			wantName:  "host2",
+			wantAddr:  "10.0.0.2:9091",
 		},
 		{
 			name: "update by name match",
 			hosts: []config.SandboxHostConfig{
 				{Name: "host1", DaemonAddress: "10.0.0.1:9091"},
 			},
-			entry:    config.SandboxHostConfig{Name: "host1", DaemonAddress: "10.0.0.99:9091", Insecure: true},
-			wantLen:  1,
-			wantName: "host1",
-			wantAddr: "10.0.0.99:9091",
+			entry:     config.SandboxHostConfig{Name: "host1", DaemonAddress: "10.0.0.99:9091", Insecure: true},
+			wantLen:   1,
+			wantIndex: 0,
+			wantName:  "host1",
+			wantAddr:  "10.0.0.99:9091",
 		},
 		{
 			name: "update by address match",
 			hosts: []config.SandboxHostConfig{
 				{Name: "old-name", DaemonAddress: "10.0.0.1:9091"},
 			},
-			entry:    config.SandboxHostConfig{Name: "new-name", DaemonAddress: "10.0.0.1:9091"},
-			wantLen:  1,
-			wantName: "new-name",
-			wantAddr: "10.0.0.1:9091",
+			entry:     config.SandboxHostConfig{Name: "new-name", DaemonAddress: "10.0.0.1:9091"},
+			wantLen:   1,
+			wantIndex: 0,
+			wantName:  "new-name",
+			wantAddr:  "10.0.0.1:9091",
 		},
 		{
 			name: "name and address match first hit wins",
@@ -59,16 +64,22 @@ func TestUpsertSandboxHost(t *testing.T) {
 				{Name: "host1", DaemonAddress: "10.0.0.1:9091"},
 				{Name: "host2", DaemonAddress: "10.0.0.2:9091"},
 			},
-			entry:   config.SandboxHostConfig{Name: "host1", DaemonAddress: "10.0.0.1:9091", Insecure: true},
-			wantLen: 2,
+			entry:     config.SandboxHostConfig{Name: "host1", DaemonAddress: "10.0.0.1:9091", Insecure: true},
+			wantLen:   2,
+			wantIndex: 0,
+			wantName:  "host1",
+			wantAddr:  "10.0.0.1:9091",
 		},
 		{
 			name: "different name different address appends",
 			hosts: []config.SandboxHostConfig{
 				{Name: "host1", DaemonAddress: "10.0.0.1:9091"},
 			},
-			entry:   config.SandboxHostConfig{Name: "host2", DaemonAddress: "10.0.0.2:9091"},
-			wantLen: 2,
+			entry:     config.SandboxHostConfig{Name: "host2", DaemonAddress: "10.0.0.2:9091"},
+			wantLen:   2,
+			wantIndex: 1,
+			wantName:  "host2",
+			wantAddr:  "10.0.0.2:9091",
 		},
 	}
 
@@ -78,32 +89,19 @@ func TestUpsertSandboxHost(t *testing.T) {
 			input := make([]config.SandboxHostConfig, len(tc.hosts))
 			copy(input, tc.hosts)
 
-			result := upsertSandboxHost(input, tc.entry)
+			result := config.UpsertSandboxHost(input, tc.entry)
 			if len(result) != tc.wantLen {
 				t.Fatalf("got len %d, want %d", len(result), tc.wantLen)
 			}
 
 			if tc.wantName != "" {
-				last := result[len(result)-1]
-				if tc.wantLen == 1 || tc.wantLen > len(tc.hosts) {
-					// Check the last entry (appended or only entry)
-					if last.Name != tc.wantName {
-						t.Errorf("got name %q, want %q", last.Name, tc.wantName)
-					}
+				if result[tc.wantIndex].Name != tc.wantName {
+					t.Errorf("result[%d].Name = %q, want %q", tc.wantIndex, result[tc.wantIndex].Name, tc.wantName)
 				}
 			}
-
 			if tc.wantAddr != "" {
-				// Find entry with expected address
-				found := false
-				for _, h := range result {
-					if h.DaemonAddress == tc.wantAddr {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("expected address %q not found in result", tc.wantAddr)
+				if result[tc.wantIndex].DaemonAddress != tc.wantAddr {
+					t.Errorf("result[%d].DaemonAddress = %q, want %q", tc.wantIndex, result[tc.wantIndex].DaemonAddress, tc.wantAddr)
 				}
 			}
 		})
