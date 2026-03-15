@@ -422,15 +422,18 @@ func (m ConnectModel) attemptConnect(addr string) tea.Cmd {
 			return ConnectHealthResultMsg{Err: fmt.Errorf("dial: %w", err)}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+		healthCtx, healthCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer healthCancel()
 
-		if err := svc.Health(ctx); err != nil {
+		if err := svc.Health(healthCtx); err != nil {
 			_ = svc.Close()
 			return ConnectHealthResultMsg{Err: fmt.Errorf("health check: %w", err)}
 		}
 
-		info, err := svc.GetHostInfo(ctx)
+		infoCtx, infoCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer infoCancel()
+
+		info, err := svc.GetHostInfo(infoCtx)
 		if err != nil {
 			_ = svc.Close()
 			return ConnectHealthResultMsg{Err: fmt.Errorf("get host info: %w", err)}

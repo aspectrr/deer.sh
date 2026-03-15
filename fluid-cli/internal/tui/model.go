@@ -348,7 +348,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Hot-swap sandbox service if available
 			if svc := m.connectModel.GetService(); svc != nil {
 				if agent, ok := m.agentRunner.(*FluidAgent); ok {
-					agent.SetSandboxService(svc)
+					if err := agent.SetSandboxService(svc); err != nil {
+						m.addSystemMessage(fmt.Sprintf("Failed to swap sandbox service: %v", err))
+					}
 				}
 			}
 		} else {
@@ -840,18 +842,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.liveOutputSandbox = msg.SandboxID
 			m.liveOutputLines = nil
 			m.liveOutputPending = ""
-			m.liveOutputCommand = ""
+			m.liveOutputCommand = m.extractLiveOutputCommand()
 			m.liveOutputIndex = len(m.conversation)
-			if m.currentToolArgs != nil {
-				if cmd, ok := m.currentToolArgs["command"].(string); ok {
-					if len(cmd) > 60 {
-						cmd = cmd[:57] + "..."
-					}
-					m.liveOutputCommand = cmd
-				} else if path, ok := m.currentToolArgs["path"].(string); ok {
-					m.liveOutputCommand = path
-				}
-			}
 			m.conversation = append(m.conversation, ConversationEntry{
 				Role:    "live_output",
 				Content: "",
@@ -893,25 +885,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if !m.showingLiveOutput {
-			// Add a new conversation entry for live output
 			m.showingLiveOutput = true
 			m.liveOutputSandbox = msg.SandboxID
 			m.liveOutputLines = nil
 			m.liveOutputPending = ""
-			m.liveOutputCommand = ""
+			m.liveOutputCommand = m.extractLiveOutputCommand()
 			m.liveOutputIndex = len(m.conversation)
-
-			// Extract command or path from current tool args for the header
-			if m.currentToolArgs != nil {
-				if cmd, ok := m.currentToolArgs["command"].(string); ok {
-					if len(cmd) > 60 {
-						cmd = cmd[:57] + "..."
-					}
-					m.liveOutputCommand = cmd
-				} else if path, ok := m.currentToolArgs["path"].(string); ok {
-					m.liveOutputCommand = path
-				}
-			}
 			m.conversation = append(m.conversation, ConversationEntry{
 				Role:    "live_output",
 				Content: "",
@@ -997,7 +976,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case SensitiveContentRedactedMsg:
-		m.addSystemMessage(fmt.Sprintf("Private key detected in %s - redacted before sending to LLM", msg.Path))
+		if msg.Path != "" {
+			m.addSystemMessage(fmt.Sprintf("Private key detected in %s - redacted before sending to LLM", msg.Path))
+		} else {
+			m.addSystemMessage(fmt.Sprintf("Private key detected in command output on %s - redacted before sending to LLM", msg.Host))
+		}
 		m.updateViewportContent(false)
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
@@ -1550,6 +1533,24 @@ func (m *Model) addToolResult(tr ToolResult) {
 }
 
 // formatLiveOutput formats the live output for display, truncating to last N lines
+// extractLiveOutputCommand extracts a display label from the current tool args
+// (command truncated to 60 chars, or file path) for the live output header.
+func (m *Model) extractLiveOutputCommand() string {
+	if m.currentToolArgs == nil {
+		return ""
+	}
+	if cmd, ok := m.currentToolArgs["command"].(string); ok {
+		if len(cmd) > 60 {
+			cmd = cmd[:57] + "..."
+		}
+		return cmd
+	}
+	if path, ok := m.currentToolArgs["path"].(string); ok {
+		return path
+	}
+	return ""
+}
+
 func (m *Model) formatLiveOutput() string {
 	var lines []string
 	if len(m.liveOutputLines) > 0 {

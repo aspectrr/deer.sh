@@ -107,8 +107,8 @@ func PrepareWithKey(ctx context.Context, sshRun SSHRunFunc, pubKey string, onPro
 	}
 	// Ensure shell is correct even if user already existed
 	sshRun(ctx, "usermod -s /usr/local/bin/fluid-readonly-shell fluid-readonly") //nolint:errcheck
-	// Add journal/log access groups (best-effort, groups may not exist on all distros)
-	sshRun(ctx, "usermod -a -G systemd-journal,adm fluid-readonly 2>/dev/null || true") //nolint:errcheck
+	// systemd-journal grants journal read access; adm omitted as overly broad
+	sshRun(ctx, "usermod -a -G systemd-journal fluid-readonly 2>/dev/null || true") //nolint:errcheck
 	result.UserCreated = true
 	report(StepCreateUser, "Creating fluid-readonly user", true)
 
@@ -217,8 +217,8 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 	} else {
 		logger.Info("usermod fixup applied (shell and home directory)")
 	}
-	// Add journal/log access groups (best-effort, groups may not exist on all distros)
-	sshRun(ctx, "usermod -a -G systemd-journal,adm fluid-readonly 2>/dev/null || true") //nolint:errcheck
+	// systemd-journal grants journal read access; adm omitted as overly broad
+	sshRun(ctx, "usermod -a -G systemd-journal fluid-readonly 2>/dev/null || true") //nolint:errcheck
 	result.UserCreated = true
 	report(StepCreateUser, "Creating fluid-readonly user", true)
 

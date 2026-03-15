@@ -309,11 +309,12 @@ function LandingPage() {
             </div>
           )}
           <p className="font-logo mt-2 text-lg tracking-tight text-neutral-200">
-            Claude Code for working on Linux Servers.
+            The AI Sys-Admin for Enterprise.
           </p>
           <p className="my-2 text-neutral-400">
-            Read-only shell access. PII redaction. Tamper-evident audit logs. Fluid gets just the
-            access it needs to debug and manage your servers - nothing more.
+            Read-only shell access. PII redaction. Tamper-evident audit logs. Sandboxes for edits.
+            Generate IaC for fixes. Fluid gets the minimum access it needs to debug and manage your
+            servers.
           </p>
           <div className="mt-4 flex items-center gap-3">
             <a

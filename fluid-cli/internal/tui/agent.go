@@ -136,16 +136,17 @@ func (a *FluidAgent) SetReadOnly(ro bool) {
 
 // SetSandboxService hot-swaps the sandbox service (e.g. after /connect).
 // Must be called after Cancel() to avoid race conditions with running agent.
-func (a *FluidAgent) SetSandboxService(svc sandbox.Service) {
+func (a *FluidAgent) SetSandboxService(svc sandbox.Service) error {
 	a.cancelMu.Lock()
 	defer a.cancelMu.Unlock()
 	if a.cancelFunc != nil {
-		panic("SetSandboxService called while agent is running; call Cancel() first")
+		return fmt.Errorf("cannot swap sandbox service while agent is running; cancel first")
 	}
 	if a.service != nil {
 		_ = a.service.Close()
 	}
 	a.service = svc
+	return nil
 }
 
 // sendStatus sends a status message through the callback if set
@@ -417,7 +418,9 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources."
 			}
 
-			// Add TLS debugging guidance when the agent has source host access
+			// Add TLS debugging guidance when the agent has source host access AND sandbox hosts.
+			// This is mutually exclusive with the branch above that appends tlsDebuggingGuidance
+			// when !HasSandboxHosts (source-only mode) - so the guidance is never appended twice.
 			if len(a.cfg.PreparedHosts()) > 0 && a.cfg.HasSandboxHosts() && !a.readOnly {
 				systemPrompt += tlsDebuggingGuidance
 			}

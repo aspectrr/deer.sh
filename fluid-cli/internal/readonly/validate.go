@@ -139,15 +139,17 @@ var subcommandRestrictions = map[string]map[string]bool{
 		"list": true,
 	},
 	"openssl": {
-		"x509":     true,
-		"verify":   true,
+		"x509":   true,
+		"verify": true,
+		// s_client makes outbound TLS connections to inspect remote certificates.
+		// Acceptable for diagnostics but be aware it can reach arbitrary hosts.
 		"s_client": true,
 		"crl":      true,
 		"version":  true,
 		"ciphers":  true,
 		// req is allowed for read-only inspection (e.g., openssl req -text -noout).
-		// Dangerous operations like "openssl req -new" are blocked by the shell-level
-		// blocklist in shell.go.
+		// Dangerous operations like "openssl req -new" are blocked by both the
+		// Go-level validateOpenSSLArgs check above and the shell-level blocklist.
 		"req": true,
 	},
 }

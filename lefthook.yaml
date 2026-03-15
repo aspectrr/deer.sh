@@ -5,21 +5,21 @@ pre-commit:
     fmt-fluid-cli:
       glob: "*.go"
       root: "fluid-cli"
-      run: "$(go env GOPATH)/bin/gofumpt -w ."
+      run: "make fmt"
       stage_fixed: true
 
     # Go - fluid daemon
     fmt-fluid-daemon:
       glob: "*.go"
       root: "fluid-daemon"
-      run: go fmt ./...
+      run: "make fmt"
       stage_fixed: true
 
     # Go - API
     fmt-api:
       glob: "*.go"
       root: "api"
-      run: go fmt ./...
+      run: "make fmt"
       stage_fixed: true
 
     # Python SDK
