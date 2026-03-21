@@ -316,7 +316,7 @@ func TestUpdate_PerHostDeploy(t *testing.T) {
 	}
 
 	// Simulate host 1 failure
-	updatedModel, cmd = m.Update(HostKeyDeployedMsg{Host: "host2", Index: 1, Err: fmt.Errorf("connection refused")})
+	updatedModel, _ = m.Update(HostKeyDeployedMsg{Host: "host2", Index: 1, Err: fmt.Errorf("connection refused")})
 	m = updatedModel.(ConnectModel)
 	if m.hostDeployStatuses[1].State != HostDeployFailed {
 		t.Errorf("host 1 should be failed, got %v", m.hostDeployStatuses[1].State)

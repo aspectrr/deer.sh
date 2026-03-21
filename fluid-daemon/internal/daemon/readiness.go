@@ -119,5 +119,5 @@ func (rs *ReadinessServer) handleReady(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "ok\n")
+	_, _ = fmt.Fprintf(w, "ok\n")
 }

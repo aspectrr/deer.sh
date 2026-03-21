@@ -1101,12 +1101,20 @@ func (s *Server) ScanSourceHostKeys(ctx context.Context, _ *fluidv1.ScanSourceHo
 			continue
 		}
 		_, writeErr := f.WriteString(toAppend)
-		f.Close()
+		closeErr := f.Close()
 		if writeErr != nil {
 			results = append(results, &fluidv1.ScanSourceHostKeysResult{
 				Address: addr,
 				Success: false,
 				Error:   fmt.Sprintf("write known_hosts: %v", writeErr),
+			})
+			continue
+		}
+		if closeErr != nil {
+			results = append(results, &fluidv1.ScanSourceHostKeysResult{
+				Address: addr,
+				Success: false,
+				Error:   fmt.Sprintf("close known_hosts: %v", closeErr),
 			})
 			continue
 		}
