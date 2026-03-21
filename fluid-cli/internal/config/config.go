@@ -14,33 +14,48 @@ import (
 
 // Config is the root configuration for virsh-sandbox API.
 type Config struct {
-	Provider             string              `yaml:"provider"` // "libvirt" (default), "proxmox", or "control-plane"
-	Libvirt              LibvirtConfig       `yaml:"libvirt"`
-	Proxmox              ProxmoxConfig       `yaml:"proxmox"`
-	ControlPlane         ControlPlaneConfig  `yaml:"control_plane"`
-	VM                   VMConfig            `yaml:"vm"`
-	SSH                  SSHConfig           `yaml:"ssh"`
-	Ansible              AnsibleConfig       `yaml:"ansible"`
-	Logging              LoggingConfig       `yaml:"logging"`
-	Telemetry            TelemetryConfig     `yaml:"telemetry"`
-	AIAgent              AIAgentConfig       `yaml:"ai_agent"`
-	Hosts                []HostConfig        `yaml:"hosts"`         // Source hosts for read-only SSH access
-	SandboxHosts         []SandboxHostConfig `yaml:"sandbox_hosts"` // Daemon hosts for sandbox operations
-	Redact               RedactConfig        `yaml:"redact"`
-	Audit                AuditConfig         `yaml:"audit"`
-	ExtraAllowedCommands []string            `yaml:"extra_allowed_commands"`      // Additional commands allowed in read-only mode
-	OnboardingComplete   bool                `yaml:"onboarding_complete"`         // Whether onboarding wizard has been completed
-	DocsSessionCode      string              `yaml:"docs_session_code,omitempty"` // Persisted for cross-session docs progress tracking
-	APIURL               string              `yaml:"api_url,omitempty"`           // Control plane API base URL
-	WebURL               string              `yaml:"web_url,omitempty"`           // Web dashboard base URL
+	Provider                    string              `yaml:"provider"` // "libvirt" (default), "proxmox", or "control-plane"
+	Libvirt                     LibvirtConfig       `yaml:"libvirt"`
+	Proxmox                     ProxmoxConfig       `yaml:"proxmox"`
+	ControlPlane                ControlPlaneConfig  `yaml:"control_plane"`
+	VM                          VMConfig            `yaml:"vm"`
+	SSH                         SSHConfig           `yaml:"ssh"`
+	Ansible                     AnsibleConfig       `yaml:"ansible"`
+	Logging                     LoggingConfig       `yaml:"logging"`
+	Telemetry                   TelemetryConfig     `yaml:"telemetry"`
+	AIAgent                     AIAgentConfig       `yaml:"ai_agent"`
+	Hosts                       []HostConfig        `yaml:"hosts"`         // Source hosts for read-only SSH access
+	SandboxHosts                []SandboxHostConfig `yaml:"sandbox_hosts"` // Daemon hosts for sandbox operations
+	Redact                      RedactConfig        `yaml:"redact"`
+	Audit                       AuditConfig         `yaml:"audit"`
+	ExtraAllowedCommands        []string            `yaml:"extra_allowed_commands"`         // Additional commands allowed in read-only mode
+	ExtraAllowedSubcommands     map[string][]string `yaml:"extra_allowed_subcommands"`      // Additional subcommands allowed for specific commands
+	ExtraAllowedSubcommandsMode map[string]bool     `yaml:"extra_allowed_subcommands_mode"` // true = allowlist (block all except), false = blocklist (allow all except)
+	OnboardingComplete          bool                `yaml:"onboarding_complete"`            // Whether onboarding wizard has been completed
+	DocsSessionCode             string              `yaml:"docs_session_code,omitempty"`    // Persisted for cross-session docs progress tracking
+	APIURL                      string              `yaml:"api_url,omitempty"`              // Control plane API base URL
+	WebURL                      string              `yaml:"web_url,omitempty"`              // Web dashboard base URL
 }
 
 // SandboxHostConfig configures a remote host running fluid-daemon for sandbox operations.
 type SandboxHostConfig struct {
-	Name          string `yaml:"name"`
-	DaemonAddress string `yaml:"daemon_address"`
-	Insecure      bool   `yaml:"insecure"`
-	CAFile        string `yaml:"ca_file"`
+	Name                 string `yaml:"name"`
+	DaemonAddress        string `yaml:"daemon_address"`
+	Insecure             bool   `yaml:"insecure"`
+	CAFile               string `yaml:"ca_file"`
+	SSHUser              string `yaml:"ssh_user"`
+	DaemonIdentityPubKey string `yaml:"daemon_identity_pub_key,omitempty"`
+}
+
+// DaemonIdentityPubKey returns the first non-empty daemon identity pub key
+// from the configured sandbox hosts.
+func DaemonIdentityPubKey(hosts []SandboxHostConfig) string {
+	for _, h := range hosts {
+		if h.DaemonIdentityPubKey != "" {
+			return h.DaemonIdentityPubKey
+		}
+	}
+	return ""
 }
 
 // RedactConfig controls PII/sensitive data redaction before LLM calls.

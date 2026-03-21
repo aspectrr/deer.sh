@@ -137,7 +137,7 @@ func checkKVMAvailable(ctx context.Context, run hostexec.RunFunc) CheckResult {
 		Category: "prerequisites",
 		Passed:   false,
 		Message:  "KVM not available (/dev/kvm missing)",
-		FixCmd:   "sudo modprobe kvm && sudo modprobe kvm_intel || sudo modprobe kvm_amd",
+		FixCmd:   "sudo modprobe kvm && sudo modprobe kvm_intel || sudo modprobe kvm_amd. If this fails, you may be on a virtualized cloud host (e.g., Hetzner Cloud) that doesn't support nested KVM. Use a dedicated server instead.",
 	}
 }
 

@@ -136,6 +136,83 @@ func PrepareWithKey(ctx context.Context, sshRun SSHRunFunc, pubKey string, onPro
 	return result, nil
 }
 
+// SetupSourceHost creates the fluid-daemon user (if missing), adds it to the
+// libvirt group, and deploys the daemon's SSH identity key. This is the full
+// setup needed for the daemon to reach a source host via qemu+ssh.
+// All steps are idempotent. Requires sudo on the target host.
+func SetupSourceHost(ctx context.Context, sshRun SSHRunFunc, identityPubKey string, logger *slog.Logger) error {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	key := strings.TrimSpace(identityPubKey)
+	if key == "" {
+		return fmt.Errorf("daemon identity pub key is empty")
+	}
+
+	// Create fluid-daemon user with libvirt access, deploy key, and grant
+	// passwordless sudo for qemu-img so the daemon can read QEMU-owned snapshot
+	// files (libvirt-qemu:kvm 0600) when pulling disk images.
+	cmd := fmt.Sprintf(
+		"id fluid-daemon >/dev/null 2>&1 || useradd --system --shell /bin/bash -m fluid-daemon && "+
+			"usermod -aG libvirt fluid-daemon 2>/dev/null || true && "+
+			"mkdir -p ~fluid-daemon/.ssh && chmod 700 ~fluid-daemon/.ssh && "+
+			"grep -qF '%s' ~fluid-daemon/.ssh/authorized_keys 2>/dev/null || echo '%s' >> ~fluid-daemon/.ssh/authorized_keys && "+
+			"chmod 600 ~fluid-daemon/.ssh/authorized_keys && chown -R fluid-daemon:fluid-daemon ~fluid-daemon/.ssh && "+
+			"QEMU_IMG=$(command -v qemu-img); "+
+			"echo \"fluid-daemon ALL=(root) NOPASSWD: ${QEMU_IMG}\" > /etc/sudoers.d/fluid-daemon-qemuimg && "+
+			"chmod 440 /etc/sudoers.d/fluid-daemon-qemuimg",
+		key, key,
+	)
+	encoded := base64.StdEncoding.EncodeToString([]byte(cmd))
+	wrapped := fmt.Sprintf("echo %s | base64 -d | sudo bash", encoded)
+
+	stdout, stderr, code, err := sshRun(ctx, wrapped)
+	if err != nil {
+		return fmt.Errorf("setup source host: %w", err)
+	}
+	if code != 0 {
+		return fmt.Errorf("setup source host: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+
+	logger.Info("source host setup complete: fluid-daemon user + key deployed")
+	return nil
+}
+
+// DeployDaemonKey deploys the daemon's SSH identity pub key to the fluid-daemon
+// user's authorized_keys on a source host, allowing the daemon to SSH in for
+// virsh/rsync operations (via qemu+ssh://fluid-daemon@host/system).
+// The fluid-daemon user must already exist on the target host.
+// The command is idempotent.
+func DeployDaemonKey(ctx context.Context, sshRun SSHRunFunc, identityPubKey string, logger *slog.Logger) error {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	key := strings.TrimSpace(identityPubKey)
+	if key == "" {
+		return fmt.Errorf("daemon identity pub key is empty")
+	}
+
+	cmd := fmt.Sprintf(
+		"mkdir -p ~fluid-daemon/.ssh && chmod 700 ~fluid-daemon/.ssh && "+
+			"grep -qF '%s' ~fluid-daemon/.ssh/authorized_keys 2>/dev/null || echo '%s' >> ~fluid-daemon/.ssh/authorized_keys && "+
+			"chmod 600 ~fluid-daemon/.ssh/authorized_keys && chown -R fluid-daemon:fluid-daemon ~fluid-daemon/.ssh",
+		key, key,
+	)
+	encoded := base64.StdEncoding.EncodeToString([]byte(cmd))
+	wrapped := fmt.Sprintf("echo %s | base64 -d | sudo bash", encoded)
+
+	stdout, stderr, code, err := sshRun(ctx, wrapped)
+	if err != nil {
+		return fmt.Errorf("deploy daemon key: %w", err)
+	}
+	if code != 0 {
+		return fmt.Errorf("deploy daemon key: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+
+	logger.Info("daemon identity key deployed to fluid-daemon user")
+	return nil
+}
+
 // Prepare configures a golden VM for read-only access via the fluid-readonly user.
 // All steps are idempotent. The sshRun function is used to execute commands on the VM.
 //

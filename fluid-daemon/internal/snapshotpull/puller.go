@@ -62,22 +62,37 @@ func NewPuller(imgStore *image.Store, db *gorm.DB, logger *slog.Logger) *Puller 
 
 // Pull pulls a VM snapshot image, using the cache when appropriate.
 // Concurrent pulls for the same image are deduplicated.
+//
+// Fresh mode: try live pull first, fall back to cache on failure.
+// Cached mode: try cache first, pull on miss.
 func (p *Puller) Pull(ctx context.Context, req PullRequest, backend SnapshotBackend) (*PullResult, error) {
 	imageName := cacheKey(req.SourceHost, req.VMName)
 
-	// Check cache if mode is "cached" (default)
-	if req.SnapshotMode != "fresh" {
-		if result, ok := p.checkCache(ctx, imageName); ok {
-			p.logger.Info("cache hit", "image", imageName)
+	if req.SnapshotMode == "fresh" {
+		result, err := p.pullOrWait(ctx, imageName, req, backend)
+		if err == nil {
 			return result, nil
 		}
+		p.logger.Warn("live pull failed, falling back to cache", "image", imageName, "error", err)
+		if cached, ok := p.checkCache(ctx, imageName); ok {
+			return cached, nil
+		}
+		return nil, err
 	}
 
-	// Deduplicate concurrent pulls for the same image
+	// Cached mode: check cache first, pull on miss
+	if result, ok := p.checkCache(ctx, imageName); ok {
+		p.logger.Info("cache hit", "image", imageName)
+		return result, nil
+	}
+	return p.pullOrWait(ctx, imageName, req, backend)
+}
+
+// pullOrWait performs a live pull with inflight deduplication.
+func (p *Puller) pullOrWait(ctx context.Context, imageName string, req PullRequest, backend SnapshotBackend) (*PullResult, error) {
 	p.mu.Lock()
 	if entry, ok := p.inflight[imageName]; ok {
 		p.mu.Unlock()
-		// Wait for the in-flight pull to finish
 		select {
 		case <-entry.done:
 			return entry.result, entry.err
@@ -86,19 +101,16 @@ func (p *Puller) Pull(ctx context.Context, req PullRequest, backend SnapshotBack
 		}
 	}
 
-	// We're the first - register ourselves
 	entry := &inflightEntry{done: make(chan struct{})}
 	p.inflight[imageName] = entry
 	p.mu.Unlock()
 
 	result, err := p.doPull(ctx, imageName, req, backend)
 
-	// Store result on the entry so all waiters can read it
 	entry.result = result
 	entry.err = err
 	close(entry.done)
 
-	// Clean up inflight map
 	p.mu.Lock()
 	delete(p.inflight, imageName)
 	p.mu.Unlock()
@@ -112,22 +124,13 @@ func (p *Puller) doPull(ctx context.Context, imageName string, req PullRequest, 
 
 	destPath := p.imgStore.BaseDir() + "/" + imageName + ".qcow2"
 
-	// Remove existing file if doing a fresh pull
-	if req.SnapshotMode == "fresh" {
-		_ = os.Remove(destPath)
-	}
-
 	// Snapshot and pull
 	if err := backend.SnapshotAndPull(ctx, req.VMName, destPath); err != nil {
 		return nil, fmt.Errorf("snapshot and pull: %w", err)
 	}
 
-	// Extract kernel from the pulled image - this is required for microVM boot
-	_, err := image.ExtractKernel(ctx, destPath)
-	if err != nil {
-		_ = os.Remove(destPath)
-		return nil, fmt.Errorf("extract kernel: %w", err)
-	}
+	// Kernel extraction is no longer needed - microVM provider uses a
+	// pre-downloaded kernel configured via microvm.kernel_path.
 
 	// Get file size
 	var sizeMB int64
@@ -169,8 +172,8 @@ func (p *Puller) checkCache(ctx context.Context, imageName string) (*PullResult,
 		return nil, false
 	}
 
-	// Verify the image and kernel still exist on disk
-	if !p.imgStore.HasImage(imageName) || !p.imgStore.HasKernel(imageName) {
+	// Verify the image still exists on disk
+	if !p.imgStore.HasImage(imageName) {
 		_ = p.db.Delete(&cached).Error
 		return nil, false
 	}

@@ -304,17 +304,19 @@ func (*GetHostInfoRequest) Descriptor() ([]byte, []int) {
 
 // HostInfoResponse contains host resource and capability information.
 type HostInfoResponse struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	HostId          string                 `protobuf:"bytes,1,opt,name=host_id,json=hostId,proto3" json:"host_id,omitempty"`
-	Hostname        string                 `protobuf:"bytes,2,opt,name=hostname,proto3" json:"hostname,omitempty"`
-	Version         string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
-	TotalCpus       int32                  `protobuf:"varint,4,opt,name=total_cpus,json=totalCpus,proto3" json:"total_cpus,omitempty"`
-	TotalMemoryMb   int64                  `protobuf:"varint,5,opt,name=total_memory_mb,json=totalMemoryMb,proto3" json:"total_memory_mb,omitempty"`
-	ActiveSandboxes int32                  `protobuf:"varint,6,opt,name=active_sandboxes,json=activeSandboxes,proto3" json:"active_sandboxes,omitempty"`
-	BaseImages      []string               `protobuf:"bytes,7,rep,name=base_images,json=baseImages,proto3" json:"base_images,omitempty"`
-	SshCaPubKey     string                 `protobuf:"bytes,8,opt,name=ssh_ca_pub_key,json=sshCaPubKey,proto3" json:"ssh_ca_pub_key,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	HostId            string                 `protobuf:"bytes,1,opt,name=host_id,json=hostId,proto3" json:"host_id,omitempty"`
+	Hostname          string                 `protobuf:"bytes,2,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	Version           string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	TotalCpus         int32                  `protobuf:"varint,4,opt,name=total_cpus,json=totalCpus,proto3" json:"total_cpus,omitempty"`
+	TotalMemoryMb     int64                  `protobuf:"varint,5,opt,name=total_memory_mb,json=totalMemoryMb,proto3" json:"total_memory_mb,omitempty"`
+	ActiveSandboxes   int32                  `protobuf:"varint,6,opt,name=active_sandboxes,json=activeSandboxes,proto3" json:"active_sandboxes,omitempty"`
+	BaseImages        []string               `protobuf:"bytes,7,rep,name=base_images,json=baseImages,proto3" json:"base_images,omitempty"`
+	SshCaPubKey       string                 `protobuf:"bytes,8,opt,name=ssh_ca_pub_key,json=sshCaPubKey,proto3" json:"ssh_ca_pub_key,omitempty"`
+	SshIdentityPubKey string                 `protobuf:"bytes,9,opt,name=ssh_identity_pub_key,json=sshIdentityPubKey,proto3" json:"ssh_identity_pub_key,omitempty"`
+	SourceHosts       []*SourceHostInfo      `protobuf:"bytes,10,rep,name=source_hosts,json=sourceHosts,proto3" json:"source_hosts,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *HostInfoResponse) Reset() {
@@ -403,6 +405,83 @@ func (x *HostInfoResponse) GetSshCaPubKey() string {
 	return ""
 }
 
+func (x *HostInfoResponse) GetSshIdentityPubKey() string {
+	if x != nil {
+		return x.SshIdentityPubKey
+	}
+	return ""
+}
+
+func (x *HostInfoResponse) GetSourceHosts() []*SourceHostInfo {
+	if x != nil {
+		return x.SourceHosts
+	}
+	return nil
+}
+
+// SourceHostInfo describes a source host the daemon is configured to use.
+// Returned in HostInfoResponse so the CLI can deploy the daemon's identity
+// key to these hosts during setup.
+type SourceHostInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	SshUser       string                 `protobuf:"bytes,2,opt,name=ssh_user,json=sshUser,proto3" json:"ssh_user,omitempty"`
+	SshPort       int32                  `protobuf:"varint,3,opt,name=ssh_port,json=sshPort,proto3" json:"ssh_port,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceHostInfo) Reset() {
+	*x = SourceHostInfo{}
+	mi := &file_fluid_v1_daemon_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceHostInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceHostInfo) ProtoMessage() {}
+
+func (x *SourceHostInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_daemon_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceHostInfo.ProtoReflect.Descriptor instead.
+func (*SourceHostInfo) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SourceHostInfo) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *SourceHostInfo) GetSshUser() string {
+	if x != nil {
+		return x.SshUser
+	}
+	return ""
+}
+
+func (x *SourceHostInfo) GetSshPort() int32 {
+	if x != nil {
+		return x.SshPort
+	}
+	return 0
+}
+
 // HealthRequest is an empty health check request.
 type HealthRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -412,7 +491,7 @@ type HealthRequest struct {
 
 func (x *HealthRequest) Reset() {
 	*x = HealthRequest{}
-	mi := &file_fluid_v1_daemon_proto_msgTypes[6]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +503,7 @@ func (x *HealthRequest) String() string {
 func (*HealthRequest) ProtoMessage() {}
 
 func (x *HealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_daemon_proto_msgTypes[6]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,7 +516,7 @@ func (x *HealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthRequest.ProtoReflect.Descriptor instead.
 func (*HealthRequest) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{6}
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{7}
 }
 
 // HealthResponse indicates daemon health status.
@@ -450,7 +529,7 @@ type HealthResponse struct {
 
 func (x *HealthResponse) Reset() {
 	*x = HealthResponse{}
-	mi := &file_fluid_v1_daemon_proto_msgTypes[7]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +541,7 @@ func (x *HealthResponse) String() string {
 func (*HealthResponse) ProtoMessage() {}
 
 func (x *HealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_daemon_proto_msgTypes[7]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +554,7 @@ func (x *HealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthResponse.ProtoReflect.Descriptor instead.
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{7}
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *HealthResponse) GetStatus() string {
@@ -496,7 +575,7 @@ type DiscoverHostsCommand struct {
 
 func (x *DiscoverHostsCommand) Reset() {
 	*x = DiscoverHostsCommand{}
-	mi := &file_fluid_v1_daemon_proto_msgTypes[8]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -508,7 +587,7 @@ func (x *DiscoverHostsCommand) String() string {
 func (*DiscoverHostsCommand) ProtoMessage() {}
 
 func (x *DiscoverHostsCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_daemon_proto_msgTypes[8]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +600,7 @@ func (x *DiscoverHostsCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoverHostsCommand.ProtoReflect.Descriptor instead.
 func (*DiscoverHostsCommand) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{8}
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DiscoverHostsCommand) GetSshConfigContent() string {
@@ -550,7 +629,7 @@ type DiscoveredHost struct {
 
 func (x *DiscoveredHost) Reset() {
 	*x = DiscoveredHost{}
-	mi := &file_fluid_v1_daemon_proto_msgTypes[9]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -562,7 +641,7 @@ func (x *DiscoveredHost) String() string {
 func (*DiscoveredHost) ProtoMessage() {}
 
 func (x *DiscoveredHost) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_daemon_proto_msgTypes[9]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -575,7 +654,7 @@ func (x *DiscoveredHost) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveredHost.ProtoReflect.Descriptor instead.
 func (*DiscoveredHost) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{9}
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DiscoveredHost) GetName() string {
@@ -658,7 +737,7 @@ type DiscoverHostsResult struct {
 
 func (x *DiscoverHostsResult) Reset() {
 	*x = DiscoverHostsResult{}
-	mi := &file_fluid_v1_daemon_proto_msgTypes[10]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +749,7 @@ func (x *DiscoverHostsResult) String() string {
 func (*DiscoverHostsResult) ProtoMessage() {}
 
 func (x *DiscoverHostsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fluid_v1_daemon_proto_msgTypes[10]
+	mi := &file_fluid_v1_daemon_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,12 +762,315 @@ func (x *DiscoverHostsResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoverHostsResult.ProtoReflect.Descriptor instead.
 func (*DiscoverHostsResult) Descriptor() ([]byte, []int) {
-	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{10}
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DiscoverHostsResult) GetHosts() []*DiscoveredHost {
 	if x != nil {
 		return x.Hosts
+	}
+	return nil
+}
+
+// DoctorCheckRequest requests daemon-side health checks.
+type DoctorCheckRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DoctorCheckRequest) Reset() {
+	*x = DoctorCheckRequest{}
+	mi := &file_fluid_v1_daemon_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DoctorCheckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DoctorCheckRequest) ProtoMessage() {}
+
+func (x *DoctorCheckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_daemon_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DoctorCheckRequest.ProtoReflect.Descriptor instead.
+func (*DoctorCheckRequest) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{12}
+}
+
+// DoctorCheckResult holds the outcome of a single doctor check.
+type DoctorCheckResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Category      string                 `protobuf:"bytes,2,opt,name=category,proto3" json:"category,omitempty"`
+	Passed        bool                   `protobuf:"varint,3,opt,name=passed,proto3" json:"passed,omitempty"`
+	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	FixCmd        string                 `protobuf:"bytes,5,opt,name=fix_cmd,json=fixCmd,proto3" json:"fix_cmd,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DoctorCheckResult) Reset() {
+	*x = DoctorCheckResult{}
+	mi := &file_fluid_v1_daemon_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DoctorCheckResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DoctorCheckResult) ProtoMessage() {}
+
+func (x *DoctorCheckResult) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_daemon_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DoctorCheckResult.ProtoReflect.Descriptor instead.
+func (*DoctorCheckResult) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *DoctorCheckResult) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DoctorCheckResult) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *DoctorCheckResult) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
+}
+
+func (x *DoctorCheckResult) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *DoctorCheckResult) GetFixCmd() string {
+	if x != nil {
+		return x.FixCmd
+	}
+	return ""
+}
+
+// DoctorCheckResponse contains the results of all doctor checks.
+type DoctorCheckResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*DoctorCheckResult   `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DoctorCheckResponse) Reset() {
+	*x = DoctorCheckResponse{}
+	mi := &file_fluid_v1_daemon_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DoctorCheckResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DoctorCheckResponse) ProtoMessage() {}
+
+func (x *DoctorCheckResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_daemon_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DoctorCheckResponse.ProtoReflect.Descriptor instead.
+func (*DoctorCheckResponse) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *DoctorCheckResponse) GetResults() []*DoctorCheckResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+// ScanSourceHostKeysRequest requests the daemon to scan and trust SSH host keys
+// for all configured source hosts.
+type ScanSourceHostKeysRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScanSourceHostKeysRequest) Reset() {
+	*x = ScanSourceHostKeysRequest{}
+	mi := &file_fluid_v1_daemon_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScanSourceHostKeysRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScanSourceHostKeysRequest) ProtoMessage() {}
+
+func (x *ScanSourceHostKeysRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_daemon_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScanSourceHostKeysRequest.ProtoReflect.Descriptor instead.
+func (*ScanSourceHostKeysRequest) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{15}
+}
+
+// ScanSourceHostKeysResult holds the outcome of scanning a single source host's key.
+type ScanSourceHostKeysResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScanSourceHostKeysResult) Reset() {
+	*x = ScanSourceHostKeysResult{}
+	mi := &file_fluid_v1_daemon_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScanSourceHostKeysResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScanSourceHostKeysResult) ProtoMessage() {}
+
+func (x *ScanSourceHostKeysResult) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_daemon_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScanSourceHostKeysResult.ProtoReflect.Descriptor instead.
+func (*ScanSourceHostKeysResult) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ScanSourceHostKeysResult) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *ScanSourceHostKeysResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ScanSourceHostKeysResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// ScanSourceHostKeysResponse contains the results of scanning all source host keys.
+type ScanSourceHostKeysResponse struct {
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	Results       []*ScanSourceHostKeysResult `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScanSourceHostKeysResponse) Reset() {
+	*x = ScanSourceHostKeysResponse{}
+	mi := &file_fluid_v1_daemon_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScanSourceHostKeysResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScanSourceHostKeysResponse) ProtoMessage() {}
+
+func (x *ScanSourceHostKeysResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_daemon_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScanSourceHostKeysResponse.ProtoReflect.Descriptor instead.
+func (*ScanSourceHostKeysResponse) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_daemon_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ScanSourceHostKeysResponse) GetResults() []*ScanSourceHostKeysResult {
+	if x != nil {
+		return x.Results
 	}
 	return nil
 }
@@ -719,7 +1101,7 @@ const file_fluid_v1_daemon_proto_rawDesc = "" +
 	"\x15ListSandboxesResponse\x123\n" +
 	"\tsandboxes\x18\x01 \x03(\v2\x15.fluid.v1.SandboxInfoR\tsandboxes\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x05R\x05count\"\x14\n" +
-	"\x12GetHostInfoRequest\"\x99\x02\n" +
+	"\x12GetHostInfoRequest\"\x87\x03\n" +
 	"\x10HostInfoResponse\x12\x17\n" +
 	"\ahost_id\x18\x01 \x01(\tR\x06hostId\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x18\n" +
@@ -730,7 +1112,14 @@ const file_fluid_v1_daemon_proto_rawDesc = "" +
 	"\x10active_sandboxes\x18\x06 \x01(\x05R\x0factiveSandboxes\x12\x1f\n" +
 	"\vbase_images\x18\a \x03(\tR\n" +
 	"baseImages\x12#\n" +
-	"\x0essh_ca_pub_key\x18\b \x01(\tR\vsshCaPubKey\"\x0f\n" +
+	"\x0essh_ca_pub_key\x18\b \x01(\tR\vsshCaPubKey\x12/\n" +
+	"\x14ssh_identity_pub_key\x18\t \x01(\tR\x11sshIdentityPubKey\x12;\n" +
+	"\fsource_hosts\x18\n" +
+	" \x03(\v2\x18.fluid.v1.SourceHostInfoR\vsourceHosts\"`\n" +
+	"\x0eSourceHostInfo\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x19\n" +
+	"\bssh_user\x18\x02 \x01(\tR\asshUser\x12\x19\n" +
+	"\bssh_port\x18\x03 \x01(\x05R\asshPort\"\x0f\n" +
 	"\rHealthRequest\"(\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\"D\n" +
@@ -751,9 +1140,26 @@ const file_fluid_v1_daemon_proto_rawDesc = "" +
 	"\x05error\x18\n" +
 	" \x01(\tR\x05error\"E\n" +
 	"\x13DiscoverHostsResult\x12.\n" +
-	"\x05hosts\x18\x01 \x03(\v2\x18.fluid.v1.DiscoveredHostR\x05hosts2\xc4\t\n" +
+	"\x05hosts\x18\x01 \x03(\v2\x18.fluid.v1.DiscoveredHostR\x05hosts\"\x14\n" +
+	"\x12DoctorCheckRequest\"\x8e\x01\n" +
+	"\x11DoctorCheckResult\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
+	"\bcategory\x18\x02 \x01(\tR\bcategory\x12\x16\n" +
+	"\x06passed\x18\x03 \x01(\bR\x06passed\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x12\x17\n" +
+	"\afix_cmd\x18\x05 \x01(\tR\x06fixCmd\"L\n" +
+	"\x13DoctorCheckResponse\x125\n" +
+	"\aresults\x18\x01 \x03(\v2\x1b.fluid.v1.DoctorCheckResultR\aresults\"\x1b\n" +
+	"\x19ScanSourceHostKeysRequest\"d\n" +
+	"\x18ScanSourceHostKeysResult\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x18\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"Z\n" +
+	"\x1aScanSourceHostKeysResponse\x12<\n" +
+	"\aresults\x18\x01 \x03(\v2\".fluid.v1.ScanSourceHostKeysResultR\aresults2\xc5\v\n" +
 	"\rDaemonService\x12I\n" +
-	"\rCreateSandbox\x12\x1e.fluid.v1.CreateSandboxCommand\x1a\x18.fluid.v1.SandboxCreated\x12@\n" +
+	"\rCreateSandbox\x12\x1e.fluid.v1.CreateSandboxCommand\x1a\x18.fluid.v1.SandboxCreated\x12R\n" +
+	"\x13CreateSandboxStream\x12\x1e.fluid.v1.CreateSandboxCommand\x1a\x19.fluid.v1.SandboxProgress0\x01\x12@\n" +
 	"\n" +
 	"GetSandbox\x12\x1b.fluid.v1.GetSandboxRequest\x1a\x15.fluid.v1.SandboxInfo\x12P\n" +
 	"\rListSandboxes\x12\x1e.fluid.v1.ListSandboxesRequest\x1a\x1f.fluid.v1.ListSandboxesResponse\x12M\n" +
@@ -770,7 +1176,9 @@ const file_fluid_v1_daemon_proto_rawDesc = "" +
 	"\x0eReadSourceFile\x12\x1f.fluid.v1.ReadSourceFileCommand\x1a\x1a.fluid.v1.SourceFileResult\x12G\n" +
 	"\vGetHostInfo\x12\x1c.fluid.v1.GetHostInfoRequest\x1a\x1a.fluid.v1.HostInfoResponse\x12;\n" +
 	"\x06Health\x12\x17.fluid.v1.HealthRequest\x1a\x18.fluid.v1.HealthResponse\x12N\n" +
-	"\rDiscoverHosts\x12\x1e.fluid.v1.DiscoverHostsCommand\x1a\x1d.fluid.v1.DiscoverHostsResultB<Z:github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1b\x06proto3"
+	"\rDiscoverHosts\x12\x1e.fluid.v1.DiscoverHostsCommand\x1a\x1d.fluid.v1.DiscoverHostsResult\x12J\n" +
+	"\vDoctorCheck\x12\x1c.fluid.v1.DoctorCheckRequest\x1a\x1d.fluid.v1.DoctorCheckResponse\x12_\n" +
+	"\x12ScanSourceHostKeys\x12#.fluid.v1.ScanSourceHostKeysRequest\x1a$.fluid.v1.ScanSourceHostKeysResponseB<Z:github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1b\x06proto3"
 
 var (
 	file_fluid_v1_daemon_proto_rawDescOnce sync.Once
@@ -784,82 +1192,99 @@ func file_fluid_v1_daemon_proto_rawDescGZIP() []byte {
 	return file_fluid_v1_daemon_proto_rawDescData
 }
 
-var file_fluid_v1_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_fluid_v1_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_fluid_v1_daemon_proto_goTypes = []any{
-	(*GetSandboxRequest)(nil),       // 0: fluid.v1.GetSandboxRequest
-	(*SandboxInfo)(nil),             // 1: fluid.v1.SandboxInfo
-	(*ListSandboxesRequest)(nil),    // 2: fluid.v1.ListSandboxesRequest
-	(*ListSandboxesResponse)(nil),   // 3: fluid.v1.ListSandboxesResponse
-	(*GetHostInfoRequest)(nil),      // 4: fluid.v1.GetHostInfoRequest
-	(*HostInfoResponse)(nil),        // 5: fluid.v1.HostInfoResponse
-	(*HealthRequest)(nil),           // 6: fluid.v1.HealthRequest
-	(*HealthResponse)(nil),          // 7: fluid.v1.HealthResponse
-	(*DiscoverHostsCommand)(nil),    // 8: fluid.v1.DiscoverHostsCommand
-	(*DiscoveredHost)(nil),          // 9: fluid.v1.DiscoveredHost
-	(*DiscoverHostsResult)(nil),     // 10: fluid.v1.DiscoverHostsResult
-	(*CreateSandboxCommand)(nil),    // 11: fluid.v1.CreateSandboxCommand
-	(*DestroySandboxCommand)(nil),   // 12: fluid.v1.DestroySandboxCommand
-	(*StartSandboxCommand)(nil),     // 13: fluid.v1.StartSandboxCommand
-	(*StopSandboxCommand)(nil),      // 14: fluid.v1.StopSandboxCommand
-	(*RunCommandCommand)(nil),       // 15: fluid.v1.RunCommandCommand
-	(*SnapshotCommand)(nil),         // 16: fluid.v1.SnapshotCommand
-	(*ListSourceVMsCommand)(nil),    // 17: fluid.v1.ListSourceVMsCommand
-	(*ValidateSourceVMCommand)(nil), // 18: fluid.v1.ValidateSourceVMCommand
-	(*PrepareSourceVMCommand)(nil),  // 19: fluid.v1.PrepareSourceVMCommand
-	(*RunSourceCommandCommand)(nil), // 20: fluid.v1.RunSourceCommandCommand
-	(*ReadSourceFileCommand)(nil),   // 21: fluid.v1.ReadSourceFileCommand
-	(*SandboxCreated)(nil),          // 22: fluid.v1.SandboxCreated
-	(*SandboxDestroyed)(nil),        // 23: fluid.v1.SandboxDestroyed
-	(*SandboxStarted)(nil),          // 24: fluid.v1.SandboxStarted
-	(*SandboxStopped)(nil),          // 25: fluid.v1.SandboxStopped
-	(*CommandResult)(nil),           // 26: fluid.v1.CommandResult
-	(*SnapshotCreated)(nil),         // 27: fluid.v1.SnapshotCreated
-	(*SourceVMsList)(nil),           // 28: fluid.v1.SourceVMsList
-	(*SourceVMValidation)(nil),      // 29: fluid.v1.SourceVMValidation
-	(*SourceVMPrepared)(nil),        // 30: fluid.v1.SourceVMPrepared
-	(*SourceCommandResult)(nil),     // 31: fluid.v1.SourceCommandResult
-	(*SourceFileResult)(nil),        // 32: fluid.v1.SourceFileResult
+	(*GetSandboxRequest)(nil),          // 0: fluid.v1.GetSandboxRequest
+	(*SandboxInfo)(nil),                // 1: fluid.v1.SandboxInfo
+	(*ListSandboxesRequest)(nil),       // 2: fluid.v1.ListSandboxesRequest
+	(*ListSandboxesResponse)(nil),      // 3: fluid.v1.ListSandboxesResponse
+	(*GetHostInfoRequest)(nil),         // 4: fluid.v1.GetHostInfoRequest
+	(*HostInfoResponse)(nil),           // 5: fluid.v1.HostInfoResponse
+	(*SourceHostInfo)(nil),             // 6: fluid.v1.SourceHostInfo
+	(*HealthRequest)(nil),              // 7: fluid.v1.HealthRequest
+	(*HealthResponse)(nil),             // 8: fluid.v1.HealthResponse
+	(*DiscoverHostsCommand)(nil),       // 9: fluid.v1.DiscoverHostsCommand
+	(*DiscoveredHost)(nil),             // 10: fluid.v1.DiscoveredHost
+	(*DiscoverHostsResult)(nil),        // 11: fluid.v1.DiscoverHostsResult
+	(*DoctorCheckRequest)(nil),         // 12: fluid.v1.DoctorCheckRequest
+	(*DoctorCheckResult)(nil),          // 13: fluid.v1.DoctorCheckResult
+	(*DoctorCheckResponse)(nil),        // 14: fluid.v1.DoctorCheckResponse
+	(*ScanSourceHostKeysRequest)(nil),  // 15: fluid.v1.ScanSourceHostKeysRequest
+	(*ScanSourceHostKeysResult)(nil),   // 16: fluid.v1.ScanSourceHostKeysResult
+	(*ScanSourceHostKeysResponse)(nil), // 17: fluid.v1.ScanSourceHostKeysResponse
+	(*CreateSandboxCommand)(nil),       // 18: fluid.v1.CreateSandboxCommand
+	(*DestroySandboxCommand)(nil),      // 19: fluid.v1.DestroySandboxCommand
+	(*StartSandboxCommand)(nil),        // 20: fluid.v1.StartSandboxCommand
+	(*StopSandboxCommand)(nil),         // 21: fluid.v1.StopSandboxCommand
+	(*RunCommandCommand)(nil),          // 22: fluid.v1.RunCommandCommand
+	(*SnapshotCommand)(nil),            // 23: fluid.v1.SnapshotCommand
+	(*ListSourceVMsCommand)(nil),       // 24: fluid.v1.ListSourceVMsCommand
+	(*ValidateSourceVMCommand)(nil),    // 25: fluid.v1.ValidateSourceVMCommand
+	(*PrepareSourceVMCommand)(nil),     // 26: fluid.v1.PrepareSourceVMCommand
+	(*RunSourceCommandCommand)(nil),    // 27: fluid.v1.RunSourceCommandCommand
+	(*ReadSourceFileCommand)(nil),      // 28: fluid.v1.ReadSourceFileCommand
+	(*SandboxCreated)(nil),             // 29: fluid.v1.SandboxCreated
+	(*SandboxProgress)(nil),            // 30: fluid.v1.SandboxProgress
+	(*SandboxDestroyed)(nil),           // 31: fluid.v1.SandboxDestroyed
+	(*SandboxStarted)(nil),             // 32: fluid.v1.SandboxStarted
+	(*SandboxStopped)(nil),             // 33: fluid.v1.SandboxStopped
+	(*CommandResult)(nil),              // 34: fluid.v1.CommandResult
+	(*SnapshotCreated)(nil),            // 35: fluid.v1.SnapshotCreated
+	(*SourceVMsList)(nil),              // 36: fluid.v1.SourceVMsList
+	(*SourceVMValidation)(nil),         // 37: fluid.v1.SourceVMValidation
+	(*SourceVMPrepared)(nil),           // 38: fluid.v1.SourceVMPrepared
+	(*SourceCommandResult)(nil),        // 39: fluid.v1.SourceCommandResult
+	(*SourceFileResult)(nil),           // 40: fluid.v1.SourceFileResult
 }
 var file_fluid_v1_daemon_proto_depIdxs = []int32{
 	1,  // 0: fluid.v1.ListSandboxesResponse.sandboxes:type_name -> fluid.v1.SandboxInfo
-	9,  // 1: fluid.v1.DiscoverHostsResult.hosts:type_name -> fluid.v1.DiscoveredHost
-	11, // 2: fluid.v1.DaemonService.CreateSandbox:input_type -> fluid.v1.CreateSandboxCommand
-	0,  // 3: fluid.v1.DaemonService.GetSandbox:input_type -> fluid.v1.GetSandboxRequest
-	2,  // 4: fluid.v1.DaemonService.ListSandboxes:input_type -> fluid.v1.ListSandboxesRequest
-	12, // 5: fluid.v1.DaemonService.DestroySandbox:input_type -> fluid.v1.DestroySandboxCommand
-	13, // 6: fluid.v1.DaemonService.StartSandbox:input_type -> fluid.v1.StartSandboxCommand
-	14, // 7: fluid.v1.DaemonService.StopSandbox:input_type -> fluid.v1.StopSandboxCommand
-	15, // 8: fluid.v1.DaemonService.RunCommand:input_type -> fluid.v1.RunCommandCommand
-	16, // 9: fluid.v1.DaemonService.CreateSnapshot:input_type -> fluid.v1.SnapshotCommand
-	17, // 10: fluid.v1.DaemonService.ListSourceVMs:input_type -> fluid.v1.ListSourceVMsCommand
-	18, // 11: fluid.v1.DaemonService.ValidateSourceVM:input_type -> fluid.v1.ValidateSourceVMCommand
-	19, // 12: fluid.v1.DaemonService.PrepareSourceVM:input_type -> fluid.v1.PrepareSourceVMCommand
-	20, // 13: fluid.v1.DaemonService.RunSourceCommand:input_type -> fluid.v1.RunSourceCommandCommand
-	21, // 14: fluid.v1.DaemonService.ReadSourceFile:input_type -> fluid.v1.ReadSourceFileCommand
-	4,  // 15: fluid.v1.DaemonService.GetHostInfo:input_type -> fluid.v1.GetHostInfoRequest
-	6,  // 16: fluid.v1.DaemonService.Health:input_type -> fluid.v1.HealthRequest
-	8,  // 17: fluid.v1.DaemonService.DiscoverHosts:input_type -> fluid.v1.DiscoverHostsCommand
-	22, // 18: fluid.v1.DaemonService.CreateSandbox:output_type -> fluid.v1.SandboxCreated
-	1,  // 19: fluid.v1.DaemonService.GetSandbox:output_type -> fluid.v1.SandboxInfo
-	3,  // 20: fluid.v1.DaemonService.ListSandboxes:output_type -> fluid.v1.ListSandboxesResponse
-	23, // 21: fluid.v1.DaemonService.DestroySandbox:output_type -> fluid.v1.SandboxDestroyed
-	24, // 22: fluid.v1.DaemonService.StartSandbox:output_type -> fluid.v1.SandboxStarted
-	25, // 23: fluid.v1.DaemonService.StopSandbox:output_type -> fluid.v1.SandboxStopped
-	26, // 24: fluid.v1.DaemonService.RunCommand:output_type -> fluid.v1.CommandResult
-	27, // 25: fluid.v1.DaemonService.CreateSnapshot:output_type -> fluid.v1.SnapshotCreated
-	28, // 26: fluid.v1.DaemonService.ListSourceVMs:output_type -> fluid.v1.SourceVMsList
-	29, // 27: fluid.v1.DaemonService.ValidateSourceVM:output_type -> fluid.v1.SourceVMValidation
-	30, // 28: fluid.v1.DaemonService.PrepareSourceVM:output_type -> fluid.v1.SourceVMPrepared
-	31, // 29: fluid.v1.DaemonService.RunSourceCommand:output_type -> fluid.v1.SourceCommandResult
-	32, // 30: fluid.v1.DaemonService.ReadSourceFile:output_type -> fluid.v1.SourceFileResult
-	5,  // 31: fluid.v1.DaemonService.GetHostInfo:output_type -> fluid.v1.HostInfoResponse
-	7,  // 32: fluid.v1.DaemonService.Health:output_type -> fluid.v1.HealthResponse
-	10, // 33: fluid.v1.DaemonService.DiscoverHosts:output_type -> fluid.v1.DiscoverHostsResult
-	18, // [18:34] is the sub-list for method output_type
-	2,  // [2:18] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	6,  // 1: fluid.v1.HostInfoResponse.source_hosts:type_name -> fluid.v1.SourceHostInfo
+	10, // 2: fluid.v1.DiscoverHostsResult.hosts:type_name -> fluid.v1.DiscoveredHost
+	13, // 3: fluid.v1.DoctorCheckResponse.results:type_name -> fluid.v1.DoctorCheckResult
+	16, // 4: fluid.v1.ScanSourceHostKeysResponse.results:type_name -> fluid.v1.ScanSourceHostKeysResult
+	18, // 5: fluid.v1.DaemonService.CreateSandbox:input_type -> fluid.v1.CreateSandboxCommand
+	18, // 6: fluid.v1.DaemonService.CreateSandboxStream:input_type -> fluid.v1.CreateSandboxCommand
+	0,  // 7: fluid.v1.DaemonService.GetSandbox:input_type -> fluid.v1.GetSandboxRequest
+	2,  // 8: fluid.v1.DaemonService.ListSandboxes:input_type -> fluid.v1.ListSandboxesRequest
+	19, // 9: fluid.v1.DaemonService.DestroySandbox:input_type -> fluid.v1.DestroySandboxCommand
+	20, // 10: fluid.v1.DaemonService.StartSandbox:input_type -> fluid.v1.StartSandboxCommand
+	21, // 11: fluid.v1.DaemonService.StopSandbox:input_type -> fluid.v1.StopSandboxCommand
+	22, // 12: fluid.v1.DaemonService.RunCommand:input_type -> fluid.v1.RunCommandCommand
+	23, // 13: fluid.v1.DaemonService.CreateSnapshot:input_type -> fluid.v1.SnapshotCommand
+	24, // 14: fluid.v1.DaemonService.ListSourceVMs:input_type -> fluid.v1.ListSourceVMsCommand
+	25, // 15: fluid.v1.DaemonService.ValidateSourceVM:input_type -> fluid.v1.ValidateSourceVMCommand
+	26, // 16: fluid.v1.DaemonService.PrepareSourceVM:input_type -> fluid.v1.PrepareSourceVMCommand
+	27, // 17: fluid.v1.DaemonService.RunSourceCommand:input_type -> fluid.v1.RunSourceCommandCommand
+	28, // 18: fluid.v1.DaemonService.ReadSourceFile:input_type -> fluid.v1.ReadSourceFileCommand
+	4,  // 19: fluid.v1.DaemonService.GetHostInfo:input_type -> fluid.v1.GetHostInfoRequest
+	7,  // 20: fluid.v1.DaemonService.Health:input_type -> fluid.v1.HealthRequest
+	9,  // 21: fluid.v1.DaemonService.DiscoverHosts:input_type -> fluid.v1.DiscoverHostsCommand
+	12, // 22: fluid.v1.DaemonService.DoctorCheck:input_type -> fluid.v1.DoctorCheckRequest
+	15, // 23: fluid.v1.DaemonService.ScanSourceHostKeys:input_type -> fluid.v1.ScanSourceHostKeysRequest
+	29, // 24: fluid.v1.DaemonService.CreateSandbox:output_type -> fluid.v1.SandboxCreated
+	30, // 25: fluid.v1.DaemonService.CreateSandboxStream:output_type -> fluid.v1.SandboxProgress
+	1,  // 26: fluid.v1.DaemonService.GetSandbox:output_type -> fluid.v1.SandboxInfo
+	3,  // 27: fluid.v1.DaemonService.ListSandboxes:output_type -> fluid.v1.ListSandboxesResponse
+	31, // 28: fluid.v1.DaemonService.DestroySandbox:output_type -> fluid.v1.SandboxDestroyed
+	32, // 29: fluid.v1.DaemonService.StartSandbox:output_type -> fluid.v1.SandboxStarted
+	33, // 30: fluid.v1.DaemonService.StopSandbox:output_type -> fluid.v1.SandboxStopped
+	34, // 31: fluid.v1.DaemonService.RunCommand:output_type -> fluid.v1.CommandResult
+	35, // 32: fluid.v1.DaemonService.CreateSnapshot:output_type -> fluid.v1.SnapshotCreated
+	36, // 33: fluid.v1.DaemonService.ListSourceVMs:output_type -> fluid.v1.SourceVMsList
+	37, // 34: fluid.v1.DaemonService.ValidateSourceVM:output_type -> fluid.v1.SourceVMValidation
+	38, // 35: fluid.v1.DaemonService.PrepareSourceVM:output_type -> fluid.v1.SourceVMPrepared
+	39, // 36: fluid.v1.DaemonService.RunSourceCommand:output_type -> fluid.v1.SourceCommandResult
+	40, // 37: fluid.v1.DaemonService.ReadSourceFile:output_type -> fluid.v1.SourceFileResult
+	5,  // 38: fluid.v1.DaemonService.GetHostInfo:output_type -> fluid.v1.HostInfoResponse
+	8,  // 39: fluid.v1.DaemonService.Health:output_type -> fluid.v1.HealthResponse
+	11, // 40: fluid.v1.DaemonService.DiscoverHosts:output_type -> fluid.v1.DiscoverHostsResult
+	14, // 41: fluid.v1.DaemonService.DoctorCheck:output_type -> fluid.v1.DoctorCheckResponse
+	17, // 42: fluid.v1.DaemonService.ScanSourceHostKeys:output_type -> fluid.v1.ScanSourceHostKeysResponse
+	24, // [24:43] is the sub-list for method output_type
+	5,  // [5:24] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_fluid_v1_daemon_proto_init() }
@@ -876,7 +1301,7 @@ func file_fluid_v1_daemon_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fluid_v1_daemon_proto_rawDesc), len(file_fluid_v1_daemon_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

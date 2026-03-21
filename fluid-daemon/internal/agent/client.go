@@ -388,7 +388,7 @@ func (c *Client) handleCreateSandbox(ctx context.Context, reqID string, cmd *flu
 		case "libvirt":
 			backend = snapshotpull.NewLibvirtBackend(
 				conn.GetSshHost(), int(conn.GetSshPort()),
-				conn.GetSshUser(), c.sshIdentityFile, "qemu:///system", c.logger)
+				conn.GetSshUser(), c.sshIdentityFile, c.logger)
 		case "proxmox":
 			backend = snapshotpull.NewProxmoxBackend(
 				conn.GetProxmoxHost(), conn.GetProxmoxTokenId(),

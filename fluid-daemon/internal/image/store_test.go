@@ -84,9 +84,6 @@ func TestList_WithImages(t *testing.T) {
 	if !ok {
 		t.Fatal("expected image named 'ubuntu'")
 	}
-	if !ubuntu.HasKernel {
-		t.Error("expected ubuntu to have kernel")
-	}
 	if ubuntu.SizeMB != 2 {
 		t.Errorf("expected ubuntu SizeMB=2, got %d", ubuntu.SizeMB)
 	}
@@ -98,9 +95,6 @@ func TestList_WithImages(t *testing.T) {
 	debian, ok := byName["debian"]
 	if !ok {
 		t.Fatal("expected image named 'debian'")
-	}
-	if debian.HasKernel {
-		t.Error("expected debian to NOT have kernel")
 	}
 	if debian.SizeMB != 1 {
 		t.Errorf("expected debian SizeMB=1, got %d", debian.SizeMB)
@@ -168,34 +162,6 @@ func TestGetImagePath_Missing(t *testing.T) {
 	_, err = s.GetImagePath("nonexistent")
 	if err == nil {
 		t.Fatal("expected error for missing image, got nil")
-	}
-}
-
-func TestGetKernelPath(t *testing.T) {
-	base := t.TempDir()
-
-	createFile(t, filepath.Join(base, "myimage.qcow2"), 100)
-	createFile(t, filepath.Join(base, "myimage.vmlinux"), 100)
-
-	s, err := NewStore(base, slog.Default())
-	if err != nil {
-		t.Fatalf("NewStore failed: %v", err)
-	}
-
-	path, err := s.GetKernelPath("myimage")
-	if err != nil {
-		t.Fatalf("GetKernelPath failed: %v", err)
-	}
-
-	expected := filepath.Join(base, "myimage.vmlinux")
-	if path != expected {
-		t.Errorf("expected %s, got %s", expected, path)
-	}
-
-	// Missing kernel should error.
-	_, err = s.GetKernelPath("nope")
-	if err == nil {
-		t.Fatal("expected error for missing kernel, got nil")
 	}
 }
 

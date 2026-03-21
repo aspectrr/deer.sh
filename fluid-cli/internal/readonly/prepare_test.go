@@ -646,6 +646,89 @@ func TestPrepare_ShellScriptContent(t *testing.T) {
 	}
 }
 
+func TestDeployDaemonKey_Success(t *testing.T) {
+	mock := newMockSSHRun()
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDaemonKey daemon@host"
+
+	err := DeployDaemonKey(context.Background(), mock.run, key, nil)
+	if err != nil {
+		t.Fatalf("expected success, got error: %v", err)
+	}
+
+	commands := mock.getCommands()
+	if len(commands) != 1 {
+		t.Fatalf("expected 1 SSH command, got %d", len(commands))
+	}
+
+	// The command should target fluid-daemon user's authorized_keys
+	cmd := commands[0]
+	decoded, err := decodeBase64Command(cmd)
+	if err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	if !strings.Contains(decoded, "~fluid-daemon/.ssh/authorized_keys") {
+		t.Error("command should target ~fluid-daemon/.ssh/authorized_keys")
+	}
+	if !strings.Contains(decoded, "grep -qF") {
+		t.Error("command should use grep -qF for idempotent check")
+	}
+	if !strings.Contains(decoded, key) {
+		t.Error("command should contain the identity pub key")
+	}
+	if !strings.Contains(decoded, "chown -R fluid-daemon:fluid-daemon") {
+		t.Error("command should set ownership to fluid-daemon")
+	}
+}
+
+func TestDeployDaemonKey_EmptyKey(t *testing.T) {
+	mock := newMockSSHRun()
+
+	tests := []string{"", "   ", "\n", "\t\n  "}
+	for _, key := range tests {
+		err := DeployDaemonKey(context.Background(), mock.run, key, nil)
+		if err == nil {
+			t.Errorf("expected error for empty key %q, got nil", key)
+		}
+		if !strings.Contains(err.Error(), "daemon identity pub key is empty") {
+			t.Errorf("expected 'daemon identity pub key is empty' error, got: %v", err)
+		}
+	}
+
+	// No SSH commands should have been issued
+	if len(mock.getCommands()) != 0 {
+		t.Errorf("expected no SSH commands for empty key, got %d", len(mock.getCommands()))
+	}
+}
+
+func TestDeployDaemonKey_SSHFailure(t *testing.T) {
+	mock := newMockSSHRun()
+	mock.failAt(0, sshResponse{err: fmt.Errorf("connection refused")})
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDaemonKey daemon@host"
+
+	err := DeployDaemonKey(context.Background(), mock.run, key, nil)
+	if err == nil {
+		t.Fatal("expected error when SSH connection fails")
+	}
+	if !strings.Contains(err.Error(), "deploy daemon key") {
+		t.Errorf("error should mention deploy daemon key: %v", err)
+	}
+}
+
+func TestDeployDaemonKey_NonZeroExit(t *testing.T) {
+	mock := newMockSSHRun()
+	mock.failAt(0, sshResponse{stderr: "permission denied", exitCode: 1})
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDaemonKey daemon@host"
+
+	err := DeployDaemonKey(context.Background(), mock.run, key, nil)
+	if err == nil {
+		t.Fatal("expected error when command exits non-zero")
+	}
+	if !strings.Contains(err.Error(), "deploy daemon key") {
+		t.Errorf("error should mention deploy daemon key: %v", err)
+	}
+}
+
 func TestPrepare_IdempotentUserCreation(t *testing.T) {
 	mock := newMockSSHRun()
 	caPubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey test-ca"
@@ -695,5 +778,105 @@ func TestPrepare_SSHDConfigIdempotent(t *testing.T) {
 		if !strings.Contains(cmd, "||") {
 			t.Errorf("sshd config command %d should use || for conditional append", idx)
 		}
+	}
+}
+
+func TestSetupSourceHost_Success(t *testing.T) {
+	mock := newMockSSHRun()
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDaemonKey daemon@host"
+
+	err := SetupSourceHost(context.Background(), mock.run, key, nil)
+	if err != nil {
+		t.Fatalf("expected success, got error: %v", err)
+	}
+
+	commands := mock.getCommands()
+	if len(commands) != 1 {
+		t.Fatalf("expected 1 SSH command, got %d", len(commands))
+	}
+
+	decoded, err := decodeBase64Command(commands[0])
+	if err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	// Should create fluid-daemon user
+	if !strings.Contains(decoded, "useradd --system --shell /bin/bash -m fluid-daemon") {
+		t.Error("command should create fluid-daemon user")
+	}
+	// Should be idempotent (check if user exists first)
+	if !strings.Contains(decoded, "id fluid-daemon") {
+		t.Error("command should check if fluid-daemon user exists")
+	}
+	// Should add to libvirt group
+	if !strings.Contains(decoded, "usermod -aG libvirt fluid-daemon") {
+		t.Error("command should add fluid-daemon to libvirt group")
+	}
+	// Should deploy key to fluid-daemon's authorized_keys
+	if !strings.Contains(decoded, "~fluid-daemon/.ssh/authorized_keys") {
+		t.Error("command should target ~fluid-daemon/.ssh/authorized_keys")
+	}
+	if !strings.Contains(decoded, key) {
+		t.Error("command should contain the identity pub key")
+	}
+	// Should set ownership
+	if !strings.Contains(decoded, "chown -R fluid-daemon:fluid-daemon") {
+		t.Error("command should set ownership to fluid-daemon")
+	}
+	// Should use grep for idempotent key append
+	if !strings.Contains(decoded, "grep -qF") {
+		t.Error("command should use grep -qF for idempotent key check")
+	}
+	// Should set up passwordless sudo for qemu-img so daemon can read QEMU-owned files
+	if !strings.Contains(decoded, "sudoers.d/fluid-daemon-qemuimg") {
+		t.Error("command should set up sudoers for qemu-img")
+	}
+	if !strings.Contains(decoded, "NOPASSWD") {
+		t.Error("command should grant NOPASSWD for qemu-img")
+	}
+	if !strings.Contains(decoded, "chmod 440") {
+		t.Error("command should set 440 permissions on sudoers file")
+	}
+}
+
+func TestSetupSourceHost_EmptyKey(t *testing.T) {
+	mock := newMockSSHRun()
+
+	for _, key := range []string{"", "   ", "\n"} {
+		err := SetupSourceHost(context.Background(), mock.run, key, nil)
+		if err == nil {
+			t.Errorf("expected error for empty key %q, got nil", key)
+		}
+	}
+	if len(mock.getCommands()) != 0 {
+		t.Errorf("expected no SSH commands for empty key, got %d", len(mock.getCommands()))
+	}
+}
+
+func TestSetupSourceHost_SSHFailure(t *testing.T) {
+	mock := newMockSSHRun()
+	mock.failAt(0, sshResponse{err: fmt.Errorf("connection refused")})
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDaemonKey daemon@host"
+
+	err := SetupSourceHost(context.Background(), mock.run, key, nil)
+	if err == nil {
+		t.Fatal("expected error when SSH connection fails")
+	}
+	if !strings.Contains(err.Error(), "setup source host") {
+		t.Errorf("error should mention setup source host: %v", err)
+	}
+}
+
+func TestSetupSourceHost_NonZeroExit(t *testing.T) {
+	mock := newMockSSHRun()
+	mock.failAt(0, sshResponse{stderr: "permission denied", exitCode: 1})
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDaemonKey daemon@host"
+
+	err := SetupSourceHost(context.Background(), mock.run, key, nil)
+	if err == nil {
+		t.Fatal("expected error when command exits non-zero")
+	}
+	if !strings.Contains(err.Error(), "setup source host") {
+		t.Errorf("error should mention setup source host: %v", err)
 	}
 }

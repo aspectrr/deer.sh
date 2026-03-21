@@ -4,10 +4,8 @@ package snapshotpull
 
 import "context"
 
-// SnapshotBackend abstracts the mechanism for snapshotting a VM disk
-// on a remote host and pulling it locally.
+// SnapshotBackend abstracts the mechanism for pulling a VM disk from a remote host.
 type SnapshotBackend interface {
-	// SnapshotAndPull creates a temporary snapshot of vmName's disk,
-	// transfers the backing image to destPath, then cleans up the snapshot.
+	// SnapshotAndPull transfers vmName's disk to destPath.
 	SnapshotAndPull(ctx context.Context, vmName string, destPath string) error
 }

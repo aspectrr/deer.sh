@@ -151,3 +151,14 @@ message SnapshotCreated {
   string snapshot_id = 2;
   string snapshot_name = 3;
 }
+
+// SandboxProgress reports sandbox creation progress during streaming.
+message SandboxProgress {
+  string sandbox_id = 1;
+  string step = 2;
+  int32 step_num = 3;
+  int32 total_steps = 4;
+  bool done = 5;
+  SandboxCreated result = 6;
+  string error = 7;
+}

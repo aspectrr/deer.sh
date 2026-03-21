@@ -7,6 +7,7 @@ import "context"
 type Service interface {
 	// Sandbox lifecycle
 	CreateSandbox(ctx context.Context, req CreateRequest) (*SandboxInfo, error)
+	CreateSandboxStream(ctx context.Context, req CreateRequest, onProgress func(step string, stepNum, total int)) (*SandboxInfo, error)
 	GetSandbox(ctx context.Context, id string) (*SandboxInfo, error)
 	ListSandboxes(ctx context.Context) ([]*SandboxInfo, error)
 	DestroySandbox(ctx context.Context, id string) error
@@ -29,6 +30,8 @@ type Service interface {
 	// Host info
 	GetHostInfo(ctx context.Context) (*HostInfo, error)
 	Health(ctx context.Context) error
+	DoctorCheck(ctx context.Context) ([]DoctorCheckResult, error)
+	ScanSourceHostKeys(ctx context.Context) ([]ScanSourceHostKeysResult, error)
 
 	// Close releases resources (e.g. gRPC connection).
 	Close() error

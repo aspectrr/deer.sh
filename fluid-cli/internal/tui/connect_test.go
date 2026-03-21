@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -265,5 +266,88 @@ func TestUpdate_InsecureToggle(t *testing.T) {
 	m = updatedModel.(ConnectModel)
 	if !m.insecure {
 		t.Error("insecure should be true after 'y'")
+	}
+}
+
+func TestUpdate_PerHostDeploy(t *testing.T) {
+	m := NewConnectModel(nil)
+	m.step = StepDone
+	m.hostInfo = &sandbox.HostInfo{
+		Hostname:          "daemon1",
+		SSHIdentityPubKey: "ssh-ed25519 AAAA...",
+		SourceHosts: []sandbox.SourceHostInfo{
+			{Address: "192.168.1.10", SSHUser: "fluid-daemon", SSHPort: 22},
+			{Address: "192.168.1.11", SSHUser: "fluid-daemon", SSHPort: 22},
+			{Address: "192.168.1.12", SSHUser: "fluid-daemon", SSHPort: 22},
+		},
+	}
+
+	// Press enter to start deploy
+	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(ConnectModel)
+
+	if m.step != StepDeployKeys {
+		t.Fatalf("expected StepDeployKeys, got %v", m.step)
+	}
+	if len(m.hostDeployStatuses) != 3 {
+		t.Fatalf("expected 3 host statuses, got %d", len(m.hostDeployStatuses))
+	}
+	if m.hostDeployStatuses[0].State != HostDeployDeploying {
+		t.Errorf("host 0 should be deploying, got %v", m.hostDeployStatuses[0].State)
+	}
+	if m.hostDeployStatuses[1].State != HostDeployPending {
+		t.Errorf("host 1 should be pending, got %v", m.hostDeployStatuses[1].State)
+	}
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+
+	// Simulate host 0 success
+	updatedModel, cmd = m.Update(HostKeyDeployedMsg{Host: "host1", Index: 0, Err: nil})
+	m = updatedModel.(ConnectModel)
+	if m.hostDeployStatuses[0].State != HostDeployDone {
+		t.Errorf("host 0 should be done, got %v", m.hostDeployStatuses[0].State)
+	}
+	if m.hostDeployStatuses[1].State != HostDeployDeploying {
+		t.Errorf("host 1 should be deploying, got %v", m.hostDeployStatuses[1].State)
+	}
+	if cmd == nil {
+		t.Fatal("expected cmd for next host")
+	}
+
+	// Simulate host 1 failure
+	updatedModel, cmd = m.Update(HostKeyDeployedMsg{Host: "host2", Index: 1, Err: fmt.Errorf("connection refused")})
+	m = updatedModel.(ConnectModel)
+	if m.hostDeployStatuses[1].State != HostDeployFailed {
+		t.Errorf("host 1 should be failed, got %v", m.hostDeployStatuses[1].State)
+	}
+	if m.hostDeployStatuses[2].State != HostDeployDeploying {
+		t.Errorf("host 2 should be deploying, got %v", m.hostDeployStatuses[2].State)
+	}
+
+	// Simulate host 2 success - should scan host keys, then rerun doctor checks
+	updatedModel, _ = m.Update(HostKeyDeployedMsg{Host: "host3", Index: 2, Err: nil})
+	m = updatedModel.(ConnectModel)
+	if !m.keysDeployed {
+		t.Error("keysDeployed should be true after all hosts")
+	}
+	if m.step != StepDoctor {
+		t.Errorf("should be on StepDoctor (scanning keys), got %v", m.step)
+	}
+	if m.deployResults == nil {
+		t.Fatal("deployResults should be set")
+	}
+	if m.deployResults.Deployed != 2 {
+		t.Errorf("expected 2 deployed, got %d", m.deployResults.Deployed)
+	}
+	if len(m.deployResults.Errors) != 1 {
+		t.Errorf("expected 1 error, got %d", len(m.deployResults.Errors))
+	}
+
+	// Simulate scan keys complete - should transition to doctor checks
+	updatedModel, _ = m.Update(ScanKeysCompleteMsg{})
+	m = updatedModel.(ConnectModel)
+	if m.step != StepDoctor {
+		t.Errorf("should be on StepDoctor (running checks after scan), got %v", m.step)
 	}
 }

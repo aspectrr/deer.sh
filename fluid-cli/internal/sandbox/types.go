@@ -87,14 +87,39 @@ type SourceCommandResult struct {
 	Stderr   string `json:"stderr"`
 }
 
+// DoctorCheckResult holds the outcome of a single daemon-side doctor check.
+type DoctorCheckResult struct {
+	Name     string
+	Category string
+	Passed   bool
+	Message  string
+	FixCmd   string
+}
+
+// ScanSourceHostKeysResult holds the outcome of scanning a single source host's SSH key.
+type ScanSourceHostKeysResult struct {
+	Address string
+	Success bool
+	Error   string
+}
+
+// SourceHostInfo describes a source host the daemon is configured to reach.
+type SourceHostInfo struct {
+	Address string `json:"address"`
+	SSHUser string `json:"ssh_user"`
+	SSHPort int    `json:"ssh_port"`
+}
+
 // HostInfo contains host resource and capability information.
 type HostInfo struct {
-	HostID          string   `json:"host_id"`
-	Hostname        string   `json:"hostname"`
-	Version         string   `json:"version"`
-	TotalCPUs       int      `json:"total_cpus"`
-	TotalMemoryMB   int64    `json:"total_memory_mb"`
-	ActiveSandboxes int      `json:"active_sandboxes"`
-	BaseImages      []string `json:"base_images"`
-	SSHCAPubKey     string   `json:"ssh_ca_pub_key,omitempty"`
+	HostID            string           `json:"host_id"`
+	Hostname          string           `json:"hostname"`
+	Version           string           `json:"version"`
+	TotalCPUs         int              `json:"total_cpus"`
+	TotalMemoryMB     int64            `json:"total_memory_mb"`
+	ActiveSandboxes   int              `json:"active_sandboxes"`
+	BaseImages        []string         `json:"base_images"`
+	SSHCAPubKey       string           `json:"ssh_ca_pub_key,omitempty"`
+	SSHIdentityPubKey string           `json:"ssh_identity_pub_key,omitempty"`
+	SourceHosts       []SourceHostInfo `json:"source_hosts,omitempty"`
 }

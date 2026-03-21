@@ -313,6 +313,7 @@ After=network.target libvirtd.service
 User=fluid-daemon
 Group=fluid-daemon
 ExecStart=/usr/local/bin/fluid-daemon --config /etc/fluid-daemon/daemon.yaml
+AmbientCapabilities=CAP_NET_ADMIN
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536

@@ -164,3 +164,241 @@ func TestAllowlistClose_Save(t *testing.T) {
 		t.Error("expected close message")
 	}
 }
+
+func TestAllowlistDetail_Enter(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands: []string{},
+	}
+	m := NewAllowlistModel(cfg)
+
+	for i, cmd := range m.builtinCmds {
+		if cmd == "systemctl" {
+			m.selected = i
+			break
+		}
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.mode != allowlistModeDetail {
+		t.Error("expected detail mode")
+	}
+	if m.detailCommand != "systemctl" {
+		t.Errorf("expected systemctl, got %s", m.detailCommand)
+	}
+	if len(m.detailSubcmds) == 0 {
+		t.Error("expected subcommands in detail mode")
+	}
+}
+
+func TestAllowlistDetail_Escape(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands: []string{},
+	}
+	m := NewAllowlistModel(cfg)
+
+	for i, cmd := range m.builtinCmds {
+		if cmd == "systemctl" {
+			m.selected = i
+			break
+		}
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.mode != allowlistModeDetail {
+		t.Fatal("expected detail mode")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(AllowlistModel)
+
+	if m.mode != allowlistModeList {
+		t.Error("expected back to list mode")
+	}
+	if m.detailCommand != "" {
+		t.Error("expected detail command to be cleared")
+	}
+}
+
+func TestAllowlistDetail_AddSubcommand(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands: []string{"custom-tool"},
+	}
+	m := NewAllowlistModel(cfg)
+
+	m.selected = len(m.builtinCmds)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.mode != allowlistModeDetail {
+		t.Fatal("expected detail mode")
+	}
+
+	m.detailAddInput.SetValue("sub1")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if len(m.detailSubcmds) != 1 {
+		t.Errorf("expected 1 subcommand, got %d", len(m.detailSubcmds))
+	}
+	if m.detailSubcmds[0] != "sub1" {
+		t.Errorf("expected sub1, got %s", m.detailSubcmds[0])
+	}
+	if len(m.cfg.ExtraAllowedSubcommands["custom-tool"]) != 1 {
+		t.Error("expected subcommand in config")
+	}
+}
+
+func TestAllowlistDetail_DeleteSubcommand(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands:    []string{"custom-tool"},
+		ExtraAllowedSubcommands: map[string][]string{"custom-tool": {"sub1", "sub2"}},
+	}
+	m := NewAllowlistModel(cfg)
+
+	m.selected = len(m.builtinCmds)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.mode != allowlistModeDetail {
+		t.Fatal("expected detail mode")
+	}
+
+	m.detailSelected = 0
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	m = updated.(AllowlistModel)
+
+	if len(m.detailSubcmds) != 1 {
+		t.Errorf("expected 1 subcommand after delete, got %d", len(m.detailSubcmds))
+	}
+	if len(m.cfg.ExtraAllowedSubcommands["custom-tool"]) != 1 {
+		t.Error("expected one subcommand in config after delete")
+	}
+}
+
+func TestAllowlistDetail_AddDuplicateSubcommand(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands:    []string{"custom-tool"},
+		ExtraAllowedSubcommands: map[string][]string{"custom-tool": {"sub1"}},
+	}
+	m := NewAllowlistModel(cfg)
+
+	m.selected = len(m.builtinCmds)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	m.detailAddInput.SetValue("sub1")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.detailAddErr == "" {
+		t.Error("expected error for duplicate subcommand")
+	}
+}
+
+func TestAllowlistDetail_NavigateSubcommands(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands:    []string{"custom-tool"},
+		ExtraAllowedSubcommands: map[string][]string{"custom-tool": {"aaa", "bbb", "ccc"}},
+	}
+	m := NewAllowlistModel(cfg)
+
+	m.selected = len(m.builtinCmds)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.detailSelected != 0 {
+		t.Error("expected detailSelected to be 0")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updated.(AllowlistModel)
+
+	if m.detailSelected != 1 {
+		t.Error("expected detailSelected to be 1 after down")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updated.(AllowlistModel)
+
+	if m.detailSelected != 0 {
+		t.Error("expected detailSelected to be 0 after up")
+	}
+}
+
+func TestAllowlistDetail_ModeToggle(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands:    []string{"custom-tool"},
+		ExtraAllowedSubcommands: map[string][]string{"custom-tool": {"sub1", "sub2"}},
+	}
+	m := NewAllowlistModel(cfg)
+
+	m.selected = len(m.builtinCmds)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.detailModeIsAllowlist != true {
+		t.Error("expected default allowlist mode for user command with subcommands")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	m = updated.(AllowlistModel)
+
+	if m.detailModeIsAllowlist != false {
+		t.Error("expected blocklist mode after toggle")
+	}
+
+	if m.cfg.ExtraAllowedSubcommandsMode["custom-tool"] != false {
+		t.Error("expected mode to be persisted in config")
+	}
+}
+
+func TestAllowlistDetail_DeleteLastSwitchToBlocklist(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands:        []string{"custom-tool"},
+		ExtraAllowedSubcommands:     map[string][]string{"custom-tool": {"sub1"}},
+		ExtraAllowedSubcommandsMode: map[string]bool{"custom-tool": true},
+	}
+	m := NewAllowlistModel(cfg)
+
+	m.selected = len(m.builtinCmds)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.detailModeIsAllowlist != true {
+		t.Fatal("expected allowlist mode")
+	}
+
+	m.detailSelected = 0
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	m = updated.(AllowlistModel)
+
+	if m.detailModeIsAllowlist != false {
+		t.Error("expected blocklist mode after deleting last subcommand")
+	}
+}
+
+func TestAllowlistDetail_DefaultAllowlistForNewCommand(t *testing.T) {
+	cfg := &config.Config{
+		ExtraAllowedCommands: []string{"custom-tool"},
+	}
+	m := NewAllowlistModel(cfg)
+
+	m.selected = len(m.builtinCmds)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(AllowlistModel)
+
+	if m.detailModeIsAllowlist != true {
+		t.Error("expected default allowlist mode for new command")
+	}
+}

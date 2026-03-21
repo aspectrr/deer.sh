@@ -11,15 +11,18 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // RemoteService implements Service by calling the fluid-daemon via gRPC.
+// Source VM resolution (which hypervisor host owns which VM) is handled
+// by the daemon via its configured source_hosts. The CLI just sends VM names.
 type RemoteService struct {
 	conn   *grpc.ClientConn
 	client fluidv1.DaemonServiceClient
-	hosts  []config.HostConfig
 }
 
 // NewRemoteService dials the daemon gRPC endpoint and returns a Service.
@@ -27,7 +30,7 @@ type RemoteService struct {
 //   - If DaemonCAFile is set, use it to verify the daemon's TLS cert
 //   - If DaemonInsecure is false and no CA file, use the system cert pool
 //   - Only use insecure credentials when DaemonInsecure is explicitly true
-func NewRemoteService(addr string, cpCfg config.ControlPlaneConfig, hosts []config.HostConfig) (*RemoteService, error) {
+func NewRemoteService(addr string, cpCfg config.ControlPlaneConfig) (*RemoteService, error) {
 	var creds credentials.TransportCredentials
 
 	switch {
@@ -66,7 +69,6 @@ func NewRemoteService(addr string, cpCfg config.ControlPlaneConfig, hosts []conf
 	return &RemoteService{
 		conn:   conn,
 		client: fluidv1.NewDaemonServiceClient(conn),
-		hosts:  hosts,
 	}, nil
 }
 
@@ -77,36 +79,17 @@ func (r *RemoteService) Close() error {
 	return nil
 }
 
-// sourceHostConn builds a SourceHostConnection from the first configured host.
-func (r *RemoteService) sourceHostConn() *fluidv1.SourceHostConnection {
-	if len(r.hosts) == 0 {
-		return nil
-	}
-	h := r.hosts[0]
-	user := h.DaemonSSHUser
-	if user == "" {
-		user = "fluid-daemon"
-	}
-	return &fluidv1.SourceHostConnection{
-		Type:    "libvirt",
-		SshHost: h.Address,
-		SshPort: int32(h.SSHPort),
-		SshUser: user,
-	}
-}
-
 func (r *RemoteService) CreateSandbox(ctx context.Context, req CreateRequest) (*SandboxInfo, error) {
 	resp, err := r.client.CreateSandbox(ctx, &fluidv1.CreateSandboxCommand{
-		BaseImage:            req.SourceVM, // derived from source_vm - daemon resolves the actual image
-		SourceVm:             req.SourceVM,
-		Name:                 req.Name,
-		Vcpus:                int32(req.VCPUs),
-		MemoryMb:             int32(req.MemoryMB),
-		TtlSeconds:           int32(req.TTLSeconds),
-		AgentId:              req.AgentID,
-		Network:              req.Network,
-		Live:                 req.Live,
-		SourceHostConnection: r.sourceHostConn(),
+		BaseImage:  req.SourceVM,
+		SourceVm:   req.SourceVM,
+		Name:       req.Name,
+		Vcpus:      int32(req.VCPUs),
+		MemoryMb:   int32(req.MemoryMB),
+		TtlSeconds: int32(req.TTLSeconds),
+		AgentId:    req.AgentID,
+		Network:    req.Network,
+		Live:       req.Live,
 	})
 	if err != nil {
 		return nil, err
@@ -117,6 +100,55 @@ func (r *RemoteService) CreateSandbox(ctx context.Context, req CreateRequest) (*
 		State:     resp.GetState(),
 		IPAddress: resp.GetIpAddress(),
 	}, nil
+}
+
+func (r *RemoteService) CreateSandboxStream(ctx context.Context, req CreateRequest, onProgress func(step string, stepNum, total int)) (*SandboxInfo, error) {
+	stream, err := r.client.CreateSandboxStream(ctx, &fluidv1.CreateSandboxCommand{
+		BaseImage:  req.SourceVM,
+		SourceVm:   req.SourceVM,
+		Name:       req.Name,
+		Vcpus:      int32(req.VCPUs),
+		MemoryMb:   int32(req.MemoryMB),
+		TtlSeconds: int32(req.TTLSeconds),
+		AgentId:    req.AgentID,
+		Network:    req.Network,
+		Live:       req.Live,
+	})
+	if err != nil {
+		// Fall back to unary if streaming is unimplemented (older daemon)
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Unimplemented {
+			if onProgress != nil {
+				onProgress("Creating sandbox", 1, 9)
+			}
+			return r.CreateSandbox(ctx, req)
+		}
+		return nil, err
+	}
+
+	for {
+		progress, err := stream.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		if progress.GetError() != "" {
+			return nil, fmt.Errorf("sandbox creation failed: %s", progress.GetError())
+		}
+
+		if progress.GetDone() {
+			result := progress.GetResult()
+			return &SandboxInfo{
+				ID:        result.GetSandboxId(),
+				Name:      result.GetName(),
+				State:     result.GetState(),
+				IPAddress: result.GetIpAddress(),
+			}, nil
+		}
+
+		if onProgress != nil {
+			onProgress(progress.GetStep(), int(progress.GetStepNum()), int(progress.GetTotalSteps()))
+		}
+	}
 }
 
 func (r *RemoteService) GetSandbox(ctx context.Context, id string) (*SandboxInfo, error) {
@@ -196,9 +228,7 @@ func (r *RemoteService) CreateSnapshot(ctx context.Context, sandboxID, name stri
 }
 
 func (r *RemoteService) ListVMs(ctx context.Context) ([]*VMInfo, error) {
-	resp, err := r.client.ListSourceVMs(ctx, &fluidv1.ListSourceVMsCommand{
-		SourceHostConnection: r.sourceHostConn(),
-	})
+	resp, err := r.client.ListSourceVMs(ctx, &fluidv1.ListSourceVMsCommand{})
 	if err != nil {
 		return nil, err
 	}
@@ -216,8 +246,7 @@ func (r *RemoteService) ListVMs(ctx context.Context) ([]*VMInfo, error) {
 
 func (r *RemoteService) ValidateSourceVM(ctx context.Context, vmName string) (*ValidationInfo, error) {
 	resp, err := r.client.ValidateSourceVM(ctx, &fluidv1.ValidateSourceVMCommand{
-		SourceVm:             vmName,
-		SourceHostConnection: r.sourceHostConn(),
+		SourceVm: vmName,
 	})
 	if err != nil {
 		return nil, err
@@ -236,10 +265,9 @@ func (r *RemoteService) ValidateSourceVM(ctx context.Context, vmName string) (*V
 
 func (r *RemoteService) PrepareSourceVM(ctx context.Context, vmName, sshUser, keyPath string) (*PrepareInfo, error) {
 	resp, err := r.client.PrepareSourceVM(ctx, &fluidv1.PrepareSourceVMCommand{
-		SourceVm:             vmName,
-		SshUser:              sshUser,
-		SshKeyPath:           keyPath,
-		SourceHostConnection: r.sourceHostConn(),
+		SourceVm:   vmName,
+		SshUser:    sshUser,
+		SshKeyPath: keyPath,
 	})
 	if err != nil {
 		return nil, err
@@ -259,10 +287,9 @@ func (r *RemoteService) PrepareSourceVM(ctx context.Context, vmName, sshUser, ke
 
 func (r *RemoteService) RunSourceCommand(ctx context.Context, vmName, command string, timeoutSec int) (*SourceCommandResult, error) {
 	resp, err := r.client.RunSourceCommand(ctx, &fluidv1.RunSourceCommandCommand{
-		SourceVm:             vmName,
-		Command:              command,
-		TimeoutSeconds:       int32(timeoutSec),
-		SourceHostConnection: r.sourceHostConn(),
+		SourceVm:       vmName,
+		Command:        command,
+		TimeoutSeconds: int32(timeoutSec),
 	})
 	if err != nil {
 		return nil, err
@@ -277,9 +304,8 @@ func (r *RemoteService) RunSourceCommand(ctx context.Context, vmName, command st
 
 func (r *RemoteService) ReadSourceFile(ctx context.Context, vmName, path string) (string, error) {
 	resp, err := r.client.ReadSourceFile(ctx, &fluidv1.ReadSourceFileCommand{
-		SourceVm:             vmName,
-		Path:                 path,
-		SourceHostConnection: r.sourceHostConn(),
+		SourceVm: vmName,
+		Path:     path,
 	})
 	if err != nil {
 		return "", err
@@ -292,21 +318,66 @@ func (r *RemoteService) GetHostInfo(ctx context.Context) (*HostInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	var sourceHosts []SourceHostInfo
+	for _, sh := range resp.GetSourceHosts() {
+		sourceHosts = append(sourceHosts, SourceHostInfo{
+			Address: sh.GetAddress(),
+			SSHUser: sh.GetSshUser(),
+			SSHPort: int(sh.GetSshPort()),
+		})
+	}
+
 	return &HostInfo{
-		HostID:          resp.GetHostId(),
-		Hostname:        resp.GetHostname(),
-		Version:         resp.GetVersion(),
-		TotalCPUs:       int(resp.GetTotalCpus()),
-		TotalMemoryMB:   resp.GetTotalMemoryMb(),
-		ActiveSandboxes: int(resp.GetActiveSandboxes()),
-		BaseImages:      resp.GetBaseImages(),
-		SSHCAPubKey:     resp.GetSshCaPubKey(),
+		HostID:            resp.GetHostId(),
+		Hostname:          resp.GetHostname(),
+		Version:           resp.GetVersion(),
+		TotalCPUs:         int(resp.GetTotalCpus()),
+		TotalMemoryMB:     resp.GetTotalMemoryMb(),
+		ActiveSandboxes:   int(resp.GetActiveSandboxes()),
+		BaseImages:        resp.GetBaseImages(),
+		SSHCAPubKey:       resp.GetSshCaPubKey(),
+		SSHIdentityPubKey: resp.GetSshIdentityPubKey(),
+		SourceHosts:       sourceHosts,
 	}, nil
 }
 
 func (r *RemoteService) Health(ctx context.Context) error {
 	_, err := r.client.Health(ctx, &fluidv1.HealthRequest{})
 	return err
+}
+
+func (r *RemoteService) DoctorCheck(ctx context.Context) ([]DoctorCheckResult, error) {
+	resp, err := r.client.DoctorCheck(ctx, &fluidv1.DoctorCheckRequest{})
+	if err != nil {
+		return nil, err
+	}
+	results := make([]DoctorCheckResult, len(resp.GetResults()))
+	for i, res := range resp.GetResults() {
+		results[i] = DoctorCheckResult{
+			Name:     res.GetName(),
+			Category: res.GetCategory(),
+			Passed:   res.GetPassed(),
+			Message:  res.GetMessage(),
+			FixCmd:   res.GetFixCmd(),
+		}
+	}
+	return results, nil
+}
+
+func (r *RemoteService) ScanSourceHostKeys(ctx context.Context) ([]ScanSourceHostKeysResult, error) {
+	resp, err := r.client.ScanSourceHostKeys(ctx, &fluidv1.ScanSourceHostKeysRequest{})
+	if err != nil {
+		return nil, err
+	}
+	results := make([]ScanSourceHostKeysResult, len(resp.GetResults()))
+	for i, res := range resp.GetResults() {
+		results[i] = ScanSourceHostKeysResult{
+			Address: res.GetAddress(),
+			Success: res.GetSuccess(),
+			Error:   res.GetError(),
+		}
+	}
+	return results, nil
 }
 
 // protoToSandboxInfo converts a proto SandboxInfo to the canonical type.

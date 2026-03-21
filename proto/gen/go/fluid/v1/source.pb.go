@@ -557,6 +557,7 @@ type SourceVMListEntry struct {
 	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	IpAddress     string                 `protobuf:"bytes,3,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
 	Prepared      bool                   `protobuf:"varint,4,opt,name=prepared,proto3" json:"prepared,omitempty"`
+	Host          string                 `protobuf:"bytes,5,opt,name=host,proto3" json:"host,omitempty"` // source host address this VM lives on
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -617,6 +618,13 @@ func (x *SourceVMListEntry) GetPrepared() bool {
 		return x.Prepared
 	}
 	return false
+}
+
+func (x *SourceVMListEntry) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
 }
 
 // ValidateSourceVMCommand instructs the host to validate a source VM's
@@ -817,13 +825,14 @@ const file_fluid_v1_source_proto_rawDesc = "" +
 	"\x14ListSourceVMsCommand\x12T\n" +
 	"\x16source_host_connection\x18\x01 \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\">\n" +
 	"\rSourceVMsList\x12-\n" +
-	"\x03vms\x18\x01 \x03(\v2\x1b.fluid.v1.SourceVMListEntryR\x03vms\"x\n" +
+	"\x03vms\x18\x01 \x03(\v2\x1b.fluid.v1.SourceVMListEntryR\x03vms\"\x8c\x01\n" +
 	"\x11SourceVMListEntry\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x1d\n" +
 	"\n" +
 	"ip_address\x18\x03 \x01(\tR\tipAddress\x12\x1a\n" +
-	"\bprepared\x18\x04 \x01(\bR\bprepared\"\x8c\x01\n" +
+	"\bprepared\x18\x04 \x01(\bR\bprepared\x12\x12\n" +
+	"\x04host\x18\x05 \x01(\tR\x04host\"\x8c\x01\n" +
 	"\x17ValidateSourceVMCommand\x12\x1b\n" +
 	"\tsource_vm\x18\x01 \x01(\tR\bsourceVm\x12T\n" +
 	"\x16source_host_connection\x18\x02 \x01(\v2\x1e.fluid.v1.SourceHostConnectionR\x14sourceHostConnection\"\xf2\x01\n" +

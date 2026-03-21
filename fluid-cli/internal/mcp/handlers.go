@@ -271,37 +271,38 @@ func (s *Server) handleGetSandbox(ctx context.Context, request mcp.CallToolReque
 	return jsonResult(result)
 }
 
-func (s *Server) handleListVMs(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	s.trackToolCall("list_vms")
-
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-
-	vms, err := s.service.ListVMs(ctx)
-	if err != nil {
-		s.logger.Error("list_vms failed", "error", err)
-		return errorResult(map[string]any{"error": fmt.Sprintf("list vms: %s", err)})
-	}
-
-	result := make([]map[string]any, 0, len(vms))
-	for _, vm := range vms {
-		item := map[string]any{
-			"name":     vm.Name,
-			"state":    vm.State,
-			"prepared": vm.Prepared,
-		}
-		if vm.IPAddress != "" {
-			item["ip"] = vm.IPAddress
-		}
-		result = append(result, item)
-	}
-
-	return jsonResult(map[string]any{
-		"vms":   result,
-		"count": len(result),
-		"total": len(result),
-	})
-}
+// list_vms - use list_hosts instead
+// func (s *Server) handleListVMs(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+// 	s.trackToolCall("list_vms")
+//
+// 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+// 	defer cancel()
+//
+// 	vms, err := s.service.ListVMs(ctx)
+// 	if err != nil {
+// 		s.logger.Error("list_vms failed", "error", err)
+// 		return errorResult(map[string]any{"error": fmt.Sprintf("list vms: %s", err)})
+// 	}
+//
+// 	result := make([]map[string]any, 0, len(vms))
+// 	for _, vm := range vms {
+// 		item := map[string]any{
+// 			"name":     vm.Name,
+// 			"state":    vm.State,
+// 			"prepared": vm.Prepared,
+// 		}
+// 		if vm.IPAddress != "" {
+// 			item["ip"] = vm.IPAddress
+// 		}
+// 		result = append(result, item)
+// 	}
+//
+// 	return jsonResult(map[string]any{
+// 		"vms":   result,
+// 		"count": len(result),
+// 		"total": len(result),
+// 	})
+// }
 
 func (s *Server) handleCreateSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.trackToolCall("create_snapshot")

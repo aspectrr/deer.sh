@@ -52,6 +52,19 @@ type Config struct {
 
 	// Audit configures the audit trail log.
 	Audit AuditConfig `yaml:"audit"`
+
+	// SourceHosts configures remote hypervisor hosts where source VMs live.
+	// The daemon auto-discovers VMs on these hosts so the CLI only needs
+	// to send a VM name (no SourceHostConnection required).
+	SourceHosts []SourceHostConfig `yaml:"source_hosts"`
+}
+
+// SourceHostConfig describes a remote hypervisor host the daemon can reach via SSH.
+type SourceHostConfig struct {
+	Address string `yaml:"address"`
+	SSHUser string `yaml:"ssh_user"` // default: fluid-daemon
+	SSHPort int    `yaml:"ssh_port"` // default: 22
+	Type    string `yaml:"type"`     // "libvirt" (default) or "proxmox"
 }
 
 // TelemetryConfig controls anonymous telemetry.
@@ -116,6 +129,19 @@ type ControlPlaneConfig struct {
 type MicroVMConfig struct {
 	// QEMUBinary is the path to qemu-system-x86_64.
 	QEMUBinary string `yaml:"qemu_binary"`
+
+	// Accel is the QEMU accelerator: "kvm" (default) or "tcg".
+	Accel string `yaml:"accel"`
+
+	// KernelPath is the path to a pre-downloaded Linux kernel for microVM boot.
+	KernelPath string `yaml:"kernel_path"`
+
+	// InitrdPath is the path to the initramfs image matching the kernel.
+	// Required for distribution kernels that have virtio drivers as modules.
+	InitrdPath string `yaml:"initrd_path"`
+
+	// RootDevice is the kernel root= device (e.g. /dev/vda1 for partitioned images).
+	RootDevice string `yaml:"root_device"`
 
 	// WorkDir is the directory for sandbox runtime data (overlays, PID files).
 	WorkDir string `yaml:"work_dir"`
@@ -215,6 +241,9 @@ func DefaultConfig() Config {
 		},
 		MicroVM: MicroVMConfig{
 			QEMUBinary:         "qemu-system-x86_64",
+			KernelPath:         "/var/lib/fluid-daemon/vmlinuz",
+			InitrdPath:         "/var/lib/fluid-daemon/initrd.img",
+			RootDevice:         "/dev/vda1",
 			WorkDir:            "/var/lib/fluid-daemon/overlays",
 			DefaultVCPUs:       2,
 			DefaultMemoryMB:    2048,
@@ -234,7 +263,7 @@ func DefaultConfig() Config {
 		SSH: SSHConfig{
 			CAKeyPath:    filepath.Join(fluidDir, "ssh_ca"),
 			CAPubKeyPath: filepath.Join(fluidDir, "ssh_ca.pub"),
-			KeyDir:       filepath.Join(fluidDir, "keys"),
+			KeyDir:       "/var/lib/fluid-daemon/keys",
 			CertTTL:      30 * time.Minute,
 			DefaultUser:  "sandbox",
 			IdentityFile: filepath.Join(fluidDir, "identity"),

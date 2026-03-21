@@ -164,8 +164,10 @@ type LaunchConfig struct {
 	Bridge       string
 	VCPUs        int
 	MemoryMB     int
+	InitrdPath   string // optional initramfs image
 	RootDevice   string // kernel root= device, defaults to /dev/vda
 	CloudInitISO string // optional
+	Accel        string // "kvm" (default) or "tcg"
 }
 
 // Launch starts a QEMU microVM process with the given configuration.
@@ -204,21 +206,30 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	}
 
 	// Build QEMU command args
-	args := []string{
-		"-M", "microvm", "-enable-kvm", "-cpu", "host",
+	accelArgs := []string{"-enable-kvm", "-cpu", "host"}
+	if cfg.Accel == "tcg" {
+		accelArgs = []string{"-accel", "tcg", "-cpu", "max"}
+	}
+	args := append([]string{"-M", "microvm"}, accelArgs...)
+	args = append(args,
 		"-m", strconv.Itoa(cfg.MemoryMB),
 		"-smp", strconv.Itoa(cfg.VCPUs),
 		"-kernel", cfg.KernelPath,
+	)
+	if cfg.InitrdPath != "" {
+		args = append(args, "-initrd", cfg.InitrdPath)
+	}
+	args = append(args,
 		"-append", fmt.Sprintf("console=ttyS0 root=%s rw quiet", rootDev),
 		"-drive", fmt.Sprintf("id=root,file=%s,format=qcow2,if=none", cfg.OverlayPath),
 		"-device", "virtio-blk-device,drive=root",
 		"-netdev", fmt.Sprintf("tap,id=net0,ifname=%s,script=no,downscript=no", cfg.TAPDevice),
 		"-device", fmt.Sprintf("virtio-net-device,netdev=net0,mac=%s", cfg.MACAddress),
-		"-serial", "stdio",
+		"-serial", fmt.Sprintf("file:%s", filepath.Join(sandboxDir, "serial.log")),
 		"-nographic", "-nodefaults",
 		"-daemonize",
 		"-pidfile", pidFile,
-	}
+	)
 
 	// Add cloud-init ISO if provided
 	if cfg.CloudInitISO != "" {

@@ -17,10 +17,9 @@ type Store struct {
 
 // ImageInfo describes a base image.
 type ImageInfo struct {
-	Name      string // filename without extension
-	Path      string // full path to QCOW2 file
-	SizeMB    int64  // file size in MB
-	HasKernel bool   // whether a kernel has been extracted
+	Name   string // filename without extension
+	Path   string // full path to QCOW2 file
+	SizeMB int64  // file size in MB
 }
 
 // NewStore creates an image store for the given base directory.
@@ -60,15 +59,10 @@ func (s *Store) List() ([]ImageInfo, error) {
 		name := strings.TrimSuffix(entry.Name(), ".qcow2")
 		fullPath := filepath.Join(s.baseDir, entry.Name())
 
-		// Check for extracted kernel
-		kernelPath := filepath.Join(s.baseDir, name+".vmlinux")
-		hasKernel := fileExists(kernelPath)
-
 		images = append(images, ImageInfo{
-			Name:      name,
-			Path:      fullPath,
-			SizeMB:    info.Size() / (1024 * 1024),
-			HasKernel: hasKernel,
+			Name:   name,
+			Path:   fullPath,
+			SizeMB: info.Size() / (1024 * 1024),
 		})
 	}
 
@@ -102,24 +96,9 @@ func (s *Store) GetImagePath(name string) (string, error) {
 	return path, nil
 }
 
-// GetKernelPath returns the path to the extracted kernel for a base image.
-func (s *Store) GetKernelPath(name string) (string, error) {
-	path := filepath.Join(s.baseDir, name+".vmlinux")
-	if !fileExists(path) {
-		return "", fmt.Errorf("kernel for %q not found (run kernel extraction first)", name)
-	}
-	return path, nil
-}
-
 // HasImage checks if a base image exists.
 func (s *Store) HasImage(name string) bool {
 	_, err := s.GetImagePath(name)
-	return err == nil
-}
-
-// HasKernel checks if an extracted kernel exists for a base image.
-func (s *Store) HasKernel(name string) bool {
-	_, err := s.GetKernelPath(name)
 	return err == nil
 }
 

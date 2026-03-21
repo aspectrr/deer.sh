@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
+	"os/user"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/audit"
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/redact"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/snapshotpull"
@@ -25,13 +30,24 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const createSandboxStreamTotalSteps = 9
+
+type sandboxCreatePuller interface {
+	Pull(context.Context, snapshotpull.PullRequest, snapshotpull.SnapshotBackend) (*snapshotpull.PullResult, error)
+}
+
+type sandboxCreateProgressProvider interface {
+	CreateSandboxWithProgress(context.Context, provider.CreateRequest, func(string, int, int)) (*provider.SandboxResult, error)
+}
+
 // Server implements the DaemonServiceServer interface.
 type Server struct {
 	fluidv1.UnimplementedDaemonServiceServer
 
+	cfg             *config.Config
 	prov            provider.SandboxProvider
 	store           *state.Store
-	puller          *snapshotpull.Puller
+	puller          sandboxCreatePuller
 	keyMgr          sshkeys.KeyProvider
 	telemetry       telemetry.Service
 	redactor        *redact.Redactor
@@ -40,12 +56,17 @@ type Server struct {
 	version         string
 	sshIdentityFile string
 	caPubKey        string
+	identityPubKey  string
 	logger          *slog.Logger
+
+	vmHostMu    sync.RWMutex
+	vmHostCache map[string]*fluidv1.SourceHostConnection // VM name -> host connection
 }
 
 // NewServer creates a new DaemonService server.
-func NewServer(prov provider.SandboxProvider, store *state.Store, puller *snapshotpull.Puller, keyMgr sshkeys.KeyProvider, tele telemetry.Service, redactor *redact.Redactor, auditLog *audit.Logger, hostID, version, sshIdentityFile, caPubKey string, logger *slog.Logger) *Server {
+func NewServer(cfg *config.Config, prov provider.SandboxProvider, store *state.Store, puller *snapshotpull.Puller, keyMgr sshkeys.KeyProvider, tele telemetry.Service, redactor *redact.Redactor, auditLog *audit.Logger, hostID, version, sshIdentityFile, caPubKey, identityPubKey string, logger *slog.Logger) *Server {
 	return &Server{
+		cfg:             cfg,
 		prov:            prov,
 		store:           store,
 		puller:          puller,
@@ -57,8 +78,30 @@ func NewServer(prov provider.SandboxProvider, store *state.Store, puller *snapsh
 		version:         version,
 		sshIdentityFile: sshIdentityFile,
 		caPubKey:        caPubKey,
+		identityPubKey:  identityPubKey,
 		logger:          logger.With("component", "daemon-service"),
+		vmHostCache:     make(map[string]*fluidv1.SourceHostConnection),
 	}
+}
+
+func (s *Server) sendSandboxCreateProgress(stream fluidv1.DaemonService_CreateSandboxStreamServer, sandboxID string, stepNum int, step string) error {
+	return stream.Send(&fluidv1.SandboxProgress{
+		SandboxId:  sandboxID,
+		Step:       step,
+		StepNum:    int32(stepNum),
+		TotalSteps: createSandboxStreamTotalSteps,
+	})
+}
+
+func (s *Server) sendSandboxCreateError(stream fluidv1.DaemonService_CreateSandboxStreamServer, sandboxID string, err error) {
+	if err == nil {
+		return
+	}
+	_ = stream.Send(&fluidv1.SandboxProgress{
+		SandboxId: sandboxID,
+		Error:     err.Error(),
+		Done:      true,
+	})
 }
 
 func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCommand) (*fluidv1.SandboxCreated, error) {
@@ -84,15 +127,23 @@ func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCo
 		memMB = 2048
 	}
 
-	// If a source host connection is provided, snapshot+pull the image first
+	// Resolve source host connection: use provided, or resolve from config
 	baseImage := req.GetBaseImage()
-	if conn := req.GetSourceHostConnection(); conn != nil && req.GetSourceVm() != "" && s.puller != nil {
+	conn := req.GetSourceHostConnection()
+	if conn == nil && req.GetSourceVm() != "" && s.puller != nil && len(s.cfg.SourceHosts) > 0 {
+		resolved, err := s.resolveSourceHost(ctx, req.GetSourceVm())
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "resolve source host: %v", err)
+		}
+		conn = resolved
+	}
+	if conn != nil && req.GetSourceVm() != "" && s.puller != nil {
 		var backend snapshotpull.SnapshotBackend
 		switch conn.GetType() {
 		case "libvirt":
 			backend = snapshotpull.NewLibvirtBackend(
 				conn.GetSshHost(), int(conn.GetSshPort()),
-				conn.GetSshUser(), s.sshIdentityFile, "qemu:///system", s.logger)
+				conn.GetSshUser(), s.sshIdentityFile, s.logger)
 		case "proxmox":
 			backend = snapshotpull.NewProxmoxBackend(
 				conn.GetProxmoxHost(), conn.GetProxmoxTokenId(),
@@ -172,6 +223,230 @@ func (s *Server) CreateSandbox(ctx context.Context, req *fluidv1.CreateSandboxCo
 		Bridge:     result.Bridge,
 		Pid:        int32(result.PID),
 	}, nil
+}
+
+func (s *Server) CreateSandboxStream(req *fluidv1.CreateSandboxCommand, stream fluidv1.DaemonService_CreateSandboxStreamServer) error {
+	ctx := stream.Context()
+	start := time.Now()
+	s.telemetry.Track("daemon_sandbox_created_stream", nil)
+	s.logger.Info("CreateSandboxStream", "base_image", req.GetBaseImage(), "source_vm", req.GetSourceVm(), "name", req.GetName())
+
+	sandboxID := req.GetSandboxId()
+	if sandboxID == "" {
+		var err error
+		sandboxID, err = genid.Generate("sbx-")
+		if err != nil {
+			return status.Errorf(codes.Internal, "generate sandbox ID: %v", err)
+		}
+	}
+
+	vcpus := int(req.GetVcpus())
+	if vcpus == 0 {
+		vcpus = 2
+	}
+	memMB := int(req.GetMemoryMb())
+	if memMB == 0 {
+		memMB = 2048
+	}
+
+	// Resolve source host connection: use provided, or resolve from config
+	baseImage := req.GetBaseImage()
+	conn := req.GetSourceHostConnection()
+	switch {
+	case conn != nil:
+		if err := s.sendSandboxCreateProgress(stream, sandboxID, 1, "Using provided source host"); err != nil {
+			return err
+		}
+	case req.GetSourceVm() != "" && s.puller != nil && len(s.cfg.SourceHosts) > 0:
+		if err := s.sendSandboxCreateProgress(stream, sandboxID, 1, "Resolving source host"); err != nil {
+			return err
+		}
+		resolved, err := s.resolveSourceHost(ctx, req.GetSourceVm())
+		if err != nil {
+			s.sendSandboxCreateError(stream, sandboxID, err)
+			return status.Errorf(codes.NotFound, "resolve source host: %v", err)
+		}
+		conn = resolved
+	default:
+		if err := s.sendSandboxCreateProgress(stream, sandboxID, 1, "No source host resolution needed"); err != nil {
+			return err
+		}
+	}
+
+	backend := snapshotpull.SnapshotBackend(nil)
+	if conn != nil && req.GetSourceVm() != "" && s.puller != nil {
+		switch conn.GetType() {
+		case "libvirt":
+			backend = snapshotpull.NewLibvirtBackend(
+				conn.GetSshHost(), int(conn.GetSshPort()),
+				conn.GetSshUser(), s.sshIdentityFile, s.logger)
+		case "proxmox":
+			backend = snapshotpull.NewProxmoxBackend(
+				conn.GetProxmoxHost(), conn.GetProxmoxTokenId(),
+				conn.GetProxmoxSecret(), conn.GetProxmoxNode(),
+				conn.GetProxmoxVerifySsl(), s.logger)
+		}
+	}
+
+	if backend != nil {
+		stepLabel := "Preparing base image"
+		mode := "cached"
+		if req.GetSnapshotMode() == fluidv1.SnapshotMode_SNAPSHOT_MODE_FRESH {
+			mode = "fresh"
+			stepLabel = "Pulling fresh snapshot"
+		}
+		if err := s.sendSandboxCreateProgress(stream, sandboxID, 2, stepLabel); err != nil {
+			return err
+		}
+		pullResult, err := s.puller.Pull(ctx, snapshotpull.PullRequest{
+			SourceHost:   conn.GetSshHost(),
+			VMName:       req.GetSourceVm(),
+			SnapshotMode: mode,
+		}, backend)
+		if err != nil {
+			s.sendSandboxCreateError(stream, sandboxID, err)
+			return status.Errorf(codes.Internal, "pull snapshot: %v", err)
+		}
+		baseImage = pullResult.ImageName
+		s.logger.Info("snapshot pulled", "image", baseImage, "cached", pullResult.Cached)
+	} else {
+		if err := s.sendSandboxCreateProgress(stream, sandboxID, 2, "Using requested base image"); err != nil {
+			return err
+		}
+	}
+
+	// Register for readiness signaling if supported
+	if rp, ok := s.prov.(sandboxCreateProgressProvider); ok {
+		// Use streaming provider
+		result, err := rp.CreateSandboxWithProgress(ctx, provider.CreateRequest{
+			SandboxID:    sandboxID,
+			Name:         req.GetName(),
+			BaseImage:    baseImage,
+			SourceVM:     req.GetSourceVm(),
+			Network:      req.GetNetwork(),
+			VCPUs:        vcpus,
+			MemoryMB:     memMB,
+			TTLSeconds:   int(req.GetTtlSeconds()),
+			AgentID:      req.GetAgentId(),
+			SSHPublicKey: req.GetSshPublicKey(),
+		}, func(step string, stepNum, total int) {
+			_ = s.sendSandboxCreateProgress(stream, sandboxID, stepNum+2, step)
+		})
+		if err != nil {
+			s.logger.Error("CreateSandboxStream failed", "error", err)
+			s.sendSandboxCreateError(stream, sandboxID, err)
+			return status.Errorf(codes.Internal, "create sandbox: %v", err)
+		}
+
+		// Persist to state store
+		now := time.Now().UTC()
+		sb := &state.Sandbox{
+			ID:         result.SandboxID,
+			Name:       result.Name,
+			AgentID:    req.GetAgentId(),
+			BaseImage:  baseImage,
+			Bridge:     result.Bridge,
+			MACAddress: result.MACAddress,
+			IPAddress:  result.IPAddress,
+			State:      result.State,
+			PID:        result.PID,
+			VCPUs:      vcpus,
+			MemoryMB:   memMB,
+			TTLSeconds: int(req.GetTtlSeconds()),
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+		if err := s.store.CreateSandbox(ctx, sb); err != nil {
+			s.logger.Warn("failed to persist sandbox state", "sandbox_id", result.SandboxID, "error", err)
+		}
+
+		s.logAudit(audit.TypeSandboxCreated, map[string]any{
+			"sandbox_id": result.SandboxID,
+			"source_vm":  req.GetSourceVm(),
+			"vcpus":      vcpus,
+			"memory_mb":  memMB,
+		}, nil, time.Since(start).Milliseconds())
+
+		// Send final done message
+		return stream.Send(&fluidv1.SandboxProgress{
+			SandboxId: sandboxID,
+			Done:      true,
+			Result: &fluidv1.SandboxCreated{
+				SandboxId:  result.SandboxID,
+				Name:       result.Name,
+				State:      result.State,
+				IpAddress:  result.IPAddress,
+				MacAddress: result.MACAddress,
+				Bridge:     result.Bridge,
+				Pid:        int32(result.PID),
+			},
+		})
+	}
+
+	// Fallback: provider doesn't support progress, use unary
+	if err := s.sendSandboxCreateProgress(stream, sandboxID, 3, "Creating sandbox"); err != nil {
+		return err
+	}
+	result, err := s.prov.CreateSandbox(ctx, provider.CreateRequest{
+		SandboxID:    sandboxID,
+		Name:         req.GetName(),
+		BaseImage:    baseImage,
+		SourceVM:     req.GetSourceVm(),
+		Network:      req.GetNetwork(),
+		VCPUs:        vcpus,
+		MemoryMB:     memMB,
+		TTLSeconds:   int(req.GetTtlSeconds()),
+		AgentID:      req.GetAgentId(),
+		SSHPublicKey: req.GetSshPublicKey(),
+	})
+	if err != nil {
+		s.logger.Error("CreateSandboxStream (unary fallback) failed", "error", err)
+		s.sendSandboxCreateError(stream, sandboxID, err)
+		return status.Errorf(codes.Internal, "create sandbox: %v", err)
+	}
+
+	// Persist to state store
+	now := time.Now().UTC()
+	sb := &state.Sandbox{
+		ID:         result.SandboxID,
+		Name:       result.Name,
+		AgentID:    req.GetAgentId(),
+		BaseImage:  baseImage,
+		Bridge:     result.Bridge,
+		MACAddress: result.MACAddress,
+		IPAddress:  result.IPAddress,
+		State:      result.State,
+		PID:        result.PID,
+		VCPUs:      vcpus,
+		MemoryMB:   memMB,
+		TTLSeconds: int(req.GetTtlSeconds()),
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if err := s.store.CreateSandbox(ctx, sb); err != nil {
+		s.logger.Warn("failed to persist sandbox state", "sandbox_id", result.SandboxID, "error", err)
+	}
+
+	s.logAudit(audit.TypeSandboxCreated, map[string]any{
+		"sandbox_id": result.SandboxID,
+		"source_vm":  req.GetSourceVm(),
+		"vcpus":      vcpus,
+		"memory_mb":  memMB,
+	}, nil, time.Since(start).Milliseconds())
+
+	return stream.Send(&fluidv1.SandboxProgress{
+		SandboxId: sandboxID,
+		Done:      true,
+		Result: &fluidv1.SandboxCreated{
+			SandboxId:  result.SandboxID,
+			Name:       result.Name,
+			State:      result.State,
+			IpAddress:  result.IPAddress,
+			MacAddress: result.MACAddress,
+			Bridge:     result.Bridge,
+			Pid:        int32(result.PID),
+		},
+	})
 }
 
 func (s *Server) GetSandbox(ctx context.Context, req *fluidv1.GetSandboxRequest) (*fluidv1.SandboxInfo, error) {
@@ -397,11 +672,47 @@ func (s *Server) ListSourceVMs(ctx context.Context, req *fluidv1.ListSourceVMsCo
 				State:     vm.State,
 				IpAddress: vm.IPAddress,
 				Prepared:  vm.Prepared,
+				Host:      conn.GetSshHost(),
 			})
 		}
 		return &fluidv1.SourceVMsList{Vms: entries}, nil
 	}
 
+	// Query all configured source hosts
+	if len(s.cfg.SourceHosts) > 0 {
+		var allEntries []*fluidv1.SourceVMListEntry
+		var lastErr error
+		for _, conn := range s.sourceHostConns() {
+			adhoc, err := s.adhocSourceVMManager(conn)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			vms, err := adhoc.ListVMs(ctx)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			s.vmHostMu.Lock()
+			for _, vm := range vms {
+				s.vmHostCache[vm.Name] = conn
+				allEntries = append(allEntries, &fluidv1.SourceVMListEntry{
+					Name:      vm.Name,
+					State:     vm.State,
+					IpAddress: vm.IPAddress,
+					Prepared:  vm.Prepared,
+					Host:      conn.SshHost,
+				})
+			}
+			s.vmHostMu.Unlock()
+		}
+		if len(allEntries) == 0 && lastErr != nil {
+			return nil, status.Errorf(codes.Internal, "list source VMs: %v", lastErr)
+		}
+		return &fluidv1.SourceVMsList{Vms: allEntries}, nil
+	}
+
+	// Fall back to local provider
 	vms, err := s.prov.ListSourceVMs(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list source VMs: %v", err)
@@ -425,7 +736,16 @@ func (s *Server) ValidateSourceVM(ctx context.Context, req *fluidv1.ValidateSour
 		return nil, status.Error(codes.InvalidArgument, "source_vm is required")
 	}
 
-	if conn := req.GetSourceHostConnection(); conn != nil {
+	conn := req.GetSourceHostConnection()
+	if conn == nil && len(s.cfg.SourceHosts) > 0 {
+		resolved, err := s.resolveSourceHost(ctx, req.GetSourceVm())
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "resolve source host: %v", err)
+		}
+		conn = resolved
+	}
+
+	if conn != nil {
 		adhoc, err := s.adhocSourceVMManager(conn)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
@@ -468,7 +788,16 @@ func (s *Server) PrepareSourceVM(ctx context.Context, req *fluidv1.PrepareSource
 		return nil, status.Error(codes.InvalidArgument, "source_vm is required")
 	}
 
-	if conn := req.GetSourceHostConnection(); conn != nil {
+	conn := req.GetSourceHostConnection()
+	if conn == nil && len(s.cfg.SourceHosts) > 0 {
+		resolved, err := s.resolveSourceHost(ctx, req.GetSourceVm())
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "resolve source host: %v", err)
+		}
+		conn = resolved
+	}
+
+	if conn != nil {
 		adhoc, err := s.adhocSourceVMManager(conn)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
@@ -522,7 +851,16 @@ func (s *Server) RunSourceCommand(ctx context.Context, req *fluidv1.RunSourceCom
 		timeout = 5 * time.Minute
 	}
 
-	if conn := req.GetSourceHostConnection(); conn != nil {
+	conn := req.GetSourceHostConnection()
+	if conn == nil && len(s.cfg.SourceHosts) > 0 {
+		resolved, err := s.resolveSourceHost(ctx, req.GetSourceVm())
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "resolve source host: %v", err)
+		}
+		conn = resolved
+	}
+
+	if conn != nil {
 		adhoc, err := s.adhocSourceVMManager(conn)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
@@ -570,7 +908,16 @@ func (s *Server) ReadSourceFile(ctx context.Context, req *fluidv1.ReadSourceFile
 		return nil, status.Error(codes.InvalidArgument, "path is required")
 	}
 
-	if conn := req.GetSourceHostConnection(); conn != nil {
+	conn := req.GetSourceHostConnection()
+	if conn == nil && len(s.cfg.SourceHosts) > 0 {
+		resolved, err := s.resolveSourceHost(ctx, req.GetSourceVm())
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "resolve source host: %v", err)
+		}
+		conn = resolved
+	}
+
+	if conn != nil {
 		adhoc, err := s.adhocSourceVMManager(conn)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "create provider for host: %v", err)
@@ -615,12 +962,31 @@ func (s *Server) GetHostInfo(ctx context.Context, _ *fluidv1.GetHostInfoRequest)
 		s.logger.Warn("failed to get capabilities", "error", err)
 	}
 
+	var sourceHosts []*fluidv1.SourceHostInfo
+	for _, h := range s.cfg.SourceHosts {
+		port := int32(h.SSHPort)
+		if port == 0 {
+			port = 22
+		}
+		user := h.SSHUser
+		if user == "" {
+			user = "fluid-daemon"
+		}
+		sourceHosts = append(sourceHosts, &fluidv1.SourceHostInfo{
+			Address: h.Address,
+			SshUser: user,
+			SshPort: port,
+		})
+	}
+
 	resp := &fluidv1.HostInfoResponse{
-		HostId:          s.hostID,
-		Hostname:        hostname,
-		Version:         s.version,
-		ActiveSandboxes: int32(s.prov.ActiveSandboxCount()),
-		SshCaPubKey:     s.caPubKey,
+		HostId:            s.hostID,
+		Hostname:          hostname,
+		Version:           s.version,
+		ActiveSandboxes:   int32(s.prov.ActiveSandboxCount()),
+		SshCaPubKey:       s.caPubKey,
+		SshIdentityPubKey: s.identityPubKey,
+		SourceHosts:       sourceHosts,
 	}
 
 	if caps != nil {
@@ -667,6 +1033,93 @@ func (s *Server) DiscoverHosts(ctx context.Context, req *fluidv1.DiscoverHostsCo
 	}
 
 	return &fluidv1.DiscoverHostsResult{Hosts: discovered}, nil
+}
+
+func (s *Server) ScanSourceHostKeys(ctx context.Context, _ *fluidv1.ScanSourceHostKeysRequest) (*fluidv1.ScanSourceHostKeysResponse, error) {
+	if len(s.cfg.SourceHosts) == 0 {
+		return &fluidv1.ScanSourceHostKeysResponse{}, nil
+	}
+
+	// Resolve fluid-daemon home directory
+	homeDir := "/home/fluid-daemon"
+	if u, err := user.Lookup("fluid-daemon"); err == nil {
+		homeDir = u.HomeDir
+	}
+	sshDir := filepath.Join(homeDir, ".ssh")
+	knownHostsPath := filepath.Join(sshDir, "known_hosts")
+
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
+		s.logger.Warn("failed to create .ssh dir for fluid-daemon", "path", sshDir, "error", err)
+	}
+
+	// Read existing known_hosts to skip duplicates
+	existing, _ := os.ReadFile(knownHostsPath)
+	existingStr := string(existing)
+
+	var results []*fluidv1.ScanSourceHostKeysResult
+	for _, h := range s.cfg.SourceHosts {
+		addr := h.Address
+		scanCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		out, err := exec.CommandContext(scanCtx, "ssh-keyscan", "-H", addr).Output()
+		cancel()
+
+		if err != nil {
+			s.logger.Warn("ssh-keyscan failed", "address", addr, "error", err)
+			results = append(results, &fluidv1.ScanSourceHostKeysResult{
+				Address: addr,
+				Success: false,
+				Error:   fmt.Sprintf("ssh-keyscan: %v", err),
+			})
+			continue
+		}
+
+		// Append new keys (ssh-keyscan -H hashes the hostname so exact dedup
+		// isn't practical; just skip if we already have content from this scan)
+		newKeys := strings.TrimSpace(string(out))
+		if newKeys == "" {
+			results = append(results, &fluidv1.ScanSourceHostKeysResult{
+				Address: addr,
+				Success: false,
+				Error:   "ssh-keyscan returned no keys",
+			})
+			continue
+		}
+
+		// Append to known_hosts
+		toAppend := newKeys + "\n"
+		if len(existingStr) > 0 && !strings.HasSuffix(existingStr, "\n") {
+			toAppend = "\n" + toAppend
+		}
+
+		f, err := os.OpenFile(knownHostsPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			results = append(results, &fluidv1.ScanSourceHostKeysResult{
+				Address: addr,
+				Success: false,
+				Error:   fmt.Sprintf("open known_hosts: %v", err),
+			})
+			continue
+		}
+		_, writeErr := f.WriteString(toAppend)
+		f.Close()
+		if writeErr != nil {
+			results = append(results, &fluidv1.ScanSourceHostKeysResult{
+				Address: addr,
+				Success: false,
+				Error:   fmt.Sprintf("write known_hosts: %v", writeErr),
+			})
+			continue
+		}
+		existingStr += toAppend
+
+		s.logger.Info("scanned host keys", "address", addr)
+		results = append(results, &fluidv1.ScanSourceHostKeysResult{
+			Address: addr,
+			Success: true,
+		})
+	}
+
+	return &fluidv1.ScanSourceHostKeysResponse{Results: results}, nil
 }
 
 // logAudit records an operation to the audit log with redaction.

@@ -77,8 +77,8 @@ type ToolCompleteMsg struct {
 	Error    string
 }
 
-// AgentDoneMsg is sent through the status channel when the agent finishes
-// This unblocks the status listener
+// AgentDoneMsg is returned directly by the agent tea.Cmd when a run finishes.
+// It must not be queued through the status channel.
 type AgentDoneMsg struct{}
 
 // AgentCancelledMsg is sent when the user cancels the agent via ESC.
@@ -228,6 +228,15 @@ type SourcePrepareProgressMsg struct {
 	Done     bool
 }
 
+// SandboxCreateProgressMsg is sent during sandbox creation to show step-by-step progress
+type SandboxCreateProgressMsg struct {
+	SourceVM string
+	StepName string
+	StepNum  int
+	Total    int
+	Done     bool
+}
+
 // AutoReadOnlyMsg is sent when read-only mode is auto-toggled for source VM operations
 type AutoReadOnlyMsg struct {
 	SourceVM string
@@ -266,4 +275,41 @@ type RedactionCloseMsg struct {
 type SandboxServiceSwapResultMsg struct {
 	Svc sandbox.Service
 	Err error
+}
+
+// DaemonKeyDeployResultMsg carries the result of deploying daemon keys to source hosts.
+type DaemonKeyDeployResultMsg struct {
+	Deployed int
+	Skipped  int
+	Errors   []string
+}
+
+// HostDeployState tracks the deploy status of a single host.
+type HostDeployState int
+
+const (
+	HostDeployPending HostDeployState = iota
+	HostDeployDeploying
+	HostDeployDone
+	HostDeployFailed
+)
+
+// HostDeployStatus holds the deploy status for a single host.
+type HostDeployStatus struct {
+	Name   string
+	State  HostDeployState
+	ErrMsg string
+}
+
+// HostKeyDeployedMsg is sent when a single host key deploy completes.
+type HostKeyDeployedMsg struct {
+	Host  string
+	Index int
+	Err   error
+}
+
+// ScanKeysCompleteMsg is sent when the daemon finishes scanning source host SSH keys.
+type ScanKeysCompleteMsg struct {
+	Results []sandbox.ScanSourceHostKeysResult
+	Err     error
 }

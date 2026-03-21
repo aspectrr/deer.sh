@@ -2,9 +2,9 @@ package llm
 
 // readOnlyTools is the set of tool names allowed in read-only mode.
 var readOnlyTools = map[string]bool{
-	"list_sandboxes":     true,
-	"get_sandbox":        true,
-	"list_vms":           true,
+	"list_sandboxes": true,
+	"get_sandbox":    true,
+	// "list_vms":          true, // use list_hosts instead
 	"read_file":          true,
 	"list_playbooks":     true,
 	"get_playbook":       true,
@@ -202,17 +202,17 @@ func GetTools() []Tool {
 				},
 			},
 		},
-		{
-			Type: "function",
-			Function: Function{
-				Name:        "list_vms",
-				Description: "List available host VMs (base images) that can be cloned to create sandboxes. Does not include sandboxes - use list_sandboxes for those.",
-				Parameters: ParameterSchema{
-					Type:       "object",
-					Properties: map[string]Property{},
-				},
-			},
-		},
+		// {
+		// 	Type: "function",
+		// 	Function: Function{
+		// 		Name:        "list_vms",
+		// 		Description: "List available host VMs (base images) that can be cloned to create sandboxes. Does not include sandboxes - use list_sandboxes for those.",
+		// 		Parameters: ParameterSchema{
+		// 			Type:       "object",
+		// 			Properties: map[string]Property{},
+		// 		},
+		// 	},
+		// },
 		{
 			Type: "function",
 			Function: Function{

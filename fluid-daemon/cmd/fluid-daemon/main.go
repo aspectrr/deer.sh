@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -173,9 +175,18 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		}
 	}
 
+	// Read daemon identity pub key for sharing with CLI
+	var identityPubKey string
+	if pubKeyData, err := os.ReadFile(cfg.SSH.IdentityFile + ".pub"); err == nil {
+		identityPubKey = strings.TrimSpace(string(pubKeyData))
+		logger.Info("loaded SSH identity pub key", "path", cfg.SSH.IdentityFile+".pub")
+	} else {
+		logger.Warn("SSH identity pub key not found, daemon key deployment will be unavailable", "path", cfg.SSH.IdentityFile+".pub", "error", err)
+	}
+
 	// Start DaemonService gRPC server (inbound from CLI)
 	if cfg.Daemon.Enabled {
-		daemonSrv := daemon.NewServer(prov, st, puller, keyMgr, tele, redactor, auditLog, cfg.HostID, version, cfg.SSH.IdentityFile, caPubKey, logger)
+		daemonSrv := daemon.NewServer(cfg, prov, st, puller, keyMgr, tele, redactor, auditLog, cfg.HostID, version, cfg.SSH.IdentityFile, caPubKey, identityPubKey, logger)
 		grpcServer := grpc.NewServer()
 		fluidv1.RegisterDaemonServiceServer(grpcServer, daemonSrv)
 
@@ -337,7 +348,26 @@ func initMicroVMProvider(ctx context.Context, cfg *config.Config, logger *slog.L
 		}
 	}
 
-	return microvmProvider.New(vmMgr, netMgr, imgStore, srcVMMgr, logger), keyMgr, caPubKey, nil
+	// Discover bridge IP for cloud-init phone_home readiness signaling
+	bridgeIP, _ := network.GetBridgeIP(cfg.Network.DefaultBridge)
+	if bridgeIP != "" {
+		logger.Info("bridge IP discovered for phone_home", "bridge", cfg.Network.DefaultBridge, "ip", bridgeIP)
+	}
+
+	// Start readiness HTTP server for cloud-init phone_home callbacks
+	var readiness *daemon.ReadinessServer
+	if bridgeIP != "" {
+		readinessAddr := bridgeIP + ":9092"
+		readiness = daemon.NewReadinessServer(readinessAddr, logger)
+		go func() {
+			if err := readiness.Start(); err != nil && err != http.ErrServerClosed {
+				logger.Warn("readiness server error", "error", err)
+			}
+		}()
+		logger.Info("readiness server started", "addr", readinessAddr)
+	}
+
+	return microvmProvider.New(vmMgr, netMgr, imgStore, srcVMMgr, keyMgr, cfg.MicroVM.KernelPath, cfg.MicroVM.InitrdPath, cfg.MicroVM.RootDevice, cfg.MicroVM.Accel, caPubKey, bridgeIP, readiness, logger), keyMgr, caPubKey, nil
 }
 
 func initLXCProvider(cfg *config.Config, logger *slog.Logger) (provider.SandboxProvider, error) {

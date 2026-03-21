@@ -3,6 +3,8 @@ package tui
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"strings"
 	"time"
@@ -15,7 +17,7 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
-	"github.com/aspectrr/fluid.sh/fluid-cli/internal/netutil"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
 )
 
@@ -26,17 +28,18 @@ const (
 	StepAddress ConnectStep = iota
 	StepConnecting
 	StepDoctor
+	StepDeployKeys
 	StepDone
 )
 
-// connectField indexes into the address-step fields. Only fieldAddress and
-// fieldName have backing text inputs; fieldInsecure is a boolean toggle.
+// connectField indexes into the address-step fields. Only fieldAddress and fieldName
+// have backing text inputs; fieldInsecure is a boolean toggle.
 type connectField int
 
 const (
-	fieldAddress  connectField = iota
-	fieldName                  // last real text input
-	fieldInsecure              // virtual: boolean checkbox, no text input
+	fieldAddress connectField = iota
+	fieldName
+	fieldInsecure // virtual: boolean checkbox, no text input
 	connectFieldCount
 )
 
@@ -53,16 +56,17 @@ type ConnectDoctorResultMsg struct {
 	Err     error
 }
 
-// ConnectModel implements the 4-step connect wizard modal.
+// ConnectModel implements the connect wizard modal.
 type ConnectModel struct {
 	step     ConnectStep
-	inputs   [fieldInsecure]textinput.Model // only address + name have text inputs
+	inputs   [fieldInsecure]textinput.Model // address, name have text inputs
 	focused  connectField
 	insecure bool
 	spinner  spinner.Model
 	width    int
 	height   int
 	styles   Styles
+	logger   *slog.Logger
 
 	// Connection result
 	service  sandbox.Service
@@ -74,22 +78,32 @@ type ConnectModel struct {
 	doctorResults []doctor.CheckResult
 	doctorErr     error
 
-	// Config for read-only hosts (passed to NewRemoteService)
-	hosts []config.HostConfig
+	// Deploy results
+	keysDeployed       bool
+	deployResults      *DaemonKeyDeployResultMsg
+	hostDeployStatuses []HostDeployStatus
+	deployHostIndex    int
+	deployIdentityKey  string
 }
 
 // NewConnectModel creates a new connect wizard.
-func NewConnectModel(hosts []config.HostConfig) ConnectModel {
+func NewConnectModel(logger *slog.Logger) ConnectModel {
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+
 	addrInput := textinput.New()
 	addrInput.Placeholder = "localhost:9091"
 	addrInput.Prompt = ""
 	addrInput.CharLimit = 256
+	addrInput.Width = 40
 	addrInput.Focus()
 
 	nameInput := textinput.New()
 	nameInput.Placeholder = "optional name"
 	nameInput.Prompt = ""
 	nameInput.CharLimit = 128
+	nameInput.Width = 40
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -101,7 +115,7 @@ func NewConnectModel(hosts []config.HostConfig) ConnectModel {
 		focused: fieldAddress,
 		spinner: s,
 		styles:  DefaultStyles(),
-		hosts:   hosts,
+		logger:  logger,
 	}
 }
 
@@ -122,17 +136,70 @@ func (m ConnectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			m.connErr = msg.Err
 			m.step = StepConnecting // stay on connecting step to show error
+			m.logger.Warn("connect failed", "error", msg.Err)
 			return m, nil
 		}
 		m.service = msg.Service
 		m.hostInfo = msg.HostInfo
 		m.connErr = nil
 		m.step = StepDoctor
+		m.logger.Info("connected", "hostname", msg.HostInfo.Hostname, "version", msg.HostInfo.Version)
 		return m, tea.Batch(m.spinner.Tick, m.runDoctorChecks())
 
 	case ConnectDoctorResultMsg:
 		m.doctorResults = msg.Results
 		m.doctorErr = msg.Err
+		m.step = StepDone
+		if msg.Err != nil {
+			m.logger.Warn("doctor checks failed", "error", msg.Err)
+		} else {
+			passed := 0
+			for _, r := range msg.Results {
+				if r.Passed {
+					passed++
+				}
+			}
+			m.logger.Info("doctor checks complete", "passed", passed, "total", len(msg.Results))
+		}
+		return m, nil
+
+	case HostKeyDeployedMsg:
+		if msg.Index < len(m.hostDeployStatuses) {
+			if msg.Err != nil {
+				m.hostDeployStatuses[msg.Index].State = HostDeployFailed
+				m.hostDeployStatuses[msg.Index].ErrMsg = msg.Err.Error()
+				m.logger.Warn("host key deploy failed", "host", msg.Host, "error", msg.Err)
+			} else {
+				m.hostDeployStatuses[msg.Index].State = HostDeployDone
+				m.logger.Info("host key deployed", "host", msg.Host)
+			}
+		}
+		// Deploy next host or finish
+		nextIdx := msg.Index + 1
+		if nextIdx < len(m.hostDeployStatuses) {
+			m.hostDeployStatuses[nextIdx].State = HostDeployDeploying
+			m.deployHostIndex = nextIdx
+			return m, deploySourceHostKey(m.hostInfo.SourceHosts[nextIdx], m.deployIdentityKey, nextIdx, m.logger)
+		}
+		// All done - scan host keys on daemon side, then rerun doctor checks
+		m.keysDeployed = true
+		m.deployResults = m.buildDeployResults()
+		m.step = StepDoctor
+		m.doctorResults = nil
+		m.doctorErr = nil
+		m.logger.Info("deploy complete, scanning host keys", "deployed", m.deployResults.Deployed, "errors", len(m.deployResults.Errors))
+		return m, tea.Batch(m.spinner.Tick, m.scanSourceHostKeys())
+
+	case ScanKeysCompleteMsg:
+		m.step = StepDoctor
+		m.doctorResults = nil
+		m.doctorErr = nil
+		m.logger.Info("host key scan complete, re-running doctor checks")
+		return m, tea.Batch(m.spinner.Tick, m.runDoctorChecks())
+
+	case DaemonKeyDeployResultMsg:
+		m.keysDeployed = true
+		m.deployResults = &msg
 		m.step = StepDone
 		return m, nil
 
@@ -242,17 +309,49 @@ func (m ConnectModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return ConnectCloseMsg{} }
 		}
 
+	case StepDeployKeys:
+		if key == "esc" {
+			return m, func() tea.Msg { return ConnectCloseMsg{} }
+		}
+
 	case StepDone:
 		switch key {
 		case "enter":
+			// If daemon has source hosts, identity key available, and not yet deployed: deploy keys
+			if !m.keysDeployed && m.hostInfo != nil && m.hostInfo.SSHIdentityPubKey != "" && len(m.hostInfo.SourceHosts) > 0 {
+				m.step = StepDeployKeys
+				m.deployIdentityKey = m.hostInfo.SSHIdentityPubKey
+				m.hostDeployStatuses = make([]HostDeployStatus, len(m.hostInfo.SourceHosts))
+				for i, sh := range m.hostInfo.SourceHosts {
+					m.hostDeployStatuses[i] = HostDeployStatus{Name: sh.Address, State: HostDeployPending}
+				}
+				m.hostDeployStatuses[0].State = HostDeployDeploying
+				m.deployHostIndex = 0
+				m.logger.Info("starting key deploy", "host_count", len(m.hostInfo.SourceHosts))
+				return m, tea.Batch(m.spinner.Tick, deploySourceHostKey(m.hostInfo.SourceHosts[0], m.deployIdentityKey, 0, m.logger))
+			}
+			// Otherwise save & close
 			return m, func() tea.Msg {
 				return ConnectCloseMsg{
 					Saved:  true,
 					Config: m.buildConfig(),
 				}
 			}
+		case "r":
+			m.step = StepDoctor
+			m.doctorResults = nil
+			m.doctorErr = nil
+			m.deployResults = nil
+			m.keysDeployed = false
+			return m, tea.Batch(m.spinner.Tick, m.runDoctorChecks())
 		case "esc":
-			return m, func() tea.Msg { return ConnectCloseMsg{} }
+			// Save & close (successful connection)
+			return m, func() tea.Msg {
+				return ConnectCloseMsg{
+					Saved:  true,
+					Config: m.buildConfig(),
+				}
+			}
 		}
 	}
 
@@ -274,7 +373,7 @@ func (m ConnectModel) View() string {
 	switch m.step {
 	case StepAddress:
 		// Address and Name text input fields
-		labels := []string{"  Address:", "  Name:   "}
+		labels := []string{"  Address:  ", "  Name:     "}
 		for i := range fieldInsecure {
 			prefix := "  "
 			if connectField(i) == m.focused {
@@ -313,16 +412,42 @@ func (m ConnectModel) View() string {
 	case StepDoctor:
 		b.WriteString(fmt.Sprintf("  %s Running doctor checks...", m.spinner.View()))
 
+	case StepDeployKeys:
+		b.WriteString("  Setting up source hosts (user + key)...\n\n")
+		for _, hs := range m.hostDeployStatuses {
+			switch hs.State {
+			case HostDeployDone:
+				b.WriteString(successStyle.Render(fmt.Sprintf("  v %s", hs.Name)))
+			case HostDeployFailed:
+				b.WriteString(errStyle.Render(fmt.Sprintf("  x %s: %s", hs.Name, hs.ErrMsg)))
+			case HostDeployDeploying:
+				b.WriteString(fmt.Sprintf("  %s %s", m.spinner.View(), hs.Name))
+			default:
+				b.WriteString(dimStyle.Render(fmt.Sprintf("  - %s", hs.Name)))
+			}
+			b.WriteString("\n")
+		}
+
 	case StepDone:
 		m.renderHostInfo(&b, successStyle, dimStyle)
 		b.WriteString("\n")
 		m.renderDoctorResults(&b, successStyle, errStyle)
+		m.renderDeployResults(&b, successStyle, errStyle)
 		b.WriteString("\n")
-		b.WriteString(dimStyle.Render("  Enter: save & close  Esc: close without saving"))
+		if !m.keysDeployed && m.hostInfo != nil && m.hostInfo.SSHIdentityPubKey != "" && len(m.hostInfo.SourceHosts) > 0 {
+			b.WriteString(dimStyle.Render("  Enter: setup source hosts (create user + deploy key)  r: retry checks  Esc: save & close"))
+		} else {
+			b.WriteString(dimStyle.Render("  Enter: save & close  r: retry checks  Esc: save & close"))
+		}
 	}
 
 	b.WriteString("\n")
-	return b.String()
+
+	content := b.String()
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	}
+	return content
 }
 
 func (m ConnectModel) renderHostInfo(b *strings.Builder, successStyle, dimStyle lipgloss.Style) {
@@ -370,6 +495,21 @@ func (m ConnectModel) renderDoctorResults(b *strings.Builder, successStyle, errS
 	b.WriteString("\n")
 }
 
+func (m ConnectModel) renderDeployResults(b *strings.Builder, successStyle, errStyle lipgloss.Style) {
+	if m.deployResults == nil {
+		return
+	}
+	b.WriteString("\n")
+	if m.deployResults.Deployed > 0 {
+		b.WriteString(successStyle.Render(fmt.Sprintf("  v Setup complete on %d source host(s)", m.deployResults.Deployed)))
+		b.WriteString("\n")
+	}
+	for _, e := range m.deployResults.Errors {
+		b.WriteString(errStyle.Render(fmt.Sprintf("  x Source host setup: %s", e)))
+		b.WriteString("\n")
+	}
+}
+
 // resolveAddress returns the address from input, defaulting to localhost:9091.
 func (m ConnectModel) resolveAddress() (string, error) {
 	addr := strings.TrimSpace(m.inputs[fieldAddress].Value())
@@ -402,24 +542,28 @@ func (m ConnectModel) buildConfig() config.SandboxHostConfig {
 		name = "default"
 	}
 
-	return config.SandboxHostConfig{
+	cfg := config.SandboxHostConfig{
 		Name:          name,
 		DaemonAddress: addr,
 		Insecure:      m.insecure,
 	}
+	if m.hostInfo != nil {
+		cfg.DaemonIdentityPubKey = m.hostInfo.SSHIdentityPubKey
+	}
+	return cfg
 }
 
 // attemptConnect dials the daemon and checks health + host info.
 func (m ConnectModel) attemptConnect(addr string) tea.Cmd {
 	insecure := m.insecure
-	hosts := m.hosts
+	m.logger.Info("attempting connect", "address", addr, "insecure", insecure)
 
 	return func() tea.Msg {
 		cpCfg := config.ControlPlaneConfig{
 			DaemonAddress:  addr,
 			DaemonInsecure: insecure,
 		}
-		svc, err := sandbox.NewRemoteService(addr, cpCfg, hosts)
+		svc, err := sandbox.NewRemoteService(addr, cpCfg)
 		if err != nil {
 			return ConnectHealthResultMsg{Err: fmt.Errorf("dial: %w", err)}
 		}
@@ -448,28 +592,73 @@ func (m ConnectModel) attemptConnect(addr string) tea.Cmd {
 	}
 }
 
-// runDoctorChecks runs doctor checks over SSH to the host.
+// runDoctorChecks runs doctor checks via the daemon's gRPC DoctorCheck RPC.
 func (m ConnectModel) runDoctorChecks() tea.Cmd {
-	addr, _ := m.resolveAddress()
+	svc := m.service
 	return func() tea.Msg {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			host = addr
-		}
-		if netutil.IsLocalHost(host) {
-			return ConnectDoctorResultMsg{}
-		}
-
-		run := hostexec.NewSSHAlias(host)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		results, err := svc.DoctorCheck(ctx)
+		if err != nil {
+			return ConnectDoctorResultMsg{Err: err}
+		}
+		doctorResults := make([]doctor.CheckResult, len(results))
+		for i, r := range results {
+			doctorResults[i] = doctor.CheckResult{
+				Name:     r.Name,
+				Category: r.Category,
+				Passed:   r.Passed,
+				Message:  r.Message,
+				FixCmd:   r.FixCmd,
+			}
+		}
+		return ConnectDoctorResultMsg{Results: doctorResults}
+	}
+}
 
-		results := doctor.RunAll(ctx, run)
-		return ConnectDoctorResultMsg{Results: results}
+// scanSourceHostKeys calls the daemon's ScanSourceHostKeys RPC to add source
+// host SSH keys to the daemon's known_hosts file.
+func (m ConnectModel) scanSourceHostKeys() tea.Cmd {
+	svc := m.service
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		results, err := svc.ScanSourceHostKeys(ctx)
+		return ScanKeysCompleteMsg{Results: results, Err: err}
 	}
 }
 
 // GetService returns the connected sandbox service, or nil.
 func (m ConnectModel) GetService() sandbox.Service {
 	return m.service
+}
+
+// deploySourceHostKey sets up a source host for daemon access: creates the
+// fluid-daemon user (if missing), adds it to libvirt, and deploys the daemon
+// identity key. The CLI user's SSH config is used for authentication (the user
+// must have sudo access on the source host).
+func deploySourceHostKey(sh sandbox.SourceHostInfo, identityPubKey string, index int, logger *slog.Logger) tea.Cmd {
+	return func() tea.Msg {
+		sshRunFn := hostexec.NewSSHAlias(sh.Address)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		err := readonly.SetupSourceHost(ctx, readonly.SSHRunFunc(sshRunFn), identityPubKey, logger)
+		return HostKeyDeployedMsg{Host: sh.Address, Index: index, Err: err}
+	}
+}
+
+// buildDeployResults aggregates per-host statuses into a DaemonKeyDeployResultMsg.
+func (m ConnectModel) buildDeployResults() *DaemonKeyDeployResultMsg {
+	var deployed, skipped int
+	var errs []string
+	for _, hs := range m.hostDeployStatuses {
+		switch hs.State {
+		case HostDeployDone:
+			deployed++
+		case HostDeployFailed:
+			skipped++
+			errs = append(errs, fmt.Sprintf("%s: %s", hs.Name, hs.ErrMsg))
+		}
+	}
+	return &DaemonKeyDeployResultMsg{Deployed: deployed, Skipped: skipped, Errors: errs}
 }

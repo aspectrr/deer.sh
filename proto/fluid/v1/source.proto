@@ -74,6 +74,7 @@ message SourceVMListEntry {
   string state = 2;
   string ip_address = 3;
   bool prepared = 4;
+  string host = 5; // source host address this VM lives on
 }
 
 // ValidateSourceVMCommand instructs the host to validate a source VM's

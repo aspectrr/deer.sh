@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -72,6 +74,7 @@ type Model struct {
 	model      string
 	cfg        *config.Config
 	configPath string
+	logger     *slog.Logger
 
 	// Banner state
 	showBanner bool // Show startup banner (until first message)
@@ -139,6 +142,12 @@ type Model struct {
 	livePrepareSteps    []string // completed/in-progress step descriptions
 	livePrepareIndex    int      // index in conversation
 
+	// Live sandbox create progress
+	showingLiveCreate  bool
+	liveCreateSourceVM string
+	liveCreateSteps    []string
+	liveCreateIndex    int
+
 	// SSH host cache for /prepare autocomplete
 	sshHosts          []string
 	sshHostsUpdatedAt time.Time
@@ -193,7 +202,11 @@ type AgentRunner interface {
 }
 
 // NewModel creates a new TUI model
-func NewModel(title, provider, modelName string, runner AgentRunner, cfg *config.Config, configPath string) Model {
+func NewModel(title, provider, modelName string, runner AgentRunner, cfg *config.Config, configPath string, logger *slog.Logger) Model {
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+
 	ta := textarea.New()
 	ta.Placeholder = "Type your message... (type /settings to configure)"
 	ta.Focus()
@@ -247,6 +260,7 @@ func NewModel(title, provider, modelName string, runner AgentRunner, cfg *config
 		model:             modelName,
 		cfg:               cfg,
 		configPath:        configPath,
+		logger:            logger,
 		agentRunner:       runner,
 		mdRenderer:        mdRenderer,
 		statusChan:        statusChan,
@@ -310,6 +324,37 @@ func (m Model) listenForStatus() tea.Cmd {
 	}
 }
 
+func (m *Model) removeConversationEntry(index int) {
+	if index < 0 || index >= len(m.conversation) {
+		return
+	}
+	m.conversation = append(m.conversation[:index], m.conversation[index+1:]...)
+}
+
+func (m *Model) clearActiveLiveConversationEntries() {
+	indexes := make([]int, 0, 3)
+	if m.showingLiveOutput {
+		indexes = append(indexes, m.liveOutputIndex)
+	}
+	if m.showingLivePrepare {
+		indexes = append(indexes, m.livePrepareIndex)
+	}
+	if m.showingLiveCreate {
+		indexes = append(indexes, m.liveCreateIndex)
+	}
+
+	for i := len(indexes) - 1; i >= 0; i-- {
+		m.removeConversationEntry(indexes[i])
+	}
+}
+
+func markProgressStepDone(step string) string {
+	if strings.HasPrefix(step, "  . ") {
+		step = "  v " + strings.TrimPrefix(step, "  . ")
+	}
+	return strings.TrimSuffix(step, "...")
+}
+
 // Update implements tea.Model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -350,8 +395,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.addSystemMessage(fmt.Sprintf("Connected to %s (%s). Config saved.", closeMsg.Config.Name, closeMsg.Config.DaemonAddress))
 			}
+
 			// Hot-swap sandbox service if available (async to avoid blocking TUI)
 			if svc := m.connectModel.GetService(); svc != nil {
+				m.updateViewportContent(false)
+				m.textarea.Focus()
 				return m, func() tea.Msg {
 					err := m.agentRunner.SetSandboxService(svc)
 					return SandboxServiceSwapResultMsg{Svc: svc, Err: err}
@@ -415,6 +463,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.updateViewportContent(false)
 		m.textarea.Focus()
+		return m, nil
+	}
+
+	// Drop stale HostKeyDeployedMsg arriving after ESC
+	if _, ok := msg.(HostKeyDeployedMsg); ok && !m.inConnect {
 		return m, nil
 	}
 
@@ -673,9 +726,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				sandboxes := agent.GetCreatedSandboxes()
 				if len(sandboxes) > 0 {
 					m.inCleanup = true
+					m.quitting = false
 					m.cleanupOrder = sandboxes
 					m.cleanupStatuses = make(map[string]CleanupStatus)
 					m.cleanupErrors = make(map[string]string)
+					m.cleanupDone = false
+					m.cleanupResult = nil
 					for _, id := range sandboxes {
 						m.cleanupStatuses[id] = CleanupStatusPending
 					}
@@ -709,7 +765,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Handle /connect command
 				if input == "/connect" || input == "connect" {
 					m.inConnect = true
-					m.connectModel = NewConnectModel(m.cfg.Hosts)
+					m.connectModel = NewConnectModel(m.logger)
 					if m.width > 0 && m.height > 0 {
 						connectModel, _ := m.connectModel.Update(tea.WindowSizeMsg{
 							Width:  m.width,
@@ -817,6 +873,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.agentRunner != nil {
 					m.agentRunner.Cancel()
 				}
+				m.clearActiveLiveConversationEntries()
+			drainLoop:
+				for {
+					select {
+					case <-m.statusChan:
+					default:
+						break drainLoop
+					}
+				}
+				m.showingLiveOutput = false
+				m.showingLiveCreate = false
+				m.showingLivePrepare = false
+				m.liveOutputLines = nil
+				m.liveOutputPending = ""
+				m.liveOutputSandbox = ""
+				m.liveOutputCommand = ""
+				m.liveOutputIndex = 0
+				m.liveCreateSourceVM = ""
+				m.liveCreateSteps = nil
+				m.liveCreateIndex = 0
+				m.livePrepareSourceVM = ""
+				m.livePrepareSteps = nil
+				m.livePrepareIndex = 0
+				m.currentRetry = nil
 				m.state = StateIdle
 				m.thinking = false
 				m.agentStatus = StatusThinking
@@ -909,7 +989,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case AgentDoneMsg:
-		// Agent finished, don't restart the status listener
+		// AgentDoneMsg is the direct completion signal from Run(); final TUI
+		// updates should already have arrived through statusChan.
 		return m, nil
 
 	case ToolStartMsg:
@@ -1085,6 +1166,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.GotoBottom()
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
+	case SandboxCreateProgressMsg:
+		if !m.showingLiveCreate && !msg.Done {
+			m.showingLiveCreate = true
+			m.liveCreateSourceVM = msg.SourceVM
+			m.liveCreateSteps = nil
+			m.liveCreateIndex = len(m.conversation)
+			m.conversation = append(m.conversation, ConversationEntry{
+				Role:    "live_create",
+				Content: "",
+			})
+		}
+
+		if msg.Done {
+			if len(m.liveCreateSteps) > 0 && msg.StepName != "" && msg.Total > 0 {
+				m.liveCreateSteps[len(m.liveCreateSteps)-1] = fmt.Sprintf("  v [%d/%d] %s", msg.StepNum, msg.Total, msg.StepName)
+			}
+			m.showingLiveCreate = false
+		} else {
+			if len(m.liveCreateSteps) > 0 {
+				m.liveCreateSteps[len(m.liveCreateSteps)-1] = markProgressStepDone(m.liveCreateSteps[len(m.liveCreateSteps)-1])
+			}
+			m.liveCreateSteps = append(m.liveCreateSteps, fmt.Sprintf("  . [%d/%d] %s...", msg.StepNum, msg.Total, msg.StepName))
+		}
+
+		if m.liveCreateIndex < len(m.conversation) {
+			m.conversation[m.liveCreateIndex].Content = strings.Join(m.liveCreateSteps, "\n")
+		}
+		m.updateViewportContent(false)
+		m.viewport.GotoBottom()
+		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
+
 	case SensitiveContentRedactedMsg:
 		if msg.Path != "" {
 			m.addSystemMessage(fmt.Sprintf("Sensitive content detected in %s - redacted before sending to LLM", msg.Path))
@@ -1105,7 +1217,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case AgentResponseMsg:
-		// Add assistant message (tool results were already sent via ToolCompleteMsg)
+		// Final assistant/tool UI updates arrive through statusChan. When Done is
+		// true, stop listening so the next run starts with a clean status stream.
+		// Tool results were already sent via ToolCompleteMsg.
 		if msg.Response.Content != "" {
 			m.addAssistantMessage(msg.Response.Content)
 		}
@@ -1253,6 +1367,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 		return m, tea.Batch(cmds...)
+
+	case CleanupStartMsg:
+		m.inCleanup = true
+		m.quitting = false
+		m.cleanupOrder = append([]string(nil), msg.SandboxIDs...)
+		if m.cleanupStatuses == nil {
+			m.cleanupStatuses = make(map[string]CleanupStatus)
+		}
+		if m.cleanupErrors == nil {
+			m.cleanupErrors = make(map[string]string)
+		}
+		m.cleanupDone = false
+		m.cleanupResult = nil
+		for _, id := range m.cleanupOrder {
+			if _, ok := m.cleanupStatuses[id]; !ok {
+				m.cleanupStatuses[id] = CleanupStatusPending
+			}
+		}
+		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case CleanupProgressMsg:
 		m.cleanupStatuses[msg.SandboxID] = msg.Status
@@ -1862,6 +1995,32 @@ func (m *Model) updateViewportContent(forceScroll bool) {
 
 			b.WriteString(style.Render(header + "\n" + content))
 			b.WriteString("\n")
+
+		case "live_create":
+			// Styled box for sandbox creation progress
+			boxWidth := m.width - 6
+			if boxWidth < 30 {
+				boxWidth = 30
+			}
+
+			style := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#22C55E")).
+				Padding(0, 1).
+				Width(boxWidth)
+
+			header := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#22C55E")).
+				Bold(true).
+				Render(fmt.Sprintf("Creating sandbox from %s:", m.liveCreateSourceVM))
+
+			content := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#94A3B8")).
+				Width(boxWidth - 4).
+				Render(entry.Content)
+
+			b.WriteString(style.Render(header + "\n" + content))
+			b.WriteString("\n")
 		}
 	}
 
@@ -2110,29 +2269,29 @@ func (m *Model) formatToolOutput(toolName string, args, result map[string]any) s
 			b.WriteString("\n")
 		}
 
-	case "list_vms":
-		if vms, ok := result["vms"].([]any); ok {
-			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Found %d VM(s)", len(vms))))
-			b.WriteString("\n")
-			for i, vm := range vms {
-				if i >= 10 {
-					b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... and %d more", len(vms)-10)))
-					b.WriteString("\n")
-					break
-				}
-				if vmMap, ok := vm.(map[string]any); ok {
-					name := vmMap["name"]
-					state := vmMap["state"]
-					host := vmMap["host"]
-					line := fmt.Sprintf("      - %v (%v)", name, state)
-					if host != nil && host != "" {
-						line += fmt.Sprintf(" on %v", host)
-					}
-					b.WriteString(m.styles.ToolDetails.Render(line))
-					b.WriteString("\n")
-				}
-			}
-		}
+	// case "list_vms":
+	// 	if vms, ok := result["vms"].([]any); ok {
+	// 		b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Found %d VM(s)", len(vms))))
+	// 		b.WriteString("\n")
+	// 		for i, vm := range vms {
+	// 			if i >= 10 {
+	// 				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... and %d more", len(vms)-10)))
+	// 				b.WriteString("\n")
+	// 				break
+	// 			}
+	// 			if vmMap, ok := vm.(map[string]any); ok {
+	// 				name := vmMap["name"]
+	// 				state := vmMap["state"]
+	// 				host := vmMap["host"]
+	// 				line := fmt.Sprintf("      - %v (%v)", name, state)
+	// 				if host != nil && host != "" {
+	// 					line += fmt.Sprintf(" on %v", host)
+	// 				}
+	// 				b.WriteString(m.styles.ToolDetails.Render(line))
+	// 				b.WriteString("\n")
+	// 			}
+	// 		}
+	// 	}
 
 	case "create_snapshot":
 		if id, ok := result["snapshot_id"]; ok {
@@ -2242,11 +2401,15 @@ func (m Model) startCleanup() tea.Cmd {
 		}
 	}
 
-	// Start cleanup in background, progress will come through status channel
-	go agent.CleanupWithProgress(m.cleanupOrder)
-
-	// Return commands to listen for status updates and keep spinner going
-	return tea.Batch(m.listenForStatus(), m.spinner.Tick)
+	cleanupOrder := append([]string(nil), m.cleanupOrder...)
+	return func() tea.Msg {
+		go func() {
+			// Give the cleanup view one render cycle before the destroy loop starts.
+			time.Sleep(75 * time.Millisecond)
+			agent.CleanupWithProgress(cleanupOrder)
+		}()
+		return CleanupStartMsg{SandboxIDs: cleanupOrder}
+	}
 }
 
 // renderCleanupView renders the cleanup page showing sandbox destruction progress

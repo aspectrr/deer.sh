@@ -14,6 +14,7 @@ import "fluid/v1/host.proto";
 service DaemonService {
   // Sandbox lifecycle
   rpc CreateSandbox(CreateSandboxCommand) returns (SandboxCreated);
+  rpc CreateSandboxStream(CreateSandboxCommand) returns (stream SandboxProgress);
   rpc GetSandbox(GetSandboxRequest) returns (SandboxInfo);
   rpc ListSandboxes(ListSandboxesRequest) returns (ListSandboxesResponse);
   rpc DestroySandbox(DestroySandboxCommand) returns (SandboxDestroyed);
@@ -39,6 +40,12 @@ service DaemonService {
 
   // Host discovery
   rpc DiscoverHosts(DiscoverHostsCommand) returns (DiscoverHostsResult);
+
+  // Doctor checks
+  rpc DoctorCheck(DoctorCheckRequest) returns (DoctorCheckResponse);
+
+  // Source host key scanning
+  rpc ScanSourceHostKeys(ScanSourceHostKeysRequest) returns (ScanSourceHostKeysResponse);
 }
 
 // GetSandboxRequest requests details for a single sandbox.
@@ -81,6 +88,17 @@ message HostInfoResponse {
   int32 active_sandboxes = 6;
   repeated string base_images = 7;
   string ssh_ca_pub_key = 8;
+  string ssh_identity_pub_key = 9;
+  repeated SourceHostInfo source_hosts = 10;
+}
+
+// SourceHostInfo describes a source host the daemon is configured to use.
+// Returned in HostInfoResponse so the CLI can deploy the daemon's identity
+// key to these hosts during setup.
+message SourceHostInfo {
+  string address = 1;
+  string ssh_user = 2;
+  int32 ssh_port = 3;
 }
 
 // HealthRequest is an empty health check request.
@@ -114,4 +132,37 @@ message DiscoveredHost {
 // DiscoverHostsResult is the response containing all probed hosts.
 message DiscoverHostsResult {
   repeated DiscoveredHost hosts = 1;
+}
+
+// DoctorCheckRequest requests daemon-side health checks.
+message DoctorCheckRequest {}
+
+// DoctorCheckResult holds the outcome of a single doctor check.
+message DoctorCheckResult {
+  string name = 1;
+  string category = 2;
+  bool passed = 3;
+  string message = 4;
+  string fix_cmd = 5;
+}
+
+// DoctorCheckResponse contains the results of all doctor checks.
+message DoctorCheckResponse {
+  repeated DoctorCheckResult results = 1;
+}
+
+// ScanSourceHostKeysRequest requests the daemon to scan and trust SSH host keys
+// for all configured source hosts.
+message ScanSourceHostKeysRequest {}
+
+// ScanSourceHostKeysResult holds the outcome of scanning a single source host's key.
+message ScanSourceHostKeysResult {
+  string address = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+// ScanSourceHostKeysResponse contains the results of scanning all source host keys.
+message ScanSourceHostKeysResponse {
+  repeated ScanSourceHostKeysResult results = 1;
 }

@@ -175,6 +175,8 @@ func NewSSHAlias(hostAlias string, extraArgs ...string) RunFunc {
 			"-o", "StrictHostKeyChecking=accept-new",
 			"-o", "ConnectTimeout=15",
 			"-o", "BatchMode=yes",
+			"-o", "ServerAliveInterval=5",
+			"-o", "ServerAliveCountMax=3",
 		}
 		args = append(args, extraArgs...)
 		args = append(args, hostAlias, "--", command)

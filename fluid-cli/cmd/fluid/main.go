@@ -19,7 +19,6 @@ import (
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/doctor"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/hostexec"
 	fluidmcp "github.com/aspectrr/fluid.sh/fluid-cli/internal/mcp"
-	"github.com/aspectrr/fluid.sh/fluid-cli/internal/netutil"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/paths"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/readonly"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/redact"
@@ -208,7 +207,8 @@ var connectCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		insecure, _ := cmd.Flags().GetBool("insecure")
 		skipSave, _ := cmd.Flags().GetBool("no-save")
-		return runConnect(args[0], name, insecure, skipSave)
+		sshUser, _ := cmd.Flags().GetString("ssh-user")
+		return runConnect(args[0], name, insecure, skipSave, sshUser)
 	},
 }
 
@@ -249,6 +249,7 @@ func init() {
 	connectCmd.Flags().String("name", "", "display name for this daemon (default: hostname from daemon)")
 	connectCmd.Flags().Bool("insecure", false, "skip TLS verification (INSECURE: use only for local/dev daemons)")
 	connectCmd.Flags().Bool("no-save", false, "test connection without saving to config")
+	connectCmd.Flags().String("ssh-user", "", "SSH user for doctor checks (default: from SSH config)")
 
 	sourceCmd.AddCommand(sourcePrepareCmd)
 	sourceCmd.AddCommand(sourceListCmd)
@@ -359,6 +360,20 @@ func runSourcePrepare(hostname string) error {
 		return fmt.Errorf("saving config after prepare: %w", err)
 	}
 
+	// 5. Deploy daemon identity key if available
+	identityPubKey := config.DaemonIdentityPubKey(loadedCfg.SandboxHosts)
+	if identityPubKey != "" {
+		fmt.Printf("  Deploying daemon SSH key to %s...\n", hostname)
+		deployCtx, deployCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		deployErr := readonly.DeployDaemonKey(deployCtx, sshRun, identityPubKey, logger)
+		deployCancel()
+		if deployErr != nil {
+			fmt.Printf("  %s Daemon key deploy: %v\n", red("[warning]"), deployErr)
+		} else {
+			fmt.Printf("  %s Daemon SSH key deployed\n", green("[ok]"))
+		}
+	}
+
 	fmt.Println()
 	fmt.Printf("  %s Host %q is ready for read-only access.\n", green("[done]"), hostname)
 	fmt.Printf("  Run `fluid` to start the agent and inspect this host.\n")
@@ -366,7 +381,7 @@ func runSourcePrepare(hostname string) error {
 }
 
 // runConnect tests a daemon connection, runs doctor checks, and saves config.
-func runConnect(addr, name string, insecure, skipSave bool) error {
+func runConnect(addr, name string, insecure, skipSave bool, sshUser string) error {
 	// Append default gRPC port if not specified
 	if _, _, err := net.SplitHostPort(addr); err != nil {
 		addr = net.JoinHostPort(addr, "9091")
@@ -398,7 +413,7 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		DaemonAddress:  addr,
 		DaemonInsecure: insecure,
 	}
-	svc, err := sandbox.NewRemoteService(addr, cpCfg, loadedCfg.Hosts)
+	svc, err := sandbox.NewRemoteService(addr, cpCfg)
 	if err != nil {
 		fmt.Printf("  %s Failed to dial: %v\n", red("[error]"), err)
 		return err
@@ -434,23 +449,25 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	fmt.Printf("  Images:      %d available\n", len(info.BaseImages))
 	fmt.Println()
 
-	// 4. Doctor checks via SSH (skip for localhost)
-	host, _, splitErr := net.SplitHostPort(addr)
-	if splitErr != nil {
-		host = addr
-	}
-	isLocal := netutil.IsLocalHost(host)
-
-	if !isLocal {
-		fmt.Printf("  Running doctor checks on %s...\n\n", host)
-		run := hostexec.NewSSHAlias(host)
-		doctorCtx, doctorCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer doctorCancel()
-		results := doctor.RunAll(doctorCtx, run)
-		doctor.PrintResults(results, os.Stdout, useColor)
-		fmt.Println()
+	// 4. Doctor checks via gRPC
+	fmt.Printf("  Running doctor checks...\n\n")
+	doctorCtx, doctorCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer doctorCancel()
+	checkResults, doctorErr := svc.DoctorCheck(doctorCtx)
+	if doctorErr != nil {
+		fmt.Printf("  %s Doctor checks failed: %v\n\n", red("[error]"), doctorErr)
 	} else {
-		fmt.Println(dim("  Doctor checks skipped (localhost)"))
+		doctorResults := make([]doctor.CheckResult, len(checkResults))
+		for i, r := range checkResults {
+			doctorResults[i] = doctor.CheckResult{
+				Name:     r.Name,
+				Category: r.Category,
+				Passed:   r.Passed,
+				Message:  r.Message,
+				FixCmd:   r.FixCmd,
+			}
+		}
+		doctor.PrintResults(doctorResults, os.Stdout, useColor)
 		fmt.Println()
 	}
 
@@ -470,9 +487,11 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 	}
 
 	entry := config.SandboxHostConfig{
-		Name:          name,
-		DaemonAddress: addr,
-		Insecure:      insecure,
+		Name:                 name,
+		DaemonAddress:        addr,
+		Insecure:             insecure,
+		SSHUser:              sshUser,
+		DaemonIdentityPubKey: info.SSHIdentityPubKey,
 	}
 
 	loadedCfg.SandboxHosts = config.UpsertSandboxHost(loadedCfg.SandboxHosts, entry)
@@ -482,6 +501,28 @@ func runConnect(addr, name string, insecure, skipSave bool) error {
 		return err
 	}
 	fmt.Printf("  %s Saved %q (%s) to config\n", green("[ok]"), name, addr)
+
+	// Deploy daemon identity key to all prepared source hosts
+	if info.SSHIdentityPubKey != "" {
+		preparedHosts := loadedCfg.PreparedHosts()
+		if len(preparedHosts) > 0 {
+			fmt.Println()
+			fmt.Println("  Deploying daemon SSH key to prepared hosts...")
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			for _, h := range preparedHosts {
+				sshRunFn := hostexec.NewSSHAlias(h.Name)
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				err := readonly.DeployDaemonKey(ctx, readonly.SSHRunFunc(sshRunFn), info.SSHIdentityPubKey, logger)
+				cancel()
+				if err != nil {
+					fmt.Printf("  %s %s: %v\n", dim("[skip]"), h.Name, err)
+				} else {
+					fmt.Printf("  %s %s\n", green("[ok]"), h.Name)
+				}
+			}
+		}
+	}
+
 	fmt.Println()
 	return nil
 }
@@ -695,7 +736,7 @@ func runTUI() error {
 
 	agent := tui.NewFluidAgent(cfg, core.store, svc, core.source, core.telemetry, core.redactor, core.auditLog, fileLogger)
 
-	model := tui.NewModel("fluid", "daemon", "vm-agent", agent, cfg, configPath)
+	model := tui.NewModel("fluid", "daemon", "vm-agent", agent, cfg, configPath, fileLogger)
 	return tui.Run(model)
 }
 
@@ -803,7 +844,7 @@ func initSandboxService(loadedCfg *config.Config, logger *slog.Logger) sandbox.S
 		DaemonAddress:  sh.DaemonAddress,
 		DaemonInsecure: sh.Insecure,
 		DaemonCAFile:   sh.CAFile,
-	}, loadedCfg.Hosts)
+	})
 	if err != nil {
 		logger.Warn("failed to connect to sandbox daemon, falling back to noop", "address", sh.DaemonAddress, "error", err)
 		return sandbox.NewNoopService()

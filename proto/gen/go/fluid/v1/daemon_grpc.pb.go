@@ -19,22 +19,25 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DaemonService_CreateSandbox_FullMethodName    = "/fluid.v1.DaemonService/CreateSandbox"
-	DaemonService_GetSandbox_FullMethodName       = "/fluid.v1.DaemonService/GetSandbox"
-	DaemonService_ListSandboxes_FullMethodName    = "/fluid.v1.DaemonService/ListSandboxes"
-	DaemonService_DestroySandbox_FullMethodName   = "/fluid.v1.DaemonService/DestroySandbox"
-	DaemonService_StartSandbox_FullMethodName     = "/fluid.v1.DaemonService/StartSandbox"
-	DaemonService_StopSandbox_FullMethodName      = "/fluid.v1.DaemonService/StopSandbox"
-	DaemonService_RunCommand_FullMethodName       = "/fluid.v1.DaemonService/RunCommand"
-	DaemonService_CreateSnapshot_FullMethodName   = "/fluid.v1.DaemonService/CreateSnapshot"
-	DaemonService_ListSourceVMs_FullMethodName    = "/fluid.v1.DaemonService/ListSourceVMs"
-	DaemonService_ValidateSourceVM_FullMethodName = "/fluid.v1.DaemonService/ValidateSourceVM"
-	DaemonService_PrepareSourceVM_FullMethodName  = "/fluid.v1.DaemonService/PrepareSourceVM"
-	DaemonService_RunSourceCommand_FullMethodName = "/fluid.v1.DaemonService/RunSourceCommand"
-	DaemonService_ReadSourceFile_FullMethodName   = "/fluid.v1.DaemonService/ReadSourceFile"
-	DaemonService_GetHostInfo_FullMethodName      = "/fluid.v1.DaemonService/GetHostInfo"
-	DaemonService_Health_FullMethodName           = "/fluid.v1.DaemonService/Health"
-	DaemonService_DiscoverHosts_FullMethodName    = "/fluid.v1.DaemonService/DiscoverHosts"
+	DaemonService_CreateSandbox_FullMethodName       = "/fluid.v1.DaemonService/CreateSandbox"
+	DaemonService_CreateSandboxStream_FullMethodName = "/fluid.v1.DaemonService/CreateSandboxStream"
+	DaemonService_GetSandbox_FullMethodName          = "/fluid.v1.DaemonService/GetSandbox"
+	DaemonService_ListSandboxes_FullMethodName       = "/fluid.v1.DaemonService/ListSandboxes"
+	DaemonService_DestroySandbox_FullMethodName      = "/fluid.v1.DaemonService/DestroySandbox"
+	DaemonService_StartSandbox_FullMethodName        = "/fluid.v1.DaemonService/StartSandbox"
+	DaemonService_StopSandbox_FullMethodName         = "/fluid.v1.DaemonService/StopSandbox"
+	DaemonService_RunCommand_FullMethodName          = "/fluid.v1.DaemonService/RunCommand"
+	DaemonService_CreateSnapshot_FullMethodName      = "/fluid.v1.DaemonService/CreateSnapshot"
+	DaemonService_ListSourceVMs_FullMethodName       = "/fluid.v1.DaemonService/ListSourceVMs"
+	DaemonService_ValidateSourceVM_FullMethodName    = "/fluid.v1.DaemonService/ValidateSourceVM"
+	DaemonService_PrepareSourceVM_FullMethodName     = "/fluid.v1.DaemonService/PrepareSourceVM"
+	DaemonService_RunSourceCommand_FullMethodName    = "/fluid.v1.DaemonService/RunSourceCommand"
+	DaemonService_ReadSourceFile_FullMethodName      = "/fluid.v1.DaemonService/ReadSourceFile"
+	DaemonService_GetHostInfo_FullMethodName         = "/fluid.v1.DaemonService/GetHostInfo"
+	DaemonService_Health_FullMethodName              = "/fluid.v1.DaemonService/Health"
+	DaemonService_DiscoverHosts_FullMethodName       = "/fluid.v1.DaemonService/DiscoverHosts"
+	DaemonService_DoctorCheck_FullMethodName         = "/fluid.v1.DaemonService/DoctorCheck"
+	DaemonService_ScanSourceHostKeys_FullMethodName  = "/fluid.v1.DaemonService/ScanSourceHostKeys"
 )
 
 // DaemonServiceClient is the client API for DaemonService service.
@@ -47,6 +50,7 @@ const (
 type DaemonServiceClient interface {
 	// Sandbox lifecycle
 	CreateSandbox(ctx context.Context, in *CreateSandboxCommand, opts ...grpc.CallOption) (*SandboxCreated, error)
+	CreateSandboxStream(ctx context.Context, in *CreateSandboxCommand, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxProgress], error)
 	GetSandbox(ctx context.Context, in *GetSandboxRequest, opts ...grpc.CallOption) (*SandboxInfo, error)
 	ListSandboxes(ctx context.Context, in *ListSandboxesRequest, opts ...grpc.CallOption) (*ListSandboxesResponse, error)
 	DestroySandbox(ctx context.Context, in *DestroySandboxCommand, opts ...grpc.CallOption) (*SandboxDestroyed, error)
@@ -67,6 +71,10 @@ type DaemonServiceClient interface {
 	Health(ctx context.Context, in *HealthRequest, opts ...grpc.CallOption) (*HealthResponse, error)
 	// Host discovery
 	DiscoverHosts(ctx context.Context, in *DiscoverHostsCommand, opts ...grpc.CallOption) (*DiscoverHostsResult, error)
+	// Doctor checks
+	DoctorCheck(ctx context.Context, in *DoctorCheckRequest, opts ...grpc.CallOption) (*DoctorCheckResponse, error)
+	// Source host key scanning
+	ScanSourceHostKeys(ctx context.Context, in *ScanSourceHostKeysRequest, opts ...grpc.CallOption) (*ScanSourceHostKeysResponse, error)
 }
 
 type daemonServiceClient struct {
@@ -86,6 +94,25 @@ func (c *daemonServiceClient) CreateSandbox(ctx context.Context, in *CreateSandb
 	}
 	return out, nil
 }
+
+func (c *daemonServiceClient) CreateSandboxStream(ctx context.Context, in *CreateSandboxCommand, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxProgress], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[0], DaemonService_CreateSandboxStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[CreateSandboxCommand, SandboxProgress]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DaemonService_CreateSandboxStreamClient = grpc.ServerStreamingClient[SandboxProgress]
 
 func (c *daemonServiceClient) GetSandbox(ctx context.Context, in *GetSandboxRequest, opts ...grpc.CallOption) (*SandboxInfo, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -237,6 +264,26 @@ func (c *daemonServiceClient) DiscoverHosts(ctx context.Context, in *DiscoverHos
 	return out, nil
 }
 
+func (c *daemonServiceClient) DoctorCheck(ctx context.Context, in *DoctorCheckRequest, opts ...grpc.CallOption) (*DoctorCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DoctorCheckResponse)
+	err := c.cc.Invoke(ctx, DaemonService_DoctorCheck_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonServiceClient) ScanSourceHostKeys(ctx context.Context, in *ScanSourceHostKeysRequest, opts ...grpc.CallOption) (*ScanSourceHostKeysResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ScanSourceHostKeysResponse)
+	err := c.cc.Invoke(ctx, DaemonService_ScanSourceHostKeys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DaemonServiceServer is the server API for DaemonService service.
 // All implementations must embed UnimplementedDaemonServiceServer
 // for forward compatibility.
@@ -247,6 +294,7 @@ func (c *daemonServiceClient) DiscoverHosts(ctx context.Context, in *DiscoverHos
 type DaemonServiceServer interface {
 	// Sandbox lifecycle
 	CreateSandbox(context.Context, *CreateSandboxCommand) (*SandboxCreated, error)
+	CreateSandboxStream(*CreateSandboxCommand, grpc.ServerStreamingServer[SandboxProgress]) error
 	GetSandbox(context.Context, *GetSandboxRequest) (*SandboxInfo, error)
 	ListSandboxes(context.Context, *ListSandboxesRequest) (*ListSandboxesResponse, error)
 	DestroySandbox(context.Context, *DestroySandboxCommand) (*SandboxDestroyed, error)
@@ -267,6 +315,10 @@ type DaemonServiceServer interface {
 	Health(context.Context, *HealthRequest) (*HealthResponse, error)
 	// Host discovery
 	DiscoverHosts(context.Context, *DiscoverHostsCommand) (*DiscoverHostsResult, error)
+	// Doctor checks
+	DoctorCheck(context.Context, *DoctorCheckRequest) (*DoctorCheckResponse, error)
+	// Source host key scanning
+	ScanSourceHostKeys(context.Context, *ScanSourceHostKeysRequest) (*ScanSourceHostKeysResponse, error)
 	mustEmbedUnimplementedDaemonServiceServer()
 }
 
@@ -279,6 +331,9 @@ type UnimplementedDaemonServiceServer struct{}
 
 func (UnimplementedDaemonServiceServer) CreateSandbox(context.Context, *CreateSandboxCommand) (*SandboxCreated, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateSandbox not implemented")
+}
+func (UnimplementedDaemonServiceServer) CreateSandboxStream(*CreateSandboxCommand, grpc.ServerStreamingServer[SandboxProgress]) error {
+	return status.Error(codes.Unimplemented, "method CreateSandboxStream not implemented")
 }
 func (UnimplementedDaemonServiceServer) GetSandbox(context.Context, *GetSandboxRequest) (*SandboxInfo, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSandbox not implemented")
@@ -325,6 +380,12 @@ func (UnimplementedDaemonServiceServer) Health(context.Context, *HealthRequest) 
 func (UnimplementedDaemonServiceServer) DiscoverHosts(context.Context, *DiscoverHostsCommand) (*DiscoverHostsResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method DiscoverHosts not implemented")
 }
+func (UnimplementedDaemonServiceServer) DoctorCheck(context.Context, *DoctorCheckRequest) (*DoctorCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DoctorCheck not implemented")
+}
+func (UnimplementedDaemonServiceServer) ScanSourceHostKeys(context.Context, *ScanSourceHostKeysRequest) (*ScanSourceHostKeysResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ScanSourceHostKeys not implemented")
+}
 func (UnimplementedDaemonServiceServer) mustEmbedUnimplementedDaemonServiceServer() {}
 func (UnimplementedDaemonServiceServer) testEmbeddedByValue()                       {}
 
@@ -363,6 +424,17 @@ func _DaemonService_CreateSandbox_Handler(srv interface{}, ctx context.Context, 
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
+func _DaemonService_CreateSandboxStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(CreateSandboxCommand)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServiceServer).CreateSandboxStream(m, &grpc.GenericServerStream[CreateSandboxCommand, SandboxProgress]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DaemonService_CreateSandboxStreamServer = grpc.ServerStreamingServer[SandboxProgress]
 
 func _DaemonService_GetSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetSandboxRequest)
@@ -634,6 +706,42 @@ func _DaemonService_DiscoverHosts_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DaemonService_DoctorCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DoctorCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServiceServer).DoctorCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DaemonService_DoctorCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServiceServer).DoctorCheck(ctx, req.(*DoctorCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DaemonService_ScanSourceHostKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScanSourceHostKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServiceServer).ScanSourceHostKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DaemonService_ScanSourceHostKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServiceServer).ScanSourceHostKeys(ctx, req.(*ScanSourceHostKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DaemonService_ServiceDesc is the grpc.ServiceDesc for DaemonService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -705,7 +813,21 @@ var DaemonService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DiscoverHosts",
 			Handler:    _DaemonService_DiscoverHosts_Handler,
 		},
+		{
+			MethodName: "DoctorCheck",
+			Handler:    _DaemonService_DoctorCheck_Handler,
+		},
+		{
+			MethodName: "ScanSourceHostKeys",
+			Handler:    _DaemonService_ScanSourceHostKeys_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CreateSandboxStream",
+			Handler:       _DaemonService_CreateSandboxStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "fluid/v1/daemon.proto",
 }

@@ -1066,6 +1066,99 @@ func (x *SnapshotCreated) GetSnapshotName() string {
 	return ""
 }
 
+// SandboxProgress reports sandbox creation progress during streaming.
+type SandboxProgress struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Step          string                 `protobuf:"bytes,2,opt,name=step,proto3" json:"step,omitempty"`
+	StepNum       int32                  `protobuf:"varint,3,opt,name=step_num,json=stepNum,proto3" json:"step_num,omitempty"`
+	TotalSteps    int32                  `protobuf:"varint,4,opt,name=total_steps,json=totalSteps,proto3" json:"total_steps,omitempty"`
+	Done          bool                   `protobuf:"varint,5,opt,name=done,proto3" json:"done,omitempty"`
+	Result        *SandboxCreated        `protobuf:"bytes,6,opt,name=result,proto3" json:"result,omitempty"`
+	Error         string                 `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SandboxProgress) Reset() {
+	*x = SandboxProgress{}
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SandboxProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SandboxProgress) ProtoMessage() {}
+
+func (x *SandboxProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_fluid_v1_sandbox_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SandboxProgress.ProtoReflect.Descriptor instead.
+func (*SandboxProgress) Descriptor() ([]byte, []int) {
+	return file_fluid_v1_sandbox_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SandboxProgress) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *SandboxProgress) GetStep() string {
+	if x != nil {
+		return x.Step
+	}
+	return ""
+}
+
+func (x *SandboxProgress) GetStepNum() int32 {
+	if x != nil {
+		return x.StepNum
+	}
+	return 0
+}
+
+func (x *SandboxProgress) GetTotalSteps() int32 {
+	if x != nil {
+		return x.TotalSteps
+	}
+	return 0
+}
+
+func (x *SandboxProgress) GetDone() bool {
+	if x != nil {
+		return x.Done
+	}
+	return false
+}
+
+func (x *SandboxProgress) GetResult() *SandboxCreated {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+func (x *SandboxProgress) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_fluid_v1_sandbox_proto protoreflect.FileDescriptor
 
 const file_fluid_v1_sandbox_proto_rawDesc = "" +
@@ -1167,7 +1260,17 @@ const file_fluid_v1_sandbox_proto_rawDesc = "" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x1f\n" +
 	"\vsnapshot_id\x18\x02 \x01(\tR\n" +
 	"snapshotId\x12#\n" +
-	"\rsnapshot_name\x18\x03 \x01(\tR\fsnapshotName*A\n" +
+	"\rsnapshot_name\x18\x03 \x01(\tR\fsnapshotName\"\xdc\x01\n" +
+	"\x0fSandboxProgress\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04step\x18\x02 \x01(\tR\x04step\x12\x19\n" +
+	"\bstep_num\x18\x03 \x01(\x05R\astepNum\x12\x1f\n" +
+	"\vtotal_steps\x18\x04 \x01(\x05R\n" +
+	"totalSteps\x12\x12\n" +
+	"\x04done\x18\x05 \x01(\bR\x04done\x120\n" +
+	"\x06result\x18\x06 \x01(\v2\x18.fluid.v1.SandboxCreatedR\x06result\x12\x14\n" +
+	"\x05error\x18\a \x01(\tR\x05error*A\n" +
 	"\fSnapshotMode\x12\x18\n" +
 	"\x14SNAPSHOT_MODE_CACHED\x10\x00\x12\x17\n" +
 	"\x13SNAPSHOT_MODE_FRESH\x10\x01B<Z:github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1;fluidv1b\x06proto3"
@@ -1185,7 +1288,7 @@ func file_fluid_v1_sandbox_proto_rawDescGZIP() []byte {
 }
 
 var file_fluid_v1_sandbox_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_fluid_v1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_fluid_v1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_fluid_v1_sandbox_proto_goTypes = []any{
 	(SnapshotMode)(0),             // 0: fluid.v1.SnapshotMode
 	(*SourceHostConnection)(nil),  // 1: fluid.v1.SourceHostConnection
@@ -1202,17 +1305,19 @@ var file_fluid_v1_sandbox_proto_goTypes = []any{
 	(*CommandResult)(nil),         // 12: fluid.v1.CommandResult
 	(*SnapshotCommand)(nil),       // 13: fluid.v1.SnapshotCommand
 	(*SnapshotCreated)(nil),       // 14: fluid.v1.SnapshotCreated
-	nil,                           // 15: fluid.v1.RunCommandCommand.EnvEntry
+	(*SandboxProgress)(nil),       // 15: fluid.v1.SandboxProgress
+	nil,                           // 16: fluid.v1.RunCommandCommand.EnvEntry
 }
 var file_fluid_v1_sandbox_proto_depIdxs = []int32{
 	0,  // 0: fluid.v1.CreateSandboxCommand.snapshot_mode:type_name -> fluid.v1.SnapshotMode
 	1,  // 1: fluid.v1.CreateSandboxCommand.source_host_connection:type_name -> fluid.v1.SourceHostConnection
-	15, // 2: fluid.v1.RunCommandCommand.env:type_name -> fluid.v1.RunCommandCommand.EnvEntry
-	3,  // [3:3] is the sub-list for method output_type
-	3,  // [3:3] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	16, // 2: fluid.v1.RunCommandCommand.env:type_name -> fluid.v1.RunCommandCommand.EnvEntry
+	3,  // 3: fluid.v1.SandboxProgress.result:type_name -> fluid.v1.SandboxCreated
+	4,  // [4:4] is the sub-list for method output_type
+	4,  // [4:4] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_fluid_v1_sandbox_proto_init() }
@@ -1226,7 +1331,7 @@ func file_fluid_v1_sandbox_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fluid_v1_sandbox_proto_rawDesc), len(file_fluid_v1_sandbox_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

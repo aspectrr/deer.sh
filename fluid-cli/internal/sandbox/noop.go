@@ -21,6 +21,10 @@ func (n *NoopService) CreateSandbox(ctx context.Context, req CreateRequest) (*Sa
 	return nil, errors.New(noSandboxMsg)
 }
 
+func (n *NoopService) CreateSandboxStream(ctx context.Context, req CreateRequest, onProgress func(step string, stepNum, total int)) (*SandboxInfo, error) {
+	return nil, errors.New(noSandboxMsg)
+}
+
 func (n *NoopService) GetSandbox(ctx context.Context, id string) (*SandboxInfo, error) {
 	return nil, errors.New(noSandboxMsg)
 }
@@ -75,6 +79,14 @@ func (n *NoopService) GetHostInfo(ctx context.Context) (*HostInfo, error) {
 
 func (n *NoopService) Health(ctx context.Context) error {
 	return errors.New(noSandboxMsg)
+}
+
+func (n *NoopService) DoctorCheck(ctx context.Context) ([]DoctorCheckResult, error) {
+	return nil, errors.New(noSandboxMsg)
+}
+
+func (n *NoopService) ScanSourceHostKeys(ctx context.Context) ([]ScanSourceHostKeysResult, error) {
+	return nil, errors.New(noSandboxMsg)
 }
 
 func (n *NoopService) Close() error {

@@ -3,16 +3,25 @@ package tui
 import (
 	"context"
 	"encoding/base64"
+	"errors"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/config"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/redact"
 	"github.com/aspectrr/fluid.sh/fluid-cli/internal/sandbox"
+	"github.com/aspectrr/fluid.sh/fluid-cli/internal/telemetry"
 )
 
 // stubService is a minimal sandbox.Service for testing SetSandboxService.
 type stubService struct {
-	closed bool
+	closed                bool
+	createSandboxStreamFn func(context.Context, sandbox.CreateRequest, func(string, int, int)) (*sandbox.SandboxInfo, error)
 }
 
 func (s *stubService) CreateSandbox(context.Context, sandbox.CreateRequest) (*sandbox.SandboxInfo, error) {
@@ -54,8 +63,23 @@ func (s *stubService) RunSourceCommand(context.Context, string, string, int) (*s
 func (s *stubService) ReadSourceFile(context.Context, string, string) (string, error) {
 	return "", nil
 }
+
+func (s *stubService) CreateSandboxStream(_ context.Context, req sandbox.CreateRequest, progress func(string, int, int)) (*sandbox.SandboxInfo, error) {
+	if s.createSandboxStreamFn != nil {
+		return s.createSandboxStreamFn(context.Background(), req, progress)
+	}
+	return s.CreateSandbox(context.Background(), req)
+}
 func (s *stubService) GetHostInfo(context.Context) (*sandbox.HostInfo, error) { return nil, nil }
 func (s *stubService) Health(context.Context) error                           { return nil }
+func (s *stubService) DoctorCheck(context.Context) ([]sandbox.DoctorCheckResult, error) {
+	return nil, nil
+}
+
+func (s *stubService) ScanSourceHostKeys(context.Context) ([]sandbox.ScanSourceHostKeysResult, error) {
+	return nil, nil
+}
+
 func (s *stubService) Close() error {
 	s.closed = true
 	return nil
@@ -108,7 +132,7 @@ func TestSetSandboxService_ClosesOldService(t *testing.T) {
 
 func TestSetSandboxService_WaitsForDone(t *testing.T) {
 	done := make(chan struct{})
-	a := &FluidAgent{done: done}
+	a := &FluidAgent{done: done, swapTimeout: 2 * time.Second}
 	// Close done channel to simulate goroutine finishing
 	close(done)
 	svc := &stubService{}
@@ -128,6 +152,161 @@ func TestSetSandboxService_TimesOut(t *testing.T) {
 	if !strings.Contains(err.Error(), "timed out") {
 		t.Fatalf("unexpected error: %v", err)
 	}
+}
+
+func TestRun_SlashCommandSendsFinalResponseWithoutQueuedDoneStatus(t *testing.T) {
+	var statuses []tea.Msg
+	agent := &FluidAgent{
+		cfg:       &config.Config{},
+		telemetry: telemetry.NewNoopService(),
+		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	agent.SetStatusCallback(func(msg tea.Msg) {
+		statuses = append(statuses, msg)
+	})
+
+	result := agent.Run("/help")()
+	if _, ok := result.(AgentDoneMsg); !ok {
+		t.Fatalf("Run(/help) returned %T, want AgentDoneMsg", result)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("status count = %d, want 1", len(statuses))
+	}
+	resp, ok := statuses[0].(AgentResponseMsg)
+	if !ok {
+		t.Fatalf("status type = %T, want AgentResponseMsg", statuses[0])
+	}
+	if !resp.Response.Done {
+		t.Fatal("expected help response to mark the run complete")
+	}
+	if !strings.Contains(resp.Response.Content, "Available Commands") {
+		t.Fatalf("help response missing command list: %q", resp.Response.Content)
+	}
+	for _, status := range statuses {
+		if _, ok := status.(AgentDoneMsg); ok {
+			t.Fatal("AgentDoneMsg should not be queued through the status callback")
+		}
+	}
+}
+
+func TestRun_LLMConfigErrorSendsStatusWithoutQueuedDone(t *testing.T) {
+	var statuses []tea.Msg
+	agent := &FluidAgent{
+		cfg:       &config.Config{},
+		telemetry: telemetry.NewNoopService(),
+		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	agent.SetStatusCallback(func(msg tea.Msg) {
+		statuses = append(statuses, msg)
+	})
+
+	result := agent.Run("investigate nginx")()
+	if _, ok := result.(AgentDoneMsg); !ok {
+		t.Fatalf("Run(investigate nginx) returned %T, want AgentDoneMsg", result)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("status count = %d, want 1", len(statuses))
+	}
+	errMsg, ok := statuses[0].(AgentErrorMsg)
+	if !ok {
+		t.Fatalf("status type = %T, want AgentErrorMsg", statuses[0])
+	}
+	if !strings.Contains(errMsg.Err.Error(), "LLM provider not configured") {
+		t.Fatalf("unexpected error: %v", errMsg.Err)
+	}
+	for _, status := range statuses {
+		if _, ok := status.(AgentDoneMsg); ok {
+			t.Fatal("AgentDoneMsg should not be queued through the status callback")
+		}
+	}
+}
+
+func TestCreateSandbox_SendsDoneProgressOnSuccess(t *testing.T) {
+	var statuses []tea.Msg
+	svc := &stubService{
+		createSandboxStreamFn: func(_ context.Context, _ sandbox.CreateRequest, progress func(string, int, int)) (*sandbox.SandboxInfo, error) {
+			progress("Discovering IP address", 8, 9)
+			return &sandbox.SandboxInfo{
+				ID:        "SBX-123",
+				Name:      "sandbox",
+				State:     "RUNNING",
+				BaseImage: "ubuntu",
+				IPAddress: "10.0.0.2",
+			}, nil
+		},
+	}
+	agent := &FluidAgent{
+		service: svc,
+		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	agent.SetStatusCallback(func(msg tea.Msg) {
+		statuses = append(statuses, msg)
+	})
+
+	result, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true)
+	if err != nil {
+		t.Fatalf("createSandbox returned error: %v", err)
+	}
+	if got := result["sandbox_id"]; got != "SBX-123" {
+		t.Fatalf("sandbox_id = %v, want %q", got, "SBX-123")
+	}
+
+	progresses := collectCreateProgressMessages(statuses)
+	if len(progresses) != 2 {
+		t.Fatalf("progress message count = %d, want 2", len(progresses))
+	}
+	if progresses[0].Done {
+		t.Fatal("expected first progress message to be in-flight")
+	}
+	if !progresses[1].Done {
+		t.Fatal("expected final progress message to mark creation done")
+	}
+	if progresses[1].StepName != "Ready" || progresses[1].StepNum != 9 || progresses[1].Total != 9 {
+		t.Fatalf("final done progress = %+v, want Ready [9/9]", progresses[1])
+	}
+}
+
+func TestCreateSandbox_SendsDoneProgressOnError(t *testing.T) {
+	var statuses []tea.Msg
+	svc := &stubService{
+		createSandboxStreamFn: func(_ context.Context, _ sandbox.CreateRequest, progress func(string, int, int)) (*sandbox.SandboxInfo, error) {
+			progress("Booting microVM", 7, 9)
+			return nil, errors.New("boom")
+		},
+	}
+	agent := &FluidAgent{
+		service: svc,
+		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	agent.SetStatusCallback(func(msg tea.Msg) {
+		statuses = append(statuses, msg)
+	})
+
+	_, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true)
+	if err == nil {
+		t.Fatal("expected createSandbox to return error")
+	}
+
+	progresses := collectCreateProgressMessages(statuses)
+	if len(progresses) != 2 {
+		t.Fatalf("progress message count = %d, want 2", len(progresses))
+	}
+	if !progresses[1].Done {
+		t.Fatal("expected final progress message to close the live create box on error")
+	}
+	if progresses[1].StepName != "" || progresses[1].StepNum != 0 || progresses[1].Total != 0 {
+		t.Fatalf("error done progress = %+v, want empty step details", progresses[1])
+	}
+}
+
+func collectCreateProgressMessages(statuses []tea.Msg) []SandboxCreateProgressMsg {
+	progresses := make([]SandboxCreateProgressMsg, 0, len(statuses))
+	for _, status := range statuses {
+		if progress, ok := status.(SandboxCreateProgressMsg); ok {
+			progresses = append(progresses, progress)
+		}
+	}
+	return progresses
 }
 
 func TestShellEscape(t *testing.T) {
@@ -370,6 +549,110 @@ func TestRedactPrivateKeys_CertificateNotRedacted(t *testing.T) {
 	}
 	if result != input {
 		t.Errorf("certificate content should be unchanged")
+	}
+}
+
+// TestWithAutoReadOnly_StickyDisplay verifies that after a source VM op, model receives
+// AutoReadOnlyMsg{Enabled:true} but NOT AutoReadOnlyMsg{Enabled:false} on exit.
+func TestWithAutoReadOnly_StickyDisplay(t *testing.T) {
+	var msgs []AutoReadOnlyMsg
+	a := &FluidAgent{}
+	a.SetStatusCallback(func(msg tea.Msg) {
+		if m, ok := msg.(AutoReadOnlyMsg); ok {
+			msgs = append(msgs, m)
+		}
+	})
+
+	_, _ = a.withAutoReadOnly("myvm", func() (any, error) {
+		return nil, nil
+	})
+
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 AutoReadOnlyMsg, got %d: %v", len(msgs), msgs)
+	}
+	if !msgs[0].Enabled {
+		t.Error("expected Enabled:true enter message")
+	}
+	if !a.displayReadOnly {
+		t.Error("displayReadOnly should remain true after withAutoReadOnly exits")
+	}
+	if a.readOnly {
+		t.Error("readOnly (tool-filtering) should be restored to false")
+	}
+}
+
+// TestClearStickyReadOnly_SendsExitMsg verifies that clearStickyReadOnly sends the exit message.
+func TestClearStickyReadOnly_SendsExitMsg(t *testing.T) {
+	var msgs []AutoReadOnlyMsg
+	a := &FluidAgent{displayReadOnly: true}
+	a.SetStatusCallback(func(msg tea.Msg) {
+		if m, ok := msg.(AutoReadOnlyMsg); ok {
+			msgs = append(msgs, m)
+		}
+	})
+
+	a.clearStickyReadOnly()
+
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 AutoReadOnlyMsg, got %d", len(msgs))
+	}
+	if msgs[0].Enabled {
+		t.Error("expected Enabled:false exit message")
+	}
+	if a.displayReadOnly {
+		t.Error("displayReadOnly should be cleared")
+	}
+}
+
+// TestClearStickyReadOnly_NoOp verifies that clearStickyReadOnly is a no-op when not sticky.
+func TestClearStickyReadOnly_NoOp(t *testing.T) {
+	var msgs []AutoReadOnlyMsg
+	a := &FluidAgent{displayReadOnly: false}
+	a.SetStatusCallback(func(msg tea.Msg) {
+		if m, ok := msg.(AutoReadOnlyMsg); ok {
+			msgs = append(msgs, m)
+		}
+	})
+
+	a.clearStickyReadOnly()
+
+	if len(msgs) != 0 {
+		t.Fatalf("expected no messages, got %d", len(msgs))
+	}
+}
+
+// TestClearAutoReadOnly_ClearsDisplayReadOnly verifies that Shift+Tab also clears displayReadOnly.
+func TestClearAutoReadOnly_ClearsDisplayReadOnly(t *testing.T) {
+	a := &FluidAgent{autoReadOnly: true, displayReadOnly: true}
+	a.ClearAutoReadOnly()
+	if a.displayReadOnly {
+		t.Error("ClearAutoReadOnly should also clear displayReadOnly")
+	}
+	if a.autoReadOnly {
+		t.Error("ClearAutoReadOnly should clear autoReadOnly")
+	}
+}
+
+// TestWithAutoReadOnly_AlreadyReadOnly verifies that when agent is already in manual read-only,
+// displayReadOnly is not set (user controls the mode).
+func TestWithAutoReadOnly_AlreadyReadOnly(t *testing.T) {
+	var msgs []AutoReadOnlyMsg
+	a := &FluidAgent{readOnly: true}
+	a.SetStatusCallback(func(msg tea.Msg) {
+		if m, ok := msg.(AutoReadOnlyMsg); ok {
+			msgs = append(msgs, m)
+		}
+	})
+
+	_, _ = a.withAutoReadOnly("myvm", func() (any, error) {
+		return nil, nil
+	})
+
+	if len(msgs) != 0 {
+		t.Fatalf("expected no AutoReadOnlyMsg when already in read-only, got %d", len(msgs))
+	}
+	if a.displayReadOnly {
+		t.Error("displayReadOnly should not be set when already manually in read-only")
 	}
 }
 

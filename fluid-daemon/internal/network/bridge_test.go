@@ -9,7 +9,7 @@ import (
 func TestNetworkManager_ResolveBridge_Default(t *testing.T) {
 	nm := NewNetworkManager("br0", nil, "dnsmasq", slog.Default())
 
-	bridge, err := nm.ResolveBridge(context.Background(), "", "")
+	bridge, err := nm.ResolveBridge(context.Background(), "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -36,7 +36,7 @@ func TestNetworkManager_ResolveBridge_FromMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bridge, err := nm.ResolveBridge(context.Background(), "", tt.requestedNetwork)
+			bridge, err := nm.ResolveBridge(context.Background(), tt.requestedNetwork)
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -60,7 +60,7 @@ func TestNetworkManager_ResolveBridge_Explicit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bridge, err := nm.ResolveBridge(context.Background(), "", tt.requestedNetwork)
+			bridge, err := nm.ResolveBridge(context.Background(), tt.requestedNetwork)
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -77,7 +77,7 @@ func TestNetworkManager_ResolveBridge_UnknownNetwork(t *testing.T) {
 	}
 	nm := NewNetworkManager("br0", bridgeMap, "dnsmasq", slog.Default())
 
-	_, err := nm.ResolveBridge(context.Background(), "", "nonexistent")
+	_, err := nm.ResolveBridge(context.Background(), "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for unknown network, got nil")
 	}

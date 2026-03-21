@@ -63,8 +63,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.SSH.CAPubKeyPath != filepath.Join(fluidDir, "ssh_ca.pub") {
 		t.Errorf("SSH.CAPubKeyPath = %q, want %q", cfg.SSH.CAPubKeyPath, filepath.Join(fluidDir, "ssh_ca.pub"))
 	}
-	if cfg.SSH.KeyDir != filepath.Join(fluidDir, "keys") {
-		t.Errorf("SSH.KeyDir = %q, want %q", cfg.SSH.KeyDir, filepath.Join(fluidDir, "keys"))
+	if cfg.SSH.KeyDir != "/var/lib/fluid-daemon/keys" {
+		t.Errorf("SSH.KeyDir = %q, want %q", cfg.SSH.KeyDir, "/var/lib/fluid-daemon/keys")
 	}
 	if cfg.SSH.CertTTL != 30*time.Minute {
 		t.Errorf("SSH.CertTTL = %v, want %v", cfg.SSH.CertTTL, 30*time.Minute)

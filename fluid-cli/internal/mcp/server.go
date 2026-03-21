@@ -97,9 +97,10 @@ func (s *Server) registerTools() {
 		mcp.WithString("sandbox_id", mcp.Required(), mcp.Description("The ID of the sandbox.")),
 	), s.handleGetSandbox)
 
-	s.mcpServer.AddTool(mcp.NewTool("list_vms",
-		mcp.WithDescription("List available source VMs that can be cloned to create sandboxes."),
-	), s.handleListVMs)
+	// list_vms - use list_hosts instead
+	// s.mcpServer.AddTool(mcp.NewTool("list_vms",
+	// 	mcp.WithDescription("List available source VMs that can be cloned to create sandboxes."),
+	// ), s.handleListVMs)
 
 	s.mcpServer.AddTool(mcp.NewTool("create_snapshot",
 		mcp.WithDescription("Create a snapshot of the current sandbox state."),

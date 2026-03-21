@@ -450,6 +450,31 @@ func TestLoadWithEnvOverride_SecureFileNoWarnings(t *testing.T) {
 	assert.Empty(t, warnings)
 }
 
+func TestDaemonIdentityPubKey(t *testing.T) {
+	tests := []struct {
+		name   string
+		hosts  []SandboxHostConfig
+		expect string
+	}{
+		{"nil hosts", nil, ""},
+		{"empty hosts", []SandboxHostConfig{}, ""},
+		{"no key set", []SandboxHostConfig{{Name: "h1"}}, ""},
+		{"one host with key", []SandboxHostConfig{
+			{Name: "h1", DaemonIdentityPubKey: "ssh-ed25519 AAAA key@daemon"},
+		}, "ssh-ed25519 AAAA key@daemon"},
+		{"first non-empty wins", []SandboxHostConfig{
+			{Name: "h1"},
+			{Name: "h2", DaemonIdentityPubKey: "ssh-ed25519 BBBB key2@daemon"},
+			{Name: "h3", DaemonIdentityPubKey: "ssh-ed25519 CCCC key3@daemon"},
+		}, "ssh-ed25519 BBBB key2@daemon"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expect, DaemonIdentityPubKey(tt.hosts))
+		})
+	}
+}
+
 func TestLoadWithEnvOverride_InsecureWithSecrets(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skipping permission test on Windows")

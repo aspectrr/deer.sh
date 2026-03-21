@@ -77,6 +77,10 @@ type FluidAgent struct {
 	currentSourceVM string
 	autoReadOnly    bool
 
+	// displayReadOnly tracks sticky read-only display state after source VM ops.
+	// Stays true after withAutoReadOnly exits until a write tool explicitly clears it.
+	displayReadOnly bool
+
 	// Pending approval for network access
 	pendingNetworkApproval *PendingNetworkApproval
 
@@ -187,6 +191,16 @@ func (a *FluidAgent) sendStatus(msg tea.Msg) {
 	}
 }
 
+// finishRun sends the final TUI-facing status update and returns the only
+// direct completion signal for Run(). AgentDoneMsg must not be queued through
+// statusCallback, otherwise it can remain buffered and break the next run.
+func (a *FluidAgent) finishRun(msg tea.Msg) tea.Msg {
+	if msg != nil {
+		a.sendStatus(msg)
+	}
+	return AgentDoneMsg{}
+}
+
 // sendRedactedMsg sends a SensitiveContentRedactedMsg with dedup by host/path.
 // Only sends the message the first time per unique key per agent run.
 func (a *FluidAgent) sendRedactedMsg(host, path string) {
@@ -229,6 +243,7 @@ func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (
 	if !a.readOnly {
 		a.autoReadOnly = true
 		a.readOnly = true
+		a.displayReadOnly = true
 		enterMsg = &AutoReadOnlyMsg{SourceVM: sourceVM, Enabled: true}
 	}
 	a.mu.Unlock()
@@ -238,16 +253,12 @@ func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (
 	defer func() {
 		a.mu.Lock()
 		a.currentSourceVM = ""
-		var exitMsg *AutoReadOnlyMsg
 		if a.autoReadOnly && !wasAutoReadOnly {
 			a.autoReadOnly = false
 			a.readOnly = false
-			exitMsg = &AutoReadOnlyMsg{Enabled: false}
+			// displayReadOnly stays true - cleared by the next write tool call
 		}
 		a.mu.Unlock()
-		if exitMsg != nil {
-			a.sendStatus(*exitMsg)
-		}
 	}()
 	return fn()
 }
@@ -287,21 +298,19 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			if strings.HasPrefix(input, "/prepare ") {
 				hostname := strings.TrimSpace(strings.TrimPrefix(input, "/prepare "))
 				if hostname == "" {
-					a.sendStatus(AgentDoneMsg{})
-					return AgentResponseMsg{Response: AgentResponse{
+					return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 						Content: "Usage: `/prepare <hostname>` - specify an SSH host to prepare",
 						Done:    true,
-					}}
+					}})
 				}
 				// Probe if host is already prepared
 				if probeFluidReadonly(hostname, a.cfg.SSH.SourceKeyDir) {
 					if a.lastPrepareWarned != hostname {
 						a.lastPrepareWarned = hostname
-						a.sendStatus(AgentDoneMsg{})
-						return AgentResponseMsg{Response: AgentResponse{
+						return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 							Content: fmt.Sprintf("Host %s is already prepared. Run `/prepare %s` again to re-prepare.", hostname, hostname),
 							Done:    true,
-						}}
+						}})
 					}
 					a.lastPrepareWarned = ""
 				} else {
@@ -311,22 +320,19 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			}
 
 			switch input {
-			case "/vms":
-				a.sendStatus(AgentDoneMsg{})
-				result, err := a.listVMs(ctx)
-				return AgentResponseMsg{Response: AgentResponse{
-					Content: a.formatVMsResult(result, err),
-					Done:    true,
-				}}
+			// case "/vms": // use /hosts instead
+			// 	result, err := a.listVMs(ctx)
+			// 	return a.finishRun(AgentResponseMsg{Response: AgentResponse{
+			// 		Content: a.formatVMsResult(result, err),
+			// 		Done:    true,
+			// 	}})
 			case "/sandboxes":
-				a.sendStatus(AgentDoneMsg{})
 				result, err := a.listSandboxes(ctx)
-				return AgentResponseMsg{Response: AgentResponse{
+				return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 					Content: a.formatSandboxesResult(result, err),
 					Done:    true,
-				}}
+				}})
 			case "/hosts":
-				a.sendStatus(AgentDoneMsg{})
 				if a.sourceService != nil {
 					hosts := a.sourceService.ListHosts()
 					var lines []string
@@ -341,46 +347,39 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 					if len(hosts) == 0 {
 						content = "No source hosts configured. Run: `fluid source prepare <hostname>`"
 					}
-					return AgentResponseMsg{Response: AgentResponse{Content: content, Done: true}}
+					return a.finishRun(AgentResponseMsg{Response: AgentResponse{Content: content, Done: true}})
 				}
 				result, err := a.listHostsWithVMs(ctx)
-				return AgentResponseMsg{Response: AgentResponse{
+				return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 					Content: a.formatHostsResult(result, err),
 					Done:    true,
-				}}
+				}})
 			case "/playbooks":
-				a.sendStatus(AgentDoneMsg{})
 				result, err := a.listPlaybooks(ctx)
-				return AgentResponseMsg{Response: AgentResponse{
+				return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 					Content: a.formatPlaybooksResult(result, err),
 					Done:    true,
-				}}
+				}})
 			case "/compact":
 				// Manual compaction
 				a.sendStatus(CompactStartMsg{})
 				result, err := a.Compact(ctx)
-				a.sendStatus(AgentDoneMsg{})
 				if err != nil {
-					return CompactErrorMsg{Err: err}
+					return a.finishRun(CompactErrorMsg{Err: err})
 				}
-				// The Compact function returns a CompactCompleteMsg,
-				// but here we are in a func returning tea.Msg.
-				// result is already CompactCompleteMsg.
-				return result
+				return a.finishRun(result)
 			case "/context":
 				// Show context usage
-				a.sendStatus(AgentDoneMsg{})
 				usage := a.GetContextUsage()
 				tokens := a.EstimateTokens()
 				maxTokens := a.cfg.AIAgent.TotalContextTokens
 				threshold := a.cfg.AIAgent.CompactThreshold
-				return AgentResponseMsg{Response: AgentResponse{
+				return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 					Content: fmt.Sprintf("Context usage: %d/%d tokens (%.1f%%)\nAuto-compact threshold: %.0f%%",
 						tokens, maxTokens, usage*100, threshold*100),
 					Done: true,
-				}}
+				}})
 			case "/allowlist":
-				a.sendStatus(AgentDoneMsg{})
 				var b strings.Builder
 				b.WriteString("## Read-Only Command Allowlist\n\n")
 				b.WriteString("### Default Commands\n\n")
@@ -400,12 +399,11 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 					b.WriteString("\n")
 				}
 				b.WriteString("Edit extra commands in `/settings` or `config.yaml` under `extra_allowed_commands`.\n")
-				return AgentResponseMsg{Response: AgentResponse{
+				return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 					Content: b.String(),
 					Done:    true,
-				}}
+				}})
 			case "/help":
-				a.sendStatus(AgentDoneMsg{})
 				var b strings.Builder
 				b.WriteString("## Available Commands\n\n")
 				b.WriteString("- **/vms**: List available VMs for cloning\n")
@@ -421,16 +419,15 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				b.WriteString("- **/help**: Show this help message\n")
 				b.WriteString("\n## Keyboard Shortcuts\n\n")
 				b.WriteString("- **PgUp/PgDn**: Scroll conversation history\n")
-				return AgentResponseMsg{Response: AgentResponse{
+				return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 					Content: b.String(),
 					Done:    true,
-				}}
+				}})
 			default:
-				a.sendStatus(AgentDoneMsg{})
-				return AgentResponseMsg{Response: AgentResponse{
+				return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 					Content: fmt.Sprintf("Unknown command: %s. Available: /vms, /sandboxes, /hosts, /playbooks, /prepare, /allowlist, /compact, /context, /settings", input),
 					Done:    true,
-				}}
+				}})
 			}
 		}
 
@@ -444,8 +441,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 
 		// LLM client is required
 		if a.llmClient == nil || a.cfg.AIAgent.APIKey == "" {
-			a.sendStatus(AgentDoneMsg{})
-			return AgentErrorMsg{Err: fmt.Errorf("LLM provider not configured. Please set OPENROUTER_API_KEY environment variable or configure it in /settings")}
+			return a.finishRun(AgentErrorMsg{Err: fmt.Errorf("LLM provider not configured. Please set OPENROUTER_API_KEY environment variable or configure it in /settings")})
 		}
 
 		// Check if auto-compaction is needed before making LLM call
@@ -465,8 +461,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 		// LLM-driven execution loop
 		for iteration := 0; ; iteration++ {
 			if ctx.Err() != nil {
-				a.sendStatus(AgentDoneMsg{})
-				return AgentCancelledMsg{RunID: currentRunID}
+				return a.finishRun(AgentCancelledMsg{RunID: currentRunID})
 			}
 			a.logger.Debug("LLM loop iteration", "iteration", iteration, "history_len", len(a.history))
 			systemPrompt := a.cfg.AIAgent.DefaultSystem
@@ -547,14 +542,12 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 			resp, err := a.llmClient.Chat(ctx, req)
 			if err != nil {
 				a.logger.Error("LLM chat failed", "error", err)
-				a.sendStatus(AgentDoneMsg{})
-				return AgentErrorMsg{Err: fmt.Errorf("llm chat: %w", err)}
+				return a.finishRun(AgentErrorMsg{Err: fmt.Errorf("llm chat: %w", err)})
 			}
 
 			if len(resp.Choices) == 0 {
 				a.logger.Error("LLM returned no choices")
-				a.sendStatus(AgentDoneMsg{})
-				return AgentErrorMsg{Err: fmt.Errorf("llm returned no choices")}
+				return a.finishRun(AgentErrorMsg{Err: fmt.Errorf("llm returned no choices")})
 			}
 
 			msg := resp.Choices[0].Message
@@ -587,8 +580,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				// Handle tool calls
 				for _, tc := range msg.ToolCalls {
 					if ctx.Err() != nil {
-						a.sendStatus(AgentDoneMsg{})
-						return AgentCancelledMsg{RunID: currentRunID}
+						return a.finishRun(AgentCancelledMsg{RunID: currentRunID})
 					}
 					a.logger.Debug("executing tool call", "tool", tc.Function.Name, "call_id", tc.ID)
 					toolStart := time.Now()
@@ -644,14 +636,13 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				continue
 			}
 
-			// No more tool calls, return final response
-			// Tool results were already sent via ToolCompleteMsg
-			// Send done message to unblock status listener
-			a.sendStatus(AgentDoneMsg{})
-			return AgentResponseMsg{Response: AgentResponse{
+			// No more tool calls. Send the final response through statusCallback so
+			// ToolCompleteMsg stays ordered ahead of it, then return AgentDoneMsg
+			// directly as the only completion signal for this run.
+			return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 				Content: msg.Content,
 				Done:    true,
-			}}
+			}})
 		}
 	}
 }
@@ -680,6 +671,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 	case "list_sandboxes":
 		return a.listSandboxes(ctx)
 	case "create_sandbox":
+		a.clearStickyReadOnly()
 		var args struct {
 			SourceVM string `json:"source_vm"`
 			Host     string `json:"host"`
@@ -692,6 +684,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		}
 		return a.createSandbox(ctx, args.SourceVM, args.Host, args.CPU, args.MemoryMB, args.Live)
 	case "destroy_sandbox":
+		a.clearStickyReadOnly()
 		var args struct {
 			SandboxID string `json:"sandbox_id"`
 		}
@@ -700,6 +693,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		}
 		return a.destroySandbox(ctx, args.SandboxID)
 	case "run_command":
+		a.clearStickyReadOnly()
 		var args struct {
 			SandboxID string `json:"sandbox_id"`
 			Command   string `json:"command"`
@@ -709,6 +703,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		}
 		return a.runCommand(ctx, args.SandboxID, args.Command)
 	case "start_sandbox":
+		a.clearStickyReadOnly()
 		var args struct {
 			SandboxID string `json:"sandbox_id"`
 		}
@@ -717,6 +712,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		}
 		return a.startSandbox(ctx, args.SandboxID)
 	case "stop_sandbox":
+		a.clearStickyReadOnly()
 		var args struct {
 			SandboxID string `json:"sandbox_id"`
 		}
@@ -732,9 +728,10 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			return nil, err
 		}
 		return a.getSandbox(ctx, args.SandboxID)
-	case "list_vms":
-		return a.listVMs(ctx)
+	// case "list_vms": // use list_hosts instead
+	// 	return a.listVMs(ctx)
 	case "create_snapshot":
+		a.clearStickyReadOnly()
 		var args struct {
 			SandboxID string `json:"sandbox_id"`
 			Name      string `json:"name"`
@@ -744,12 +741,14 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		}
 		return a.createSnapshot(ctx, args.SandboxID, args.Name)
 	case "create_playbook":
+		a.clearStickyReadOnly()
 		var args ansible.CreatePlaybookRequest
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
 		return a.playbookService.CreatePlaybook(ctx, args)
 	case "add_playbook_task":
+		a.clearStickyReadOnly()
 		var args struct {
 			PlaybookID string         `json:"playbook_id"`
 			Name       string         `json:"name"`
@@ -765,6 +764,7 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 			Params: args.Params,
 		})
 	case "edit_file":
+		a.clearStickyReadOnly()
 		var args struct {
 			SandboxID string `json:"sandbox_id"`
 			Path      string `json:"path"`
@@ -1072,19 +1072,46 @@ func (a *FluidAgent) createSandbox(ctx context.Context, sourceVM, hostName strin
 	}
 
 	a.logger.Info("sandbox creation attempt", "source_vm", sourceVM, "cpu", cpu, "memory_mb", memoryMB, "live", live)
+	lastStepNum := 0
+	lastTotal := 0
 
-	sb, err := a.service.CreateSandbox(ctx, sandbox.CreateRequest{
+	sb, err := a.service.CreateSandboxStream(ctx, sandbox.CreateRequest{
 		SourceVM: sourceVM,
 		AgentID:  "tui-agent",
 		VCPUs:    cpu,
 		MemoryMB: memoryMB,
 		Live:     live,
+	}, func(step string, stepNum, total int) {
+		lastStepNum = stepNum
+		lastTotal = total
+		a.sendStatus(SandboxCreateProgressMsg{
+			SourceVM: sourceVM,
+			StepName: step,
+			StepNum:  stepNum,
+			Total:    total,
+		})
 	})
 	if err != nil {
+		a.sendStatus(SandboxCreateProgressMsg{Done: true})
 		a.logger.Error("sandbox creation failed", "source_vm", sourceVM, "error", err)
 		return nil, err
 	}
 	a.logger.Info("sandbox created", "sandbox_id", sb.ID, "ip", sb.IPAddress)
+
+	doneMsg := SandboxCreateProgressMsg{
+		SourceVM: sourceVM,
+		Done:     true,
+	}
+	if lastTotal > 0 {
+		doneMsg.StepName = "Ready"
+		doneMsg.StepNum = lastTotal
+		doneMsg.Total = lastTotal
+		if lastStepNum > lastTotal {
+			doneMsg.StepNum = lastStepNum
+			doneMsg.Total = lastStepNum
+		}
+	}
+	a.sendStatus(doneMsg)
 
 	// Track the created sandbox for cleanup on exit
 	a.createdSandboxes = append(a.createdSandboxes, sb.ID)
@@ -1127,59 +1154,70 @@ func (a *FluidAgent) HandleSourcePrepareApprovalResponse(approved bool) {
 
 // runPrepareInline runs source host preparation inline in the TUI, sending progress via SourcePrepareProgressMsg.
 func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.Msg {
+	identityPubKey := config.DaemonIdentityPubKey(a.cfg.SandboxHosts)
+	totalSteps := 4
+	if identityPubKey != "" {
+		totalSteps = 5
+	}
+
 	// 1. Resolve SSH config
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Resolving SSH config", StepNum: 1, Total: 4})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Resolving SSH config", StepNum: 1, Total: totalSteps})
 	resolved, err := sshconfig.Resolve(hostname)
 	if err != nil {
-		a.sendStatus(AgentDoneMsg{})
-		return AgentResponseMsg{Response: AgentResponse{
+		return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 			Content: fmt.Sprintf("Failed to resolve SSH config for %s: %v", hostname, err),
 			Done:    true,
-		}}
+		}})
 	}
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Resolving SSH config", StepNum: 1, Total: 4, Done: true})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Resolving SSH config", StepNum: 1, Total: totalSteps, Done: true})
 
 	// 2. Ensure SSH key pair
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Generating SSH key pair", StepNum: 2, Total: 4})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Generating SSH key pair", StepNum: 2, Total: totalSteps})
 	_, pubKey, err := sourcekeys.EnsureKeyPair(a.cfg.SSH.SourceKeyDir)
 	if err != nil {
-		a.sendStatus(AgentDoneMsg{})
-		return AgentResponseMsg{Response: AgentResponse{
+		return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 			Content: fmt.Sprintf("Failed to generate key pair: %v", err),
 			Done:    true,
-		}}
+		}})
 	}
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Generating SSH key pair", StepNum: 2, Total: 4, Done: true})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Generating SSH key pair", StepNum: 2, Total: totalSteps, Done: true})
 
 	// 3. Prepare host for read-only access
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: 4})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: totalSteps})
 	sshRunFn := hostexec.NewSSHAlias(hostname)
 	sshRun := readonly.SSHRunFunc(sshRunFn)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	_, err = readonly.PrepareWithKey(ctx, sshRun, pubKey, nil, logger)
 	if err != nil {
-		a.sendStatus(AgentDoneMsg{})
-		return AgentResponseMsg{Response: AgentResponse{
+		return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 			Content: fmt.Sprintf("Preparation failed for %s: %v", hostname, err),
 			Done:    true,
-		}}
+		}})
 	}
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: 4, Done: true})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Preparing host", StepNum: 3, Total: totalSteps, Done: true})
 
-	// 4. Update config
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: totalSteps})
 	configPath, _ := paths.ConfigFile()
 	if err := source.SavePreparedHost(a.cfg, configPath, hostname, resolved); err != nil {
 		a.logger.Warn("failed to save config after prepare", "error", err)
 	}
-	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: 4, Done: true})
-	a.sendStatus(AgentDoneMsg{})
+	a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Saving config", StepNum: 4, Total: totalSteps, Done: true})
 
-	return AgentResponseMsg{Response: AgentResponse{
+	// 5. Deploy daemon identity key if available
+	if identityPubKey != "" {
+		a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Deploying daemon SSH key", StepNum: 5, Total: totalSteps})
+		deployErr := readonly.DeployDaemonKey(ctx, sshRun, identityPubKey, logger)
+		if deployErr != nil {
+			a.logger.Warn("daemon key deploy failed (non-fatal)", "host", hostname, "error", deployErr)
+		}
+		a.sendStatus(SourcePrepareProgressMsg{SourceVM: hostname, StepName: "Deploying daemon SSH key", StepNum: 5, Total: totalSteps, Done: true})
+	}
+
+	return a.finishRun(AgentResponseMsg{Response: AgentResponse{
 		Content: fmt.Sprintf("Host %s is prepared.", hostname),
 		Done:    true,
-	}}
+	}})
 }
 
 func (a *FluidAgent) destroySandbox(ctx context.Context, id string) (map[string]any, error) {
@@ -1251,26 +1289,49 @@ func (a *FluidAgent) runCommand(ctx context.Context, sandboxID, command string) 
 		}
 	}
 
+	a.sendStatus(CommandOutputStartMsg{SandboxID: sandboxID})
+
 	result, err := a.service.RunCommand(ctx, sandboxID, command, 0, nil)
 	if err != nil {
 		a.logger.Error("command execution failed", "sandbox_id", sandboxID, "error", err)
+		a.sendStatus(CommandOutputDoneMsg{SandboxID: sandboxID})
 		if result != nil {
+			stdout, stdoutRedacted := a.redactContent(result.Stdout)
+			stderr, stderrRedacted := a.redactContent(result.Stderr)
+			if stdoutRedacted || stderrRedacted {
+				a.sendRedactedMsg(sandboxID, "")
+			}
 			return map[string]any{
 				"sandbox_id": sandboxID,
 				"exit_code":  result.ExitCode,
-				"stdout":     result.Stdout,
-				"stderr":     result.Stderr,
+				"stdout":     stdout,
+				"stderr":     stderr,
 				"error":      err.Error(),
 			}, nil
 		}
 		return nil, err
 	}
 
+	stdout, stdoutRedacted := a.redactContent(result.Stdout)
+	stderr, stderrRedacted := a.redactContent(result.Stderr)
+	if stdoutRedacted || stderrRedacted {
+		a.sendRedactedMsg(sandboxID, "")
+	}
+
+	// Show output in live output box
+	if stdout != "" {
+		a.sendStatus(CommandOutputChunkMsg{SandboxID: sandboxID, Chunk: stdout})
+	}
+	if stderr != "" {
+		a.sendStatus(CommandOutputChunkMsg{SandboxID: sandboxID, IsStderr: true, Chunk: stderr})
+	}
+	a.sendStatus(CommandOutputDoneMsg{SandboxID: sandboxID})
+
 	return map[string]any{
 		"sandbox_id": sandboxID,
 		"exit_code":  result.ExitCode,
-		"stdout":     result.Stdout,
-		"stderr":     result.Stderr,
+		"stdout":     stdout,
+		"stderr":     stderr,
 	}, nil
 }
 
@@ -1354,6 +1415,9 @@ func (a *FluidAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newS
 			a.logger.Error("failed to create file", "sandbox_id", sandboxID, "path", path, "stderr", result.Stderr)
 			return nil, fmt.Errorf("failed to create file: %s", result.Stderr)
 		}
+		a.sendStatus(CommandOutputStartMsg{SandboxID: sandboxID})
+		a.sendStatus(CommandOutputChunkMsg{SandboxID: sandboxID, Chunk: fmt.Sprintf("Created %s\n", path)})
+		a.sendStatus(CommandOutputDoneMsg{SandboxID: sandboxID})
 		return map[string]any{
 			"sandbox_id": sandboxID,
 			"path":       path,
@@ -1405,6 +1469,10 @@ func (a *FluidAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newS
 		a.logger.Error("failed to write file", "sandbox_id", sandboxID, "path", path, "stderr", writeResult.Stderr)
 		return nil, fmt.Errorf("failed to write file: %s", writeResult.Stderr)
 	}
+
+	a.sendStatus(CommandOutputStartMsg{SandboxID: sandboxID})
+	a.sendStatus(CommandOutputChunkMsg{SandboxID: sandboxID, Chunk: fmt.Sprintf("Edited %s\n", path)})
+	a.sendStatus(CommandOutputDoneMsg{SandboxID: sandboxID})
 
 	return map[string]any{
 		"sandbox_id": sandboxID,
@@ -1459,6 +1527,11 @@ func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[
 	if wasRedacted {
 		a.sendRedactedMsg(sandboxID, path)
 	}
+
+	// Show file content in live output box
+	a.sendStatus(CommandOutputStartMsg{SandboxID: sandboxID})
+	a.sendStatus(CommandOutputChunkMsg{SandboxID: sandboxID, Chunk: content + "\n"})
+	a.sendStatus(CommandOutputDoneMsg{SandboxID: sandboxID})
 
 	return map[string]any{
 		"sandbox_id": sandboxID,
@@ -1572,31 +1645,32 @@ func (a *FluidAgent) getSandbox(ctx context.Context, id string) (map[string]any,
 	return result, nil
 }
 
-func (a *FluidAgent) listVMs(ctx context.Context) (map[string]any, error) {
-	vms, err := a.service.ListVMs(ctx)
-	if err != nil {
-		a.logger.Error("list VMs failed", "error", err)
-		return nil, err
-	}
-
-	result := make([]map[string]any, 0, len(vms))
-	for _, v := range vms {
-		item := map[string]any{
-			"name":     v.Name,
-			"state":    v.State,
-			"prepared": v.Prepared,
-		}
-		if v.IPAddress != "" {
-			item["ip"] = v.IPAddress
-		}
-		result = append(result, item)
-	}
-
-	return map[string]any{
-		"vms":   result,
-		"count": len(result),
-	}, nil
-}
+// list_vms - use list_hosts instead
+// func (a *FluidAgent) listVMs(ctx context.Context) (map[string]any, error) {
+// 	vms, err := a.service.ListVMs(ctx)
+// 	if err != nil {
+// 		a.logger.Error("list VMs failed", "error", err)
+// 		return nil, err
+// 	}
+//
+// 	result := make([]map[string]any, 0, len(vms))
+// 	for _, v := range vms {
+// 		item := map[string]any{
+// 			"name":     v.Name,
+// 			"state":    v.State,
+// 			"prepared": v.Prepared,
+// 		}
+// 		if v.IPAddress != "" {
+// 			item["ip"] = v.IPAddress
+// 		}
+// 		result = append(result, item)
+// 	}
+//
+// 	return map[string]any{
+// 		"vms":   result,
+// 		"count": len(result),
+// 	}, nil
+// }
 
 func (a *FluidAgent) createSnapshot(ctx context.Context, sandboxID, name string) (map[string]any, error) {
 	if name == "" {
@@ -1619,54 +1693,55 @@ func (a *FluidAgent) createSnapshot(ctx context.Context, sandboxID, name string)
 
 // Formatting helpers
 
-func (a *FluidAgent) formatVMsResult(result map[string]any, err error) string {
-	if err != nil {
-		return fmt.Sprintf("Failed to list VMs: %v", err)
-	}
-
-	vms, ok := result["vms"].([]map[string]any)
-	if !ok || len(vms) == 0 {
-		return "No VMs found."
-	}
-
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Found %d VM(s) available for cloning:\n\n", len(vms)))
-
-	// Group VMs by host if host information is present
-	hostVMs := make(map[string][]map[string]any)
-	for _, vm := range vms {
-		host := "local"
-		if h, ok := vm["host"].(string); ok && h != "" {
-			host = h
-		}
-		hostVMs[host] = append(hostVMs[host], vm)
-	}
-
-	// Display VMs grouped by host
-	for host, hvms := range hostVMs {
-		if len(hostVMs) > 1 || host != "local" {
-			b.WriteString(fmt.Sprintf("### Host: %s\n", host))
-		}
-		for _, vm := range hvms {
-			state := "unknown"
-			if s, ok := vm["state"].(string); ok {
-				state = s
-			}
-			b.WriteString(fmt.Sprintf("- **%s** (%s)\n", vm["name"], state))
-		}
-		b.WriteString("\n")
-	}
-
-	// Display any host errors
-	if hostErrors, ok := result["host_errors"].([]map[string]any); ok && len(hostErrors) > 0 {
-		b.WriteString("### Host Errors\n")
-		for _, he := range hostErrors {
-			b.WriteString(fmt.Sprintf("- **%s**: %s\n", he["host"], he["error"]))
-		}
-	}
-
-	return b.String()
-}
+// formatVMsResult - use list_hosts instead
+// func (a *FluidAgent) formatVMsResult(result map[string]any, err error) string {
+// 	if err != nil {
+// 		return fmt.Sprintf("Failed to list VMs: %v", err)
+// 	}
+//
+// 	vms, ok := result["vms"].([]map[string]any)
+// 	if !ok || len(vms) == 0 {
+// 		return "No VMs found."
+// 	}
+//
+// 	var b strings.Builder
+// 	b.WriteString(fmt.Sprintf("Found %d VM(s) available for cloning:\n\n", len(vms)))
+//
+// 	// Group VMs by host if host information is present
+// 	hostVMs := make(map[string][]map[string]any)
+// 	for _, vm := range vms {
+// 		host := "local"
+// 		if h, ok := vm["host"].(string); ok && h != "" {
+// 			host = h
+// 		}
+// 		hostVMs[host] = append(hostVMs[host], vm)
+// 	}
+//
+// 	// Display VMs grouped by host
+// 	for host, hvms := range hostVMs {
+// 		if len(hostVMs) > 1 || host != "local" {
+// 			b.WriteString(fmt.Sprintf("### Host: %s\n", host))
+// 		}
+// 		for _, vm := range hvms {
+// 			state := "unknown"
+// 			if s, ok := vm["state"].(string); ok {
+// 				state = s
+// 			}
+// 			b.WriteString(fmt.Sprintf("- **%s** (%s)\n", vm["name"], state))
+// 		}
+// 		b.WriteString("\n")
+// 	}
+//
+// 	// Display any host errors
+// 	if hostErrors, ok := result["host_errors"].([]map[string]any); ok && len(hostErrors) > 0 {
+// 		b.WriteString("### Host Errors\n")
+// 		for _, he := range hostErrors {
+// 			b.WriteString(fmt.Sprintf("- **%s**: %s\n", he["host"], he["error"]))
+// 		}
+// 	}
+//
+// 	return b.String()
+// }
 
 func (a *FluidAgent) formatSandboxesResult(result map[string]any, err error) string {
 	if err != nil {
@@ -2139,4 +2214,18 @@ func (a *FluidAgent) ClearAutoReadOnly() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.autoReadOnly = false
+	a.displayReadOnly = false
+}
+
+// clearStickyReadOnly clears the sticky read-only display state when a write tool executes.
+// Sends AutoReadOnlyMsg{Enabled: false} to the model if sticky display was active.
+func (a *FluidAgent) clearStickyReadOnly() {
+	a.mu.Lock()
+	if !a.displayReadOnly {
+		a.mu.Unlock()
+		return
+	}
+	a.displayReadOnly = false
+	a.mu.Unlock()
+	a.sendStatus(AutoReadOnlyMsg{Enabled: false})
 }
