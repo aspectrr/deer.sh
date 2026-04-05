@@ -7,6 +7,11 @@ dist/
 .venv
 act.env
 .claude
+.crush
+.cache
 
 # macOS-specific files
 .DS_Store
+
+# Git worktrees
+.worktrees/
