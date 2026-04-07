@@ -284,9 +284,9 @@ Even if the client-side validation were completely bypassed -- say, by an attack
 
 Fluid's SSH certificate authority issues certificates with different _principals_ depending on the access type:
 
-| Access Type           | Principal        | Username         | Shell                                 |
-| --------------------- | ---------------- | ---------------- | ------------------------------------- |
-| Sandbox (full access) | `sandbox`        | `sandbox`        | `/bin/bash`                           |
+| Access Type           | Principal       | Username        | Shell                                |
+| --------------------- | --------------- | --------------- | ------------------------------------ |
+| Sandbox (full access) | `sandbox`       | `sandbox`       | `/bin/bash`                          |
 | Source VM (read-only) | `deer-readonly` | `deer-readonly` | `/usr/local/bin/deer-readonly-shell` |
 
 When the deer CLI requests credentials for a source VM, the key manager issues a certificate with the `deer-readonly` principal:
@@ -691,15 +691,15 @@ This matters for the agent workflow. When an agent is deciding _which_ source VM
 
 ## What Could Go Wrong (and Why It's Contained)
 
-| Scenario                                | Mitigation                                                                                                                                                                                     |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent sends `rm -rf /`                  | Client-side allowlist rejects `rm` before SSH connection                                                                                                                                       |
-| Agent sends `cat /etc/passwd; rm -rf /` | Pipeline parser splits on `;`, validates each segment, rejects `rm`                                                                                                                            |
-| Agent sends `$(rm -rf /)`               | Metacharacter detector blocks `$()` outside quotes                                                                                                                                             |
-| Attacker forges SSH certificate         | Restricted shell still blocks destructive commands server-side                                                                                                                                 |
+| Scenario                                | Mitigation                                                                                                                                                                                    |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent sends `rm -rf /`                  | Client-side allowlist rejects `rm` before SSH connection                                                                                                                                      |
+| Agent sends `cat /etc/passwd; rm -rf /` | Pipeline parser splits on `;`, validates each segment, rejects `rm`                                                                                                                           |
+| Agent sends `$(rm -rf /)`               | Metacharacter detector blocks `$()` outside quotes                                                                                                                                            |
+| Attacker forges SSH certificate         | Restricted shell still blocks destructive commands server-side                                                                                                                                |
 | Attacker bypasses restricted shell      | The `deer-readonly` user has no sudo access, no real home directory, and only standard non-privileged Unix write permissions (cannot modify system config or service data without escalation) |
-| VM name contains `../../etc`            | `sanitizeVMName` strips all non-alphanumeric characters, prevents path traversal                                                                                                               |
-| Agent tries interactive SSH session     | Restricted shell exits immediately when `SSH_ORIGINAL_COMMAND` is empty                                                                                                                        |
+| VM name contains `../../etc`            | `sanitizeVMName` strips all non-alphanumeric characters, prevents path traversal                                                                                                              |
+| Agent tries interactive SSH session     | Restricted shell exits immediately when `SSH_ORIGINAL_COMMAND` is empty                                                                                                                       |
 | Credential stolen                       | 30-minute TTL limits window; certificate only grants `deer-readonly` principal                                                                                                                |
 
 ## Summary

@@ -25,13 +25,13 @@ pre-commit:
     # Python SDK
     fmt-sdk-black:
       glob: "*.py"
-      root: "sdk/fluid-py"
+      root: "sdk/deer-py"
       run: black .
       stage_fixed: true
 
     fmt-sdk-isort:
       glob: "*.py"
-      root: "sdk/fluid-py"
+      root: "sdk/deer-py"
       run: isort .
       stage_fixed: true
 
@@ -96,7 +96,7 @@ pre-push:
     # Python SDK
     test-sdk:
       glob: "*.py"
-      root: "sdk/fluid-py"
+      root: "sdk/deer-py"
       run: python3 -m pytest test/ -v --tb=short
 
     # Web
