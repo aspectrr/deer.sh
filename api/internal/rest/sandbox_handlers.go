@@ -7,11 +7,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
-	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
-	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	serverError "github.com/aspectrr/deer.sh/api/internal/error"
+	serverJSON "github.com/aspectrr/deer.sh/api/internal/json"
+	"github.com/aspectrr/deer.sh/api/internal/orchestrator"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 // handleCreateSandbox godoc

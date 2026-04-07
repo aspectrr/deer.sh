@@ -5,9 +5,9 @@ import type { ReactNode } from 'react'
 const variants = {
   info: {
     icon: Info,
-    border: 'border-blue-400/30',
-    bg: 'bg-blue-400/5',
-    text: 'text-blue-400',
+    border: 'border-green-900/30',
+    bg: 'bg-green-800/5',
+    text: 'text-green-800',
   },
   warning: {
     icon: AlertTriangle,
@@ -17,9 +17,9 @@ const variants = {
   },
   tip: {
     icon: Lightbulb,
-    border: 'border-green-400/30',
-    bg: 'bg-green-400/5',
-    text: 'text-green-400',
+    border: 'border-green-900/30',
+    bg: 'bg-green-800/5',
+    text: 'text-green-800',
   },
   danger: {
     icon: AlertOctagon,

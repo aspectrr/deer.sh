@@ -1,4 +1,4 @@
-module github.com/aspectrr/fluid.sh/proto/gen/go
+module github.com/aspectrr/deer.sh/proto/gen/go
 
 go 1.24.0
 

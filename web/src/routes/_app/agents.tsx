@@ -313,7 +313,7 @@
 //             <Button
 //               onClick={sendMessage}
 //               disabled={!input.trim() || isStreaming}
-//               className="h-9 w-9 shrink-0 bg-blue-500 p-0 hover:bg-blue-400"
+//               className="h-9 w-9 shrink-0 bg-green-900 p-0 hover:bg-green-800"
 //             >
 //               <Send className="h-3.5 w-3.5 text-black" />
 //             </Button>

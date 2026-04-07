@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/aspectrr/fluid.sh/api/internal/crypto"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/crypto"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 var (
@@ -263,6 +263,53 @@ type SourceHostModel struct {
 
 func (SourceHostModel) TableName() string { return "source_hosts" }
 
+type KafkaCaptureConfigModel struct {
+	ID                 string            `gorm:"column:id;primaryKey"`
+	OrgID              string            `gorm:"column:org_id;not null;index"`
+	SourceHostID       string            `gorm:"column:source_host_id;not null;index"`
+	SourceVM           string            `gorm:"column:source_vm;not null;index"`
+	Name               string            `gorm:"column:name;not null"`
+	BootstrapServers   store.StringSlice `gorm:"column:bootstrap_servers;type:jsonb;default:'[]'"`
+	Topics             store.StringSlice `gorm:"column:topics;type:jsonb;default:'[]'"`
+	Username           string            `gorm:"column:username"`
+	Password           string            `gorm:"column:password"`
+	SASLMechanism      string            `gorm:"column:sasl_mechanism;default:'plain'"`
+	TLSEnabled         bool              `gorm:"column:tls_enabled;default:false"`
+	InsecureSkipVerify bool              `gorm:"column:insecure_skip_verify;default:false"`
+	TLSCAPEM           string            `gorm:"column:tls_ca_pem"`
+	Codec              string            `gorm:"column:codec;not null;default:'json'"`
+	RedactionRules     store.StringSlice `gorm:"column:redaction_rules;type:jsonb;default:'[]'"`
+	MaxBufferAgeSecs   int32             `gorm:"column:max_buffer_age_secs;not null;default:0"`
+	MaxBufferBytes     int64             `gorm:"column:max_buffer_bytes;not null;default:0"`
+	Enabled            bool              `gorm:"column:enabled;default:true"`
+	LastCaptureState   string            `gorm:"column:last_capture_state;default:'pending'"`
+	BufferedBytes      int64             `gorm:"column:buffered_bytes;not null;default:0"`
+	SegmentCount       int32             `gorm:"column:segment_count;not null;default:0"`
+	LastSeenAt         *time.Time        `gorm:"column:last_seen_at"`
+	CreatedAt          time.Time         `gorm:"column:created_at"`
+	UpdatedAt          time.Time         `gorm:"column:updated_at"`
+}
+
+func (KafkaCaptureConfigModel) TableName() string { return "kafka_capture_configs" }
+
+type SandboxKafkaStubModel struct {
+	ID                  string            `gorm:"column:id;primaryKey"`
+	OrgID               string            `gorm:"column:org_id;not null;index"`
+	SandboxID           string            `gorm:"column:sandbox_id;not null;index"`
+	CaptureConfigID     string            `gorm:"column:capture_config_id;not null;index"`
+	BrokerEndpoint      string            `gorm:"column:broker_endpoint"`
+	Topics              store.StringSlice `gorm:"column:topics;type:jsonb;default:'[]'"`
+	ReplayWindowSeconds int32             `gorm:"column:replay_window_seconds;not null;default:0"`
+	State               string            `gorm:"column:state;not null;default:'stopped'"`
+	LastReplayCursor    string            `gorm:"column:last_replay_cursor"`
+	LastError           string            `gorm:"column:last_error"`
+	AutoStart           bool              `gorm:"column:auto_start;default:true"`
+	CreatedAt           time.Time         `gorm:"column:created_at"`
+	UpdatedAt           time.Time         `gorm:"column:updated_at"`
+}
+
+func (SandboxKafkaStubModel) TableName() string { return "sandbox_kafka_stubs" }
+
 type ModelMeterModel struct {
 	ID                  string    `gorm:"column:id;primaryKey"`
 	ModelID             string    `gorm:"column:model_id;uniqueIndex"`
@@ -362,6 +409,8 @@ func (s *postgresStore) autoMigrate(_ context.Context) error {
 		// &PlaybookModel{},
 		// &PlaybookTaskModel{},
 		&SourceHostModel{},
+		&KafkaCaptureConfigModel{},
+		&SandboxKafkaStubModel{},
 		&ModelMeterModel{},
 		&OrgModelSubscriptionModel{},
 	)
@@ -1444,6 +1493,225 @@ func (s *postgresStore) sourceHostFromModel(m *SourceHostModel) *store.SourceHos
 		}
 	}
 	return sh
+}
+
+func (s *postgresStore) kafkaCaptureConfigToModel(cfg *store.KafkaCaptureConfig) *KafkaCaptureConfigModel {
+	m := &KafkaCaptureConfigModel{
+		ID:                 cfg.ID,
+		OrgID:              cfg.OrgID,
+		SourceHostID:       cfg.SourceHostID,
+		SourceVM:           cfg.SourceVM,
+		Name:               cfg.Name,
+		BootstrapServers:   cfg.BootstrapServers,
+		Topics:             cfg.Topics,
+		Username:           cfg.Username,
+		Password:           cfg.Password,
+		SASLMechanism:      cfg.SASLMechanism,
+		TLSEnabled:         cfg.TLSEnabled,
+		InsecureSkipVerify: cfg.InsecureSkipVerify,
+		TLSCAPEM:           cfg.TLSCAPEM,
+		Codec:              cfg.Codec,
+		RedactionRules:     cfg.RedactionRules,
+		MaxBufferAgeSecs:   cfg.MaxBufferAgeSecs,
+		MaxBufferBytes:     cfg.MaxBufferBytes,
+		Enabled:            cfg.Enabled,
+		LastCaptureState:   cfg.LastCaptureState,
+		BufferedBytes:      cfg.BufferedBytes,
+		SegmentCount:       cfg.SegmentCount,
+		LastSeenAt:         cfg.LastSeenAt,
+		CreatedAt:          cfg.CreatedAt,
+		UpdatedAt:          cfg.UpdatedAt,
+	}
+	if len(s.encryptionKey) > 0 {
+		if enc, err := crypto.Encrypt(s.encryptionKey, cfg.Username); err == nil {
+			m.Username = enc
+		}
+		if enc, err := crypto.Encrypt(s.encryptionKey, cfg.Password); err == nil {
+			m.Password = enc
+		}
+		if enc, err := crypto.Encrypt(s.encryptionKey, cfg.TLSCAPEM); err == nil {
+			m.TLSCAPEM = enc
+		}
+	}
+	return m
+}
+
+func (s *postgresStore) kafkaCaptureConfigFromModel(m *KafkaCaptureConfigModel) *store.KafkaCaptureConfig {
+	cfg := &store.KafkaCaptureConfig{
+		ID:                 m.ID,
+		OrgID:              m.OrgID,
+		SourceHostID:       m.SourceHostID,
+		SourceVM:           m.SourceVM,
+		Name:               m.Name,
+		BootstrapServers:   m.BootstrapServers,
+		Topics:             m.Topics,
+		Username:           m.Username,
+		Password:           m.Password,
+		SASLMechanism:      m.SASLMechanism,
+		TLSEnabled:         m.TLSEnabled,
+		InsecureSkipVerify: m.InsecureSkipVerify,
+		TLSCAPEM:           m.TLSCAPEM,
+		Codec:              m.Codec,
+		RedactionRules:     m.RedactionRules,
+		MaxBufferAgeSecs:   m.MaxBufferAgeSecs,
+		MaxBufferBytes:     m.MaxBufferBytes,
+		Enabled:            m.Enabled,
+		LastCaptureState:   m.LastCaptureState,
+		BufferedBytes:      m.BufferedBytes,
+		SegmentCount:       m.SegmentCount,
+		LastSeenAt:         m.LastSeenAt,
+		CreatedAt:          m.CreatedAt,
+		UpdatedAt:          m.UpdatedAt,
+	}
+	if len(s.encryptionKey) > 0 {
+		if dec, err := crypto.Decrypt(s.encryptionKey, m.Username); err == nil {
+			cfg.Username = dec
+		}
+		if dec, err := crypto.Decrypt(s.encryptionKey, m.Password); err == nil {
+			cfg.Password = dec
+		}
+		if dec, err := crypto.Decrypt(s.encryptionKey, m.TLSCAPEM); err == nil {
+			cfg.TLSCAPEM = dec
+		}
+	}
+	return cfg
+}
+
+func sandboxKafkaStubToModel(stub *store.SandboxKafkaStub) *SandboxKafkaStubModel {
+	return &SandboxKafkaStubModel{
+		ID:                  stub.ID,
+		OrgID:               stub.OrgID,
+		SandboxID:           stub.SandboxID,
+		CaptureConfigID:     stub.CaptureConfigID,
+		BrokerEndpoint:      stub.BrokerEndpoint,
+		Topics:              stub.Topics,
+		ReplayWindowSeconds: stub.ReplayWindowSeconds,
+		State:               stub.State,
+		LastReplayCursor:    stub.LastReplayCursor,
+		LastError:           stub.LastError,
+		AutoStart:           stub.AutoStart,
+		CreatedAt:           stub.CreatedAt,
+		UpdatedAt:           stub.UpdatedAt,
+	}
+}
+
+func sandboxKafkaStubFromModel(m *SandboxKafkaStubModel) *store.SandboxKafkaStub {
+	return &store.SandboxKafkaStub{
+		ID:                  m.ID,
+		OrgID:               m.OrgID,
+		SandboxID:           m.SandboxID,
+		CaptureConfigID:     m.CaptureConfigID,
+		BrokerEndpoint:      m.BrokerEndpoint,
+		Topics:              m.Topics,
+		ReplayWindowSeconds: m.ReplayWindowSeconds,
+		State:               m.State,
+		LastReplayCursor:    m.LastReplayCursor,
+		LastError:           m.LastError,
+		AutoStart:           m.AutoStart,
+		CreatedAt:           m.CreatedAt,
+		UpdatedAt:           m.UpdatedAt,
+	}
+}
+
+func (s *postgresStore) CreateKafkaCaptureConfig(ctx context.Context, cfg *store.KafkaCaptureConfig) error {
+	now := time.Now().UTC()
+	cfg.CreatedAt = now
+	cfg.UpdatedAt = now
+	if err := s.db.WithContext(ctx).Create(s.kafkaCaptureConfigToModel(cfg)).Error; err != nil {
+		return mapDBError(err)
+	}
+	return nil
+}
+
+func (s *postgresStore) GetKafkaCaptureConfig(ctx context.Context, id string) (*store.KafkaCaptureConfig, error) {
+	var model KafkaCaptureConfigModel
+	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&model).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	return s.kafkaCaptureConfigFromModel(&model), nil
+}
+
+func (s *postgresStore) ListKafkaCaptureConfigsByOrg(ctx context.Context, orgID string) ([]*store.KafkaCaptureConfig, error) {
+	var models []KafkaCaptureConfigModel
+	if err := s.db.WithContext(ctx).Where("org_id = ?", orgID).Order("created_at ASC").Find(&models).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	out := make([]*store.KafkaCaptureConfig, 0, len(models))
+	for i := range models {
+		out = append(out, s.kafkaCaptureConfigFromModel(&models[i]))
+	}
+	return out, nil
+}
+
+func (s *postgresStore) UpdateKafkaCaptureConfig(ctx context.Context, cfg *store.KafkaCaptureConfig) error {
+	cfg.UpdatedAt = time.Now().UTC()
+	res := s.db.WithContext(ctx).Model(&KafkaCaptureConfigModel{}).Where("id = ?", cfg.ID).
+		Updates(s.kafkaCaptureConfigToModel(cfg))
+	if res.Error != nil {
+		return mapDBError(res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return store.ErrNotFound
+	}
+	return nil
+}
+
+func (s *postgresStore) DeleteKafkaCaptureConfig(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&KafkaCaptureConfigModel{})
+	if res.Error != nil {
+		return mapDBError(res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return store.ErrNotFound
+	}
+	return nil
+}
+
+func (s *postgresStore) CreateSandboxKafkaStub(ctx context.Context, stub *store.SandboxKafkaStub) error {
+	now := time.Now().UTC()
+	stub.CreatedAt = now
+	stub.UpdatedAt = now
+	if err := s.db.WithContext(ctx).Create(sandboxKafkaStubToModel(stub)).Error; err != nil {
+		return mapDBError(err)
+	}
+	return nil
+}
+
+func (s *postgresStore) GetSandboxKafkaStub(ctx context.Context, id string) (*store.SandboxKafkaStub, error) {
+	var model SandboxKafkaStubModel
+	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&model).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	return sandboxKafkaStubFromModel(&model), nil
+}
+
+func (s *postgresStore) ListSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) ([]*store.SandboxKafkaStub, error) {
+	var models []SandboxKafkaStubModel
+	if err := s.db.WithContext(ctx).Where("sandbox_id = ?", sandboxID).Order("created_at ASC").Find(&models).Error; err != nil {
+		return nil, mapDBError(err)
+	}
+	out := make([]*store.SandboxKafkaStub, 0, len(models))
+	for i := range models {
+		out = append(out, sandboxKafkaStubFromModel(&models[i]))
+	}
+	return out, nil
+}
+
+func (s *postgresStore) UpdateSandboxKafkaStub(ctx context.Context, stub *store.SandboxKafkaStub) error {
+	stub.UpdatedAt = time.Now().UTC()
+	res := s.db.WithContext(ctx).Model(&SandboxKafkaStubModel{}).Where("id = ?", stub.ID).
+		Updates(sandboxKafkaStubToModel(stub))
+	if res.Error != nil {
+		return mapDBError(res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return store.ErrNotFound
+	}
+	return nil
+}
+
+func (s *postgresStore) DeleteSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) error {
+	return mapDBError(s.db.WithContext(ctx).Where("sandbox_id = ?", sandboxID).Delete(&SandboxKafkaStubModel{}).Error)
 }
 
 // --- HostToken CRUD ---

@@ -49,7 +49,7 @@ export function DocsToc({ items }: { items: TocItem[] }) {
                   'block border-l-2 py-0.5 text-[11px] transition-colors',
                   item.level === 3 ? 'pl-6' : 'pl-3',
                   activeId === item.id
-                    ? 'border-blue-400 text-blue-400'
+                    ? 'border-green-900 text-green-800'
                     : 'text-muted-foreground hover:text-foreground border-transparent'
                 )}
               >

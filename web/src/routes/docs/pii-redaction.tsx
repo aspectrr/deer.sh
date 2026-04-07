@@ -13,7 +13,7 @@ function PIIRedactionPage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <h1 className="mb-1 text-lg font-medium text-white">Sensitive Data Redaction</h1>
       <p className="text-muted-foreground mb-8 text-xs">
-        How fluid prevents credentials from reaching the AI agent.
+        How deer prevents credentials from reaching the AI agent.
       </p>
 
       <H2>The Problem</H2>

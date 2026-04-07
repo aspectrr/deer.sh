@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
-	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
+	serverError "github.com/aspectrr/deer.sh/api/internal/error"
+	serverJSON "github.com/aspectrr/deer.sh/api/internal/json"
 )
 
 func generateSessionCode() string {

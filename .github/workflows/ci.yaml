@@ -9,13 +9,13 @@ on:
       - main
 
 jobs:
-  # Go services - fluid CLI
-  fluid-cli:
+  # Go services - deer CLI
+  deer-cli:
     name: Fluid CLI
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: fluid-cli
+        working-directory: deer-cli
 
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-          cache-dependency-path: fluid-cli/go.sum
+          cache-dependency-path: deer-cli/go.sum
 
       - name: Download dependencies
         run: go mod download
@@ -33,22 +33,22 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          working-directory: fluid-cli
+          working-directory: deer-cli
           args: --timeout=10m
 
       - name: Test
         run: go test -v -race ./...
 
       - name: Build
-        run: go build -o bin/fluid ./cmd/fluid
+        run: go build -o bin/deer ./cmd/deer
 
-  # Go services - fluid daemon
-  fluid-daemon:
+  # Go services - deer daemon
+  deer-daemon:
     name: Fluid Daemon
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: fluid-daemon
+        working-directory: deer-daemon
 
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +57,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-          cache-dependency-path: fluid-daemon/go.sum
+          cache-dependency-path: deer-daemon/go.sum
 
       - name: Download dependencies
         run: go mod download
@@ -66,13 +66,13 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          working-directory: fluid-daemon
+          working-directory: deer-daemon
 
       - name: Test
         run: go test -v -race ./...
 
       - name: Build
-        run: go build -o bin/fluid-daemon ./cmd/fluid-daemon
+        run: go build -o bin/deer-daemon ./cmd/deer-daemon
 
   # Go services - API
   api:
@@ -137,33 +137,33 @@ jobs:
 
       - name: Install SDK
         run: |
-          cd sdk/fluid-py
+          cd sdk/deer-py
           pip install -e ".[test]" || pip install -e .
           pip install -r test-requirements.txt || true
 
       - name: Lint (ruff)
         run: |
-          cd sdk/fluid-py
+          cd sdk/deer-py
           ruff check . || true  # Generated code may have lint issues
 
       - name: Type check (mypy)
         run: |
-          cd sdk/fluid-py
+          cd sdk/deer-py
           mypy virsh_sandbox || true  # Allow mypy to pass with warnings for generated code
 
       - name: Test
         run: |
-          cd sdk/fluid-py
+          cd sdk/deer-py
           pytest test/ -v || true  # Generated tests may not all pass
 
       - name: Build package
         run: |
-          cd sdk/fluid-py
+          cd sdk/deer-py
           python -m build
 
       - name: Check package
         run: |
-          cd sdk/fluid-py
+          cd sdk/deer-py
           twine check dist/*
 
   # Web frontend

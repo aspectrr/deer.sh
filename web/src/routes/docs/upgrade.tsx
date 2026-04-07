@@ -76,7 +76,7 @@ function UpgradePage() {
       <H3>1. Install the daemon</H3>
       <p className="mb-2 text-xs text-neutral-400">
         See{' '}
-        <a href="/docs/daemon" className="text-blue-400 hover:text-blue-300">
+        <a href="/docs/daemon" className="text-green-800 hover:text-green-900">
           Daemon Setup
         </a>{' '}
         for full installation instructions.
@@ -97,20 +97,20 @@ function UpgradePage() {
       <CodeBlock
         code={`# Add to daemon.yaml
 control_plane:
-  address: "cp.fluid.sh:9090"
+  address: "cp.deer.sh:9090"
   token: "host_abc123def456..."`}
         lang="yaml"
         filename="daemon.yaml"
       />
 
       <H3>4. Restart and verify</H3>
-      <TerminalBlock lines={[{ command: 'sudo systemctl restart fluid-daemon' }]} />
+      <TerminalBlock lines={[{ command: 'sudo systemctl restart deer-daemon' }]} />
       <p className="mb-3 text-xs text-neutral-400">
         Launch the TUI to verify the daemon and control plane connection:
       </p>
       <TerminalBlock
         lines={[
-          { command: 'fluid' },
+          { command: 'deer' },
           { output: 'Connected to daemon at localhost:9091' },
           { output: 'Control plane: connected' },
         ]}

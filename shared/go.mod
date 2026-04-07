@@ -1,3 +1,3 @@
-module github.com/aspectrr/fluid.sh/shared
+module github.com/aspectrr/deer.sh/shared
 
 go 1.24

@@ -11,16 +11,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/docs"
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	"github.com/aspectrr/fluid.sh/api/internal/config"
-	grpcServer "github.com/aspectrr/fluid.sh/api/internal/grpc"
-	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/rest"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
-	postgresStore "github.com/aspectrr/fluid.sh/api/internal/store/postgres"
-	"github.com/aspectrr/fluid.sh/api/internal/telemetry"
+	"github.com/aspectrr/deer.sh/api/docs"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	"github.com/aspectrr/deer.sh/api/internal/config"
+	grpcServer "github.com/aspectrr/deer.sh/api/internal/grpc"
+	"github.com/aspectrr/deer.sh/api/internal/orchestrator"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/rest"
+	"github.com/aspectrr/deer.sh/api/internal/store"
+	postgresStore "github.com/aspectrr/deer.sh/api/internal/store/postgres"
+	"github.com/aspectrr/deer.sh/api/internal/telemetry"
 
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
@@ -30,7 +30,7 @@ import (
 // @title          Fluid API
 // @version        1.0
 // @description    API for managing sandboxes, organizations, billing, and hosts
-// @host           api.fluid.sh
+// @host           api.deer.sh
 // @BasePath       /
 // @securityDefinitions.apikey CookieAuth
 // @in             cookie
@@ -57,7 +57,7 @@ func main() {
 		redactedDB = u.String()
 	}
 
-	logger.Info("starting fluid API",
+	logger.Info("starting deer API",
 		"rest_addr", cfg.API.Addr,
 		"grpc_addr", cfg.GRPC.Address,
 		"db", redactedDB,

@@ -28,6 +28,7 @@ import { Route as DocsCliReferenceRouteImport } from './routes/docs/cli-referenc
 import { Route as DocsAuditLogsRouteImport } from './routes/docs/audit-logs'
 import { Route as DocsArchitectureRouteImport } from './routes/docs/architecture'
 import { Route as DocsApiRouteImport } from './routes/docs/api'
+import { Route as PublicProductRouteImport } from './routes/_public/product'
 import { Route as PublicPricingRouteImport } from './routes/_public/pricing'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
@@ -136,6 +137,11 @@ const DocsApiRoute = DocsApiRouteImport.update({
   path: '/api',
   getParentRoute: () => DocsRoute,
 } as any)
+const PublicProductRoute = PublicProductRouteImport.update({
+  id: '/product',
+  path: '/product',
+  getParentRoute: () => PublicRoute,
+} as any)
 const PublicPricingRoute = PublicPricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
@@ -206,12 +212,11 @@ const AppBillingCalculatorRoute = AppBillingCalculatorRouteImport.update({
   path: '/calculator',
   getParentRoute: () => AppBillingRoute,
 } as any)
-const PublicBlogSeriesHypervisorRoute =
-  PublicBlogSeriesHypervisorRouteImport.update({
-    id: '/blog/series/hypervisor',
-    path: '/blog/series/hypervisor',
-    getParentRoute: () => PublicRoute,
-  } as any)
+const PublicBlogSeriesHypervisorRoute = PublicBlogSeriesHypervisorRouteImport.update({
+  id: '/blog/series/hypervisor',
+  path: '/blog/series/hypervisor',
+  getParentRoute: () => PublicRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
@@ -222,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/pricing': typeof PublicPricingRoute
+  '/product': typeof PublicProductRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
   '/docs/audit-logs': typeof DocsAuditLogsRoute
@@ -252,6 +258,7 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/pricing': typeof PublicPricingRoute
+  '/product': typeof PublicProductRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
   '/docs/audit-logs': typeof DocsAuditLogsRoute
@@ -289,6 +296,7 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/_public/pricing': typeof PublicPricingRoute
+  '/_public/product': typeof PublicProductRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/architecture': typeof DocsArchitectureRoute
   '/docs/audit-logs': typeof DocsAuditLogsRoute
@@ -324,6 +332,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/pricing'
+    | '/product'
     | '/docs/api'
     | '/docs/architecture'
     | '/docs/audit-logs'
@@ -354,6 +363,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/pricing'
+    | '/product'
     | '/docs/api'
     | '/docs/architecture'
     | '/docs/audit-logs'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/register'
     | '/_public/pricing'
+    | '/_public/product'
     | '/docs/api'
     | '/docs/architecture'
     | '/docs/audit-logs'
@@ -558,6 +569,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsApiRouteImport
       parentRoute: typeof DocsRoute
     }
+    '/_public/product': {
+      id: '/_public/product'
+      path: '/product'
+      fullPath: '/product'
+      preLoaderRoute: typeof PublicProductRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/pricing': {
       id: '/_public/pricing'
       path: '/pricing'
@@ -676,9 +694,7 @@ const AppBillingRouteChildren: AppBillingRouteChildren = {
   AppBillingIndexRoute: AppBillingIndexRoute,
 }
 
-const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(
-  AppBillingRouteChildren,
-)
+const AppBillingRouteWithChildren = AppBillingRoute._addFileChildren(AppBillingRouteChildren)
 
 interface AppSettingsRouteChildren {
   AppSettingsHostsRoute: typeof AppSettingsHostsRoute
@@ -694,9 +710,7 @@ const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
-const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
-  AppSettingsRouteChildren,
-)
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(AppSettingsRouteChildren)
 
 interface AppRouteChildren {
   AppBillingRoute: typeof AppBillingRouteWithChildren
@@ -726,6 +740,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface PublicRouteChildren {
   PublicPricingRoute: typeof PublicPricingRoute
+  PublicProductRoute: typeof PublicProductRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicBlogSlugRoute: typeof PublicBlogSlugRoute
   PublicBlogIndexRoute: typeof PublicBlogIndexRoute
@@ -734,14 +749,14 @@ interface PublicRouteChildren {
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicPricingRoute: PublicPricingRoute,
+  PublicProductRoute: PublicProductRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicBlogSlugRoute: PublicBlogSlugRoute,
   PublicBlogIndexRoute: PublicBlogIndexRoute,
   PublicBlogSeriesHypervisorRoute: PublicBlogSeriesHypervisorRoute,
 }
 
-const PublicRouteWithChildren =
-  PublicRoute._addFileChildren(PublicRouteChildren)
+const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)
 
 interface DocsRouteChildren {
   DocsApiRoute: typeof DocsApiRoute

@@ -82,7 +82,7 @@ function LoginPage() {
         </div>
         <Button
           type="submit"
-          className="w-full bg-blue-500 text-xs text-black hover:bg-blue-400"
+          className="w-full bg-green-900 text-xs text-black hover:bg-green-800"
           disabled={login.isPending}
         >
           {login.isPending ? 'Signing in...' : 'Sign in'}
@@ -136,7 +136,7 @@ function LoginPage() {
 
       <div className="text-muted-foreground pt-2 text-center text-xs">
         Don't have an account?{' '}
-        <Link to="/register" className="text-blue-400 hover:text-blue-300">
+        <Link to="/register" className="text-green-800 hover:text-green-900">
           Sign up
         </Link>
       </div>

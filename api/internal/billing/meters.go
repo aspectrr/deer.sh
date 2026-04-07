@@ -11,7 +11,7 @@ import (
 	"github.com/stripe/stripe-go/v82"
 	stripeMeterEvent "github.com/stripe/stripe-go/v82/billing/meterevent"
 
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 // MeterManager handles Stripe meter/price creation and usage reporting.
@@ -102,7 +102,7 @@ import (
 	stripeProduct "github.com/stripe/stripe-go/v82/product"
 	stripeSubItem "github.com/stripe/stripe-go/v82/subscriptionitem"
 
-	"github.com/aspectrr/fluid.sh/api/internal/agent"
+	"github.com/aspectrr/deer.sh/api/internal/agent"
 )
 
 // EnsureModelMeter returns an existing ModelMeter or creates Stripe objects and stores a new one.

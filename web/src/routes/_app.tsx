@@ -81,7 +81,7 @@ function AppShell({
         <div className="border-border flex items-center gap-2 border-b p-4">
           <Link to="/dashboard">
             <h1 className="font-logo text-lg tracking-tight">
-              <span className="text-blue-400">$</span> fluid.sh
+              <span className="text-green-800">$</span> deer.sh
             </h1>
           </Link>
           <span className="text-muted-foreground text-sm">/</span>
@@ -102,7 +102,7 @@ function AppShell({
                 to={item.to}
                 className={`flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
                   isActive
-                    ? 'bg-blue-500/10 text-blue-400'
+                    ? 'bg-green-900/10 text-green-800'
                     : 'text-muted-foreground hover:text-foreground hover:bg-neutral-900'
                 }`}
               >

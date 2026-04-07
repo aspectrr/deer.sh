@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
 )
 
 // SelectHost picks the best connected host for a sandbox that needs the given

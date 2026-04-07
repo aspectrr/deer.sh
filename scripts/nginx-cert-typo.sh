@@ -72,7 +72,7 @@ echo "[*] Generating self-signed certificate..."
 openssl genrsa -out /etc/ssl/private/app.key 2048 2>/dev/null
 openssl req -new -x509 -key /etc/ssl/private/app.key \
     -out /etc/ssl/certs/app-prod.pem -days 365 \
-    -subj "/CN=demo.fluid.sh" 2>/dev/null
+    -subj "/CN=demo.deer.sh" 2>/dev/null
 chmod 640 /etc/ssl/private/app.key
 echo "[+] Cert written to /etc/ssl/certs/app-prod.pem"
 

@@ -2,7 +2,7 @@
 title: 'Changelog #002 v0.1.2'
 pubDate: 2026-02-10
 description: 'Source VM read-only access, defense-in-depth security hardening, and the 4-phase strategy'
-author: 'Collin @ Fluid.sh'
+author: 'Collin @ Deer.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
 authorPhone: '+3179955114'
@@ -20,7 +20,7 @@ This release brings a major addition to Fluid's read-only capabilities -- the ab
 Update your CLI agent with `go install`
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
+go install github.com/aspectrr/deer.sh/deer-cli/cmd/deer@latest
 ```
 
 ## Reading Source VMs
@@ -35,20 +35,20 @@ Source VM access uses a defense-in-depth security model with two layers of prote
 
 **Client-side validation** -- Before any command is sent to the VM, it's validated against an allowlist of safe, read-only commands. Things like `cat`, `ls`, `journalctl`, `systemctl status`, `ps`, `df`, and other diagnostic tools are allowed. Destructive commands like `rm`, `kill`, `apt install`, etc. are blocked before they ever reach the VM.
 
-**Server-side restricted shell** -- On the VM itself, a dedicated `fluid-readonly` user is created with a restricted shell. This shell blocks destructive commands as a second line of defense, prevents command substitution and output redirection, and denies interactive login entirely.
+**Server-side restricted shell** -- On the VM itself, a dedicated `deer-readonly` user is created with a restricted shell. This shell blocks destructive commands as a second line of defense, prevents command substitution and output redirection, and denies interactive login entirely.
 
 ### Preparing a Source VM
 
 To enable read-only access on a source VM, run:
 
 ```bash
-fluid source prepare <vm-name>
+deer source prepare <vm-name>
 ```
 
 This will:
 
 1. Install a restricted shell script on the VM
-2. Create a `fluid-readonly` user with that restricted shell
+2. Create a `deer-readonly` user with that restricted shell
 3. Set up SSH CA trust so the agent can authenticate with ephemeral certificates
 4. Configure authorized principals for the read-only user
 
@@ -102,4 +102,4 @@ This feature completes the read phase of Fluid's 4-phase strategy:
 
 Questions? Join us on [Discord](https://discord.gg/4WGGXJWm8J)
 
-Found a bug? Open an issue on [GitHub](https://github.com/aspectrr/fluid.sh/issues)
+Found a bug? Open an issue on [GitHub](https://github.com/aspectrr/deer.sh/issues)

@@ -72,7 +72,7 @@ function ShareButton({ title }: { title: string }) {
   return (
     <button
       onClick={handleShare}
-      className="font-mono text-xs text-neutral-500 transition-colors hover:text-blue-400"
+      className="font-mono text-xs text-neutral-500 transition-colors hover:text-green-800"
     >
       {label}
     </button>
@@ -129,7 +129,7 @@ function BlogPost() {
               to="/"
               className="font-logo text-2xl tracking-tight text-white no-underline hover:no-underline md:text-3xl"
             >
-              <span className="text-blue-400">$</span> fluid.sh
+              <span className="text-green-800">$</span> deer.sh
             </Link>
             <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
               <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
@@ -142,7 +142,7 @@ function BlogPost() {
                 Pricing
               </Link>
               <a
-                href="https://github.com/aspectrr/fluid.sh"
+                href="https://github.com/aspectrr/deer.sh"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-neutral-200"
@@ -219,7 +219,7 @@ function BlogPost() {
                   Pricing
                 </Link>
                 <a
-                  href="https://github.com/aspectrr/fluid.sh"
+                  href="https://github.com/aspectrr/deer.sh"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="transition-colors hover:text-white"
@@ -254,7 +254,7 @@ function BlogPost() {
           <header className="mb-12">
             <div className="flex items-center gap-3">
               <h1 className="font-logo text-2xl tracking-tight md:text-3xl">
-                <span className="text-blue-400">#</span> {frontmatter.title}
+                <span className="text-green-800">#</span> {frontmatter.title}
               </h1>
             </div>
 
@@ -275,7 +275,7 @@ function BlogPost() {
                     className="h-12 w-12 rounded-full border border-neutral-700 object-cover"
                   />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-neutral-700 bg-neutral-800 font-mono text-lg text-blue-400">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-neutral-700 bg-neutral-800 font-mono text-lg text-green-800">
                     {frontmatter.author.charAt(0)}
                   </div>
                 )}
@@ -285,7 +285,7 @@ function BlogPost() {
                     {frontmatter.authorEmail && (
                       <a
                         href={`mailto:${frontmatter.authorEmail}`}
-                        className="font-mono text-xs text-neutral-500 transition-colors hover:text-blue-400"
+                        className="font-mono text-xs text-neutral-500 transition-colors hover:text-green-800"
                       >
                         email
                       </a>
@@ -293,7 +293,7 @@ function BlogPost() {
                     {frontmatter.authorPhone && (
                       <a
                         href={`tel:${frontmatter.authorPhone}`}
-                        className="font-mono text-xs text-neutral-500 transition-colors hover:text-blue-400"
+                        className="font-mono text-xs text-neutral-500 transition-colors hover:text-green-800"
                       >
                         text
                       </a>
@@ -303,7 +303,7 @@ function BlogPost() {
                         href={frontmatter.authorDiscord}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-xs text-neutral-500 transition-colors hover:text-blue-400"
+                        className="font-mono text-xs text-neutral-500 transition-colors hover:text-green-800"
                       >
                         discord
                       </a>
@@ -325,7 +325,7 @@ function BlogPost() {
             <nav className="mt-16 border-t border-neutral-800 pt-8">
               <Link
                 to="/blog/series/hypervisor"
-                className="font-mono text-xs text-neutral-500 transition-colors hover:text-blue-400"
+                className="font-mono text-xs text-neutral-500 transition-colors hover:text-green-800"
               >
                 {seriesInfo.series.title}
               </Link>
@@ -334,13 +334,13 @@ function BlogPost() {
                   <Link
                     to="/blog/$slug"
                     params={{ slug: prevChapter.slug }}
-                    className="group rounded-lg border border-neutral-800 p-3 no-underline transition-colors hover:border-blue-500/30 hover:no-underline"
+                    className="group rounded-lg border border-neutral-800 p-3 no-underline transition-colors hover:border-green-900/30 hover:no-underline"
                   >
                     <span className="font-mono text-[10px] text-neutral-600 uppercase">
                       Previous
                     </span>
-                    <div className="mt-1 font-mono text-sm text-neutral-400 transition-colors group-hover:text-blue-400">
-                      <span className="text-blue-400">
+                    <div className="mt-1 font-mono text-sm text-neutral-400 transition-colors group-hover:text-green-800">
+                      <span className="text-green-800">
                         {String(prevChapter.part).padStart(2, '0')}
                       </span>{' '}
                       {prevChapter.shortTitle}
@@ -354,12 +354,12 @@ function BlogPost() {
                     <Link
                       to="/blog/$slug"
                       params={{ slug: nextChapter.slug }}
-                      className="group rounded-lg border border-neutral-800 p-3 text-right no-underline transition-colors hover:border-blue-500/30 hover:no-underline"
+                      className="group rounded-lg border border-neutral-800 p-3 text-right no-underline transition-colors hover:border-green-900/30 hover:no-underline"
                     >
                       <span className="font-mono text-[10px] text-neutral-600 uppercase">Next</span>
-                      <div className="mt-1 font-mono text-sm text-neutral-400 transition-colors group-hover:text-blue-400">
+                      <div className="mt-1 font-mono text-sm text-neutral-400 transition-colors group-hover:text-green-800">
                         {nextChapter.shortTitle}{' '}
-                        <span className="text-blue-400">
+                        <span className="text-green-800">
                           {String(nextChapter.part).padStart(2, '0')}
                         </span>
                       </div>

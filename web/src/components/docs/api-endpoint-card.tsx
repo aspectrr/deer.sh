@@ -6,8 +6,8 @@ import type { OpenAPIEndpoint } from '~/lib/openapi'
 import { axios } from '~/lib/axios'
 
 const methodColors: Record<string, string> = {
-  GET: 'bg-green-400/10 text-green-400 border-green-400/30',
-  POST: 'bg-blue-400/10 text-blue-400 border-blue-400/30',
+  GET: 'bg-green-800/10 text-green-800 border-green-900/30',
+  POST: 'bg-green-800/10 text-green-800 border-green-900/30',
   PUT: 'bg-amber-400/10 text-amber-400 border-amber-400/30',
   PATCH: 'bg-amber-400/10 text-amber-400 border-amber-400/30',
   DELETE: 'bg-red-400/10 text-red-400 border-red-400/30',
@@ -140,7 +140,7 @@ export function ApiEndpointCard({ endpoint }: ApiEndpointCardProps) {
                       value={pathParams[name] || ''}
                       onChange={(e) => setPathParams({ ...pathParams, [name]: e.target.value })}
                       placeholder={name}
-                      className="border-border w-full border bg-neutral-900 px-2 py-1 text-xs text-neutral-200 focus:border-blue-400 focus:outline-none"
+                      className="border-border w-full border bg-neutral-900 px-2 py-1 text-xs text-neutral-200 focus:border-green-900 focus:outline-none"
                     />
                   </div>
                 ))}
@@ -159,7 +159,7 @@ export function ApiEndpointCard({ endpoint }: ApiEndpointCardProps) {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder='{"key": "value"}'
                 rows={4}
-                className="border-border mt-1 w-full resize-y border bg-neutral-900 px-2 py-1.5 font-mono text-xs text-neutral-200 focus:border-blue-400 focus:outline-none"
+                className="border-border mt-1 w-full resize-y border bg-neutral-900 px-2 py-1.5 font-mono text-xs text-neutral-200 focus:border-green-900 focus:outline-none"
               />
             </div>
           )}
@@ -188,7 +188,7 @@ export function ApiEndpointCard({ endpoint }: ApiEndpointCardProps) {
                   className={cn(
                     'font-mono text-[10px]',
                     response.status < 300
-                      ? 'text-green-400'
+                      ? 'text-green-800'
                       : response.status < 500
                         ? 'text-amber-400'
                         : 'text-red-400'

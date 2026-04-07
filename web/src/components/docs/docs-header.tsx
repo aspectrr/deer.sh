@@ -22,7 +22,7 @@ export function DocsHeader() {
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
           <Link to="/dashboard" className="font-logo text-lg tracking-tight text-white">
-            <span className="text-blue-400">$</span> fluid.sh
+            🦌 <span className="text-green-800">deer.sh</span>
           </Link>
           <span className="text-muted-foreground text-sm">/</span>
           <Link
@@ -34,7 +34,7 @@ export function DocsHeader() {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href="https://github.com/aspectrr/fluid.sh"
+            href="https://github.com/aspectrr/deer.sh"
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground p-1.5"
@@ -77,7 +77,7 @@ export function DocsHeader() {
                           className={cn(
                             'flex items-center gap-2 border-l-2 px-3 py-1.5 text-xs transition-colors',
                             isActive
-                              ? 'border-blue-400 text-blue-400'
+                              ? 'border-green-900 text-green-800'
                               : 'text-muted-foreground hover:text-foreground border-transparent'
                           )}
                         >

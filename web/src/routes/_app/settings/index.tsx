@@ -41,7 +41,9 @@ function ProfileSettingsPage() {
             <p className="text-muted-foreground text-[10px]">Email cannot be changed</p>
           </div>
 
-          <Button className="bg-blue-500 text-xs text-black hover:bg-blue-400">Save Changes</Button>
+          <Button className="bg-green-900 text-xs text-black hover:bg-green-800">
+            Save Changes
+          </Button>
         </div>
       </div>
     </div>

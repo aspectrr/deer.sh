@@ -12,19 +12,17 @@ export const quickstartSteps: Step[] = [
     content: (
       <>
         <p>Install the CLI using the install script:</p>
-        <TerminalBlock lines={[{ command: 'curl -fsSL https://fluid.sh/install.sh | bash' }]} />
+        <TerminalBlock lines={[{ command: 'curl -fsSL https://deer.sh/install.sh | bash' }]} />
         <p>Or install from source with Go:</p>
         <TerminalBlock
           lines={[
             {
-              command: 'go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest',
+              command: 'go install github.com/aspectrr/deer.sh/deer-cli/cmd/fluid@latest',
             },
           ]}
         />
         <p>Verify the installation:</p>
-        <TerminalBlock
-          lines={[{ command: 'fluid --version' }, { output: 'fluid version 0.1.0' }]}
-        />
+        <TerminalBlock lines={[{ command: 'deer --version' }, { output: 'deer version 0.1.0' }]} />
       </>
     ),
   },
@@ -33,20 +31,20 @@ export const quickstartSteps: Step[] = [
     content: (
       <>
         <p>
-          Run <code className="text-blue-400">fluid</code> to start the interactive agent TUI. On
+          Run <code className="text-green-800">deer</code> to start the interactive agent TUI. On
           first run, onboarding walks you through source VM connection and LLM API key
           configuration.
         </p>
         <TerminalBlock
           lines={[
-            { command: 'fluid' },
-            { output: 'fluid.sh v0.1.0' },
+            { command: 'deer' },
+            { output: 'deer.sh v0.1.0' },
             { output: '' },
             { output: 'Type your message... (type /settings to configure)' },
           ]}
         />
         <Callout type="tip">
-          Use <code className="text-green-400">/settings</code> to configure hosts, LLM provider,
+          Use <code className="text-green-800">/settings</code> to configure hosts, LLM provider,
           and sandbox defaults at any time.
         </Callout>
       </>
@@ -63,7 +61,7 @@ export const quickstartSteps: Step[] = [
         </p>
         <TerminalBlock
           lines={[
-            { command: 'fluid source prepare my-server' },
+            { command: 'deer source prepare my-server' },
             { output: '  Connecting to my-server...' },
             { output: '  Creating read-only user...' },
             { output: '  Installing SSH key...' },
@@ -75,13 +73,13 @@ export const quickstartSteps: Step[] = [
         <Callout type="info">
           During onboarding, you'll be asked to prepare the source VMs of your choosing. You can
           always prepare additional sources later in the TUI with{' '}
-          <code className="text-green-400">/prepare</code>.
+          <code className="text-green-800">/prepare</code>.
         </Callout>
         <Callout type="tip">
           You can prepare multiple source VMs. Run{' '}
-          <code className="text-green-400">fluid source prepare</code> for each host you want Fluid
+          <code className="text-green-800">deer source prepare</code> for each host you want Fluid
           to access. See{' '}
-          <a href="/docs/source-prepare" className="text-blue-400 hover:text-blue-300">
+          <a href="/docs/source-prepare" className="text-green-800 hover:text-green-900">
             source prepare docs
           </a>{' '}
           for details on what happens during preparation.
@@ -128,14 +126,14 @@ export const quickstartSteps: Step[] = [
     content: (
       <>
         <p>
-          Connect Claude Code, Codex, or Cursor to fluid via MCP for AI-driven sandbox management
+          Connect Claude Code, Codex, or Cursor to deer via MCP for AI-driven sandbox management
           directly from your editor:
         </p>
         <CodeBlock
           code={`{
   "mcpServers": {
-    "fluid": {
-      "command": "fluid",
+    "deer": {
+      "command": "deer",
       "args": ["mcp"]
     }
   }
@@ -146,8 +144,8 @@ export const quickstartSteps: Step[] = [
         <CodeBlock
           code={`{
   "mcpServers": {
-    "fluid": {
-      "command": "fluid",
+    "deer": {
+      "command": "deer",
       "args": ["mcp"]
     }
   }
@@ -158,8 +156,8 @@ export const quickstartSteps: Step[] = [
         <CodeBlock
           code={`{
   "mcpServers": {
-    "fluid": {
-      "command": "fluid",
+    "deer": {
+      "command": "deer",
       "args": ["mcp"]
     }
   }
@@ -169,7 +167,7 @@ export const quickstartSteps: Step[] = [
         />
         <Callout type="tip">
           See{' '}
-          <a href="/docs/mcp" className="text-blue-400 hover:text-blue-300">
+          <a href="/docs/mcp" className="text-green-800 hover:text-green-900">
             MCP Server
           </a>{' '}
           for the full tools reference.
@@ -234,14 +232,14 @@ export function DaemonUpgradeSection() {
           </p>
           <TerminalBlock
             lines={[
-              { command: 'fluid connect your-sandbox-host:9091' },
+              { command: 'deer connect your-sandbox-host:9091' },
               { output: '  [ok] Health check passed' },
               { output: '  [ok] Host info retrieved' },
               { output: '  [ok] Saved "your-sandbox-host" (your-sandbox-host:9091) to config' },
             ]}
           />
           <p>
-            Or use <code className="text-green-400">/connect</code> inside the TUI for a guided
+            Or use <code className="text-green-800">/connect</code> inside the TUI for a guided
             wizard.
           </p>
         </CollapsibleSection>

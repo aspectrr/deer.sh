@@ -95,7 +95,7 @@ export function DaemonConnectionAnimation() {
             fontSize="11"
             fontFamily="monospace"
           >
-            fluid-daemon
+            deer-daemon
           </text>
           <text
             x="110"

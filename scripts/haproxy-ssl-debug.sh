@@ -151,7 +151,7 @@ mkdir -p /etc/haproxy/certs
 # Key pair A - we only use its certificate
 openssl genrsa -out /tmp/key_a.pem 2048 2>/dev/null
 openssl req -new -x509 -key /tmp/key_a.pem -out /tmp/cert.pem -days 365 \
-    -subj "/CN=demo.fluid.sh" 2>/dev/null
+    -subj "/CN=demo.deer.sh" 2>/dev/null
 
 # Key pair B - we only use its private key
 openssl genrsa -out /tmp/key_b.pem 2048 2>/dev/null

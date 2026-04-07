@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource-variable/inter';
 
 @font-face {
   font-family: 'NeueMachina';
@@ -41,7 +42,7 @@
   --card-foreground: #e5e5e5;
   --popover: #171717;
   --popover-foreground: #e5e5e5;
-  --primary: #60a5fa;
+  --primary: #166534;
   --primary-foreground: #000000;
   --secondary: #262626;
   --secondary-foreground: #e5e5e5;
@@ -52,22 +53,22 @@
   --destructive: #ef4444;
   --border: #262626;
   --input: #262626;
-  --ring: #60a5fa;
-  --chart-1: #60a5fa;
-  --chart-2: #4ade80;
+  --ring: #166534;
+  --chart-1: #166534;
+  --chart-2: #16a34a;
   --chart-3: #fbbf24;
   --chart-4: #f472b6;
   --chart-5: #a78bfa;
   --radius: 0rem;
   --sidebar: #0a0a0a;
   --sidebar-foreground: #e5e5e5;
-  --sidebar-primary: #60a5fa;
+  --sidebar-primary: #166534;
   --sidebar-primary-foreground: #000000;
   --sidebar-accent: #171717;
   --sidebar-accent-foreground: #e5e5e5;
   --sidebar-border: #262626;
-  --sidebar-ring: #60a5fa;
-  --success: #4ade80;
+  --sidebar-ring: #166534;
+  --success: #16a34a;
   --warning: #fbbf24;
 }
 
@@ -80,6 +81,7 @@ body {
 @theme inline {
   --font-sans: 'JetBrains Mono Variable', monospace;
   --font-logo: 'NeueMachina', ui-sans-serif, system-ui;
+  --font-inter: 'Inter Variable', system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -148,7 +150,7 @@ body {
     @apply mb-3 ml-4 list-disc space-y-1 text-xs text-neutral-400;
   }
   .docs-prose a {
-    @apply text-blue-400 underline underline-offset-2 hover:text-blue-300;
+    @apply text-green-400 underline underline-offset-2 hover:text-green-300;
   }
 
   /* Blog prose styles */
@@ -161,7 +163,7 @@ body {
   }
   .blog-prose h2::before {
     content: '## ';
-    color: #60a5fa;
+    color: #166534;
   }
   .blog-prose h3 {
     font-size: 1.1rem;
@@ -171,7 +173,7 @@ body {
   }
   .blog-prose h3::before {
     content: '### ';
-    color: #60a5fa;
+    color: #166534;
   }
   .blog-prose h4 {
     font-size: 1rem;
@@ -181,7 +183,7 @@ body {
   }
   .blog-prose h4::before {
     content: '#### ';
-    color: #60a5fa;
+    color: #166534;
   }
   .blog-prose p {
     margin-bottom: 1.25rem;
@@ -204,7 +206,7 @@ body {
     margin-bottom: 0.5rem;
   }
   .blog-prose blockquote {
-    border-left: 2px solid #3b82f6;
+    border-left: 2px solid #166534;
     padding-left: 1rem;
     margin-left: 0;
     margin-right: 0;
@@ -216,31 +218,31 @@ body {
     font-weight: 600;
   }
   .blog-prose a {
-    color: #60a5fa;
+    color: #166534;
     text-decoration: underline;
     text-underline-offset: 4px;
   }
   .blog-prose a:hover {
-    color: #93c5fd;
+    color: #16a34a;
   }
   .blog-prose code {
-    color: #60a5fa;
-    background-color: #1e3a5f;
+    color: #166534;
+    background-color: #14532d;
     padding: 0.125rem 0.375rem;
     border-radius: 0.25rem;
     font-size: 0.875em;
     font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   }
   .blog-prose pre {
-    background-color: #0c1929;
-    border: 1px solid #1e3a5f;
+    background-color: #052e16;
+    border: 1px solid #14532d;
     border-radius: 0.5rem;
     padding: 1rem;
     margin-bottom: 1.25rem;
     overflow-x: auto;
   }
   .blog-prose pre code {
-    color: #60a5fa;
+    color: #166534;
     background-color: transparent;
     padding: 0;
     border-radius: 0;
@@ -272,5 +274,14 @@ body {
     max-width: 100%;
     border-radius: 0.5rem;
     margin: 1rem 0;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }

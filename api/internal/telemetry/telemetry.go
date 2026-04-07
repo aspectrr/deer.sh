@@ -29,7 +29,7 @@ func New(apiKey, endpoint string) Service {
 	}
 
 	if endpoint == "" {
-		endpoint = "https://nautilus.fluid.sh"
+		endpoint = "https://nautilus.deer.sh"
 	}
 
 	client, err := posthog.NewWithConfig(apiKey, posthog.Config{Endpoint: endpoint})

@@ -7,8 +7,8 @@ import (
 )
 
 func TestSessionCookieName(t *testing.T) {
-	if SessionCookieName != "fluid_session" {
-		t.Fatalf("SessionCookieName = %q, want %q", SessionCookieName, "fluid_session")
+	if SessionCookieName != "deer_session" {
+		t.Fatalf("SessionCookieName = %q, want %q", SessionCookieName, "deer_session")
 	}
 }
 

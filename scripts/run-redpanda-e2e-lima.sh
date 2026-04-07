@@ -156,12 +156,12 @@ case "$arch" in
     amd64)
         qemu_bin="qemu-system-x86_64"
         image_name="ubuntu-24.04-server-cloudimg-amd64"
-        default_asset_dir="${repo_root}/.cache/fluid/e2e/noble-amd64"
+        default_asset_dir="${repo_root}/.cache/deer/e2e/noble-amd64"
         ;;
     arm64)
         qemu_bin="qemu-system-aarch64"
         image_name="ubuntu-24.04-server-cloudimg-arm64"
-        default_asset_dir="${repo_root}/.cache/fluid/e2e/noble-arm64"
+        default_asset_dir="${repo_root}/.cache/deer/e2e/noble-arm64"
         ;;
     *)
         fail "unsupported arch: ${arch}"
@@ -191,7 +191,7 @@ kernel_path="${asset_dir}/${image_name}-vmlinuz-generic"
 initrd_path="${asset_dir}/${image_name}-initrd-generic"
 
 if [ "$dry_run" -eq 0 ]; then
-    [ -d "${repo_root}/fluid-daemon" ] || fail "fluid-daemon directory not found under ${repo_root}"
+    [ -d "${repo_root}/deer-daemon" ] || fail "deer-daemon directory not found under ${repo_root}"
     [ -f "$base_image" ] || fail "base image not found: $base_image"
     [ -f "$kernel_path" ] || fail "kernel not found: $kernel_path"
     [ -f "$initrd_path" ] || fail "initrd not found: $initrd_path"
@@ -203,37 +203,37 @@ fi
 cmd=(
     sudo env
     TMPDIR=/var/tmp
-    FLUID_E2E_MICROVM=1
-    FLUID_E2E_STARTUP_TIMEOUT=25m
-    "FLUID_E2E_BASE_IMAGE=${base_image}"
-    "FLUID_E2E_KERNEL=${kernel_path}"
-    "FLUID_E2E_INITRD=${initrd_path}"
-    "FLUID_E2E_QEMU_BINARY=${qemu_bin}"
-    "FLUID_E2E_BRIDGE=${bridge}"
-    "FLUID_E2E_DHCP_MODE=${dhcp_mode}"
-    "FLUID_E2E_ACCEL=${accel}"
-    FLUID_E2E_ROOT_DEVICE=/dev/vda1
+    DEER_E2E_MICROVM=1
+    DEER_E2E_STARTUP_TIMEOUT=25m
+    "DEER_E2E_BASE_IMAGE=${base_image}"
+    "DEER_E2E_KERNEL=${kernel_path}"
+    "DEER_E2E_INITRD=${initrd_path}"
+    "DEER_E2E_QEMU_BINARY=${qemu_bin}"
+    "DEER_E2E_BRIDGE=${bridge}"
+    "DEER_E2E_DHCP_MODE=${dhcp_mode}"
+    "DEER_E2E_ACCEL=${accel}"
+    DEER_E2E_ROOT_DEVICE=/dev/vda1
     "FLUID_QEMU_KERNEL_APPEND=earlycon=pl011,0x09000000 ignore_loglevel loglevel=8"
 )
 
 if [ -n "$workdir" ]; then
-    cmd+=( "FLUID_E2E_WORKDIR=${workdir}" )
+    cmd+=( "DEER_E2E_WORKDIR=${workdir}" )
 fi
 if [ "$keep_workdir" -eq 1 ]; then
-    cmd+=( FLUID_E2E_KEEP_WORKDIR=1 )
+    cmd+=( DEER_E2E_KEEP_WORKDIR=1 )
 fi
 cmd+=(
     GOTOOLCHAIN=auto
-    GOCACHE=/var/tmp/fluid-daemon-go-build
+    GOCACHE=/var/tmp/deer-daemon-go-build
     go test -timeout 30m -v -run TestProviderIntegration_RedpandaStartsInGuest ./internal/provider/microvm
 )
 
 if [ "$dry_run" -eq 1 ]; then
-    printf 'cd %q/fluid-daemon && ' "$repo_root"
+    printf 'cd %q/deer-daemon && ' "$repo_root"
     quote_cmd "${cmd[@]}"
 else
     (
-        cd "${repo_root}/fluid-daemon"
+        cd "${repo_root}/deer-daemon"
         "${cmd[@]}"
     )
 fi

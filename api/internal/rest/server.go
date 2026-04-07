@@ -9,11 +9,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	"github.com/aspectrr/fluid.sh/api/internal/config"
-	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
-	"github.com/aspectrr/fluid.sh/api/internal/telemetry"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	"github.com/aspectrr/deer.sh/api/internal/config"
+	"github.com/aspectrr/deer.sh/api/internal/orchestrator"
+	"github.com/aspectrr/deer.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/telemetry"
 )
 
 type Server struct {
@@ -140,6 +140,15 @@ func (s *Server) routes() *chi.Mux {
 					r.Get("/ip", s.handleGetSandboxIP)
 					r.Post("/snapshot", s.handleCreateSnapshot)
 					r.Get("/commands", s.handleListCommands)
+					r.Route("/kafka-stubs", func(r chi.Router) {
+						r.Get("/", s.handleListSandboxKafkaStubs)
+						r.Route("/{stubID}", func(r chi.Router) {
+							r.Get("/", s.handleGetSandboxKafkaStub)
+							r.Post("/start", s.handleStartSandboxKafkaStub)
+							r.Post("/stop", s.handleStopSandboxKafkaStub)
+							r.Post("/restart", s.handleRestartSandboxKafkaStub)
+						})
+					})
 				})
 
 				// Hosts + tokens
@@ -154,6 +163,15 @@ func (s *Server) routes() *chi.Mux {
 				r.Post("/source-hosts", s.handleConfirmSourceHosts)
 				r.Get("/source-hosts", s.handleListSourceHosts)
 				r.Delete("/source-hosts/{sourceHostID}", s.handleDeleteSourceHost)
+				r.Route("/kafka-capture-configs", func(r chi.Router) {
+					r.Post("/", s.handleCreateKafkaCaptureConfig)
+					r.Get("/", s.handleListKafkaCaptureConfigs)
+					r.Route("/{configID}", func(r chi.Router) {
+						r.Get("/", s.handleGetKafkaCaptureConfig)
+						r.Patch("/", s.handleUpdateKafkaCaptureConfig)
+						r.Delete("/", s.handleDeleteKafkaCaptureConfig)
+					})
+				})
 
 				// Source VMs
 				r.Get("/vms", s.handleListVMs)

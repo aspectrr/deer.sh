@@ -9,6 +9,10 @@ act.env
 .claude
 .crush
 .cache
+.agents
+.superpowers
+.worktrees
+skills-lock.json
 
 # macOS-specific files
 .DS_Store

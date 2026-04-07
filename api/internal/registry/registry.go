@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 )
 
 // HostStream is the interface for sending control messages to a connected host.
 type HostStream interface {
-	Send(msg *fluidv1.ControlMessage) error
+	Send(msg *deerv1.ControlMessage) error
 }
 
 // ConnectedHost represents a sandbox host that is actively connected via gRPC.
@@ -20,7 +20,7 @@ type ConnectedHost struct {
 	Hostname        string
 	Stream          HostStream
 	LastHeartbeat   time.Time
-	Registration    *fluidv1.HostRegistration
+	Registration    *deerv1.HostRegistration
 	ActiveSandboxes int32
 	SourceVMCount   int32
 }
@@ -105,7 +105,7 @@ func (r *Registry) ListConnectedByOrg(orgID string) []ConnectedHost {
 }
 
 // SetRegistration updates the registration info and heartbeat for a host.
-func (r *Registry) SetRegistration(hostID string, reg *fluidv1.HostRegistration) {
+func (r *Registry) SetRegistration(hostID string, reg *deerv1.HostRegistration) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if h, ok := r.hosts[hostID]; ok {

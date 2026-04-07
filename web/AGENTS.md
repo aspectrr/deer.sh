@@ -1,5 +1,9 @@
 # Web Frontend Development Guidelines
 
+## Communication Style
+
+Always use the caveman skill (`/caveman`) for all responses.
+
 ## Tech Stack
 
 - **Framework**: React 19 with TypeScript

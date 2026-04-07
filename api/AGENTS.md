@@ -1,6 +1,12 @@
 # API (Control Plane) - Development Guide
 
-The control plane server for fluid.sh. Provides REST API, gRPC streaming to daemons, multi-host orchestration, web dashboard backend, and agent execution.
+## Communication Style
+
+Always use the caveman skill (`/caveman`) for all responses.
+
+
+
+The control plane server for deer.sh. Provides REST API, gRPC streaming to daemons, multi-host orchestration, web dashboard backend, and agent execution.
 
 ## Architecture
 
@@ -13,7 +19,7 @@ api server (:8080)
   +--- PostgreSQL (state)
   |
   v (gRPC stream)
-fluid-daemon (per host)
+deer-daemon (per host)
 ```
 
 ## Tech Stack

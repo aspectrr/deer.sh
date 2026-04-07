@@ -35,7 +35,7 @@ export function TerminalCodeBlock({ code, title, className }: TerminalCodeBlockP
           onClick={handleCopy}
           className="ml-auto p-1 text-neutral-500 opacity-0 transition-opacity group-hover:opacity-100 hover:text-neutral-300"
         >
-          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-800" /> : <Copy className="h-3 w-3" />}
         </button>
       </div>
 
@@ -63,12 +63,12 @@ function styleLine(line: string) {
     const [, prompt, cmd] = shellMatch
     if (!cmd) {
       // Bare prompt with no command
-      return <span className="text-green-400">{prompt}</span>
+      return <span className="text-green-800">{prompt}</span>
     }
     return (
       <>
-        <span className="text-green-400">{prompt}</span>
-        <span className="text-green-300">{cmd}</span>
+        <span className="text-green-800">{prompt}</span>
+        <span className="text-green-900">{cmd}</span>
       </>
     )
   }

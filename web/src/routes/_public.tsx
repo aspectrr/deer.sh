@@ -14,36 +14,26 @@ function PublicLayout() {
             to="/"
             className="font-logo no-underline transition-colors hover:text-neutral-400 hover:no-underline"
           >
-            <span className="text-blue-400">$</span> fluid.sh
+            🦌 <span className="text-green-800">deer.sh</span>
           </Link>
-          <div className="flex flex-wrap justify-center gap-4 font-mono">
+          <div className="flex flex-wrap justify-center gap-4">
+            <a href="/#services" className="transition-colors hover:text-neutral-400">
+              Services
+            </a>
+            <a href="/#case-studies" className="transition-colors hover:text-neutral-400">
+              Customers
+            </a>
+            <a href="/#contact" className="transition-colors hover:text-neutral-400">
+              Contact
+            </a>
+            <Link to="/product" className="transition-colors hover:text-neutral-400">
+              Product
+            </Link>
             <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-400">
               Docs
             </Link>
-            <Link to="/blog" className="transition-colors hover:text-neutral-400">
-              Blog
-            </Link>
-            <Link to="/pricing" className="transition-colors hover:text-neutral-400">
-              Pricing
-            </Link>
-            <a
-              href="https://github.com/aspectrr/fluid.sh"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-colors hover:text-neutral-400"
-            >
-              GitHub
-            </a>
-            <a
-              href="https://discord.gg/4WGGXJWm8J"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-colors hover:text-neutral-400"
-            >
-              Discord
-            </a>
           </div>
-          <span className="font-mono">&copy; {new Date().getFullYear()} Fluid.sh</span>
+          <span className="font-mono">&copy; {new Date().getFullYear()} Deer.sh</span>
         </div>
       </footer>
     </div>

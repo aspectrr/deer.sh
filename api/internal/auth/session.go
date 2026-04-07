@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 // HashSessionToken returns the SHA-256 hex digest of a raw session token.
@@ -20,7 +20,7 @@ func HashSessionToken(raw string) string {
 }
 
 const (
-	SessionCookieName = "fluid_session"
+	SessionCookieName = "deer_session"
 	sessionTokenLen   = 32
 )
 

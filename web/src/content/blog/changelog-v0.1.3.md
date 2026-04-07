@@ -1,8 +1,8 @@
 ---
 title: 'Changelog #003 v0.1.3'
 pubDate: 2026-02-23
-description: 'Fluid Daemon, MCP server with 17 tools, Proxmox support, control plane, and XDG directories'
-author: 'Collin @ Fluid.sh'
+description: 'Deer Daemon, MCP server with 17 tools, Proxmox support, control plane, and XDG directories'
+author: 'Collin @ Deer.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
 authorPhone: '+3179955114'
@@ -20,16 +20,16 @@ This release brings a major rewrite to what Fluid can do and where it can operat
 Update your CLI agent with `go install`
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
+go install github.com/aspectrr/deer.sh/deer-cli/cmd/deer@latest
 ```
 
 ## Fluid Daemon
 
-By far the biggest change comes in the form of a Fluid architecture rebuild.
+By far the biggest change comes in the form of a Deer architecture rebuild.
 
 Previously, the CLI talked directly to libvirt via local calls. That meant the CLI had to run on the same machine as your VMs, or you had to forward a libvirt socket over SSH. It worked, but it didn't scale and it made remote access painful.
 
-Now, the CLI connects to `fluid-daemon` over gRPC on port 9091. The daemon runs on your sandbox host and handles the entire sandbox lifecycle: creating, starting, stopping, destroying, snapshotting, and running commands. State is persisted to a local SQLite database, so sandboxes survive daemon restarts.
+Now, the CLI connects to `deer-daemon` over gRPC on port 9091. The daemon runs on your sandbox host and handles the entire sandbox lifecycle: creating, starting, stopping, destroying, snapshotting, and running commands. State is persisted to a local SQLite database, so sandboxes survive daemon restarts.
 
 A janitor runs in the background to enforce TTLs. Every sandbox gets a default 24-hour TTL, and the janitor checks every minute and cleans up anything expired. No more orphaned VMs eating disk space.
 
@@ -39,7 +39,7 @@ One daemon runs per sandbox host, but each daemon can reach multiple source VM h
 
 Optionally, the daemon can connect upstream to the control plane (more on that below) for multi-host orchestration.
 
-Here's what a minimal daemon config looks like at `~/.config/fluid/daemon.yaml`:
+Here's what a minimal daemon config looks like at `~/.config/deer/daemon.yaml`:
 
 ```yaml
 provider: microvm
@@ -49,7 +49,7 @@ daemon:
   enabled: true
 
 microvm:
-  work_dir: /var/lib/fluid-daemon/overlays
+  work_dir: /var/lib/deer-daemon/overlays
   default_vcpus: 2
   default_memory_mb: 2048
   command_timeout: 5m
@@ -59,14 +59,14 @@ network:
   dhcp_mode: arp
 
 image:
-  base_dir: /var/lib/fluid-daemon/images
+  base_dir: /var/lib/deer-daemon/images
 
 ssh:
   default_user: sandbox
   cert_ttl: 30m
 
 state:
-  db_path: ~/.fluid/sandbox-host.db
+  db_path: ~/.deer/sandbox-host.db
 
 janitor:
   interval: 1m
@@ -75,7 +75,7 @@ janitor:
 
 ## MCP Server
 
-Fluid now ships an MCP (Model Context Protocol) server. Run `fluid mcp` and it starts on stdio, ready to be wired into any MCP-compatible AI agent: Claude Code, Cursor, Windsurf, etc.
+Fluid now ships an MCP (Model Context Protocol) server. Run `deer mcp` and it starts on stdio, ready to be wired into any MCP-compatible AI agent: Claude Code, Cursor, Windsurf, etc.
 
 The MCP server exposes 17 tools that give AI agents full sandbox management capabilities:
 
@@ -102,8 +102,8 @@ To wire it up with Claude Code, add this to your MCP config:
 ```json
 {
   "mcpServers": {
-    "fluid": {
-      "command": "fluid",
+    "deer": {
+      "command": "deer",
       "args": ["mcp"]
     }
   }
@@ -124,17 +124,17 @@ Daemons authenticate to the control plane using host tokens. The connection is a
 
 Config and data paths now follow the XDG Base Directory spec:
 
-- **Config**: `~/.config/fluid/` (was `~/.fluid/`)
-- **Data**: `~/.local/share/fluid/` (state.db, history)
+- **Config**: `~/.config/deer/` (was `~/.deer/`)
+- **Data**: `~/.local/share/deer/` (state.db, history)
 
-The `$XDG_CONFIG_HOME` and `$XDG_DATA_HOME` environment variables are respected if set. Existing `~/.fluid/` configs are auto-migrated on first run.
+The `$XDG_CONFIG_HOME` and `$XDG_DATA_HOME` environment variables are respected if set. Existing `~/.deer/` configs are auto-migrated on first run.
 
 ## Container Images
 
-The API server and web dashboard now ship as container images, built automatically via GitHub Actions on every release and pushed to GHCR. Run the full stack with `docker-compose up` or pull individual images from `ghcr.io/aspectrr/fluid.sh/api` and `ghcr.io/aspectrr/fluid.sh/web`.
+The API server and web dashboard now ship as container images, built automatically via GitHub Actions on every release and pushed to GHCR. Run the full stack with `docker-compose up` or pull individual images from `ghcr.io/aspectrr/deer.sh/api` and `ghcr.io/aspectrr/deer.sh/web`.
 
 ## Come Hang Out
 
 Questions? Join us on [Discord](https://discord.gg/4WGGXJWm8J)
 
-Found a bug? Open an issue on [GitHub](https://github.com/aspectrr/fluid.sh/issues)
+Found a bug? Open an issue on [GitHub](https://github.com/aspectrr/deer.sh/issues)

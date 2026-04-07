@@ -1,7 +1,7 @@
 version: v2
 modules:
   - path: .
-    name: buf.build/fluid/api
+    name: buf.build/deer/api
 deps:
   - buf.build/googleapis/googleapis
 lint:

@@ -2,18 +2,38 @@ package orchestrator
 
 import "time"
 
+type DataSourceType string
+
+const (
+	DataSourceTypeKafka DataSourceType = "kafka"
+)
+
+type KafkaDataSourceAttachmentRequest struct {
+	CaptureConfigID     string   `json:"capture_config_id,omitempty"`
+	Topics              []string `json:"topics,omitempty"`
+	ReplayWindowSeconds int      `json:"replay_window_seconds,omitempty"`
+}
+
+type DataSourceAttachmentRequest struct {
+	Type      DataSourceType                    `json:"type"`
+	ConfigRef string                            `json:"config_ref,omitempty"`
+	Kafka     *KafkaDataSourceAttachmentRequest `json:"kafka,omitempty"`
+}
+
 // CreateSandboxRequest is the request for creating a sandbox.
 type CreateSandboxRequest struct {
-	OrgID        string `json:"org_id"`
-	AgentID      string `json:"agent_id"`
-	SourceVM     string `json:"source_vm"`
-	Name         string `json:"name"`
-	VCPUs        int    `json:"vcpus,omitempty"`
-	MemoryMB     int    `json:"memory_mb,omitempty"`
-	TTLSeconds   int    `json:"ttl_seconds,omitempty"`
-	Network      string `json:"network,omitempty"`
-	SourceHostID string `json:"source_host_id,omitempty"`
-	Live         bool   `json:"live,omitempty"`
+	OrgID                 string                        `json:"org_id"`
+	AgentID               string                        `json:"agent_id"`
+	SourceVM              string                        `json:"source_vm"`
+	Name                  string                        `json:"name"`
+	VCPUs                 int                           `json:"vcpus,omitempty"`
+	MemoryMB              int                           `json:"memory_mb,omitempty"`
+	TTLSeconds            int                           `json:"ttl_seconds,omitempty"`
+	Network               string                        `json:"network,omitempty"`
+	SourceHostID          string                        `json:"source_host_id,omitempty"`
+	Live                  bool                          `json:"live,omitempty"`
+	KafkaCaptureConfigIDs []string                      `json:"kafka_capture_config_ids,omitempty"`
+	DataSources           []DataSourceAttachmentRequest `json:"data_sources,omitempty"`
 }
 
 // DiscoveredHost is a host discovered from SSH config parsing + probing.

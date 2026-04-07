@@ -85,7 +85,7 @@ export class DemoEngine {
 
   private writeWelcome() {
     this.term.writeln(
-      `${ANSI.primary}${ANSI.bold}fluid.sh${ANSI.reset} ${ANSI.muted}interactive demo${ANSI.reset}`
+      `${ANSI.primary}${ANSI.bold}deer.sh${ANSI.reset} ${ANSI.muted}interactive demo${ANSI.reset}`
     )
     this.term.writeln(`${ANSI.muted}Type a message to interact with the agent.${ANSI.reset}`)
     this.term.writeln('')

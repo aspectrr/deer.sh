@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package deer.v1;
+
+option go_package = "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1;deerv1";
+
+// HostRegistration is sent as the first message from a sandbox host when it
+// connects to the control plane.
+message HostRegistration {
+  // host_id is a persistent identifier for this host (generated on first run).
+  string host_id = 1;
+
+  // hostname is the human-readable name of the host machine.
+  string hostname = 2;
+
+  // version is the sandbox-host daemon version.
+  string version = 3;
+
+  // Total resources available on this host.
+  int32 total_cpus = 10;
+  int64 total_memory_mb = 11;
+  int64 total_disk_mb = 12;
+
+  // Available resources (after existing sandboxes).
+  int32 available_cpus = 13;
+  int64 available_memory_mb = 14;
+  int64 available_disk_mb = 15;
+
+  // base_images lists the QCOW2 base images available on this host.
+  repeated string base_images = 20;
+
+  // source_vms lists source VMs visible to this host via libvirt.
+  repeated SourceVMInfo source_vms = 21;
+
+  // bridges lists network bridges available on this host.
+  repeated BridgeInfo bridges = 22;
+}
+
+// BridgeInfo describes a network bridge available on a sandbox host.
+message BridgeInfo {
+  string name = 1;
+  string subnet = 2;
+}
+
+// SourceVMInfo describes a source VM visible to a sandbox host.
+message SourceVMInfo {
+  string name = 1;
+  string state = 2;
+  string ip_address = 3;
+  bool prepared = 4;
+}
+
+// RegistrationAck is the control plane's response to a host registration.
+message RegistrationAck {
+  bool accepted = 1;
+  string reason = 2;
+  // assigned_host_id may differ from the one sent if the control plane
+  // overrides it (e.g., first registration).
+  string assigned_host_id = 3;
+}
+
+// Heartbeat is sent periodically by the sandbox host (every 30s) to report
+// health and resource availability.
+message Heartbeat {
+  int32 active_sandboxes = 1;
+  int32 available_cpus = 2;
+  int64 available_memory_mb = 3;
+  int64 available_disk_mb = 4;
+  int32 source_vm_count = 5;
+}
+
+// ResourceReport is a full resource snapshot sent on reconnection or on demand.
+message ResourceReport {
+  int32 total_cpus = 1;
+  int64 total_memory_mb = 2;
+  int64 total_disk_mb = 3;
+  int32 available_cpus = 4;
+  int64 available_memory_mb = 5;
+  int64 available_disk_mb = 6;
+
+  repeated string base_images = 10;
+  repeated SourceVMInfo source_vms = 11;
+  repeated BridgeInfo bridges = 12;
+
+  // Per-sandbox status.
+  repeated SandboxStatus sandbox_statuses = 20;
+}
+
+// SandboxStatus reports the current state of a sandbox on the host.
+message SandboxStatus {
+  string sandbox_id = 1;
+  string state = 2;
+  string ip_address = 3;
+  int32 pid = 4;
+}
+
+// ErrorReport reports an error that occurred on the host.
+message ErrorReport {
+  string error = 1;
+  string sandbox_id = 2;
+  string context = 3;
+}

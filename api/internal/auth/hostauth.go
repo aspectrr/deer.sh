@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -8,13 +8,13 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	"github.com/aspectrr/fluid.sh/api/internal/config"
-	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	"github.com/aspectrr/deer.sh/api/internal/config"
+	"github.com/aspectrr/deer.sh/api/internal/orchestrator"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 )
 
 // ---------------------------------------------------------------------------
@@ -89,6 +89,20 @@ type mockStore struct {
 	GetSourceHostFn        func(ctx context.Context, id string) (*store.SourceHost, error)
 	ListSourceHostsByOrgFn func(ctx context.Context, orgID string) ([]*store.SourceHost, error)
 	DeleteSourceHostFn     func(ctx context.Context, id string) error
+
+	// KafkaCaptureConfig
+	CreateKafkaCaptureConfigFn     func(ctx context.Context, cfg *store.KafkaCaptureConfig) error
+	GetKafkaCaptureConfigFn        func(ctx context.Context, id string) (*store.KafkaCaptureConfig, error)
+	ListKafkaCaptureConfigsByOrgFn func(ctx context.Context, orgID string) ([]*store.KafkaCaptureConfig, error)
+	UpdateKafkaCaptureConfigFn     func(ctx context.Context, cfg *store.KafkaCaptureConfig) error
+	DeleteKafkaCaptureConfigFn     func(ctx context.Context, id string) error
+
+	// SandboxKafkaStub
+	CreateSandboxKafkaStubFn           func(ctx context.Context, stub *store.SandboxKafkaStub) error
+	GetSandboxKafkaStubFn              func(ctx context.Context, id string) (*store.SandboxKafkaStub, error)
+	ListSandboxKafkaStubsBySandboxFn   func(ctx context.Context, sandboxID string) ([]*store.SandboxKafkaStub, error)
+	UpdateSandboxKafkaStubFn           func(ctx context.Context, stub *store.SandboxKafkaStub) error
+	DeleteSandboxKafkaStubsBySandboxFn func(ctx context.Context, sandboxID string) error
 
 	// HostToken
 	CreateHostTokenFn     func(ctx context.Context, token *store.HostToken) error
@@ -490,6 +504,86 @@ func (m *mockStore) DeleteSourceHost(ctx context.Context, id string) error {
 	return nil
 }
 
+func (m *mockStore) CreateKafkaCaptureConfig(ctx context.Context, cfg *store.KafkaCaptureConfig) error {
+	if m.CreateKafkaCaptureConfigFn != nil {
+		return m.CreateKafkaCaptureConfigFn(ctx, cfg)
+	}
+	m.call("CreateKafkaCaptureConfig")
+	return nil
+}
+
+func (m *mockStore) GetKafkaCaptureConfig(ctx context.Context, id string) (*store.KafkaCaptureConfig, error) {
+	if m.GetKafkaCaptureConfigFn != nil {
+		return m.GetKafkaCaptureConfigFn(ctx, id)
+	}
+	m.call("GetKafkaCaptureConfig")
+	return nil, nil
+}
+
+func (m *mockStore) ListKafkaCaptureConfigsByOrg(ctx context.Context, orgID string) ([]*store.KafkaCaptureConfig, error) {
+	if m.ListKafkaCaptureConfigsByOrgFn != nil {
+		return m.ListKafkaCaptureConfigsByOrgFn(ctx, orgID)
+	}
+	m.call("ListKafkaCaptureConfigsByOrg")
+	return nil, nil
+}
+
+func (m *mockStore) UpdateKafkaCaptureConfig(ctx context.Context, cfg *store.KafkaCaptureConfig) error {
+	if m.UpdateKafkaCaptureConfigFn != nil {
+		return m.UpdateKafkaCaptureConfigFn(ctx, cfg)
+	}
+	m.call("UpdateKafkaCaptureConfig")
+	return nil
+}
+
+func (m *mockStore) DeleteKafkaCaptureConfig(ctx context.Context, id string) error {
+	if m.DeleteKafkaCaptureConfigFn != nil {
+		return m.DeleteKafkaCaptureConfigFn(ctx, id)
+	}
+	m.call("DeleteKafkaCaptureConfig")
+	return nil
+}
+
+func (m *mockStore) CreateSandboxKafkaStub(ctx context.Context, stub *store.SandboxKafkaStub) error {
+	if m.CreateSandboxKafkaStubFn != nil {
+		return m.CreateSandboxKafkaStubFn(ctx, stub)
+	}
+	m.call("CreateSandboxKafkaStub")
+	return nil
+}
+
+func (m *mockStore) GetSandboxKafkaStub(ctx context.Context, id string) (*store.SandboxKafkaStub, error) {
+	if m.GetSandboxKafkaStubFn != nil {
+		return m.GetSandboxKafkaStubFn(ctx, id)
+	}
+	m.call("GetSandboxKafkaStub")
+	return nil, nil
+}
+
+func (m *mockStore) ListSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) ([]*store.SandboxKafkaStub, error) {
+	if m.ListSandboxKafkaStubsBySandboxFn != nil {
+		return m.ListSandboxKafkaStubsBySandboxFn(ctx, sandboxID)
+	}
+	m.call("ListSandboxKafkaStubsBySandbox")
+	return nil, nil
+}
+
+func (m *mockStore) UpdateSandboxKafkaStub(ctx context.Context, stub *store.SandboxKafkaStub) error {
+	if m.UpdateSandboxKafkaStubFn != nil {
+		return m.UpdateSandboxKafkaStubFn(ctx, stub)
+	}
+	m.call("UpdateSandboxKafkaStub")
+	return nil
+}
+
+func (m *mockStore) DeleteSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) error {
+	if m.DeleteSandboxKafkaStubsBySandboxFn != nil {
+		return m.DeleteSandboxKafkaStubsBySandboxFn(ctx, sandboxID)
+	}
+	m.call("DeleteSandboxKafkaStubsBySandbox")
+	return nil
+}
+
 // HostToken
 func (m *mockStore) CreateHostToken(ctx context.Context, token *store.HostToken) error {
 	if m.CreateHostTokenFn != nil {
@@ -701,10 +795,10 @@ func (m *mockStore) ReleaseAdvisoryLock(_ context.Context, _ int64) error { retu
 // ---------------------------------------------------------------------------
 
 type mockHostSender struct {
-	SendAndWaitFn func(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
+	SendAndWaitFn func(ctx context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error)
 }
 
-func (m *mockHostSender) SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+func (m *mockHostSender) SendAndWait(ctx context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
 	if m.SendAndWaitFn != nil {
 		return m.SendAndWaitFn(ctx, hostID, msg, timeout)
 	}

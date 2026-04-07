@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 func TestHandleCreateKafkaCaptureConfig(t *testing.T) {
@@ -64,25 +64,25 @@ func TestHandleListSandboxKafkaStubs(t *testing.T) {
 	}
 
 	sender := &mockHostSender{
-		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Fatalf("unexpected hostID %q", hostID)
 			}
 			if msg.GetListSandboxKafkaStubs() == nil {
 				t.Fatalf("expected ListSandboxKafkaStubs command, got %#v", msg.Payload)
 			}
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_ListSandboxKafkaStubsResponse{
-					ListSandboxKafkaStubsResponse: &fluidv1.ListSandboxKafkaStubsResponse{
-						Stubs: []*fluidv1.SandboxKafkaStubInfo{{
+				Payload: &deerv1.HostMessage_ListSandboxKafkaStubsResponse{
+					ListSandboxKafkaStubsResponse: &deerv1.ListSandboxKafkaStubsResponse{
+						Stubs: []*deerv1.SandboxKafkaStubInfo{{
 							StubId:              "stub-1",
 							SandboxId:           "SBX-1",
 							CaptureConfigId:     "cfg-1",
 							BrokerEndpoint:      "10.0.0.10:9092",
 							Topics:              []string{"logs"},
 							ReplayWindowSeconds: 300,
-							State:               fluidv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING,
+							State:               deerv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING,
 						}},
 					},
 				},

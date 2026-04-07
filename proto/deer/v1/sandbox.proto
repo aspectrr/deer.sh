@@ -1,0 +1,282 @@
+syntax = "proto3";
+
+package deer.v1;
+
+option go_package = "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1;deerv1";
+
+// SnapshotMode controls whether to use a cached image or take a fresh snapshot.
+enum SnapshotMode {
+  SNAPSHOT_MODE_CACHED = 0;
+  SNAPSHOT_MODE_FRESH = 1;
+}
+
+// SourceHostConnection carries the credentials needed to connect to a source host.
+message SourceHostConnection {
+  // type is "libvirt" or "proxmox".
+  string type = 1;
+  string ssh_host = 2;
+  int32 ssh_port = 3;
+  string ssh_user = 4;
+  string ssh_identity_file = 5;
+  string proxmox_host = 6;
+  string proxmox_token_id = 7;
+  string proxmox_secret = 8;
+  string proxmox_node = 9;
+  bool proxmox_verify_ssl = 10;
+}
+
+// KafkaCaptureConfigBinding carries the Kafka capture configuration resolved by
+// the control plane for sandbox creation.
+message KafkaCaptureConfigBinding {
+  string id = 1;
+  string source_vm = 2;
+  repeated string bootstrap_servers = 3;
+  repeated string topics = 4;
+  string username = 5;
+  string password = 6;
+  bool tls_enabled = 7;
+  bool insecure_skip_verify = 8;
+  string codec = 9;
+  repeated string redaction_rules = 10;
+  int32 max_buffer_age_seconds = 11;
+  int64 max_buffer_bytes = 12;
+  bool enabled = 13;
+  string sasl_mechanism = 14;
+  string tls_ca_pem = 15;
+}
+
+enum DataSourceType {
+  DATA_SOURCE_TYPE_UNSPECIFIED = 0;
+  DATA_SOURCE_TYPE_KAFKA = 1;
+}
+
+message KafkaDataSourceAttachment {
+  KafkaCaptureConfigBinding capture_config = 1;
+  repeated string topics = 2;
+  int32 replay_window_seconds = 3;
+}
+
+message DataSourceAttachment {
+  DataSourceType type = 1;
+  string config_ref = 2;
+  oneof config {
+    KafkaDataSourceAttachment kafka = 3;
+  }
+}
+
+enum KafkaStubState {
+  KAFKA_STUB_STATE_UNSPECIFIED = 0;
+  KAFKA_STUB_STATE_STOPPED = 1;
+  KAFKA_STUB_STATE_RUNNING = 2;
+  KAFKA_STUB_STATE_PAUSED = 3;
+  KAFKA_STUB_STATE_ERROR = 4;
+}
+
+message SandboxKafkaStubInfo {
+  string stub_id = 1;
+  string sandbox_id = 2;
+  string capture_config_id = 3;
+  string broker_endpoint = 4;
+  repeated string topics = 5;
+  int32 replay_window_seconds = 6;
+  KafkaStubState state = 7;
+  string last_replay_cursor = 8;
+  bool auto_start = 9;
+  string last_error = 10;
+}
+
+// CreateSandboxCommand instructs a sandbox host to create a new microVM sandbox.
+message CreateSandboxCommand {
+  // sandbox_id is assigned by the control plane.
+  string sandbox_id = 1;
+
+  // base_image is the QCOW2 base image filename to use as backing file.
+  string base_image = 2;
+
+  // name is the human-readable sandbox name.
+  string name = 3;
+
+  // vcpus is the number of virtual CPUs to allocate.
+  int32 vcpus = 4;
+
+  // memory_mb is the amount of memory in megabytes.
+  int32 memory_mb = 5;
+
+  // ttl_seconds is the time-to-live before automatic cleanup. 0 = no TTL.
+  int32 ttl_seconds = 6;
+
+  // agent_id identifies the agent that requested this sandbox.
+  string agent_id = 7;
+
+  // network optionally overrides bridge selection. If empty, the host
+  // resolves the bridge from the source VM's network or default.
+  string network = 8;
+
+  // source_vm is the source VM name used for network resolution.
+  string source_vm = 9;
+
+  // ssh_public_key is injected into the sandbox for SSH access.
+  string ssh_public_key = 10;
+
+  // snapshot_mode controls cached vs fresh snapshot behavior.
+  SnapshotMode snapshot_mode = 11;
+
+  // source_host_connection carries credentials for the remote source host.
+  SourceHostConnection source_host_connection = 12;
+
+  // live controls whether to clone from the VM's current live state (true)
+  // or use a cached image if available (false, default).
+  bool live = 13;
+
+  // kafka_capture_configs are resolved source-side Kafka capture bindings that
+  // should be attached as sandbox-local stubs for this sandbox.
+  repeated KafkaCaptureConfigBinding kafka_capture_configs = 14;
+
+  // data_sources are typed sandbox-local data source attachments. Kafka is the
+  // first supported type and carries a resolved capture binding plus optional
+  // sandbox-local replay overrides.
+  repeated DataSourceAttachment data_sources = 15;
+}
+
+// SandboxCreated is sent by the host after successfully creating a sandbox.
+message SandboxCreated {
+  string sandbox_id = 1;
+  string name = 2;
+  string state = 3;
+  string ip_address = 4;
+  string mac_address = 5;
+  string bridge = 6;
+  int32 pid = 7;
+  repeated SandboxKafkaStubInfo kafka_stubs = 8;
+}
+
+// DestroySandboxCommand instructs the host to destroy a sandbox.
+message DestroySandboxCommand {
+  string sandbox_id = 1;
+}
+
+// SandboxDestroyed confirms a sandbox has been destroyed.
+message SandboxDestroyed {
+  string sandbox_id = 1;
+}
+
+// StartSandboxCommand instructs the host to start a stopped sandbox.
+message StartSandboxCommand {
+  string sandbox_id = 1;
+}
+
+// SandboxStarted confirms a sandbox has been started.
+message SandboxStarted {
+  string sandbox_id = 1;
+  string state = 2;
+  string ip_address = 3;
+}
+
+// StopSandboxCommand instructs the host to stop a running sandbox.
+message StopSandboxCommand {
+  string sandbox_id = 1;
+  bool force = 2;
+}
+
+// SandboxStopped confirms a sandbox has been stopped.
+message SandboxStopped {
+  string sandbox_id = 1;
+  string state = 2;
+}
+
+// SandboxStateChanged reports any sandbox state transition.
+message SandboxStateChanged {
+  string sandbox_id = 1;
+  string previous_state = 2;
+  string new_state = 3;
+  string reason = 4;
+}
+
+// RunCommandCommand instructs the host to execute a command in a sandbox via SSH.
+message RunCommandCommand {
+  string sandbox_id = 1;
+  string command = 2;
+  int32 timeout_seconds = 3;
+  map<string, string> env = 4;
+}
+
+// CommandResult returns the output of a command execution.
+message CommandResult {
+  string sandbox_id = 1;
+  string stdout = 2;
+  string stderr = 3;
+  int32 exit_code = 4;
+  int64 duration_ms = 5;
+}
+
+// SnapshotCommand instructs the host to snapshot a sandbox.
+message SnapshotCommand {
+  string sandbox_id = 1;
+  string snapshot_name = 2;
+}
+
+// SnapshotCreated confirms a snapshot was taken.
+message SnapshotCreated {
+  string sandbox_id = 1;
+  string snapshot_id = 2;
+  string snapshot_name = 3;
+}
+
+// SandboxProgress reports sandbox creation progress during streaming.
+message SandboxProgress {
+  string sandbox_id = 1;
+  string step = 2;
+  int32 step_num = 3;
+  int32 total_steps = 4;
+  bool done = 5;
+  SandboxCreated result = 6;
+  string error = 7;
+}
+
+message ListSandboxKafkaStubsCommand {
+  string sandbox_id = 1;
+}
+
+message ListSandboxKafkaStubsResponse {
+  repeated SandboxKafkaStubInfo stubs = 1;
+}
+
+message GetSandboxKafkaStubCommand {
+  string sandbox_id = 1;
+  string stub_id = 2;
+}
+
+message StartSandboxKafkaStubCommand {
+  string sandbox_id = 1;
+  string stub_id = 2;
+}
+
+message StopSandboxKafkaStubCommand {
+  string sandbox_id = 1;
+  string stub_id = 2;
+}
+
+message RestartSandboxKafkaStubCommand {
+  string sandbox_id = 1;
+  string stub_id = 2;
+}
+
+message KafkaCaptureStatusRequest {
+  repeated string capture_config_ids = 1;
+}
+
+message KafkaCaptureStatus {
+  string capture_config_id = 1;
+  string source_vm = 2;
+  string state = 3;
+  int64 buffered_bytes = 4;
+  int32 segment_count = 5;
+  int64 updated_at_unix = 6;
+  int32 attached_sandbox_count = 7;
+  string last_error = 8;
+  string last_resume_cursor = 9;
+}
+
+message KafkaCaptureStatusResponse {
+  repeated KafkaCaptureStatus statuses = 1;
+}

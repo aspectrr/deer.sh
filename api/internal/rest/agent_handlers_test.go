@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 func TestHandleListConversations(t *testing.T) {

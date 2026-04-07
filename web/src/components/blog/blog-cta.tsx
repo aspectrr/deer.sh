@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { Link } from '@tanstack/react-router'
 
-const INSTALL_COMMAND = 'curl -fsSL https://fluid.sh/install.sh | bash'
+const INSTALL_COMMAND = 'curl -fsSL https://deer.sh/install.sh | bash'
 
 function CopyButton() {
   const [copied, setCopied] = useState(false)
@@ -22,7 +22,7 @@ function CopyButton() {
     >
       {copied ? (
         <svg
-          className="h-4 w-4 text-blue-400"
+          className="h-4 w-4 text-green-800"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -57,7 +57,7 @@ export function BlogCTA() {
       <div className="p-5">
         <div className="flex items-center justify-between gap-4 overflow-hidden font-mono text-sm">
           <div className="min-w-0 overflow-x-auto text-neutral-400">
-            <span className="text-blue-400 select-none">$ </span>
+            <span className="text-green-800 select-none">$ </span>
             <span className="whitespace-nowrap">{INSTALL_COMMAND}</span>
           </div>
           <CopyButton />
@@ -68,7 +68,7 @@ export function BlogCTA() {
           </p>
           <Link
             to="/docs/quickstart"
-            className="inline-block bg-blue-500 px-4 py-2 font-mono text-sm text-white transition-colors hover:bg-blue-600"
+            className="inline-block bg-green-900 px-4 py-2 font-mono text-sm text-white transition-colors hover:bg-green-950"
           >
             Try Fluid
           </Link>

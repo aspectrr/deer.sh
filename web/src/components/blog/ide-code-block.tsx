@@ -71,7 +71,7 @@ export function IdeCodeBlock({ code, lang, filename, className }: IdeCodeBlockPr
           onClick={handleCopy}
           className="absolute top-2 right-2 z-10 p-1 text-neutral-500 opacity-0 transition-opacity group-hover:opacity-100 hover:text-neutral-300"
         >
-          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-800" /> : <Copy className="h-3 w-3" />}
         </button>
         <div className="flex overflow-x-auto text-xs">
           {showLineNumbers && <LineNumbers count={lineCount} />}

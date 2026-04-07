@@ -115,7 +115,7 @@ function BlogIndex() {
               to="/"
               className="font-logo text-2xl tracking-tight text-white no-underline hover:no-underline md:text-3xl"
             >
-              <span className="text-blue-400">$</span> fluid.sh
+              <span className="text-green-800">$</span> deer.sh
             </Link>
             <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
               <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
@@ -128,7 +128,7 @@ function BlogIndex() {
                 Pricing
               </Link>
               <a
-                href="https://github.com/aspectrr/fluid.sh"
+                href="https://github.com/aspectrr/deer.sh"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-neutral-200"
@@ -206,7 +206,7 @@ function BlogIndex() {
                   Pricing
                 </Link>
                 <a
-                  href="https://github.com/aspectrr/fluid.sh"
+                  href="https://github.com/aspectrr/deer.sh"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="transition-colors hover:text-white"
@@ -243,14 +243,14 @@ function BlogIndex() {
               <Link
                 key={`series-${entry.id}`}
                 to="/blog/series/hypervisor"
-                className="group block rounded-lg border border-blue-500/20 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-blue-500/40 hover:no-underline"
+                className="group block rounded-lg border border-green-900/20 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-green-900/40 hover:no-underline"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] tracking-wider text-blue-400 uppercase">
+                    <span className="font-mono text-[10px] tracking-wider text-green-800 uppercase">
                       Technical Deep Dive
                     </span>
-                    <span className="rounded bg-blue-500/10 px-1.5 py-0.5 font-mono text-[10px] text-blue-400">
+                    <span className="rounded bg-green-900/10 px-1.5 py-0.5 font-mono text-[10px] text-green-800">
                       {entry.publishedCount}/{entry.totalCount} parts
                     </span>
                   </div>
@@ -265,7 +265,7 @@ function BlogIndex() {
                     })}
                   </time>
                 </div>
-                <h2 className="mt-2 font-mono text-sm text-neutral-200 transition-colors group-hover:text-blue-400">
+                <h2 className="mt-2 font-mono text-sm text-neutral-200 transition-colors group-hover:text-green-800">
                   {entry.title}
                 </h2>
                 <p className="mt-1 text-sm text-neutral-500">{entry.subtitle}</p>
@@ -283,10 +283,10 @@ function BlogIndex() {
                 key={entry.slug}
                 to="/blog/$slug"
                 params={{ slug: entry.slug }}
-                className="group block rounded-lg border border-neutral-800 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-blue-500/30 hover:no-underline"
+                className="group block rounded-lg border border-neutral-800 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-green-900/30 hover:no-underline"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <h2 className="font-mono text-sm text-neutral-200 transition-colors group-hover:text-blue-400">
+                  <h2 className="font-mono text-sm text-neutral-200 transition-colors group-hover:text-green-800">
                     {entry.title}
                   </h2>
                   <time
@@ -310,7 +310,7 @@ function BlogIndex() {
                         className="h-5 w-5 rounded-full border border-neutral-700"
                       />
                     ) : (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full border border-neutral-700 bg-neutral-800 font-mono text-[10px] text-blue-400">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full border border-neutral-700 bg-neutral-800 font-mono text-[10px] text-green-800">
                         {entry.author.charAt(0)}
                       </div>
                     )}

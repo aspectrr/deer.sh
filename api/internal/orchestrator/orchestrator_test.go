@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -75,6 +75,18 @@ type mockStore struct {
 	GetSourceHostFn        func(ctx context.Context, id string) (*store.SourceHost, error)
 	ListSourceHostsByOrgFn func(ctx context.Context, orgID string) ([]*store.SourceHost, error)
 	DeleteSourceHostFn     func(ctx context.Context, id string) error
+
+	CreateKafkaCaptureConfigFn     func(ctx context.Context, cfg *store.KafkaCaptureConfig) error
+	GetKafkaCaptureConfigFn        func(ctx context.Context, id string) (*store.KafkaCaptureConfig, error)
+	ListKafkaCaptureConfigsByOrgFn func(ctx context.Context, orgID string) ([]*store.KafkaCaptureConfig, error)
+	UpdateKafkaCaptureConfigFn     func(ctx context.Context, cfg *store.KafkaCaptureConfig) error
+	DeleteKafkaCaptureConfigFn     func(ctx context.Context, id string) error
+
+	CreateSandboxKafkaStubFn           func(ctx context.Context, stub *store.SandboxKafkaStub) error
+	GetSandboxKafkaStubFn              func(ctx context.Context, id string) (*store.SandboxKafkaStub, error)
+	ListSandboxKafkaStubsBySandboxFn   func(ctx context.Context, sandboxID string) ([]*store.SandboxKafkaStub, error)
+	UpdateSandboxKafkaStubFn           func(ctx context.Context, stub *store.SandboxKafkaStub) error
+	DeleteSandboxKafkaStubsBySandboxFn func(ctx context.Context, sandboxID string) error
 
 	CreateHostTokenFn     func(ctx context.Context, token *store.HostToken) error
 	GetHostTokenByHashFn  func(ctx context.Context, hash string) (*store.HostToken, error)
@@ -457,6 +469,78 @@ func (m *mockStore) DeleteSourceHost(ctx context.Context, id string) error {
 	return nil
 }
 
+func (m *mockStore) CreateKafkaCaptureConfig(ctx context.Context, cfg *store.KafkaCaptureConfig) error {
+	if m.CreateKafkaCaptureConfigFn != nil {
+		return m.CreateKafkaCaptureConfigFn(ctx, cfg)
+	}
+	m.p("CreateKafkaCaptureConfig")
+	return nil
+}
+func (m *mockStore) GetKafkaCaptureConfig(ctx context.Context, id string) (*store.KafkaCaptureConfig, error) {
+	if m.GetKafkaCaptureConfigFn != nil {
+		return m.GetKafkaCaptureConfigFn(ctx, id)
+	}
+	m.p("GetKafkaCaptureConfig")
+	return nil, nil
+}
+func (m *mockStore) ListKafkaCaptureConfigsByOrg(ctx context.Context, orgID string) ([]*store.KafkaCaptureConfig, error) {
+	if m.ListKafkaCaptureConfigsByOrgFn != nil {
+		return m.ListKafkaCaptureConfigsByOrgFn(ctx, orgID)
+	}
+	m.p("ListKafkaCaptureConfigsByOrg")
+	return nil, nil
+}
+func (m *mockStore) UpdateKafkaCaptureConfig(ctx context.Context, cfg *store.KafkaCaptureConfig) error {
+	if m.UpdateKafkaCaptureConfigFn != nil {
+		return m.UpdateKafkaCaptureConfigFn(ctx, cfg)
+	}
+	m.p("UpdateKafkaCaptureConfig")
+	return nil
+}
+func (m *mockStore) DeleteKafkaCaptureConfig(ctx context.Context, id string) error {
+	if m.DeleteKafkaCaptureConfigFn != nil {
+		return m.DeleteKafkaCaptureConfigFn(ctx, id)
+	}
+	m.p("DeleteKafkaCaptureConfig")
+	return nil
+}
+
+func (m *mockStore) CreateSandboxKafkaStub(ctx context.Context, stub *store.SandboxKafkaStub) error {
+	if m.CreateSandboxKafkaStubFn != nil {
+		return m.CreateSandboxKafkaStubFn(ctx, stub)
+	}
+	m.p("CreateSandboxKafkaStub")
+	return nil
+}
+func (m *mockStore) GetSandboxKafkaStub(ctx context.Context, id string) (*store.SandboxKafkaStub, error) {
+	if m.GetSandboxKafkaStubFn != nil {
+		return m.GetSandboxKafkaStubFn(ctx, id)
+	}
+	m.p("GetSandboxKafkaStub")
+	return nil, nil
+}
+func (m *mockStore) ListSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) ([]*store.SandboxKafkaStub, error) {
+	if m.ListSandboxKafkaStubsBySandboxFn != nil {
+		return m.ListSandboxKafkaStubsBySandboxFn(ctx, sandboxID)
+	}
+	m.p("ListSandboxKafkaStubsBySandbox")
+	return nil, nil
+}
+func (m *mockStore) UpdateSandboxKafkaStub(ctx context.Context, stub *store.SandboxKafkaStub) error {
+	if m.UpdateSandboxKafkaStubFn != nil {
+		return m.UpdateSandboxKafkaStubFn(ctx, stub)
+	}
+	m.p("UpdateSandboxKafkaStub")
+	return nil
+}
+func (m *mockStore) DeleteSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) error {
+	if m.DeleteSandboxKafkaStubsBySandboxFn != nil {
+		return m.DeleteSandboxKafkaStubsBySandboxFn(ctx, sandboxID)
+	}
+	m.p("DeleteSandboxKafkaStubsBySandbox")
+	return nil
+}
+
 func (m *mockStore) CreateHostToken(ctx context.Context, token *store.HostToken) error {
 	if m.CreateHostTokenFn != nil {
 		return m.CreateHostTokenFn(ctx, token)
@@ -542,10 +626,10 @@ func (m *mockStore) ReleaseAdvisoryLock(_ context.Context, _ int64) error { retu
 // ---------------------------------------------------------------------------
 
 type mockSender struct {
-	SendAndWaitFn func(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
+	SendAndWaitFn func(ctx context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error)
 }
 
-func (m *mockSender) SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+func (m *mockSender) SendAndWait(ctx context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
 	if m.SendAndWaitFn != nil {
 		return m.SendAndWaitFn(ctx, hostID, msg, timeout)
 	}
@@ -717,7 +801,7 @@ func TestListCommands_StoreError(t *testing.T) {
 func TestListHosts_Success(t *testing.T) {
 	reg := registry.New()
 	_ = reg.Register("host-1", "org-1", "production-1", &mockStream{})
-	reg.SetRegistration("host-1", &fluidv1.HostRegistration{
+	reg.SetRegistration("host-1", &deerv1.HostRegistration{
 		AvailableCpus:     16,
 		AvailableMemoryMb: 32768,
 		AvailableDiskMb:   512000,
@@ -789,9 +873,9 @@ func TestListHosts_NoHosts(t *testing.T) {
 func TestListHosts_FiltersByOrg(t *testing.T) {
 	reg := registry.New()
 	_ = reg.Register("host-1", "org-1", "h1", &mockStream{})
-	reg.SetRegistration("host-1", &fluidv1.HostRegistration{})
+	reg.SetRegistration("host-1", &deerv1.HostRegistration{})
 	_ = reg.Register("host-2", "org-2", "h2", &mockStream{})
-	reg.SetRegistration("host-2", &fluidv1.HostRegistration{})
+	reg.SetRegistration("host-2", &deerv1.HostRegistration{})
 
 	ms := &mockStore{}
 
@@ -815,7 +899,7 @@ func TestListHosts_FiltersByOrg(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCreateSandbox_Success(t *testing.T) {
-	reg := newRegistryWithHost(t, "host-1", "org-1", &fluidv1.HostRegistration{
+	reg := newRegistryWithHost(t, "host-1", "org-1", &deerv1.HostRegistration{
 		AvailableCpus:     16,
 		AvailableMemoryMb: 32768,
 		BaseImages:        []string{"ubuntu-22.04"},
@@ -830,14 +914,14 @@ func TestCreateSandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_SandboxCreated{
-					SandboxCreated: &fluidv1.SandboxCreated{
+				Payload: &deerv1.HostMessage_SandboxCreated{
+					SandboxCreated: &deerv1.SandboxCreated{
 						SandboxId:  msg.GetCreateSandbox().GetSandboxId(),
 						Name:       "my-sandbox",
 						State:      "RUNNING",
@@ -914,7 +998,7 @@ func TestCreateSandbox_NoHost(t *testing.T) {
 }
 
 func TestCreateSandbox_SenderError(t *testing.T) {
-	reg := newRegistryWithHost(t, "host-1", "org-1", &fluidv1.HostRegistration{
+	reg := newRegistryWithHost(t, "host-1", "org-1", &deerv1.HostRegistration{
 		AvailableCpus:     16,
 		AvailableMemoryMb: 32768,
 		BaseImages:        []string{"ubuntu-22.04"},
@@ -922,7 +1006,7 @@ func TestCreateSandbox_SenderError(t *testing.T) {
 
 	ms := &mockStore{}
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			return nil, fmt.Errorf("connection lost")
 		},
 	}
@@ -941,7 +1025,7 @@ func TestCreateSandbox_SenderError(t *testing.T) {
 }
 
 func TestCreateSandbox_HostError(t *testing.T) {
-	reg := newRegistryWithHost(t, "host-1", "org-1", &fluidv1.HostRegistration{
+	reg := newRegistryWithHost(t, "host-1", "org-1", &deerv1.HostRegistration{
 		AvailableCpus:     16,
 		AvailableMemoryMb: 32768,
 		BaseImages:        []string{"ubuntu-22.04"},
@@ -949,11 +1033,11 @@ func TestCreateSandbox_HostError(t *testing.T) {
 
 	ms := &mockStore{}
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, _ string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
-			return &fluidv1.HostMessage{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_ErrorReport{
-					ErrorReport: &fluidv1.ErrorReport{Error: "disk full"},
+				Payload: &deerv1.HostMessage_ErrorReport{
+					ErrorReport: &deerv1.ErrorReport{Error: "disk full"},
 				},
 			}, nil
 		},
@@ -976,25 +1060,25 @@ func TestCreateSandbox_HostError(t *testing.T) {
 }
 
 func TestCreateSandbox_Defaults(t *testing.T) {
-	reg := newRegistryWithHost(t, "host-1", "org-1", &fluidv1.HostRegistration{
+	reg := newRegistryWithHost(t, "host-1", "org-1", &deerv1.HostRegistration{
 		AvailableCpus:     16,
 		AvailableMemoryMb: 32768,
 		BaseImages:        []string{"ubuntu-22.04"},
 	})
 
-	var capturedCmd *fluidv1.CreateSandboxCommand
+	var capturedCmd *deerv1.CreateSandboxCommand
 	ms := &mockStore{
 		CreateSandboxFn: func(_ context.Context, _ *store.Sandbox) error {
 			return nil
 		},
 	}
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, _ string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			capturedCmd = msg.GetCreateSandbox()
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_SandboxCreated{
-					SandboxCreated: &fluidv1.SandboxCreated{
+				Payload: &deerv1.HostMessage_SandboxCreated{
+					SandboxCreated: &deerv1.SandboxCreated{
 						SandboxId: capturedCmd.GetSandboxId(),
 						Name:      capturedCmd.GetName(),
 						State:     "RUNNING",
@@ -1031,6 +1115,177 @@ func TestCreateSandbox_Defaults(t *testing.T) {
 	}
 }
 
+func TestCreateSandbox_WithKafkaCaptureConfigs(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", &deerv1.HostRegistration{
+		AvailableCpus:     16,
+		AvailableMemoryMb: 32768,
+		BaseImages:        []string{"ubuntu-22.04"},
+	})
+
+	var capturedCmd *deerv1.CreateSandboxCommand
+	var createdStub *store.SandboxKafkaStub
+	ms := &mockStore{
+		GetKafkaCaptureConfigFn: func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+			if id != "cfg-1" {
+				t.Fatalf("unexpected config id %q", id)
+			}
+			return &store.KafkaCaptureConfig{
+				ID:               "cfg-1",
+				OrgID:            "org-1",
+				SourceHostID:     "sh-1",
+				SourceVM:         "ubuntu-22.04",
+				BootstrapServers: store.StringSlice{"kafka-1:9092"},
+				Topics:           store.StringSlice{"logs"},
+				Codec:            "json",
+				MaxBufferAgeSecs: 300,
+				MaxBufferBytes:   1024,
+				Enabled:          true,
+			}, nil
+		},
+		CreateSandboxFn: func(_ context.Context, _ *store.Sandbox) error { return nil },
+		CreateSandboxKafkaStubFn: func(_ context.Context, stub *store.SandboxKafkaStub) error {
+			createdStub = stub
+			return nil
+		},
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			capturedCmd = msg.GetCreateSandbox()
+			return &deerv1.HostMessage{
+				RequestId: msg.GetRequestId(),
+				Payload: &deerv1.HostMessage_SandboxCreated{
+					SandboxCreated: &deerv1.SandboxCreated{
+						SandboxId: capturedCmd.GetSandboxId(),
+						Name:      "sandbox-with-kafka",
+						State:     "RUNNING",
+						KafkaStubs: []*deerv1.SandboxKafkaStubInfo{
+							{
+								StubId:              "stub-1",
+								SandboxId:           capturedCmd.GetSandboxId(),
+								CaptureConfigId:     "cfg-1",
+								BrokerEndpoint:      "10.0.0.10:9092",
+								Topics:              []string{"logs"},
+								ReplayWindowSeconds: 300,
+								State:               deerv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING,
+								AutoStart:           true,
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	if _, err := orch.CreateSandbox(context.Background(), CreateSandboxRequest{
+		OrgID:                 "org-1",
+		SourceVM:              "ubuntu-22.04",
+		KafkaCaptureConfigIDs: []string{"cfg-1"},
+	}); err != nil {
+		t.Fatalf("CreateSandbox: unexpected error: %v", err)
+	}
+	if capturedCmd == nil || len(capturedCmd.GetKafkaCaptureConfigs()) != 1 {
+		t.Fatalf("expected kafka capture config binding in create command, got %+v", capturedCmd)
+	}
+	if len(capturedCmd.GetDataSources()) != 1 {
+		t.Fatalf("expected kafka data source attachment in create command, got %+v", capturedCmd.GetDataSources())
+	}
+	kafkaAttachment := capturedCmd.GetDataSources()[0].GetKafka()
+	if kafkaAttachment == nil || kafkaAttachment.GetCaptureConfig().GetId() != "cfg-1" {
+		t.Fatalf("expected resolved kafka attachment for cfg-1, got %+v", kafkaAttachment)
+	}
+	if createdStub == nil {
+		t.Fatal("expected sandbox kafka stub to be persisted")
+	}
+	if createdStub.CaptureConfigID != "cfg-1" {
+		t.Fatalf("expected capture_config_id cfg-1, got %q", createdStub.CaptureConfigID)
+	}
+}
+
+func TestCreateSandbox_WithGenericKafkaDataSourceOverrides(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", &deerv1.HostRegistration{
+		AvailableCpus:     16,
+		AvailableMemoryMb: 32768,
+		BaseImages:        []string{"ubuntu-22.04"},
+	})
+
+	var capturedCmd *deerv1.CreateSandboxCommand
+	ms := &mockStore{
+		GetKafkaCaptureConfigFn: func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+			return &store.KafkaCaptureConfig{
+				ID:               id,
+				OrgID:            "org-1",
+				SourceHostID:     "sh-1",
+				SourceVM:         "ubuntu-22.04",
+				BootstrapServers: store.StringSlice{"kafka-1:9092"},
+				Topics:           store.StringSlice{"logs", "metrics"},
+				Codec:            "json",
+				MaxBufferAgeSecs: 600,
+				MaxBufferBytes:   4096,
+				Enabled:          true,
+			}, nil
+		},
+		CreateSandboxFn: func(_ context.Context, _ *store.Sandbox) error { return nil },
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			capturedCmd = msg.GetCreateSandbox()
+			return &deerv1.HostMessage{
+				RequestId: msg.GetRequestId(),
+				Payload: &deerv1.HostMessage_SandboxCreated{
+					SandboxCreated: &deerv1.SandboxCreated{
+						SandboxId: capturedCmd.GetSandboxId(),
+						Name:      "sandbox-with-data-source",
+						State:     "RUNNING",
+					},
+				},
+			}, nil
+		},
+	}
+
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	_, err := orch.CreateSandbox(context.Background(), CreateSandboxRequest{
+		OrgID:    "org-1",
+		SourceVM: "ubuntu-22.04",
+		DataSources: []DataSourceAttachmentRequest{
+			{
+				Type:      DataSourceTypeKafka,
+				ConfigRef: "cfg-1",
+				Kafka: &KafkaDataSourceAttachmentRequest{
+					CaptureConfigID:     "cfg-1",
+					Topics:              []string{"logs"},
+					ReplayWindowSeconds: 120,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateSandbox: unexpected error: %v", err)
+	}
+	if capturedCmd == nil {
+		t.Fatal("expected create sandbox command to be sent")
+	}
+	if len(capturedCmd.GetDataSources()) != 1 {
+		t.Fatalf("data source count = %d, want 1", len(capturedCmd.GetDataSources()))
+	}
+	ds := capturedCmd.GetDataSources()[0]
+	if ds.GetType() != deerv1.DataSourceType_DATA_SOURCE_TYPE_KAFKA {
+		t.Fatalf("data source type = %v, want kafka", ds.GetType())
+	}
+	if ds.GetConfigRef() != "cfg-1" {
+		t.Fatalf("config_ref = %q, want cfg-1", ds.GetConfigRef())
+	}
+	if got := ds.GetKafka().GetTopics(); len(got) != 1 || got[0] != "logs" {
+		t.Fatalf("override topics = %v, want [logs]", got)
+	}
+	if got := ds.GetKafka().GetReplayWindowSeconds(); got != 120 {
+		t.Fatalf("replay_window_seconds = %d, want 120", got)
+	}
+	if got := ds.GetKafka().GetCaptureConfig().GetTopics(); len(got) != 2 || got[0] != "logs" || got[1] != "metrics" {
+		t.Fatalf("resolved capture config topics = %v, want [logs metrics]", got)
+	}
+}
+
 func TestDestroySandbox_Success(t *testing.T) {
 	var deletedID string
 	ms := &mockStore{
@@ -1044,14 +1299,14 @@ func TestDestroySandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_SandboxDestroyed{
-					SandboxDestroyed: &fluidv1.SandboxDestroyed{
+				Payload: &deerv1.HostMessage_SandboxDestroyed{
+					SandboxDestroyed: &deerv1.SandboxDestroyed{
 						SandboxId: msg.GetDestroySandbox().GetSandboxId(),
 					},
 				},
@@ -1091,7 +1346,7 @@ func TestDestroySandbox_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			return nil, fmt.Errorf("timeout waiting for response")
 		},
 	}
@@ -1119,14 +1374,14 @@ func TestRunCommand_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_CommandResult{
-					CommandResult: &fluidv1.CommandResult{
+				Payload: &deerv1.HostMessage_CommandResult{
+					CommandResult: &deerv1.CommandResult{
 						Stdout:     "hello world\n",
 						Stderr:     "",
 						ExitCode:   0,
@@ -1173,7 +1428,7 @@ func TestRunCommand_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			return nil, fmt.Errorf("host unreachable")
 		},
 	}
@@ -1201,14 +1456,14 @@ func TestStartSandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_SandboxStarted{
-					SandboxStarted: &fluidv1.SandboxStarted{
+				Payload: &deerv1.HostMessage_SandboxStarted{
+					SandboxStarted: &deerv1.SandboxStarted{
 						SandboxId: msg.GetStartSandbox().GetSandboxId(),
 						State:     "RUNNING",
 						IpAddress: "10.0.0.10",
@@ -1261,14 +1516,14 @@ func TestStopSandbox_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_SandboxStopped{
-					SandboxStopped: &fluidv1.SandboxStopped{
+				Payload: &deerv1.HostMessage_SandboxStopped{
+					SandboxStopped: &deerv1.SandboxStopped{
 						SandboxId: msg.GetStopSandbox().GetSandboxId(),
 						State:     "STOPPED",
 					},
@@ -1298,7 +1553,7 @@ func TestStopSandbox_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			return nil, fmt.Errorf("stream closed")
 		},
 	}
@@ -1321,14 +1576,14 @@ func TestCreateSnapshot_Success(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			if hostID != "host-1" {
 				t.Errorf("hostID = %q, want %q", hostID, "host-1")
 			}
-			return &fluidv1.HostMessage{
+			return &deerv1.HostMessage{
 				RequestId: msg.GetRequestId(),
-				Payload: &fluidv1.HostMessage_SnapshotCreated{
-					SnapshotCreated: &fluidv1.SnapshotCreated{
+				Payload: &deerv1.HostMessage_SnapshotCreated{
+					SnapshotCreated: &deerv1.SnapshotCreated{
 						SnapshotId:   "snap-abc123",
 						SnapshotName: "before-deploy",
 					},
@@ -1364,7 +1619,7 @@ func TestCreateSnapshot_SenderError(t *testing.T) {
 	}
 
 	sender := &mockSender{
-		SendAndWaitFn: func(_ context.Context, _ string, _ *fluidv1.ControlMessage, _ time.Duration) (*fluidv1.HostMessage, error) {
+		SendAndWaitFn: func(_ context.Context, _ string, _ *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
 			return nil, fmt.Errorf("snapshot failed")
 		},
 	}

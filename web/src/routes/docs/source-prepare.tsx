@@ -11,9 +11,9 @@ export const Route = createFileRoute('/docs/source-prepare')({
 
 // Escaped for JS template literal: \${ and \` where needed
 const restrictedShellScript = `#!/bin/bash
-# fluid-readonly-shell - restricted shell for read-only VM access.
-# Installed by: fluid source prepare
-# This shell is set as the login shell for the fluid-readonly user.
+# deer-readonly-shell - restricted shell for read-only VM access.
+# Installed by: deer source prepare
+# This shell is set as the login shell for the deer-readonly user.
 # Commands are accepted via SSH_ORIGINAL_COMMAND (ForceCommand) or -c arg (login shell).
 
 set -euo pipefail
@@ -238,38 +238,38 @@ function SourcePreparePage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <h1 className="mb-1 text-lg font-medium text-white">Source VM Preparation</h1>
       <p className="text-muted-foreground mb-8 text-xs">
-        Prepare source VMs for read-only access by fluid agents.
+        Prepare source VMs for read-only access by deer agents.
       </p>
 
       <Callout type="info" title="Automatic during onboarding">
         These commands run automatically when you use{' '}
-        <code className="text-blue-400">fluid source prepare</code> during CLI onboarding. This page
+        <code className="text-green-800">deer source prepare</code> during CLI onboarding. This page
         is for manual setup or understanding what the preparation does.
       </Callout>
 
       <H2>On Each Source VM</H2>
       <p className="mb-4 text-xs text-neutral-400">
-        Run these commands as root on every VM you want fluid agents to inspect.
+        Run these commands as root on every VM you want deer agents to inspect.
       </p>
 
       <H3>1. Install the restricted shell</H3>
       <p className="mb-2 text-xs text-neutral-400">
-        Write this script to the source VM. It becomes the login shell for the fluid-readonly user.
+        Write this script to the source VM. It becomes the login shell for the deer-readonly user.
       </p>
       <CodeBlock
         code={restrictedShellScript}
         lang="bash"
-        filename="/usr/local/bin/fluid-readonly-shell"
+        filename="/usr/local/bin/deer-readonly-shell"
       />
-      <TerminalBlock lines={[{ command: 'chmod 755 /usr/local/bin/fluid-readonly-shell' }]} />
+      <TerminalBlock lines={[{ command: 'chmod 755 /usr/local/bin/deer-readonly-shell' }]} />
 
-      <H3>2. Create the fluid-readonly user</H3>
+      <H3>2. Create the deer-readonly user</H3>
       <TerminalBlock
         lines={[
           { command: 'mkdir -p /var/empty' },
           {
             command:
-              'useradd -r -s /usr/local/bin/fluid-readonly-shell -d /var/empty -M fluid-readonly',
+              'useradd -r -s /usr/local/bin/deer-readonly-shell -d /var/empty -M deer-readonly',
           },
         ]}
       />
@@ -284,9 +284,9 @@ function SourcePreparePage() {
         ]}
       />
       <Callout type="info" title="Where to find the CA key">
-        The CA public key is at <code className="text-blue-400">~/.fluid/ca.pub</code> on the
-        machine running the fluid CLI, or at{' '}
-        <code className="text-blue-400">/etc/fluid-daemon/ca.pub</code> on the daemon host.
+        The CA public key is at <code className="text-green-800">~/.deer/ca.pub</code> on the
+        machine running the deer CLI, or at{' '}
+        <code className="text-green-800">/etc/deer-daemon/ca.pub</code> on the daemon host.
       </Callout>
 
       <H3>4. Configure sshd</H3>
@@ -311,9 +311,9 @@ function SourcePreparePage() {
         lines={[
           { command: 'mkdir -p /etc/ssh/authorized_principals' },
           {
-            command: "echo 'fluid-readonly' > /etc/ssh/authorized_principals/fluid-readonly",
+            command: "echo 'deer-readonly' > /etc/ssh/authorized_principals/deer-readonly",
           },
-          { command: 'chmod 644 /etc/ssh/authorized_principals/fluid-readonly' },
+          { command: 'chmod 644 /etc/ssh/authorized_principals/deer-readonly' },
         ]}
       />
 
@@ -323,12 +323,12 @@ function SourcePreparePage() {
       <H2>On Each Source Host</H2>
       <p className="mb-4 text-xs text-neutral-400">
         The daemon needs SSH access to each source host (hypervisor) to manage VMs via{' '}
-        <code className="text-blue-400">qemu+ssh://fluid-daemon@host/system</code>. Source hosts are
-        configured in the daemon's <code className="text-blue-400">daemon.yaml</code> under{' '}
-        <code className="text-blue-400">source_hosts</code>.
+        <code className="text-green-800">qemu+ssh://deer-daemon@host/system</code>. Source hosts are
+        configured in the daemon's <code className="text-green-800">daemon.yaml</code> under{' '}
+        <code className="text-green-800">source_hosts</code>.
       </p>
 
-      <H3>1. Create fluid-daemon system user</H3>
+      <H3>1. Create deer-daemon system user</H3>
       <p className="mb-2 text-xs text-neutral-400">
         On each source host, create the user that the daemon will SSH in as.
       </p>
@@ -336,29 +336,29 @@ function SourcePreparePage() {
         lines={[
           {
             command:
-              'id fluid-daemon >/dev/null 2>&1 || useradd --system --shell /bin/bash -m fluid-daemon',
+              'id deer-daemon >/dev/null 2>&1 || useradd --system --shell /bin/bash -m deer-daemon',
           },
-          { command: 'usermod -aG libvirt fluid-daemon' },
+          { command: 'usermod -aG libvirt deer-daemon' },
         ]}
       />
 
       <H3>2. Deploy the daemon SSH key</H3>
       <p className="mb-2 text-xs text-neutral-400">
         The daemon generates an SSH identity key pair on first start. Deploy the public key to each
-        source host so the daemon can SSH in as <code className="text-blue-400">fluid-daemon</code>.
+        source host so the daemon can SSH in as <code className="text-green-800">deer-daemon</code>.
       </p>
 
       <H3>Option A: Automatic (recommended)</H3>
       <p className="mb-2 text-xs text-neutral-400">
-        When you run <code className="text-blue-400">fluid connect</code> or use the{' '}
-        <code className="text-blue-400">/connect</code> TUI command, the CLI fetches the daemon's
+        When you run <code className="text-green-800">deer connect</code> or use the{' '}
+        <code className="text-green-800">/connect</code> TUI command, the CLI fetches the daemon's
         source host list and identity key, then offers to deploy the key to each source host
         automatically. Your local SSH user must have sudo access on the source hosts for this to
         work.
       </p>
       <TerminalBlock
         lines={[
-          { command: 'fluid connect 192.168.1.100:9091' },
+          { command: 'deer connect 192.168.1.100:9091' },
           { output: 'Connected!' },
           { output: 'Running doctor checks...' },
           { output: 'Enter: deploy daemon key to source hosts' },
@@ -372,34 +372,34 @@ function SourcePreparePage() {
       <TerminalBlock
         lines={[
           { command: '# On the daemon host - get the public key' },
-          { command: 'cat /etc/fluid-daemon/identity.pub' },
+          { command: 'cat /etc/deer-daemon/identity.pub' },
         ]}
       />
       <TerminalBlock
         lines={[
-          { command: '# On each source host - deploy to fluid-daemon user' },
-          { command: 'mkdir -p ~fluid-daemon/.ssh && chmod 700 ~fluid-daemon/.ssh' },
+          { command: '# On each source host - deploy to deer-daemon user' },
+          { command: 'mkdir -p ~deer-daemon/.ssh && chmod 700 ~deer-daemon/.ssh' },
           {
-            command: "echo '<daemon-pub-key>' >> ~fluid-daemon/.ssh/authorized_keys",
+            command: "echo '<daemon-pub-key>' >> ~deer-daemon/.ssh/authorized_keys",
           },
-          { command: 'chmod 600 ~fluid-daemon/.ssh/authorized_keys' },
-          { command: 'chown -R fluid-daemon:fluid-daemon ~fluid-daemon/.ssh' },
+          { command: 'chmod 600 ~deer-daemon/.ssh/authorized_keys' },
+          { command: 'chown -R deer-daemon:deer-daemon ~deer-daemon/.ssh' },
         ]}
       />
 
       <H3>3. Add source host keys to daemon's known_hosts</H3>
       <p className="mb-2 text-xs text-neutral-400">
         The daemon needs the source host's SSH host key in its known_hosts file. The{' '}
-        <code className="text-blue-400">fluid connect</code> wizard does this automatically via the
-        daemon's <code className="text-blue-400">ScanSourceHostKeys</code> RPC after deploying keys.
-        For manual setup:
+        <code className="text-green-800">deer connect</code> wizard does this automatically via the
+        daemon's <code className="text-green-800">ScanSourceHostKeys</code> RPC after deploying
+        keys. For manual setup:
       </p>
       <TerminalBlock
         lines={[
           { command: '# On the daemon host' },
           {
             command:
-              'ssh-keyscan -H <source-host-ip> | sudo -u fluid-daemon tee -a ~fluid-daemon/.ssh/known_hosts',
+              'ssh-keyscan -H <source-host-ip> | sudo -u deer-daemon tee -a ~deer-daemon/.ssh/known_hosts',
           },
         ]}
       />
@@ -414,7 +414,7 @@ function SourcePreparePage() {
         lines={[
           {
             command:
-              'sudo -u fluid-daemon ssh -i /etc/fluid-daemon/identity fluid-daemon@<source-host-ip> "echo ok"',
+              'sudo -u deer-daemon ssh -i /etc/deer-daemon/identity deer-daemon@<source-host-ip> "echo ok"',
           },
         ]}
       />
@@ -424,14 +424,14 @@ function SourcePreparePage() {
         lines={[
           {
             command:
-              'sudo -u fluid-daemon virsh -c "qemu+ssh://fluid-daemon@<source-host-ip>/system?keyfile=/etc/fluid-daemon/identity" list --all',
+              'sudo -u deer-daemon virsh -c "qemu+ssh://deer-daemon@<source-host-ip>/system?keyfile=/etc/deer-daemon/identity" list --all',
           },
         ]}
       />
 
       <Callout type="info" title="Doctor checks verify connectivity">
-        After connecting, run <code className="text-blue-400">fluid doctor</code> or press{' '}
-        <code className="text-blue-400">r</code> in the connect wizard to re-run doctor checks. The
+        After connecting, run <code className="text-green-800">deer doctor</code> or press{' '}
+        <code className="text-green-800">r</code> in the connect wizard to re-run doctor checks. The
         daemon will verify SSH+libvirt connectivity to each configured source host and report any
         failures with fix commands.
       </Callout>
@@ -439,7 +439,7 @@ function SourcePreparePage() {
       <Callout type="tip" title="About the restricted shell">
         The restricted shell blocks destructive commands (rm, mv, sudo, curl, etc.), command
         substitution, output redirection, and multi-line commands. Only read-only inspection is
-        allowed through the fluid-readonly user.
+        allowed through the deer-readonly user.
       </Callout>
 
       <PrevNext />

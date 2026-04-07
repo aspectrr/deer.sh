@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/aspectrr/fluid.sh/api/internal/config"
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/config"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 // ResourceTicker periodically reports non-token resource usage to Stripe meters.
@@ -105,7 +105,7 @@ func (rt *ResourceTicker) reportForOrg(ctx context.Context, orgID string) {
 		rt.meter.ReportResourceUsage(ctx, org.StripeCustomerID, "source_vms", billableSourceVMs)
 	}
 	if billableDaemons > 0 {
-		rt.meter.ReportResourceUsage(ctx, org.StripeCustomerID, "fluid_daemons", billableDaemons)
+		rt.meter.ReportResourceUsage(ctx, org.StripeCustomerID, "deer_daemons", billableDaemons)
 	}
 
 	// Create local usage records

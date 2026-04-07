@@ -8,10 +8,10 @@ import (
 	"net"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 
 	"google.golang.org/grpc"
 )
@@ -48,7 +48,7 @@ func NewServer(
 	gs := grpc.NewServer(opts...)
 
 	handler := NewStreamHandler(reg, st, logger, heartbeatTimeout)
-	fluidv1.RegisterHostServiceServer(gs, handler)
+	deerv1.RegisterHostServiceServer(gs, handler)
 
 	s := &Server{
 		listener:   lis,

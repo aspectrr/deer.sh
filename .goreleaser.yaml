@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
-project_name: fluid
+project_name: deer
 before:
   hooks:
-    - sh -c "VER=$(git describe --tags --abbrev=0 --match 'v*') && for d in api fluid-daemon fluid-cli; do (cd $d && GOWORK=off go get github.com/aspectrr/fluid.sh/proto/gen/go@$VER && GOWORK=off go mod tidy) || exit 1; done"
+    - sh -c "VER=$(git describe --tags --abbrev=0 --match 'v*') && for d in api deer-daemon deer-cli; do (cd $d && GOWORK=off go get github.com/aspectrr/deer.sh/proto/gen/go@$VER && GOWORK=off go mod tidy) || exit 1; done"
 builds:
   - id: api
     dir: api
@@ -23,10 +23,10 @@ builds:
       - -X main.version={{ .Version }}
       - -X main.commit={{ .Commit }}
       - -X main.date={{ .Date }}
-  - id: fluid-daemon
-    dir: fluid-daemon
-    main: ./cmd/fluid-daemon
-    binary: fluid-daemon
+  - id: deer-daemon
+    dir: deer-daemon
+    main: ./cmd/deer-daemon
+    binary: deer-daemon
     env:
       - CGO_ENABLED=0
     goos:
@@ -41,10 +41,10 @@ builds:
       - -X main.version={{ .Version }}
       - -X main.commit={{ .Commit }}
       - -X main.date={{ .Date }}
-  - id: fluid
-    dir: fluid-cli
-    main: ./cmd/fluid
-    binary: fluid
+  - id: deer
+    dir: deer-cli
+    main: ./cmd/deer
+    binary: deer
     env:
       - CGO_ENABLED=0
     goos:
@@ -68,19 +68,19 @@ archives:
     files:
       - README.md
       - LICENSE
-  - id: fluid-daemon
+  - id: deer-daemon
     builds:
-      - fluid-daemon
+      - deer-daemon
     name_template: >-
-      fluid-daemon_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      deer-daemon_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
       - README.md
       - LICENSE
-  - id: fluid
+  - id: deer
     builds:
-      - fluid
+      - deer
     name_template: >-
-      fluid_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      deer_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
       - README.md
       - LICENSE
@@ -130,10 +130,10 @@ nfpms:
     builds:
       - api
     bindir: /usr/local/bin
-    vendor: "Fluid.sh"
-    homepage: "https://github.com/aspectrr/fluid.sh"
+    vendor: "Deer.sh"
+    homepage: "https://github.com/aspectrr/deer.sh"
     maintainer: "Collin Pfeifer <cpfeifer@madcactus.org>"
-    description: "Control-plane API for fluid.sh sandbox management"
+    description: "Control-plane API for deer.sh sandbox management"
     license: "MIT"
     formats:
       - deb
@@ -141,13 +141,13 @@ nfpms:
     dependencies:
       - openssh-client
       - postgresql-client
-  - id: fluid-daemon
-    package_name: fluid-daemon
+  - id: deer-daemon
+    package_name: deer-daemon
     builds:
-      - fluid-daemon
+      - deer-daemon
     bindir: /usr/local/bin
-    vendor: "Fluid.sh"
-    homepage: "https://fluid.sh"
+    vendor: "Deer.sh"
+    homepage: "https://deer.sh"
     maintainer: "Collin Pfeifer <cpfeifer@madcactus.org>"
     description: "Background daemon for managing VM sandboxes on a host"
     license: "MIT"
@@ -157,14 +157,14 @@ nfpms:
     dependencies:
       - openssh-client
     contents:
-      - src: fluid-daemon/packaging/fluid-daemon.service
-        dst: /etc/systemd/system/fluid-daemon.service
-      - src: fluid-daemon/packaging/daemon.yaml
-        dst: /etc/fluid-daemon/daemon.yaml
+      - src: deer-daemon/packaging/deer-daemon.service
+        dst: /etc/systemd/system/deer-daemon.service
+      - src: deer-daemon/packaging/daemon.yaml
+        dst: /etc/deer-daemon/daemon.yaml
         type: config|noreplace
     scripts:
-      postinstall: fluid-daemon/packaging/postinstall.sh
-      preremove: fluid-daemon/packaging/preremove.sh
+      postinstall: deer-daemon/packaging/postinstall.sh
+      preremove: deer-daemon/packaging/preremove.sh
     overrides:
       deb:
         recommends:
@@ -184,15 +184,15 @@ nfpms:
           - libguestfs-tools-c
           - iproute
           - bridge-utils
-  - id: fluid
-    package_name: fluid
+  - id: deer
+    package_name: deer
     builds:
-      - fluid
+      - deer
     bindir: /usr/local/bin
-    vendor: "Fluid.sh"
-    homepage: "https://github.com/aspectrr/fluid.sh"
+    vendor: "Deer.sh"
+    homepage: "https://github.com/aspectrr/deer.sh"
     maintainer: "Collin Pfeifer <cpfeifer@madcactus.org>"
-    description: "CLI for managing fluid sandboxes"
+    description: "CLI for managing deer sandboxes"
     license: "MIT"
     formats:
       - deb
@@ -200,4 +200,4 @@ nfpms:
 release:
   github:
     owner: aspectrr
-    name: fluid.sh
+    name: deer.sh

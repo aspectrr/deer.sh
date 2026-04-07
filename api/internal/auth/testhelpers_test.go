@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 // mockStore implements store.Store for testing. Only the methods used in tests
@@ -210,6 +210,36 @@ func (m *mockStore) ListSourceHostsByOrg(context.Context, string) ([]*store.Sour
 }
 func (m *mockStore) DeleteSourceHost(context.Context, string) error {
 	panic("mockStore: DeleteSourceHost not implemented")
+}
+func (m *mockStore) CreateKafkaCaptureConfig(context.Context, *store.KafkaCaptureConfig) error {
+	panic("mockStore: CreateKafkaCaptureConfig not implemented")
+}
+func (m *mockStore) GetKafkaCaptureConfig(context.Context, string) (*store.KafkaCaptureConfig, error) {
+	panic("mockStore: GetKafkaCaptureConfig not implemented")
+}
+func (m *mockStore) ListKafkaCaptureConfigsByOrg(context.Context, string) ([]*store.KafkaCaptureConfig, error) {
+	panic("mockStore: ListKafkaCaptureConfigsByOrg not implemented")
+}
+func (m *mockStore) UpdateKafkaCaptureConfig(context.Context, *store.KafkaCaptureConfig) error {
+	panic("mockStore: UpdateKafkaCaptureConfig not implemented")
+}
+func (m *mockStore) DeleteKafkaCaptureConfig(context.Context, string) error {
+	panic("mockStore: DeleteKafkaCaptureConfig not implemented")
+}
+func (m *mockStore) CreateSandboxKafkaStub(context.Context, *store.SandboxKafkaStub) error {
+	panic("mockStore: CreateSandboxKafkaStub not implemented")
+}
+func (m *mockStore) GetSandboxKafkaStub(context.Context, string) (*store.SandboxKafkaStub, error) {
+	panic("mockStore: GetSandboxKafkaStub not implemented")
+}
+func (m *mockStore) ListSandboxKafkaStubsBySandbox(context.Context, string) ([]*store.SandboxKafkaStub, error) {
+	panic("mockStore: ListSandboxKafkaStubsBySandbox not implemented")
+}
+func (m *mockStore) UpdateSandboxKafkaStub(context.Context, *store.SandboxKafkaStub) error {
+	panic("mockStore: UpdateSandboxKafkaStub not implemented")
+}
+func (m *mockStore) DeleteSandboxKafkaStubsBySandbox(context.Context, string) error {
+	panic("mockStore: DeleteSandboxKafkaStubsBySandbox not implemented")
 }
 
 // ---- HostToken ----

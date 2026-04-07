@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 )
 
 func TestHandleListSandboxes(t *testing.T) {
@@ -237,11 +237,11 @@ func TestHandleDestroySandbox(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
-				return &fluidv1.HostMessage{
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
+				return &deerv1.HostMessage{
 					RequestId: msg.RequestId,
-					Payload: &fluidv1.HostMessage_SandboxDestroyed{
-						SandboxDestroyed: &fluidv1.SandboxDestroyed{
+					Payload: &deerv1.HostMessage_SandboxDestroyed{
+						SandboxDestroyed: &deerv1.SandboxDestroyed{
 							SandboxId: testSandbox.ID,
 						},
 					},
@@ -361,11 +361,11 @@ func TestHandleRunCommand(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
-				return &fluidv1.HostMessage{
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
+				return &deerv1.HostMessage{
 					RequestId: msg.RequestId,
-					Payload: &fluidv1.HostMessage_CommandResult{
-						CommandResult: &fluidv1.CommandResult{
+					Payload: &deerv1.HostMessage_CommandResult{
+						CommandResult: &deerv1.CommandResult{
 							SandboxId:  testSandbox.ID,
 							Stdout:     "file1\nfile2\n",
 							Stderr:     "",
@@ -463,11 +463,11 @@ func TestHandleStartSandbox(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
-				return &fluidv1.HostMessage{
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
+				return &deerv1.HostMessage{
 					RequestId: msg.RequestId,
-					Payload: &fluidv1.HostMessage_SandboxStarted{
-						SandboxStarted: &fluidv1.SandboxStarted{
+					Payload: &deerv1.HostMessage_SandboxStarted{
+						SandboxStarted: &deerv1.SandboxStarted{
 							SandboxId: testSandbox.ID,
 							State:     "running",
 							IpAddress: "10.0.0.10",
@@ -559,11 +559,11 @@ func TestHandleStopSandbox(t *testing.T) {
 			return nil
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
-				return &fluidv1.HostMessage{
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
+				return &deerv1.HostMessage{
 					RequestId: msg.RequestId,
-					Payload: &fluidv1.HostMessage_SandboxStopped{
-						SandboxStopped: &fluidv1.SandboxStopped{
+					Payload: &deerv1.HostMessage_SandboxStopped{
+						SandboxStopped: &deerv1.SandboxStopped{
 							SandboxId: testSandbox.ID,
 							State:     "stopped",
 						},
@@ -743,11 +743,11 @@ func TestHandleCreateSnapshot(t *testing.T) {
 			return nil, store.ErrNotFound
 		}
 		sender := &mockHostSender{
-			SendAndWaitFn: func(_ context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
-				return &fluidv1.HostMessage{
+			SendAndWaitFn: func(_ context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
+				return &deerv1.HostMessage{
 					RequestId: msg.RequestId,
-					Payload: &fluidv1.HostMessage_SnapshotCreated{
-						SnapshotCreated: &fluidv1.SnapshotCreated{
+					Payload: &deerv1.HostMessage_SnapshotCreated{
+						SnapshotCreated: &deerv1.SnapshotCreated{
 							SandboxId:    testSandbox.ID,
 							SnapshotId:   "SNAP-abc123",
 							SnapshotName: "my-snapshot",

@@ -23,7 +23,7 @@ export const blogSeries: BlogSeries[] = [
     description:
       'A 10-part series on writing a type-1 hypervisor targeting Apple Silicon using Rust and the Hypervisor.framework API. From raw FFI bindings to booting Linux with an interactive shell.',
     slugPrefix: 'hypervisor-pt',
-    author: 'Collin @ Fluid.sh',
+    author: 'Collin @ Deer.sh',
     authorImage: '/images/skeleton_smoking_cigarette.jpg',
     chapters: [
       {

@@ -1,8 +1,8 @@
 ---
-title: 'How Fluid.sh Sandboxes Work'
+title: 'How Deer.sh Sandboxes Work'
 pubDate: 2026-02-25
 description: 'A deep dive into QEMU microVMs, copy-on-write overlays, ephemeral SSH certificates, and the infrastructure behind Fluid sandboxes.'
-author: 'Collin @ Fluid.sh'
+author: 'Collin @ Deer.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
 authorPhone: '+3179955114'
@@ -215,8 +215,8 @@ Defaults: 2 vCPUs, 2048 MB RAM. Each sandbox runs as an independent QEMU process
 Every sandbox gets its own overlay disk, but they all share the same base image. The overlay records only the blocks that change:
 
 ```
-qemu-img create -f qcow2 -b /var/lib/fluid/images/ubuntu-24.04.qcow2 -F qcow2 \
-  /var/lib/fluid/overlays/<sandbox-id>/disk.qcow2
+qemu-img create -f qcow2 -b /var/lib/deer/images/ubuntu-24.04.qcow2 -F qcow2 \
+  /var/lib/deer/overlays/<sandbox-id>/disk.qcow2
 ```
 
 The overlay lives at `<workDir>/<sandboxID>/disk.qcow2` alongside a `metadata.json` file that stores the sandbox's TAP device, MAC address, bridge name, and resource allocation. This metadata enables the daemon to recover state on restart.
@@ -256,7 +256,7 @@ ip link set fl-abc123def up
 
 - **ARP**: Polls `ip neigh show dev <bridge>` for the MAC address. Default mode.
 - **libvirt**: Reads dnsmasq lease files from `/var/lib/libvirt/dnsmasq/`.
-- **dnsmasq**: Reads lease files from `/var/lib/fluid/dnsmasq/`.
+- **dnsmasq**: Reads lease files from `/var/lib/deer/dnsmasq/`.
 
 <div class="sbx-diagram-container">
   <div class="sbx-diagram-header">Network Architecture</div>
@@ -310,7 +310,7 @@ ip link set fl-abc123def up
 
 Fluid never drops a static SSH key onto a sandbox. Instead, the daemon runs an internal SSH Certificate Authority that issues short-lived, scoped certificates.
 
-**Setup**: The daemon generates an Ed25519 CA keypair on first run (`ssh-keygen -t ed25519`). The CA public key is baked into base images so sandboxes trust it from boot. The private key stays on the daemon host at `/etc/fluid/ssh_ca` with `0600` permissions.
+**Setup**: The daemon generates an Ed25519 CA keypair on first run (`ssh-keygen -t ed25519`). The CA public key is baked into base images so sandboxes trust it from boot. The private key stays on the daemon host at `/etc/deer/ssh_ca` with `0600` permissions.
 
 **Per-sandbox flow**:
 
@@ -336,7 +336,7 @@ For **source VM** access (read-only commands against production VMs), the same C
       <div class="sbx-flow-card-body">
         Ed25519 keypair
         <br />
-        /etc/fluid/ssh_ca
+        /etc/deer/ssh_ca
         <br />
         Pub key in VM images
       </div>

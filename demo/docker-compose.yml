@@ -1,0 +1,82 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.1.13
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://localhost:9092
+    ports:
+      # Bind only to loopback so the daemon can reach Redpanda at localhost:9092
+      # but it does NOT conflict with the deer-daemon readiness server which
+      # binds to the virbr0 bridge IP (192.168.122.1:9092) for sandbox phone_home.
+      - "127.0.0.1:9092:9092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info", "--brokers=localhost:9092"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+
+  redpanda-init:
+    image: redpandadata/redpanda:v24.1.13
+    # Share the redpanda network namespace so localhost:9092 IS Redpanda.
+    # rpk follows the advertised broker address (localhost:9092); without this,
+    # it would resolve localhost to the init container's own loopback (not Redpanda).
+    network_mode: "service:redpanda"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint:
+      - bash
+      - -c
+      - "rpk topic create new-york chicago sf la indy --brokers localhost:9092 --partitions 3 --replicas 1 || true"
+
+  weather-producer:
+    build:
+      context: .
+      dockerfile: weather-producer.Dockerfile
+    depends_on:
+      redpanda-init:
+        condition: service_completed_successfully
+    environment:
+      BOOTSTRAP: "redpanda:9092"
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      # Bind to all interfaces so the microVM sandbox can reach ES at
+      # 192.168.122.1:9200 (the virbr0 gateway as seen from inside the sandbox).
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9200"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_BASEPATH=
+      - XPACK_SECURITY_ENABLED=false
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5601/api/status"]
+      interval: 10s
+      timeout: 10s
+      retries: 24

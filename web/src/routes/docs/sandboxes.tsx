@@ -27,7 +27,7 @@ function SandboxesPage() {
 
       <H3>QCOW2 Overlay</H3>
       <p className="mb-3 text-xs text-neutral-400">
-        Instead of copying the full disk image, fluid creates a QCOW2 overlay backed by the source
+        Instead of copying the full disk image, deer creates a QCOW2 overlay backed by the source
         VM's disk. This means sandbox creation is near-instant regardless of disk size - only
         changed blocks are written to the overlay.
       </p>
@@ -55,13 +55,13 @@ host-eth0
 
       <H3>IP Discovery</H3>
       <p className="mb-3 text-xs text-neutral-400">
-        After boot, fluid discovers the sandbox IP by monitoring ARP tables and DHCP leases on the
+        After boot, deer discovers the sandbox IP by monitoring ARP tables and DHCP leases on the
         bridge interface. The CLI polls until the IP is available, typically within 2-5 seconds.
       </p>
 
       <H2>LXC Path</H2>
       <p className="mb-3 text-xs text-neutral-400">
-        For lighter-weight sandboxes, fluid supports LXC containers as an alternative backend. LXC
+        For lighter-weight sandboxes, deer supports LXC containers as an alternative backend. LXC
         sandboxes boot faster and use less memory, but provide weaker isolation than full VMs.
       </p>
 
@@ -73,7 +73,7 @@ host-eth0
 
       <H3>Ephemeral CA-Signed Certificates</H3>
       <p className="mb-3 text-xs text-neutral-400">
-        fluid runs an internal SSH Certificate Authority. When a sandbox is created, fluid signs a
+        deer runs an internal SSH Certificate Authority. When a sandbox is created, deer signs a
         short-lived SSH certificate and injects the CA public key into the sandbox. This means:
       </p>
       <ul className="mb-3 ml-4 list-disc space-y-1 text-xs text-neutral-400">
@@ -86,11 +86,11 @@ host-eth0
       <H2>Lifecycle</H2>
       <div className="border-border mb-6 border bg-neutral-900 p-4 font-mono text-xs text-neutral-400">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="border border-blue-400/30 bg-blue-400/10 px-2 py-0.5 text-blue-400">
+          <span className="border border-green-900/30 bg-green-800/10 px-2 py-0.5 text-green-800">
             create
           </span>
           <span className="text-neutral-600">{'->'}</span>
-          <span className="border border-green-400/30 bg-green-400/10 px-2 py-0.5 text-green-400">
+          <span className="border border-green-900/30 bg-green-800/10 px-2 py-0.5 text-green-800">
             running
           </span>
           <span className="text-neutral-600">{'->'}</span>

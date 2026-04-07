@@ -40,7 +40,7 @@ That's it. The release workflow handles everything automatically:
 After a release:
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
+go install github.com/aspectrr/deer.sh/deer-cli/cmd/fluid@latest
 ```
 
 ## Manual proto tagging (if needed)

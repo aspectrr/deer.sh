@@ -8,10 +8,10 @@ if ! command -v go >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "Running: go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest"
-go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
+echo "Running: go install github.com/aspectrr/deer.sh/deer-cli/cmd/deer@latest"
+go install github.com/aspectrr/deer.sh/deer-cli/cmd/deer@latest
 
 echo ""
 echo "Fluid installed successfully!"
 echo "Ensure that $(go env GOPATH)/bin is in your PATH."
-echo "Run 'fluid --help' to get started."
+echo "Run 'deer --help' to get started."

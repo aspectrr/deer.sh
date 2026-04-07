@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Menu, X, ArrowRight, CheckCircle } from 'lucide-react'
+import { Menu, X, ArrowRight, CheckCircle, ChevronDown } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 
@@ -39,8 +39,8 @@ const services = [
     ],
   },
   {
-    id: 'pipeline-architecture',
-    title: 'Pipeline Architecture',
+    id: 'pipeline-setup',
+    title: 'Pipeline Setup',
     tagline: 'data flows that actually work',
     description:
       'Logstash and Beats pipeline design for your specific data sources. We architect pipelines that are maintainable, observable, and built to handle production load.',
@@ -53,31 +53,87 @@ const services = [
     ],
   },
   {
-    id: 'pipeline-debugging',
-    title: 'Pipeline Debugging',
-    tagline: 'find it fast, fix it right',
+    id: 'elastic-implementation',
+    title: 'Elastic Implementation',
+    tagline: 'end-to-end elastic, built for your stack',
     description:
-      'Broken ingestion, missing documents, mapping conflicts, slow queries - we diagnose and resolve ELK issues that your team has been chasing for weeks.',
+      'Custom Elasticsearch implementation tailored to your data model and search requirements. From index design to client integration.',
     details: [
-      'Ingestion pipeline failure diagnosis',
-      'Mapping conflict resolution',
-      'Query performance analysis',
-      'Memory pressure and GC investigation',
-      'Hot shard and split-brain remediation',
+      'Custom index mapping and analyzer design',
+      'Relevance tuning and scoring configuration',
+      'Search template and query DSL development',
+      'Elasticsearch client integration (Java, Python, Go, Node)',
+      'Data modeling for documents and nested objects',
     ],
   },
   {
-    id: 'system-integration',
-    title: 'System Integration',
-    tagline: 'connect elk to everything',
+    id: 'fully-managed-elastic',
+    title: 'Fully Managed Elastic',
+    tagline: 'we run it, you use it',
     description:
-      'Integrate ELK with your existing infrastructure - SIEMs, monitoring platforms, ticketing systems, cloud providers. We handle the connective tissue.',
+      'Complete Elasticsearch operations - monitoring, scaling, maintenance, and incident response. You focus on search, we handle the infrastructure.',
     details: [
-      'SIEM and security tooling integration',
-      'AWS, GCP, and Azure log ingestion',
-      'Alerting and incident routing setup',
-      'Kibana dashboard and visualization design',
-      'APM and distributed tracing configuration',
+      '24/7 cluster health monitoring and alerting',
+      'Capacity planning and horizontal scaling',
+      'Scheduled maintenance and patch windows',
+      'Incident response with documented runbooks',
+      'Monthly performance and cost reports',
+    ],
+  },
+  {
+    id: 'elastic-consulting',
+    title: 'Elastic Consulting',
+    tagline: 'expert guidance, no fluff',
+    description:
+      'Architecture reviews, performance audits, and strategic guidance for teams that need an expert perspective on their ELK deployment.',
+    details: [
+      'Architecture review and written assessment',
+      'Index strategy and mapping audit',
+      'Query performance profiling and optimization',
+      'Developer pairing and knowledge transfer',
+      'Custom training for your engineering team',
+    ],
+  },
+  {
+    id: 'elastic-upgrades',
+    title: 'Elastic Upgrades',
+    tagline: 'stay current, stay stable',
+    description:
+      'Major and minor version upgrades with zero downtime. We handle deprecation warnings, breaking changes, and post-upgrade validation.',
+    details: [
+      'Pre-upgrade compatibility and deprecation audit',
+      'Breaking change remediation across plugins and clients',
+      'Rolling upgrade execution with zero downtime',
+      'Post-upgrade performance validation',
+      'Rollback plan and recovery documentation',
+    ],
+  },
+  {
+    id: 'opensearch',
+    title: 'OpenSearch',
+    tagline: 'open source, enterprise ready',
+    description:
+      'OpenSearch cluster setup, security configuration, and Dashboards deployment. Self-hosted or AWS OpenSearch Service.',
+    details: [
+      'OpenSearch cluster setup and node sizing',
+      'Security plugin configuration (RBAC, TLS, audit logging)',
+      'OpenSearch Dashboards setup and customization',
+      'ISM index policy design',
+      'AWS OpenSearch Service and self-hosted deployment',
+    ],
+  },
+  {
+    id: 'ai-rag-implementation',
+    title: 'AI / RAG Implementation',
+    tagline: 'elastic as your ai backbone',
+    description:
+      'Vector search and RAG pipelines powered by Elasticsearch. Dense vectors, hybrid search, and LLM integration for AI applications.',
+    details: [
+      'Dense vector index design and kNN configuration',
+      'Embedding pipeline setup (OpenAI, Cohere, local models)',
+      'Hybrid search tuning (BM25 + kNN combined scoring)',
+      'Elasticsearch inference API integration',
+      'RAG pipeline wiring to LLM APIs',
     ],
   },
 ]
@@ -102,26 +158,25 @@ const logos = [
   { src: '/images/logos/951515-249938965.png', name: '' },
 ]
 
-// 4 copies per half = 8 total; mr-12 on each item makes slot width exact (160+48=208px)
-// so -50% = exactly 4 sets, seamless on any screen width
+// 4 copies per half = 8 total; mr-24 on each item makes slot width exact so -50% loops seamlessly
 const marqueeItems = Array.from({ length: 8 }, () => logos).flat()
 
 function LogoMarquee() {
   return (
-    <div className="w-full overflow-hidden border-y border-neutral-800 py-12">
+    <div className="w-full overflow-hidden border-y border-stone-200 py-12">
       <div
         className="flex items-center"
         style={{
           width: 'max-content',
-          animation: 'marquee 40s linear infinite',
+          animation: 'marquee 70s linear infinite',
         }}
       >
         {marqueeItems.map((logo, i) => (
-          <div key={i} className="mr-16 flex h-12 w-40 shrink-0 items-center justify-center">
+          <div key={i} className="mr-24 flex h-20 w-56 shrink-0 items-center justify-center">
             <img
               src={logo.src}
               alt={logo.name}
-              className="max-h-full max-w-full object-contain opacity-40 grayscale transition-opacity duration-300 hover:opacity-70"
+              className="max-h-full max-w-full object-contain opacity-85 grayscale transition-opacity duration-300 hover:opacity-100"
             />
           </div>
         ))}
@@ -162,36 +217,36 @@ function ConsultingHomePage() {
   const [expandedService, setExpandedService] = useState<string | null>(null)
 
   return (
-    <>
+    <div className="font-inter min-h-screen bg-stone-50">
       {/* Nav */}
       <header className="px-4 pt-8 pb-0 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <div className="mb-0 flex items-center justify-between">
             <Link
               to="/"
-              className="font-logo text-2xl tracking-tight text-white no-underline hover:no-underline md:text-3xl"
+              className="font-logo text-2xl tracking-tight text-stone-900 no-underline hover:no-underline md:text-3xl"
             >
-              🦌 <span className="text-green-800">deer.sh</span>
+              🦌 <span className="text-green-700">deer.sh</span>
             </Link>
-            <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
-              <a href="#services" className="transition-colors hover:text-neutral-200">
+            <div className="hidden items-center gap-6 text-sm text-stone-500 md:flex">
+              <a href="#services" className="transition-colors hover:text-stone-800">
                 Services
               </a>
-              <a href="#case-studies" className="transition-colors hover:text-neutral-200">
+              <a href="#case-studies" className="transition-colors hover:text-stone-800">
                 Case Studies
               </a>
-              <Link to="/product" className="transition-colors hover:text-neutral-200">
+              <Link to="/product" className="transition-colors hover:text-stone-800">
                 Product
               </Link>
               <a
                 href="#contact"
-                className="inline-flex items-center gap-1 rounded border border-green-900/40 bg-green-900/10 px-3 py-1 text-green-800 transition-colors hover:border-green-900/60 hover:bg-green-900/20"
+                className="inline-flex items-center gap-1 rounded-full border border-green-900/40 bg-green-900/10 px-4 py-1.5 text-green-700 transition-colors hover:border-green-900/60 hover:bg-green-900/20"
               >
                 Get in Touch
               </a>
             </div>
             <button
-              className="text-neutral-400 hover:text-white md:hidden"
+              className="text-stone-500 hover:text-stone-800 md:hidden"
               onClick={() => setMobileOpen(!mobileOpen)}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -200,11 +255,11 @@ function ConsultingHomePage() {
 
           {mobileOpen && (
             <div
-              className="fixed inset-0 z-30 bg-black md:hidden"
+              className="fixed inset-0 z-30 bg-stone-900 md:hidden"
               onClick={() => setMobileOpen(false)}
             >
               <nav
-                className="flex flex-col gap-6 p-8 pt-20 font-mono text-lg text-neutral-300"
+                className="flex flex-col gap-6 p-8 pt-20 text-lg text-stone-300"
                 onClick={(e) => e.stopPropagation()}
               >
                 <a
@@ -249,13 +304,10 @@ function ConsultingHomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="mb-3 inline-block border border-green-900/30 px-2 py-0.5 font-mono text-xs text-green-800">
-              ELK Stack Consulting
-            </div>
-            <h1 className="font-logo text-3xl tracking-tight text-neutral-100 md:text-4xl">
+            <h1 className="font-logo text-3xl font-bold tracking-tight text-stone-900 md:text-4xl">
               Expert ELK Stack Consulting for Higher Education
             </h1>
-            <p className="mt-4 leading-relaxed text-neutral-400">
+            <p className="mt-4 leading-relaxed text-stone-700">
               Cluster setup, pipeline architecture, and system integration - done right. We work
               alongside your team to build ELK infrastructure that handles production scale without
               the months of trial and error.
@@ -263,13 +315,13 @@ function ConsultingHomePage() {
             <div className="mt-6 flex items-center gap-3">
               <a
                 href="#contact"
-                className="inline-flex items-center gap-2 bg-green-900 px-5 py-2 font-mono text-sm text-white transition-colors hover:bg-green-950"
+                className="inline-flex items-center gap-2 rounded-full bg-stone-800 px-6 py-2.5 text-sm text-white transition-colors hover:bg-stone-900"
               >
-                Book a Consultation <ArrowRight className="h-4 w-4" />
+                Contac <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href="#services"
-                className="inline-flex items-center gap-2 border border-neutral-700 px-5 py-2 font-mono text-sm text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+                className="inline-flex items-center gap-2 rounded-full border border-stone-300 px-6 py-2.5 text-sm text-stone-600 transition-colors hover:border-stone-400 hover:text-stone-800"
               >
                 See Our Work
               </a>
@@ -281,19 +333,16 @@ function ConsultingHomePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-12 grid grid-cols-3 border border-neutral-800"
+            className="mt-12 grid grid-cols-3 divide-x divide-stone-200 rounded-2xl border border-stone-200"
           >
             {[
               { value: '3+', label: 'Universities' },
               { value: '<2wk', label: 'Avg. time to production' },
               { value: '100%', label: 'Documented handoffs' },
             ].map((stat, i) => (
-              <div
-                key={i}
-                className={`p-4 text-center ${i < 2 ? 'border-r border-neutral-800' : ''}`}
-              >
-                <div className="font-logo text-xl text-green-800">{stat.value}</div>
-                <div className="mt-1 font-mono text-xs text-neutral-500">{stat.label}</div>
+              <div key={i} className="p-4 text-center">
+                <div className="text-xl font-bold text-amber-800">{stat.value}</div>
+                <div className="mt-1 text-xs text-stone-400">{stat.label}</div>
               </div>
             ))}
           </motion.div>
@@ -301,46 +350,42 @@ function ConsultingHomePage() {
       </section>
 
       {/* Services */}
-      <section id="services" className="border-t border-neutral-800/60 px-4 py-16 sm:px-6">
+      <section id="services" className="border-t border-stone-200 px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <FadeIn>
-            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
-              <span className="text-green-800">#</span> Services
-            </h2>
-            <p className="mt-2 text-sm text-neutral-500">
-              Four core engagements. Scoped to your needs, priced by outcome.
+            <h2 className="font-logo text-xl tracking-tight text-stone-900">Services</h2>
+            <p className="mt-2 text-sm text-stone-500">
+              Eight core engagements. Scoped to your needs, priced by outcome.
             </p>
           </FadeIn>
 
           <div className="mt-8 space-y-3">
             {services.map((svc) => (
               <FadeIn key={svc.id}>
-                <div className="border border-neutral-800 bg-neutral-900/40">
+                <div className="rounded-2xl border border-stone-200 bg-white transition-transform duration-200 hover:-translate-y-0.5">
                   <button
                     onClick={() => setExpandedService(expandedService === svc.id ? null : svc.id)}
                     className="w-full px-5 py-4 text-left"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="font-mono text-sm text-neutral-200">{svc.title}</div>
-                        <div className="mt-0.5 font-mono text-xs text-green-800">{svc.tagline}</div>
+                        <div className="text-sm font-semibold text-stone-900">{svc.title}</div>
+                        <div className="mt-0.5 text-xs text-green-700 italic">{svc.tagline}</div>
                       </div>
-                      <span className="mt-0.5 shrink-0 font-mono text-xs text-neutral-600">
-                        {expandedService === svc.id ? '[-]' : '[+]'}
-                      </span>
+                      <ChevronDown
+                        className={`mt-0.5 h-4 w-4 shrink-0 text-stone-400 transition-transform duration-200 ${expandedService === svc.id ? 'rotate-180' : ''}`}
+                      />
                     </div>
-                    <p className="mt-2 text-xs leading-relaxed text-neutral-500">
-                      {svc.description}
-                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-stone-500">{svc.description}</p>
                   </button>
 
                   {expandedService === svc.id && (
-                    <div className="border-t border-neutral-800 px-5 py-4">
+                    <div className="border-t border-stone-200 px-5 py-4">
                       <ul className="space-y-1.5">
                         {svc.details.map((d) => (
-                          <li key={d} className="flex items-start gap-2 font-mono text-xs">
-                            <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-green-800" />
-                            <span className="text-neutral-400">{d}</span>
+                          <li key={d} className="flex items-start gap-2 text-sm">
+                            <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-700" />
+                            <span className="text-stone-700">{d}</span>
                           </li>
                         ))}
                       </ul>
@@ -353,14 +398,12 @@ function ConsultingHomePage() {
         </div>
       </section>
 
-      {/* Case Studies / Customers */}
-      <section id="case-studies" className="border-t border-neutral-800/60 py-16">
+      {/* Customers */}
+      <section id="case-studies" className="border-t border-stone-200 py-16">
         <div className="mx-auto max-w-2xl px-4 sm:px-6">
           <FadeIn>
-            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
-              <span className="text-green-800">#</span> Customers
-            </h2>
-            <p className="mt-2 text-sm text-neutral-500">
+            <h2 className="font-logo text-xl tracking-tight text-stone-900">Customers</h2>
+            <p className="mt-2 text-sm text-stone-500">
               Our engineers have worked with these organizations.
             </p>
           </FadeIn>
@@ -371,27 +414,23 @@ function ConsultingHomePage() {
       </section>
 
       {/* How We Work */}
-      <section className="border-t border-neutral-800/60 px-4 py-16 sm:px-6">
+      <section className="border-t border-stone-200 px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <FadeIn>
-            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
-              <span className="text-green-800">#</span> How We Work
-            </h2>
-            <p className="mt-2 text-sm text-neutral-500">
+            <h2 className="font-logo text-xl tracking-tight text-stone-900">How We Work</h2>
+            <p className="mt-2 text-sm text-stone-500">
               A repeatable process that gets to production fast.
             </p>
           </FadeIn>
 
-          <div className="mt-8 space-y-0 border border-neutral-800">
-            {process.map((p, i) => (
+          <div className="mt-8 space-y-3">
+            {process.map((p) => (
               <FadeIn key={p.step}>
-                <div
-                  className={`flex gap-5 px-5 py-5 ${i < process.length - 1 ? 'border-b border-neutral-800' : ''}`}
-                >
-                  <div className="shrink-0 pt-0.5 font-mono text-xs text-green-800">{p.step}</div>
+                <div className="flex gap-5 rounded-2xl border border-stone-200 bg-white px-5 py-5 transition-transform duration-200 hover:-translate-y-0.5">
+                  <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-700"></div>
                   <div>
-                    <div className="font-mono text-sm text-neutral-200">{p.title}</div>
-                    <p className="mt-1 text-xs leading-relaxed text-neutral-500">{p.description}</p>
+                    <div className="font-semibold text-stone-900">{p.title}</div>
+                    <p className="mt-1 text-sm leading-relaxed text-stone-500">{p.description}</p>
                   </div>
                 </div>
               </FadeIn>
@@ -401,30 +440,28 @@ function ConsultingHomePage() {
       </section>
 
       {/* Contact / CTA */}
-      <section id="contact" className="border-t border-neutral-800/60 px-4 py-20 sm:px-6">
+      <section id="contact" className="border-t border-stone-200 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <FadeIn>
-            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
-              <span className="text-green-800">#</span> Get in Touch
-            </h2>
-            <p className="mt-2 leading-relaxed text-neutral-400">
+            <h2 className="font-logo text-xl tracking-tight text-stone-900">Get in Touch</h2>
+            <p className="mt-2 leading-relaxed text-stone-700">
               Ready to modernize your logging infrastructure? Tell us what you're working with and
               what's not working. We'll respond within one business day.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <a
-                href="mailto:hello@deer.sh"
-                className="inline-flex items-center gap-2 bg-green-900 px-6 py-3 font-mono text-sm text-white transition-colors hover:bg-green-950"
+                href="mailto:cpfeifer@madcactus.org"
+                className="inline-flex items-center gap-2 rounded-full bg-stone-800 px-7 py-3 text-sm text-white transition-colors hover:bg-stone-900"
               >
-                hello@deer.sh <ArrowRight className="h-4 w-4" />
+                Contact <ArrowRight className="h-4 w-4" />
               </a>
-              <span className="font-mono text-xs text-neutral-600">
-                or book a 30-min discovery call
-              </span>
+              <span className="text-sm text-stone-400">or book a 30-min discovery call</span>
             </div>
 
-            <div className="mt-12 border border-neutral-800 bg-neutral-900/40 p-5">
-              <div className="mb-3 font-mono text-xs text-neutral-500">what to include</div>
+            <div className="mt-12 rounded-2xl border border-stone-200 bg-white p-5">
+              <div className="mb-3 text-xs font-medium tracking-wide text-stone-400 uppercase">
+                what to include
+              </div>
               <ul className="space-y-1.5">
                 {[
                   'Current ELK version and deployment method',
@@ -432,9 +469,9 @@ function ConsultingHomePage() {
                   'What is broken or missing today',
                   'Timeline and any compliance constraints',
                 ].map((item) => (
-                  <li key={item} className="flex items-start gap-2 font-mono text-xs">
-                    <span className="mt-0.5 text-green-800">-</span>
-                    <span className="text-neutral-400">{item}</span>
+                  <li key={item} className="flex items-start gap-2 text-sm">
+                    <span className="mt-0.5 text-green-700">-</span>
+                    <span className="text-stone-700">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -442,6 +479,6 @@ function ConsultingHomePage() {
           </FadeIn>
         </div>
       </section>
-    </>
+    </div>
   )
 }

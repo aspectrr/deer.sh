@@ -7,9 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
-	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	serverError "github.com/aspectrr/deer.sh/api/internal/error"
+	serverJSON "github.com/aspectrr/deer.sh/api/internal/json"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 type discoverSourceHostsRequest struct {

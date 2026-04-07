@@ -4,17 +4,17 @@ import (
 	"testing"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
 )
 
 // mockStream implements registry.HostStream for testing.
 type mockStream struct{}
 
-func (m *mockStream) Send(_ *fluidv1.ControlMessage) error { return nil }
+func (m *mockStream) Send(_ *deerv1.ControlMessage) error { return nil }
 
-func newRegistryWithHost(t *testing.T, hostID, orgID string, reg *fluidv1.HostRegistration) *registry.Registry {
+func newRegistryWithHost(t *testing.T, hostID, orgID string, reg *deerv1.HostRegistration) *registry.Registry {
 	t.Helper()
 	r := registry.New()
 	if err := r.Register(hostID, orgID, hostID+"-hostname", &mockStream{}); err != nil {
@@ -37,7 +37,7 @@ func TestSelectHost_NoHosts(t *testing.T) {
 func TestSelectHost_MatchingImage(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04", "debian-12"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 8192,
@@ -55,7 +55,7 @@ func TestSelectHost_MatchingImage(t *testing.T) {
 func TestSelectHost_NoMatchingImage(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"centos-9"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 8192,
@@ -70,7 +70,7 @@ func TestSelectHost_NoMatchingImage(t *testing.T) {
 func TestSelectHost_InsufficientCPU(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     0, // No CPUs available.
 		AvailableMemoryMb: 8192,
@@ -85,7 +85,7 @@ func TestSelectHost_InsufficientCPU(t *testing.T) {
 func TestSelectHost_InsufficientMemory(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 256, // Below required 2048.
@@ -100,7 +100,7 @@ func TestSelectHost_InsufficientMemory(t *testing.T) {
 func TestSelectHost_StaleHeartbeat(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 8192,
@@ -129,13 +129,13 @@ func TestSelectHost_NilRegistration(t *testing.T) {
 func TestSelectHost_PicksHighestMemory(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 4096,
 	})
 	_ = r.Register("host-2", "org-1", "h2", &mockStream{})
-	r.SetRegistration("host-2", &fluidv1.HostRegistration{
+	r.SetRegistration("host-2", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 16384,
@@ -153,7 +153,7 @@ func TestSelectHost_PicksHighestMemory(t *testing.T) {
 func TestSelectHost_FiltersByOrg(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 8192,
@@ -168,8 +168,8 @@ func TestSelectHost_FiltersByOrg(t *testing.T) {
 func TestSelectHostForSourceVM_Success(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
-		SourceVms: []*fluidv1.SourceVMInfo{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server", State: "running"},
 			{Name: "db-server", State: "stopped"},
 		},
@@ -189,8 +189,8 @@ func TestSelectHostForSourceVM_Success(t *testing.T) {
 func TestSelectHostForSourceVM_NoMatch(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
-		SourceVms: []*fluidv1.SourceVMInfo{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server"},
 		},
 	})
@@ -212,8 +212,8 @@ func TestSelectHostForSourceVM_NoHosts(t *testing.T) {
 func TestSelectHostForSourceVM_StaleHeartbeat(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
-		SourceVms: []*fluidv1.SourceVMInfo{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server"},
 		},
 	})
@@ -241,8 +241,8 @@ func TestSelectHostForSourceVM_NilRegistration(t *testing.T) {
 func TestSelectHostForSourceVM_FiltersByOrg(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
-		SourceVms: []*fluidv1.SourceVMInfo{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server"},
 		},
 	})
@@ -259,11 +259,11 @@ func TestSelectHostForSourceVM_FiltersByOrg(t *testing.T) {
 func TestSelectHost_FallbackToSourceVM(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"centos-9"}, // Does NOT match "web-server"
 		AvailableCpus:     4,
 		AvailableMemoryMb: 8192,
-		SourceVms: []*fluidv1.SourceVMInfo{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server", State: "running"},
 		},
 	})
@@ -288,8 +288,8 @@ func TestSelectHostForSourceVM_PicksBestScore(t *testing.T) {
 	r := registry.New()
 	// Host 1: lower resources
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
-		SourceVms: []*fluidv1.SourceVMInfo{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server", State: "running"},
 		},
 		AvailableCpus:     2,
@@ -297,8 +297,8 @@ func TestSelectHostForSourceVM_PicksBestScore(t *testing.T) {
 	})
 	// Host 2: higher resources, same source VM
 	_ = r.Register("host-2", "org-1", "h2", &mockStream{})
-	r.SetRegistration("host-2", &fluidv1.HostRegistration{
-		SourceVms: []*fluidv1.SourceVMInfo{
+	r.SetRegistration("host-2", &deerv1.HostRegistration{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server", State: "running"},
 		},
 		AvailableCpus:     8,
@@ -320,14 +320,14 @@ func TestSelectHost_ScorePrefersCPUAndMemory(t *testing.T) {
 	r := registry.New()
 	// Host 1: more memory but fewer CPUs
 	_ = r.Register("host-1", "org-1", "h1", &mockStream{})
-	r.SetRegistration("host-1", &fluidv1.HostRegistration{
+	r.SetRegistration("host-1", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     2,
 		AvailableMemoryMb: 16384,
 	})
 	// Host 2: fewer memory but more CPUs
 	_ = r.Register("host-2", "org-1", "h2", &mockStream{})
-	r.SetRegistration("host-2", &fluidv1.HostRegistration{
+	r.SetRegistration("host-2", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     16,
 		AvailableMemoryMb: 4096,
@@ -347,13 +347,13 @@ func TestSelectHost_ScorePrefersCPUAndMemory(t *testing.T) {
 func TestSelectHost_EqualScorePicksFirst(t *testing.T) {
 	r := registry.New()
 	_ = r.Register("host-a", "org-1", "ha", &mockStream{})
-	r.SetRegistration("host-a", &fluidv1.HostRegistration{
+	r.SetRegistration("host-a", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 8192,
 	})
 	_ = r.Register("host-b", "org-1", "hb", &mockStream{})
-	r.SetRegistration("host-b", &fluidv1.HostRegistration{
+	r.SetRegistration("host-b", &deerv1.HostRegistration{
 		BaseImages:        []string{"ubuntu-22.04"},
 		AvailableCpus:     4,
 		AvailableMemoryMb: 8192,

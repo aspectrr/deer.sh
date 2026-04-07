@@ -120,14 +120,14 @@ function BillingPage() {
               </h3>
               <p className="text-muted-foreground text-xs">
                 {plan === 'free'
-                  ? '1 sandbox, 3 source VMs, 1 fluid daemon'
+                  ? '1 sandbox, 3 source VMs, 1 deer-daemon'
                   : 'Pay only for what you use'}
               </p>
             </div>
           </div>
           {plan === 'free' && (
             <Button
-              className="bg-blue-500 text-xs text-black hover:bg-blue-400"
+              className="bg-green-900 text-xs text-black hover:bg-green-800"
               onClick={() => subscribe.mutate()}
               disabled={subscribe.isPending}
             >
@@ -179,7 +179,7 @@ function BillingPage() {
       <div className="border-border border bg-neutral-900/50 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Calculator className="h-5 w-5 text-green-400" />
+            <Calculator className="h-5 w-5 text-green-800" />
             <div>
               <h3 className="text-xs font-medium text-white">Cost Calculator</h3>
               <p className="text-muted-foreground text-[10px]">
@@ -201,7 +201,7 @@ function BillingPage() {
       <div className="border-border border bg-neutral-900/50 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CreditCard className="h-5 w-5 text-blue-400" />
+            <CreditCard className="h-5 w-5 text-green-800" />
             <div>
               <h3 className="text-xs font-medium text-white">Payment Method</h3>
               <p className="text-muted-foreground text-[10px]">
@@ -237,8 +237,8 @@ function UsageMeter({
   const hasLimit = limit != null && limit > 0
   const pct = hasLimit ? Math.min((current / limit) * 100, 100) : 0
   const colorMap: Record<string, string> = {
-    blue: 'bg-blue-400',
-    green: 'bg-green-400',
+    blue: 'bg-green-800',
+    green: 'bg-green-800',
     amber: 'bg-amber-400',
     purple: 'bg-purple-400',
   }
@@ -259,7 +259,7 @@ function UsageMeter({
       </div>
       <div className="mt-2 h-1.5 w-full bg-neutral-800">
         <div
-          className={`h-full ${colorMap[color] || 'bg-blue-400'} transition-all`}
+          className={`h-full ${colorMap[color] || 'bg-green-800'} transition-all`}
           style={{ width: hasLimit ? `${pct}%` : '0%' }}
         />
       </div>

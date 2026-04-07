@@ -1,0 +1,15 @@
+[Unit]
+Description=deer-daemon sandbox host
+After=network.target libvirtd.service
+
+[Service]
+User=deer-daemon
+Group=deer-daemon
+ExecStart=/usr/local/bin/deer-daemon --config /etc/deer-daemon/daemon.yaml
+AmbientCapabilities=CAP_NET_ADMIN
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

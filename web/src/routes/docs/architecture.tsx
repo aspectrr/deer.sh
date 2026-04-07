@@ -13,14 +13,14 @@ function ArchitecturePage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <h1 className="mb-1 text-lg font-medium text-white">Architecture</h1>
       <p className="text-muted-foreground mb-8 text-xs">
-        How the three tiers of fluid.sh fit together.
+        How the three tiers of deer.sh fit together.
       </p>
 
       <ArchitectureDiagram />
 
       <H2>Three Ways to Use Fluid</H2>
       <p className="mb-4 text-xs text-neutral-400">
-        fluid.sh is designed to scale with your needs. Start with the CLI on a single machine, add
+        deer.sh is designed to scale with your needs. Start with the CLI on a single machine, add
         the daemon for persistence, then connect to the control plane for multi-host.
       </p>
 
@@ -80,27 +80,27 @@ function ArchitecturePage() {
           <tbody className="text-neutral-400">
             <tr className="border-border border-b">
               <td className="px-3 py-1.5">Local dev, quick experiments</td>
-              <td className="px-3 py-1.5 text-blue-400">Single Host</td>
+              <td className="px-3 py-1.5 text-green-800">Single Host</td>
             </tr>
             <tr className="border-border border-b">
               <td className="px-3 py-1.5">Background sandbox management</td>
-              <td className="px-3 py-1.5 text-blue-400">CLI + Daemon</td>
+              <td className="px-3 py-1.5 text-green-800">CLI + Daemon</td>
             </tr>
             <tr className="border-border border-b">
               <td className="px-3 py-1.5">AI agent integration (MCP)</td>
-              <td className="px-3 py-1.5 text-blue-400">CLI + Daemon</td>
+              <td className="px-3 py-1.5 text-green-800">CLI + Daemon</td>
             </tr>
             <tr className="border-border border-b">
               <td className="px-3 py-1.5">Multi-host fleet</td>
-              <td className="px-3 py-1.5 text-blue-400">Full Hosted</td>
+              <td className="px-3 py-1.5 text-green-800">Full Hosted</td>
             </tr>
             <tr className="border-border border-b">
               <td className="px-3 py-1.5">Web dashboard + approval flow</td>
-              <td className="px-3 py-1.5 text-blue-400">Full Hosted</td>
+              <td className="px-3 py-1.5 text-green-800">Full Hosted</td>
             </tr>
             <tr className="border-border border-b last:border-0">
               <td className="px-3 py-1.5">Team collaboration</td>
-              <td className="px-3 py-1.5 text-blue-400">Full Hosted</td>
+              <td className="px-3 py-1.5 text-green-800">Full Hosted</td>
             </tr>
           </tbody>
         </table>
@@ -122,7 +122,7 @@ function ArchitecturePage() {
         <li>VMs get IPs on the same network as the host</li>
         <li>Daemon and VMs are directly reachable - no proxy needed</li>
         <li>
-          Daemon config: <code className="text-green-400">ssh.proxy_jump: ""</code> (default)
+          Daemon config: <code className="text-green-800">ssh.proxy_jump: ""</code> (default)
         </li>
         <li>CLI onboarding auto-detects when you answer "yes" to direct VM access</li>
       </ul>
@@ -132,15 +132,15 @@ function ArchitecturePage() {
         <li>VMs get private IPs only reachable from the host</li>
         <li>
           Daemon must proxy jump:{' '}
-          <code className="text-green-400">ssh.proxy_jump: "fluid-daemon@host"</code>
+          <code className="text-green-800">ssh.proxy_jump: "deer-daemon@host"</code>
         </li>
         <li>Common with default libvirt NAT bridge or cloud VMs (Hetzner, etc.)</li>
         <li>CLI onboarding auto-configures this for both local and remote daemons</li>
       </ul>
 
       <Callout type="info">
-        Both topologies require the daemon's <code className="text-green-400">identity.pub</code> in
-        the host's <code className="text-green-400">~/.ssh/authorized_keys</code>.
+        Both topologies require the daemon's <code className="text-green-800">identity.pub</code> in
+        the host's <code className="text-green-800">~/.ssh/authorized_keys</code>.
       </Callout>
 
       <PrevNext />

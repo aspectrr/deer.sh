@@ -12,7 +12,7 @@ function TierBox({ label, sublabel, items, highlight }: TierBoxProps) {
     <div
       className={cn(
         'min-w-50 border p-4',
-        highlight ? 'border-blue-400/40 bg-blue-400/5' : 'border-border bg-neutral-900'
+        highlight ? 'border-green-900/40 bg-green-800/5' : 'border-border bg-neutral-900'
       )}
     >
       {/* Terminal title bar */}
@@ -26,7 +26,7 @@ function TierBox({ label, sublabel, items, highlight }: TierBoxProps) {
       <ul className="space-y-1">
         {items.map((item) => (
           <li key={item} className="text-[10px] text-neutral-500">
-            <span className="mr-1 text-blue-400">-</span>
+            <span className="mr-1 text-green-800">-</span>
             {item}
           </li>
         ))}
@@ -60,7 +60,7 @@ export function ArchitectureDiagram() {
         />
         <Arrow label="gRPC" />
         <TierBox
-          label="fluid-daemon"
+          label="deer-daemon"
           sublabel="tier 2"
           highlight
           items={['gRPC server', 'Sandbox lifecycle', 'Image cache']}

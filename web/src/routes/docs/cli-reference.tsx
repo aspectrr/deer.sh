@@ -7,15 +7,15 @@ export const Route = createFileRoute('/docs/cli-reference')({
 })
 
 const cliEntryPoints = [
-  { name: 'fluid', description: 'Launch the interactive TUI agent (default)' },
-  { name: 'fluid connect <address>', description: 'Connect to a fluid daemon and save config' },
-  { name: 'fluid mcp', description: 'Start MCP server on stdio for editor integration' },
-  { name: 'fluid doctor', description: 'Check daemon setup on a host' },
-  { name: 'fluid source prepare <host>', description: 'Prepare a host for read-only access' },
-  { name: 'fluid source list', description: 'List configured source hosts' },
-  { name: 'fluid update', description: 'Self-update to the latest release' },
-  { name: 'fluid --version', description: 'Print version info' },
-  { name: 'fluid --config <path>', description: 'Use a custom config file' },
+  { name: 'deer', description: 'Launch the interactive TUI agent (default)' },
+  { name: 'deer connect <address>', description: 'Connect to a deer-daemon and save config' },
+  { name: 'deer mcp', description: 'Start MCP server on stdio for editor integration' },
+  { name: 'deer doctor', description: 'Check daemon setup on a host' },
+  { name: 'deer source prepare <host>', description: 'Prepare a host for read-only access' },
+  { name: 'deer source list', description: 'List configured source hosts' },
+  { name: 'deer update', description: 'Self-update to the latest release' },
+  { name: 'deer --version', description: 'Print version info' },
+  { name: 'deer --config <path>', description: 'Use a custom config file' },
 ]
 
 const slashCommands = [
@@ -23,7 +23,7 @@ const slashCommands = [
   { name: '/sandboxes', description: 'List active sandboxes' },
   { name: '/hosts', description: 'List configured remote hosts' },
   { name: '/playbooks', description: 'List generated Ansible playbooks' },
-  { name: '/connect', description: 'Connect to a fluid daemon' },
+  { name: '/connect', description: 'Connect to a deer-daemon' },
   { name: '/prepare', description: 'Prepare a host for read-only access' },
   { name: '/compact', description: 'Summarize and compact conversation history' },
   { name: '/context', description: 'Show current context token usage' },
@@ -121,7 +121,7 @@ function TuiMcpReferencePage() {
           <tbody className="text-neutral-400">
             {cliEntryPoints.map((cmd) => (
               <tr key={cmd.name} className="border-border border-b last:border-0">
-                <td className="px-3 py-1.5 font-mono whitespace-nowrap text-blue-400">
+                <td className="px-3 py-1.5 font-mono whitespace-nowrap text-green-800">
                   {cmd.name}
                 </td>
                 <td className="px-3 py-1.5">{cmd.description}</td>
@@ -146,7 +146,7 @@ function TuiMcpReferencePage() {
           <tbody className="text-neutral-400">
             {slashCommands.map((cmd) => (
               <tr key={cmd.name} className="border-border border-b last:border-0">
-                <td className="px-3 py-1.5 font-mono text-blue-400">{cmd.name}</td>
+                <td className="px-3 py-1.5 font-mono text-green-800">{cmd.name}</td>
                 <td className="px-3 py-1.5">{cmd.description}</td>
               </tr>
             ))}
@@ -176,7 +176,7 @@ function TuiMcpReferencePage() {
 
       <H2>MCP Tools</H2>
       <p className="mb-3 text-xs text-neutral-400">
-        These tools are exposed via <code className="text-blue-400">fluid mcp</code> for use with
+        These tools are exposed via <code className="text-green-800">deer mcp</code> for use with
         Claude Code, Cursor, Windsurf, and other MCP-compatible clients.
       </p>
       <div className="border-border mb-6 overflow-x-auto border">
@@ -191,7 +191,7 @@ function TuiMcpReferencePage() {
           <tbody className="text-neutral-400">
             {mcpTools.map((tool) => (
               <tr key={tool.name} className="border-border border-b last:border-0">
-                <td className="px-3 py-1.5 font-mono whitespace-nowrap text-blue-400">
+                <td className="px-3 py-1.5 font-mono whitespace-nowrap text-green-800">
                   {tool.name}
                 </td>
                 <td className="px-3 py-1.5 font-mono whitespace-nowrap text-neutral-500">

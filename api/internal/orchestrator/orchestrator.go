@@ -5,17 +5,19 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 	"sync"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
-	"github.com/aspectrr/fluid.sh/api/internal/id"
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/id"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
@@ -37,7 +39,7 @@ const (
 // HostSender abstracts the ability to send a ControlMessage to a specific host
 // and wait for a correlated response.
 type HostSender interface {
-	SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error)
+	SendAndWait(ctx context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error)
 }
 
 // Orchestrator coordinates sandbox lifecycle operations across connected hosts.
@@ -115,19 +117,19 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	}
 
 	// Map live flag to snapshot mode
-	var snapshotMode fluidv1.SnapshotMode
+	var snapshotMode deerv1.SnapshotMode
 	if req.Live {
-		snapshotMode = fluidv1.SnapshotMode_SNAPSHOT_MODE_FRESH
+		snapshotMode = deerv1.SnapshotMode_SNAPSHOT_MODE_FRESH
 	}
 
 	// Resolve source host connection if source_host_id is provided
-	var sourceHostConn *fluidv1.SourceHostConnection
+	var sourceHostConn *deerv1.SourceHostConnection
 	if req.SourceHostID != "" {
 		sh, err := o.store.GetSourceHost(ctx, req.SourceHostID)
 		if err != nil {
 			return nil, fmt.Errorf("get source host: %w", err)
 		}
-		sourceHostConn = &fluidv1.SourceHostConnection{
+		sourceHostConn = &deerv1.SourceHostConnection{
 			Type:             sh.Type,
 			SshHost:          sh.Hostname,
 			SshPort:          int32(sh.SSHPort),
@@ -141,11 +143,68 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		}
 	}
 
+	kafkaBindings := make([]*deerv1.KafkaCaptureConfigBinding, 0, len(req.KafkaCaptureConfigIDs))
+	dataSources := make([]*deerv1.DataSourceAttachment, 0, len(req.DataSources)+len(req.KafkaCaptureConfigIDs))
+	for _, ds := range mergeSandboxDataSources(req) {
+		dsType := ds.Type
+		if dsType == "" && ds.Kafka != nil {
+			dsType = DataSourceTypeKafka
+		}
+		switch dsType {
+		case DataSourceTypeKafka:
+			configID := ds.ConfigRef
+			if configID == "" && ds.Kafka != nil {
+				configID = ds.Kafka.CaptureConfigID
+			}
+			if configID == "" {
+				return nil, fmt.Errorf("kafka data source requires config_ref or kafka.capture_config_id")
+			}
+
+			cfg, err := o.store.GetKafkaCaptureConfig(ctx, configID)
+			if err != nil {
+				return nil, fmt.Errorf("get kafka capture config %s: %w", configID, err)
+			}
+			if cfg.OrgID != req.OrgID {
+				return nil, fmt.Errorf("kafka capture config %s not found in org", configID)
+			}
+
+			binding := kafkaCaptureConfigBinding(cfg)
+			kafkaBindings = append(kafkaBindings, binding)
+
+			kafkaAttachment := &deerv1.KafkaDataSourceAttachment{
+				CaptureConfig: binding,
+			}
+			if ds.Kafka != nil {
+				if len(ds.Kafka.Topics) > 0 {
+					for _, topic := range ds.Kafka.Topics {
+						if !slices.Contains([]string(cfg.Topics), topic) {
+							return nil, fmt.Errorf("kafka topic %q is not present in capture config %s", topic, cfg.ID)
+						}
+					}
+					kafkaAttachment.Topics = append([]string(nil), ds.Kafka.Topics...)
+				}
+				if ds.Kafka.ReplayWindowSeconds > 0 {
+					kafkaAttachment.ReplayWindowSeconds = int32(ds.Kafka.ReplayWindowSeconds)
+				}
+			}
+
+			dataSources = append(dataSources, &deerv1.DataSourceAttachment{
+				Type:      deerv1.DataSourceType_DATA_SOURCE_TYPE_KAFKA,
+				ConfigRef: cfg.ID,
+				Config: &deerv1.DataSourceAttachment_Kafka{
+					Kafka: kafkaAttachment,
+				},
+			})
+		default:
+			return nil, fmt.Errorf("unsupported data source type %q", ds.Type)
+		}
+	}
+
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_CreateSandbox{
-			CreateSandbox: &fluidv1.CreateSandboxCommand{
+		Payload: &deerv1.ControlMessage_CreateSandbox{
+			CreateSandbox: &deerv1.CreateSandboxCommand{
 				SandboxId:            sandboxID,
 				BaseImage:            req.SourceVM,
 				Name:                 name,
@@ -157,6 +216,8 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 				SourceVm:             req.SourceVM,
 				SnapshotMode:         snapshotMode,
 				SourceHostConnection: sourceHostConn,
+				KafkaCaptureConfigs:  kafkaBindings,
+				DataSources:          dataSources,
 			},
 		},
 	}
@@ -206,10 +267,10 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		o.logger.Warn("DB persist failed, issuing compensating destroy",
 			"sandbox_id", sandboxID, "host_id", host.HostID, "error", err)
 		compReqID := uuid.New().String()
-		compCmd := &fluidv1.ControlMessage{
+		compCmd := &deerv1.ControlMessage{
 			RequestId: compReqID,
-			Payload: &fluidv1.ControlMessage_DestroySandbox{
-				DestroySandbox: &fluidv1.DestroySandboxCommand{
+			Payload: &deerv1.ControlMessage_DestroySandbox{
+				DestroySandbox: &deerv1.DestroySandboxCommand{
 					SandboxId: sandboxID,
 				},
 			},
@@ -221,6 +282,23 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 		return nil, fmt.Errorf("persist sandbox: %w", err)
 	}
 
+	for _, stub := range created.GetKafkaStubs() {
+		if err := o.store.CreateSandboxKafkaStub(ctx, &store.SandboxKafkaStub{
+			ID:                  stub.GetStubId(),
+			OrgID:               req.OrgID,
+			SandboxID:           sandboxID,
+			CaptureConfigID:     stub.GetCaptureConfigId(),
+			BrokerEndpoint:      stub.GetBrokerEndpoint(),
+			Topics:              store.StringSlice(stub.GetTopics()),
+			ReplayWindowSeconds: stub.GetReplayWindowSeconds(),
+			State:               kafkaStubStateString(stub.GetState()),
+			LastReplayCursor:    stub.GetLastReplayCursor(),
+			AutoStart:           stub.GetAutoStart(),
+		}); err != nil {
+			o.logger.Warn("persist sandbox kafka stub failed", "sandbox_id", sandboxID, "stub_id", stub.GetStubId(), "error", err)
+		}
+	}
+
 	o.logger.Info("sandbox created",
 		"sandbox_id", sandboxID,
 		"host_id", host.HostID,
@@ -228,6 +306,63 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 	)
 
 	return sandbox, nil
+}
+
+func mergeSandboxDataSources(req CreateSandboxRequest) []DataSourceAttachmentRequest {
+	merged := make([]DataSourceAttachmentRequest, 0, len(req.DataSources)+len(req.KafkaCaptureConfigIDs))
+	merged = append(merged, req.DataSources...)
+
+	existingKafka := make(map[string]struct{}, len(req.DataSources))
+	for _, ds := range req.DataSources {
+		dsType := ds.Type
+		if dsType == "" && ds.Kafka != nil {
+			dsType = DataSourceTypeKafka
+		}
+		if dsType != DataSourceTypeKafka {
+			continue
+		}
+		configID := ds.ConfigRef
+		if configID == "" && ds.Kafka != nil {
+			configID = ds.Kafka.CaptureConfigID
+		}
+		if configID != "" {
+			existingKafka[configID] = struct{}{}
+		}
+	}
+
+	for _, configID := range req.KafkaCaptureConfigIDs {
+		if _, ok := existingKafka[configID]; ok {
+			continue
+		}
+		merged = append(merged, DataSourceAttachmentRequest{
+			Type:      DataSourceTypeKafka,
+			ConfigRef: configID,
+			Kafka: &KafkaDataSourceAttachmentRequest{
+				CaptureConfigID: configID,
+			},
+		})
+	}
+	return merged
+}
+
+func kafkaCaptureConfigBinding(cfg *store.KafkaCaptureConfig) *deerv1.KafkaCaptureConfigBinding {
+	return &deerv1.KafkaCaptureConfigBinding{
+		Id:                  cfg.ID,
+		SourceVm:            cfg.SourceVM,
+		BootstrapServers:    []string(cfg.BootstrapServers),
+		Topics:              []string(cfg.Topics),
+		Username:            cfg.Username,
+		Password:            cfg.Password,
+		SaslMechanism:       cfg.SASLMechanism,
+		TlsEnabled:          cfg.TLSEnabled,
+		InsecureSkipVerify:  cfg.InsecureSkipVerify,
+		TlsCaPem:            cfg.TLSCAPEM,
+		Codec:               cfg.Codec,
+		RedactionRules:      []string(cfg.RedactionRules),
+		MaxBufferAgeSeconds: cfg.MaxBufferAgeSecs,
+		MaxBufferBytes:      cfg.MaxBufferBytes,
+		Enabled:             cfg.Enabled,
+	}
 }
 
 // GetSandbox retrieves a sandbox by ID, scoped to the given org.
@@ -248,6 +383,92 @@ func (o *Orchestrator) ListSandboxesByOrg(ctx context.Context, orgID string) ([]
 	return result, nil
 }
 
+func (o *Orchestrator) ListSandboxKafkaStubs(ctx context.Context, orgID, sandboxID string) ([]*store.SandboxKafkaStub, error) {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
+	if err != nil {
+		return nil, err
+	}
+
+	reqID := uuid.New().String()
+	cmd := &deerv1.ControlMessage{
+		RequestId: reqID,
+		Payload: &deerv1.ControlMessage_ListSandboxKafkaStubs{
+			ListSandboxKafkaStubs: &deerv1.ListSandboxKafkaStubsCommand{SandboxId: sandboxID},
+		},
+	}
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, timeoutStartStop)
+	if err != nil {
+		return nil, fmt.Errorf("list sandbox kafka stubs on host %s: %w", sandbox.HostID, err)
+	}
+
+	list := resp.GetListSandboxKafkaStubsResponse()
+	if list == nil {
+		if errReport := resp.GetErrorReport(); errReport != nil {
+			return nil, fmt.Errorf("host error: %s", errReport.GetError())
+		}
+		return nil, fmt.Errorf("unexpected response type from host")
+	}
+
+	stubs := make([]*store.SandboxKafkaStub, 0, len(list.GetStubs()))
+	for _, stub := range list.GetStubs() {
+		item := sandboxKafkaStubFromProto(orgID, stub)
+		stubs = append(stubs, item)
+		if err := o.store.UpdateSandboxKafkaStub(ctx, item); err != nil && !errors.Is(err, store.ErrNotFound) {
+			o.logger.Warn("update sandbox kafka stub failed", "stub_id", item.ID, "error", err)
+		} else if errors.Is(err, store.ErrNotFound) {
+			_ = o.store.CreateSandboxKafkaStub(ctx, item)
+		}
+	}
+	return stubs, nil
+}
+
+func (o *Orchestrator) GetSandboxKafkaStub(ctx context.Context, orgID, sandboxID, stubID string) (*store.SandboxKafkaStub, error) {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
+	if err != nil {
+		return nil, err
+	}
+
+	reqID := uuid.New().String()
+	cmd := &deerv1.ControlMessage{
+		RequestId: reqID,
+		Payload: &deerv1.ControlMessage_GetSandboxKafkaStub{
+			GetSandboxKafkaStub: &deerv1.GetSandboxKafkaStubCommand{SandboxId: sandboxID, StubId: stubID},
+		},
+	}
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, timeoutStartStop)
+	if err != nil {
+		return nil, fmt.Errorf("get sandbox kafka stub on host %s: %w", sandbox.HostID, err)
+	}
+
+	info := resp.GetSandboxKafkaStubInfo()
+	if info == nil {
+		if errReport := resp.GetErrorReport(); errReport != nil {
+			return nil, fmt.Errorf("host error: %s", errReport.GetError())
+		}
+		return nil, fmt.Errorf("unexpected response type from host")
+	}
+
+	item := sandboxKafkaStubFromProto(orgID, info)
+	if err := o.store.UpdateSandboxKafkaStub(ctx, item); err != nil && !errors.Is(err, store.ErrNotFound) {
+		o.logger.Warn("update sandbox kafka stub failed", "stub_id", item.ID, "error", err)
+	} else if errors.Is(err, store.ErrNotFound) {
+		_ = o.store.CreateSandboxKafkaStub(ctx, item)
+	}
+	return item, nil
+}
+
+func (o *Orchestrator) StartSandboxKafkaStub(ctx context.Context, orgID, sandboxID, stubID string) (*store.SandboxKafkaStub, error) {
+	return o.transitionSandboxKafkaStub(ctx, orgID, sandboxID, stubID, "start")
+}
+
+func (o *Orchestrator) StopSandboxKafkaStub(ctx context.Context, orgID, sandboxID, stubID string) (*store.SandboxKafkaStub, error) {
+	return o.transitionSandboxKafkaStub(ctx, orgID, sandboxID, stubID, "stop")
+}
+
+func (o *Orchestrator) RestartSandboxKafkaStub(ctx context.Context, orgID, sandboxID, stubID string) (*store.SandboxKafkaStub, error) {
+	return o.transitionSandboxKafkaStub(ctx, orgID, sandboxID, stubID, "restart")
+}
+
 // DestroySandbox sends a destroy command to the host and marks the sandbox
 // as destroyed in the store. The sandbox is looked up scoped to orgID for
 // defense-in-depth authorization.
@@ -258,10 +479,10 @@ func (o *Orchestrator) DestroySandbox(ctx context.Context, orgID, sandboxID stri
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_DestroySandbox{
-			DestroySandbox: &fluidv1.DestroySandboxCommand{
+		Payload: &deerv1.ControlMessage_DestroySandbox{
+			DestroySandbox: &deerv1.DestroySandboxCommand{
 				SandboxId: sandboxID,
 			},
 		},
@@ -299,10 +520,10 @@ func (o *Orchestrator) RunCommand(ctx context.Context, orgID, sandboxID, command
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_RunCommand{
-			RunCommand: &fluidv1.RunCommandCommand{
+		Payload: &deerv1.ControlMessage_RunCommand{
+			RunCommand: &deerv1.RunCommandCommand{
 				SandboxId:      sandboxID,
 				Command:        command,
 				TimeoutSeconds: int32(timeoutSec),
@@ -359,10 +580,10 @@ func (o *Orchestrator) StartSandbox(ctx context.Context, orgID, sandboxID string
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_StartSandbox{
-			StartSandbox: &fluidv1.StartSandboxCommand{
+		Payload: &deerv1.ControlMessage_StartSandbox{
+			StartSandbox: &deerv1.StartSandboxCommand{
 				SandboxId: sandboxID,
 			},
 		},
@@ -405,10 +626,10 @@ func (o *Orchestrator) StopSandbox(ctx context.Context, orgID, sandboxID string)
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_StopSandbox{
-			StopSandbox: &fluidv1.StopSandboxCommand{
+		Payload: &deerv1.ControlMessage_StopSandbox{
+			StopSandbox: &deerv1.StopSandboxCommand{
 				SandboxId: sandboxID,
 			},
 		},
@@ -443,10 +664,10 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, orgID, sandboxID, nam
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_CreateSnapshot{
-			CreateSnapshot: &fluidv1.SnapshotCommand{
+		Payload: &deerv1.ControlMessage_CreateSnapshot{
+			CreateSnapshot: &deerv1.SnapshotCommand{
 				SandboxId:    sandboxID,
 				SnapshotName: name,
 			},
@@ -570,6 +791,82 @@ func (o *Orchestrator) GetHost(ctx context.Context, id, orgID string) (*HostInfo
 // Source VM operations
 // ---------------------------------------------------------------------------
 
+func (o *Orchestrator) transitionSandboxKafkaStub(ctx context.Context, orgID, sandboxID, stubID, action string) (*store.SandboxKafkaStub, error) {
+	sandbox, err := o.store.GetSandboxByOrg(ctx, orgID, sandboxID)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := &deerv1.ControlMessage{RequestId: uuid.New().String()}
+	switch action {
+	case "start":
+		cmd.Payload = &deerv1.ControlMessage_StartSandboxKafkaStub{
+			StartSandboxKafkaStub: &deerv1.StartSandboxKafkaStubCommand{SandboxId: sandboxID, StubId: stubID},
+		}
+	case "stop":
+		cmd.Payload = &deerv1.ControlMessage_StopSandboxKafkaStub{
+			StopSandboxKafkaStub: &deerv1.StopSandboxKafkaStubCommand{SandboxId: sandboxID, StubId: stubID},
+		}
+	case "restart":
+		cmd.Payload = &deerv1.ControlMessage_RestartSandboxKafkaStub{
+			RestartSandboxKafkaStub: &deerv1.RestartSandboxKafkaStubCommand{SandboxId: sandboxID, StubId: stubID},
+		}
+	default:
+		return nil, fmt.Errorf("unsupported kafka stub action %q", action)
+	}
+
+	resp, err := o.sender.SendAndWait(ctx, sandbox.HostID, cmd, timeoutStartStop)
+	if err != nil {
+		return nil, fmt.Errorf("%s sandbox kafka stub on host %s: %w", action, sandbox.HostID, err)
+	}
+
+	info := resp.GetSandboxKafkaStubInfo()
+	if info == nil {
+		if errReport := resp.GetErrorReport(); errReport != nil {
+			return nil, fmt.Errorf("host error: %s", errReport.GetError())
+		}
+		return nil, fmt.Errorf("unexpected response type from host")
+	}
+
+	item := sandboxKafkaStubFromProto(orgID, info)
+	if err := o.store.UpdateSandboxKafkaStub(ctx, item); err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	} else if errors.Is(err, store.ErrNotFound) {
+		if err := o.store.CreateSandboxKafkaStub(ctx, item); err != nil {
+			return nil, err
+		}
+	}
+	return item, nil
+}
+
+func sandboxKafkaStubFromProto(orgID string, stub *deerv1.SandboxKafkaStubInfo) *store.SandboxKafkaStub {
+	return &store.SandboxKafkaStub{
+		ID:                  stub.GetStubId(),
+		OrgID:               orgID,
+		SandboxID:           stub.GetSandboxId(),
+		CaptureConfigID:     stub.GetCaptureConfigId(),
+		BrokerEndpoint:      stub.GetBrokerEndpoint(),
+		Topics:              store.StringSlice(stub.GetTopics()),
+		ReplayWindowSeconds: stub.GetReplayWindowSeconds(),
+		State:               kafkaStubStateString(stub.GetState()),
+		LastReplayCursor:    stub.GetLastReplayCursor(),
+		AutoStart:           stub.GetAutoStart(),
+	}
+}
+
+func kafkaStubStateString(state deerv1.KafkaStubState) string {
+	switch state {
+	case deerv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING:
+		return "running"
+	case deerv1.KafkaStubState_KAFKA_STUB_STATE_PAUSED:
+		return "paused"
+	case deerv1.KafkaStubState_KAFKA_STUB_STATE_ERROR:
+		return "error"
+	default:
+		return "stopped"
+	}
+}
+
 // ListVMs aggregates source VMs from all connected hosts in parallel.
 func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, error) {
 	connected := o.registry.ListConnectedByOrg(orgID)
@@ -592,10 +889,10 @@ func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, er
 			}
 
 			reqID := uuid.New().String()
-			cmd := &fluidv1.ControlMessage{
+			cmd := &deerv1.ControlMessage{
 				RequestId: reqID,
-				Payload: &fluidv1.ControlMessage_ListSourceVms{
-					ListSourceVms: &fluidv1.ListSourceVMsCommand{},
+				Payload: &deerv1.ControlMessage_ListSourceVms{
+					ListSourceVms: &deerv1.ListSourceVMsCommand{},
 				},
 			}
 
@@ -639,17 +936,17 @@ func (o *Orchestrator) ListVMs(ctx context.Context, orgID string) ([]*VMInfo, er
 }
 
 // PrepareSourceVM sends a prepare command to the host that owns the source VM.
-func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUser, keyPath string) (*fluidv1.SourceVMPrepared, error) {
+func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUser, keyPath string) (*deerv1.SourceVMPrepared, error) {
 	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_PrepareSourceVm{
-			PrepareSourceVm: &fluidv1.PrepareSourceVMCommand{
+		Payload: &deerv1.ControlMessage_PrepareSourceVm{
+			PrepareSourceVm: &deerv1.PrepareSourceVMCommand{
 				SourceVm:   vmName,
 				SshUser:    sshUser,
 				SshKeyPath: keyPath,
@@ -674,17 +971,17 @@ func (o *Orchestrator) PrepareSourceVM(ctx context.Context, orgID, vmName, sshUs
 }
 
 // ValidateSourceVM sends a validate command to the host that owns the source VM.
-func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName string) (*fluidv1.SourceVMValidation, error) {
+func (o *Orchestrator) ValidateSourceVM(ctx context.Context, orgID, vmName string) (*deerv1.SourceVMValidation, error) {
 	host, err := SelectHostForSourceVM(o.registry, vmName, orgID, o.heartbeatTimeout, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_ValidateSourceVm{
-			ValidateSourceVm: &fluidv1.ValidateSourceVMCommand{
+		Payload: &deerv1.ControlMessage_ValidateSourceVm{
+			ValidateSourceVm: &deerv1.ValidateSourceVMCommand{
 				SourceVm: vmName,
 			},
 		},
@@ -718,10 +1015,10 @@ func (o *Orchestrator) RunSourceCommand(ctx context.Context, orgID, vmName, comm
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_RunSourceCommand{
-			RunSourceCommand: &fluidv1.RunSourceCommandCommand{
+		Payload: &deerv1.ControlMessage_RunSourceCommand{
+			RunSourceCommand: &deerv1.RunSourceCommandCommand{
 				SourceVm:       vmName,
 				Command:        command,
 				TimeoutSeconds: int32(timeoutSec),
@@ -758,10 +1055,10 @@ func (o *Orchestrator) ReadSourceFile(ctx context.Context, orgID, vmName, path s
 	}
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_ReadSourceFile{
-			ReadSourceFile: &fluidv1.ReadSourceFileCommand{
+		Payload: &deerv1.ControlMessage_ReadSourceFile{
+			ReadSourceFile: &deerv1.ReadSourceFileCommand{
 				SourceVm: vmName,
 				Path:     path,
 			},
@@ -803,10 +1100,10 @@ func (o *Orchestrator) DiscoverSourceHosts(ctx context.Context, orgID, sshConfig
 	host := connected[rand.IntN(len(connected))]
 
 	reqID := uuid.New().String()
-	cmd := &fluidv1.ControlMessage{
+	cmd := &deerv1.ControlMessage{
 		RequestId: reqID,
-		Payload: &fluidv1.ControlMessage_DiscoverHosts{
-			DiscoverHosts: &fluidv1.DiscoverHostsCommand{
+		Payload: &deerv1.ControlMessage_DiscoverHosts{
+			DiscoverHosts: &deerv1.DiscoverHostsCommand{
 				SshConfigContent: sshConfigContent,
 			},
 		},

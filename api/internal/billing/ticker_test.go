@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/config"
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	"github.com/aspectrr/deer.sh/api/internal/config"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 )
 
 // ---------------------------------------------------------------------------
@@ -245,7 +245,7 @@ func (m *tickerMockStore) DeleteSandboxKafkaStubsBySandbox(context.Context, stri
 
 type mockHostStream struct{}
 
-func (mockHostStream) Send(_ *fluidv1.ControlMessage) error { return nil }
+func (mockHostStream) Send(_ *deerv1.ControlMessage) error { return nil }
 
 // ---------------------------------------------------------------------------
 // Helper to build a ResourceTicker for tests

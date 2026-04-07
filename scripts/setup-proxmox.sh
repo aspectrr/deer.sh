@@ -226,16 +226,16 @@ log_success "Enterprise repo sources removed."
 # ============================================================================
 log_info "Creating API token for daemon access..."
 
-API_TOKEN_ID="root@pam!fluid"
+API_TOKEN_ID="root@pam!deer"
 API_SECRET=""
 
 # Check if token already exists
-if pveum user token list root@pam 2>/dev/null | grep -q "fluid"; then
-    log_warn "API token 'fluid' already exists. Removing and recreating..."
-    pveum user token remove root@pam fluid 2>/dev/null || true
+if pveum user token list root@pam 2>/dev/null | grep -q "deer"; then
+    log_warn "API token 'deer' already exists. Removing and recreating..."
+    pveum user token remove root@pam deer 2>/dev/null || true
 fi
 
-TOKEN_OUTPUT=$(pveum user token add root@pam fluid --privsep 0 2>&1)
+TOKEN_OUTPUT=$(pveum user token add root deer --privsep 0 2>&1)
 API_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 
 if [[ -z "$API_SECRET" ]]; then

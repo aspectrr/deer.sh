@@ -1,10 +1,10 @@
-# fluid.sh
+# deer.sh
 
 The AI Sys-Admin for Enterprise.
 
 ## What This Is
 
-fluid.sh lets AI agents do infrastructure work (provision servers, configure services, set up networking) in isolated VM sandboxes. The agent works autonomously. A human reviews and approves before production.
+deer.sh lets AI agents do infrastructure work (provision servers, configure services, set up networking) in isolated VM sandboxes. The agent works autonomously. A human reviews and approves before production.
 
 ## Architecture
 

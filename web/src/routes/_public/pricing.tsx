@@ -23,7 +23,7 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? (
         <svg
-          className="h-3.5 w-3.5 text-blue-400"
+          className="h-3.5 w-3.5 text-green-800"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -54,7 +54,7 @@ const tiers = [
     price: 'Free',
     description: 'Self-hosted on your infrastructure',
     cta: null,
-    install: 'curl -fsSL https://fluid.sh/install.sh | bash',
+    install: 'curl -fsSL https://deer.sh/install.sh | bash',
     features: [
       'Self-hosted daemon on your infrastructure',
       'Unlimited sandbox hosts',
@@ -116,7 +116,7 @@ function PricingPage() {
               to="/"
               className="font-logo text-2xl tracking-tight text-white no-underline hover:no-underline md:text-3xl"
             >
-              <span className="text-blue-400">$</span> fluid.sh
+              🦌 <span className="text-green-800">deer.sh</span>
             </Link>
             <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
               <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
@@ -129,7 +129,7 @@ function PricingPage() {
                 Pricing
               </Link>
               <a
-                href="https://github.com/aspectrr/fluid.sh"
+                href="https://github.com/aspectrr/deer.sh"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-neutral-200"
@@ -206,7 +206,7 @@ function PricingPage() {
                   Pricing
                 </Link>
                 <a
-                  href="https://github.com/aspectrr/fluid.sh"
+                  href="https://github.com/aspectrr/deer.sh"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="transition-colors hover:text-white"
@@ -239,7 +239,7 @@ function PricingPage() {
       <main className="px-4 pb-24 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <h1 className="font-logo text-2xl tracking-tight md:text-3xl">
-            <span className="text-blue-400">#</span> Pricing
+            <span className="text-green-800">#</span> Pricing
           </h1>
           <p className="mt-2 text-neutral-400">
             Start free with the open-source CLI. Scale with the control plane.
@@ -253,14 +253,14 @@ function PricingPage() {
               >
                 <div className="flex items-baseline justify-between">
                   <h2 className="font-mono text-sm text-neutral-200">{tier.name}</h2>
-                  <span className="font-mono text-xs text-blue-400">{tier.price}</span>
+                  <span className="font-mono text-xs text-green-800">{tier.price}</span>
                 </div>
                 <p className="mt-1 text-sm text-neutral-500">{tier.description}</p>
 
                 <ul className="mt-4 space-y-2">
                   {tier.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2 font-mono text-xs">
-                      <span className="mt-0.5 text-blue-400">-</span>
+                      <span className="mt-0.5 text-green-800">-</span>
                       <span className="text-neutral-400">{feature}</span>
                     </li>
                   ))}
@@ -280,7 +280,7 @@ function PricingPage() {
                   <div className="mt-4 overflow-hidden rounded border border-neutral-800 bg-neutral-950">
                     <div className="flex items-center justify-between gap-2 px-3 py-2">
                       <div className="min-w-0 overflow-x-auto font-mono text-xs text-neutral-400">
-                        <span className="text-blue-400 select-none">$ </span>
+                        <span className="text-green-800 select-none">$ </span>
                         <span className="whitespace-nowrap">{tier.install}</span>
                       </div>
                       <CopyButton text={tier.install} />
@@ -293,7 +293,7 @@ function PricingPage() {
                     {'to' in tier.cta ? (
                       <Link
                         to={tier.cta.to}
-                        className="inline-block rounded border border-blue-500/30 bg-blue-500/10 px-4 py-2 font-mono text-xs text-blue-400 no-underline transition-colors hover:border-blue-500/50 hover:bg-blue-500/20 hover:no-underline"
+                        className="inline-block rounded border border-green-900/30 bg-green-900/10 px-4 py-2 font-mono text-xs text-green-800 no-underline transition-colors hover:border-green-900/50 hover:bg-green-900/20 hover:no-underline"
                       >
                         {tier.cta.label}
                       </Link>

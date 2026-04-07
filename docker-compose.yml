@@ -11,25 +11,25 @@
 services:
   postgres:
     image: postgres:18
-    container_name: fluid-postgres
+    container_name: deer-postgres
     environment:
-      POSTGRES_USER: fluid
-      POSTGRES_PASSWORD: fluid
-      POSTGRES_DB: fluid
+      POSTGRES_USER: deer
+      POSTGRES_PASSWORD: deer
+      POSTGRES_DB: deer
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - fluid-postgres-data:/var/lib/postgresql/data
+      - deer-postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fluid"]
+      test: ["CMD-SHELL", "pg_isready -U deer"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   api:
-    container_name: fluid-api
+    container_name: deer-api
     build:
       context: .
       dockerfile: api/Dockerfile
@@ -40,7 +40,7 @@ services:
     env_file:
       - ./api/.env
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://fluid:fluid@postgres:5432/fluid}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://deer:deer@postgres:5432/deer}
       - API_ADDR=${API_ADDR_WEB:-:8080}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - LOG_FORMAT=${LOG_FORMAT:-text}
@@ -58,16 +58,16 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
-    container_name: fluid-web
+    container_name: deer-web
     restart: unless-stopped
     depends_on:
       - api
     environment:
-      - API_URL=http://fluid-api:8080
+      - API_URL=http://deer-api:8080
       - VITE_POSTHOG_KEY=${VITE_POSTHOG_KEY:-}
       - VITE_POSTHOG_HOST=${VITE_POSTHOG_HOST:-}
     ports:
       - "5173:80"
 
 volumes:
-  fluid-postgres-data:
+  deer-postgres-data:

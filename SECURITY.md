@@ -1,6 +1,6 @@
 # Security Model
 
-fluid.sh uses defense-in-depth to isolate AI agent workloads in VM sandboxes. This document describes the security architecture across the CLI, daemon, and API control plane.
+deer.sh uses defense-in-depth to isolate AI agent workloads in VM sandboxes. This document describes the security architecture across the CLI, daemon, and API control plane.
 
 ## Overview
 
@@ -41,7 +41,7 @@ user:{UserID}-vm:{VMID}-sbx:{SandboxID}-cert:{CertID}
 
 **Permission validation**: the CA enforces that private key files have mode 0600 or 0400 (no group/world access) before signing.
 
-Source: `fluid-daemon/internal/sshca/ca.go`
+Source: `deer-daemon/internal/sshca/ca.go`
 
 ## Sandbox Credentials
 
@@ -57,7 +57,7 @@ Each sandbox gets ephemeral Ed25519 key pairs, generated on demand and cached un
 
 Pre-flight permission checks run before every SSH connection: the runner verifies the private key file has no group/world permissions (`perm & 0077 == 0`) and rejects the connection otherwise.
 
-Source: `fluid-daemon/internal/sshkeys/manager.go`
+Source: `deer-daemon/internal/sshkeys/manager.go`
 
 ## Source VM Read-Only Mode
 
@@ -91,11 +91,11 @@ Source (golden) VMs are accessible only for inspection, never modification. The 
 - Output redirection: `>` and `>>`
 - Newlines: `\n` and `\r`
 
-Source: `fluid-daemon/internal/readonly/validate.go`
+Source: `deer-daemon/internal/readonly/validate.go`
 
 ### Layer 2: Server-side restricted shell
 
-A bash script installed at `/usr/local/bin/fluid-readonly-shell` on source VMs acts as the login shell for the `fluid-readonly` user. It:
+A bash script installed at `/usr/local/bin/deer-readonly-shell` on source VMs acts as the login shell for the `fluid-readonly` user. It:
 
 1. Denies interactive login (requires `SSH_ORIGINAL_COMMAND`)
 2. Blocks command substitution, subshells, output redirection, and newlines
@@ -117,7 +117,7 @@ A bash script installed at `/usr/local/bin/fluid-readonly-shell` on source VMs a
 - Firewall: `iptables`, `ip6tables`, `nft`
 - Write tools: `sed -i`, `tee`, `install`
 
-Source: `fluid-daemon/internal/readonly/shell.go`
+Source: `deer-daemon/internal/readonly/shell.go`
 
 ### Layer 3: SSH principal separation
 
@@ -127,15 +127,15 @@ Source VM credentials use the `"fluid-readonly"` principal. The `sshd` on source
 
 Only certificates with the `fluid-readonly` principal are accepted for the `fluid-readonly` user. Sandbox certificates (principal `"sandbox"`) cannot authenticate to source VMs.
 
-Source VM preparation (`fluid source prepare`) is idempotent and performs:
-1. Install restricted shell at `/usr/local/bin/fluid-readonly-shell`
+Source VM preparation (`deer source prepare`) is idempotent and performs:
+1. Install restricted shell at `/usr/local/bin/deer-readonly-shell`
 2. Create `fluid-readonly` system user with the restricted shell as login shell
 3. Copy CA public key to `/etc/ssh/fluid_ca.pub`
 4. Configure `sshd` to trust the CA key and use per-user authorized principals
 5. Create `/etc/ssh/authorized_principals/fluid-readonly` containing `fluid-readonly`
 6. Restart `sshd`
 
-Source: `fluid-daemon/internal/readonly/prepare.go`, `fluid-daemon/internal/sshkeys/manager.go`
+Source: `deer-daemon/internal/readonly/prepare.go`, `deer-daemon/internal/sshkeys/manager.go`
 
 ## VM Isolation
 
@@ -144,7 +144,7 @@ Source: `fluid-daemon/internal/readonly/prepare.go`, `fluid-daemon/internal/sshk
 - **Random MAC addresses**: each clone gets a random MAC in the `52:54:00` QEMU prefix via crypto/rand
 - **Network isolation**: per-sandbox TAP devices attached to a bridge network; optional SSH `ProxyJump` for isolated networks not directly reachable from the host
 
-Source: `fluid-daemon/internal/microvm/manager.go`
+Source: `deer-daemon/internal/microvm/manager.go`
 
 ## Secrets Redaction
 
@@ -161,7 +161,7 @@ Both the CLI and daemon include identical redaction packages that strip sensitiv
 
 **Configurability**: custom regex patterns and allowlists can be added.
 
-Source: `fluid-cli/internal/redact/`, `fluid-daemon/internal/redact/`
+Source: `deer-cli/internal/redact/`, `deer-daemon/internal/redact/`
 
 ## Human Approval Workflow
 
@@ -171,9 +171,9 @@ The TUI enforces human-in-the-loop confirmation for potentially dangerous operat
 
 **Resource limits**: warning dialog when sandbox creation exceeds available memory, CPU, or storage. Default: deny.
 
-**Source VM preparation**: confirmation before running `fluid source prepare`. Default: deny.
+**Source VM preparation**: confirmation before running `deer source prepare`. Default: deny.
 
-Source: `fluid-cli/internal/tui/confirm.go`, `fluid-cli/internal/tui/agent.go`
+Source: `deer-cli/internal/tui/confirm.go`, `deer-cli/internal/tui/agent.go`
 
 ## Hash-Chained Audit Log
 
@@ -191,7 +191,7 @@ Append-only JSONL audit log at `~/.config/fluid/audit.jsonl` with 0600 permissio
 
 **Size protection**: configurable max file size; events are dropped when the limit is reached.
 
-Source: `fluid-cli/internal/audit/`, `fluid-daemon/internal/audit/`
+Source: `deer-cli/internal/audit/`, `deer-daemon/internal/audit/`
 
 ## MCP Input Validation
 
@@ -205,7 +205,7 @@ All MCP tool inputs are validated before execution.
 
 **File size limit**: 10 MB maximum for file operations.
 
-Source: `fluid-cli/internal/mcp/validate.go`
+Source: `deer-cli/internal/mcp/validate.go`
 
 ## Config File Security
 
@@ -215,7 +215,7 @@ Source: `fluid-cli/internal/mcp/validate.go`
 
 **File creation**: config files are saved with 0600 permissions.
 
-Source: `fluid-cli/internal/config/config.go`
+Source: `deer-cli/internal/config/config.go`
 
 ## Telemetry Privacy
 
@@ -228,7 +228,7 @@ Telemetry is enabled by default (opt-out). Disable via `telemetry.enable_anonymo
 - Never collects: commands, file contents, IP addresses, hostnames, user input
 - Daemon redaction scope: daemon audit uses built-in detectors only; CLI custom redaction patterns (`redact.custom_patterns`) do not apply on the daemon side
 
-Source: `fluid-cli/internal/telemetry/`, `fluid-daemon/internal/telemetry/`
+Source: `deer-cli/internal/telemetry/`, `deer-daemon/internal/telemetry/`
 
 ## API Authentication
 
@@ -281,7 +281,7 @@ Source: `api/internal/crypto/crypto.go`
 
 **Concurrency limiting**: max 64 concurrent command handlers.
 
-Source: `api/internal/grpc/`, `fluid-daemon/internal/agent/`
+Source: `api/internal/grpc/`, `deer-daemon/internal/agent/`
 
 ## Network Isolation (Daemon)
 
@@ -291,7 +291,7 @@ Source: `api/internal/grpc/`, `fluid-daemon/internal/agent/`
 - **IP discovery**: reads DHCP leases and ARP table; no direct guest communication required
 - **Lease file path sanitization**: `filepath.Base()` prevents path traversal
 
-Source: `fluid-daemon/internal/network/`
+Source: `deer-daemon/internal/network/`
 
 ## Sandbox Lifecycle (Janitor)
 
@@ -301,7 +301,7 @@ Background TTL enforcement for automatic sandbox cleanup.
 - **Check interval**: every 1 minute
 - **Cleanup**: destroys expired sandboxes (VM process + storage + state)
 
-Source: `fluid-daemon/internal/janitor/`
+Source: `deer-daemon/internal/janitor/`
 
 ## Command Execution Security
 
@@ -311,7 +311,7 @@ Source: `fluid-daemon/internal/janitor/`
 - **IP conflict detection**: before every command execution, the service re-discovers the VM IP and validates it is not assigned to another running or starting sandbox
 - **StrictHostKeyChecking disabled**: ephemeral VMs have no stable host keys; trust is established via the CA certificate chain instead
 
-Source: `fluid-daemon/internal/microvm/manager.go`
+Source: `deer-daemon/internal/microvm/manager.go`
 
 ## Path Traversal Prevention
 
@@ -323,7 +323,7 @@ regex: [^A-Za-z0-9_-]  ->  replaced with underscore
 
 This prevents `../` sequences and absolute path injection in source VM names when constructing key directories.
 
-Source: `fluid-daemon/internal/sshkeys/manager.go`
+Source: `deer-daemon/internal/sshkeys/manager.go`
 
 ## File Permissions Summary
 

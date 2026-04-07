@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
+	serverJSON "github.com/aspectrr/deer.sh/api/internal/json"
 )
 
 type ErrorResponse struct {

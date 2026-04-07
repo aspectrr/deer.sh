@@ -41,7 +41,7 @@ function RegisterPage() {
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-sm font-medium text-white">Create account</h2>
-        <p className="text-muted-foreground text-xs">Get started with fluid.sh</p>
+        <p className="text-muted-foreground text-xs">Get started with deer.sh</p>
       </div>
 
       {error && (
@@ -102,7 +102,7 @@ function RegisterPage() {
         </div>
         <Button
           type="submit"
-          className="w-full bg-blue-500 text-xs text-black hover:bg-blue-400"
+          className="w-full bg-green-900 text-xs text-black hover:bg-green-800"
           disabled={register.isPending}
         >
           {register.isPending ? 'Creating account...' : 'Create account'}
@@ -156,7 +156,7 @@ function RegisterPage() {
 
       <div className="text-muted-foreground pt-2 text-center text-xs">
         Already have an account?{' '}
-        <Link to="/login" className="text-blue-400 hover:text-blue-300">
+        <Link to="/login" className="text-green-800 hover:text-green-900">
           Sign in
         </Link>
       </div>

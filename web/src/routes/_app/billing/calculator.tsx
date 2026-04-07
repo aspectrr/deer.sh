@@ -127,7 +127,7 @@ function CalculatorPage() {
           </div>
 */}
           <Button
-            className="w-full bg-blue-500 text-xs text-black hover:bg-blue-400"
+            className="w-full bg-green-900 text-xs text-black hover:bg-green-800"
             onClick={() => calculate.mutate()}
             disabled={calculate.isPending}
           >
@@ -166,7 +166,7 @@ function CalculatorPage() {
               <div className="border-border border-t pt-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-white">Total</span>
-                  <span className="text-lg font-medium text-blue-400">
+                  <span className="text-lg font-medium text-green-800">
                     ${calculate.data.total_monthly.toFixed(2)}
                   </span>
                 </div>
@@ -182,7 +182,7 @@ function CalculatorPage() {
                 </ul>
                 <p className="mt-3 text-[10px] text-white">
                   Contact Collin about your{' '}
-                  <a href="mailto:cpfeifer@madcactus.org" className="text-blue-400 underline">
+                  <a href="mailto:cpfeifer@madcactus.org" className="text-green-800 underline">
                     enterprise needs
                   </a>
                   .

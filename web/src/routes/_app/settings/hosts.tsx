@@ -94,8 +94,8 @@ function HostsPage() {
 
       {/* Created token banner */}
       {createdToken && (
-        <div className="border border-green-500/30 bg-green-500/5 p-4">
-          <p className="text-xs font-medium text-green-400">Token created successfully</p>
+        <div className="border border-green-900/30 bg-green-900/5 p-4">
+          <p className="text-xs font-medium text-green-800">Token created successfully</p>
           <p className="text-muted-foreground mt-1 text-[10px]">
             Copy this token now - it will not be shown again.
           </p>
@@ -145,7 +145,7 @@ function HostsPage() {
             <Button
               type="submit"
               disabled={!name.trim() || createMutation.isPending}
-              className="bg-blue-500 text-xs text-black hover:bg-blue-400"
+              className="bg-green-900 text-xs text-black hover:bg-green-800"
             >
               <Plus className="mr-1 h-3.5 w-3.5" />
               Create Token

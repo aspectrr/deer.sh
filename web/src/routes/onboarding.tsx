@@ -129,7 +129,7 @@ function OnboardingPage() {
       <div className="w-full max-w-lg space-y-6">
         <div className="space-y-1">
           <h1 className="font-logo text-lg tracking-tight">
-            <span className="text-blue-400">$</span> fluid.sh
+            <span className="text-green-800">$</span> deer.sh
           </h1>
           <h2 className="text-sm font-medium text-white">Set up your workspace</h2>
           <p className="text-muted-foreground text-xs">Create your organization to get started</p>
@@ -187,7 +187,7 @@ function OnboardingPage() {
                     onClick={() => toggleUseCase(uc)}
                     className={`border px-3 py-1.5 text-xs transition-colors ${
                       selected
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                        ? 'border-green-900 bg-green-900/10 text-green-800'
                         : 'border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-600 hover:text-neutral-300'
                     }`}
                   >
@@ -207,7 +207,7 @@ function OnboardingPage() {
                   key={src}
                   className={`flex cursor-pointer items-center gap-2 border px-3 py-2 text-xs transition-colors ${
                     referralSource === src
-                      ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                      ? 'border-green-900 bg-green-900/10 text-green-800'
                       : 'border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-600 hover:text-neutral-300'
                   }`}
                 >
@@ -238,7 +238,7 @@ function OnboardingPage() {
           </button>
           <Button
             onClick={handleSubmit}
-            className="bg-blue-500 text-xs text-black hover:bg-blue-400"
+            className="bg-green-900 text-xs text-black hover:bg-green-800"
             disabled={onboard.isPending}
           >
             {onboard.isPending ? 'Creating...' : 'Continue to Fluid'}

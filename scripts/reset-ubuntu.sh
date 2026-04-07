@@ -133,7 +133,7 @@ log_info "Cleaning up old VM disks..."
 rm -f /var/lib/libvirt/images/test-vm-*.qcow2 2>/dev/null || true
 rm -f /var/lib/libvirt/images/sandbox-host-*.qcow2 2>/dev/null || true
 rm -f /var/lib/libvirt/images/sbx-*.qcow2 2>/dev/null || true
-rm -f /var/lib/libvirt/images/*.fluid-tmp-snap 2>/dev/null || true
+rm -f /var/lib/libvirt/images/*.deer-tmp-snap 2>/dev/null || true
 
 # Clean up sandbox work directories
 rm -rf /var/lib/libvirt/images/sandboxes/* 2>/dev/null || true

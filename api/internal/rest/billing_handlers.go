@@ -17,10 +17,10 @@ import (
 	"github.com/stripe/stripe-go/v82/customer"
 	"github.com/stripe/stripe-go/v82/webhook"
 
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
-	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	serverError "github.com/aspectrr/deer.sh/api/internal/error"
+	serverJSON "github.com/aspectrr/deer.sh/api/internal/json"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 // --- Get Billing ---

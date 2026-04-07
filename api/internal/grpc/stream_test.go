@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 
 	"google.golang.org/grpc/metadata"
 )
@@ -129,6 +129,32 @@ func (m *mockStore) ListSourceHostsByOrg(context.Context, string) ([]*store.Sour
 	return nil, nil
 }
 func (m *mockStore) DeleteSourceHost(context.Context, string) error { return nil }
+func (m *mockStore) CreateKafkaCaptureConfig(context.Context, *store.KafkaCaptureConfig) error {
+	return nil
+}
+func (m *mockStore) GetKafkaCaptureConfig(context.Context, string) (*store.KafkaCaptureConfig, error) {
+	return nil, nil
+}
+func (m *mockStore) ListKafkaCaptureConfigsByOrg(context.Context, string) ([]*store.KafkaCaptureConfig, error) {
+	return nil, nil
+}
+func (m *mockStore) UpdateKafkaCaptureConfig(context.Context, *store.KafkaCaptureConfig) error {
+	return nil
+}
+func (m *mockStore) DeleteKafkaCaptureConfig(context.Context, string) error { return nil }
+func (m *mockStore) CreateSandboxKafkaStub(context.Context, *store.SandboxKafkaStub) error {
+	return nil
+}
+func (m *mockStore) GetSandboxKafkaStub(context.Context, string) (*store.SandboxKafkaStub, error) {
+	return nil, nil
+}
+func (m *mockStore) ListSandboxKafkaStubsBySandbox(context.Context, string) ([]*store.SandboxKafkaStub, error) {
+	return nil, nil
+}
+func (m *mockStore) UpdateSandboxKafkaStub(context.Context, *store.SandboxKafkaStub) error {
+	return nil
+}
+func (m *mockStore) DeleteSandboxKafkaStubsBySandbox(context.Context, string) error { return nil }
 
 func (m *mockStore) CreateHostToken(context.Context, *store.HostToken) error { return nil }
 func (m *mockStore) GetHostTokenByHash(context.Context, string) (*store.HostToken, error) {
@@ -167,17 +193,17 @@ func (m *mockStore) AcquireAdvisoryLock(context.Context, int64) error { return n
 func (m *mockStore) ReleaseAdvisoryLock(context.Context, int64) error { return nil }
 
 // ---------------------------------------------------------------------------
-// mockConnectServer implements fluidv1.HostService_ConnectServer
+// mockConnectServer implements deerv1.HostService_ConnectServer
 // (which is grpc.BidiStreamingServer[HostMessage, ControlMessage])
 // ---------------------------------------------------------------------------
 
 type mockConnectServer struct {
-	sentMessages []*fluidv1.ControlMessage
+	sentMessages []*deerv1.ControlMessage
 	sendErr      error
 	ctx          context.Context
 }
 
-func (m *mockConnectServer) Send(msg *fluidv1.ControlMessage) error {
+func (m *mockConnectServer) Send(msg *deerv1.ControlMessage) error {
 	if m.sendErr != nil {
 		return m.sendErr
 	}
@@ -185,7 +211,7 @@ func (m *mockConnectServer) Send(msg *fluidv1.ControlMessage) error {
 	return nil
 }
 
-func (m *mockConnectServer) Recv() (*fluidv1.HostMessage, error) {
+func (m *mockConnectServer) Recv() (*deerv1.HostMessage, error) {
 	return nil, fmt.Errorf("not implemented in mock")
 }
 
@@ -209,7 +235,7 @@ func TestSendAndWait_HostNotConnected(t *testing.T) {
 	reg := registry.New()
 	handler := NewStreamHandler(reg, &mockStore{}, nil, 90*time.Second)
 
-	msg := &fluidv1.ControlMessage{
+	msg := &deerv1.ControlMessage{
 		RequestId: "req-1",
 	}
 
@@ -228,9 +254,9 @@ func TestSendAndWait_MissingRequestID(t *testing.T) {
 
 	// Store a mock stream so the host is "connected".
 	mock := &mockConnectServer{}
-	handler.streams.Store("host-1", fluidv1.HostService_ConnectServer(mock))
+	handler.streams.Store("host-1", deerv1.HostService_ConnectServer(mock))
 
-	msg := &fluidv1.ControlMessage{
+	msg := &deerv1.ControlMessage{
 		RequestId: "", // Empty request ID.
 	}
 
@@ -248,12 +274,12 @@ func TestSendAndWait_Success(t *testing.T) {
 	handler := NewStreamHandler(reg, &mockStore{}, nil, 90*time.Second)
 
 	mock := &mockConnectServer{}
-	handler.streams.Store("host-1", fluidv1.HostService_ConnectServer(mock))
+	handler.streams.Store("host-1", deerv1.HostService_ConnectServer(mock))
 
-	msg := &fluidv1.ControlMessage{
+	msg := &deerv1.ControlMessage{
 		RequestId: "req-123",
-		Payload: &fluidv1.ControlMessage_DestroySandbox{
-			DestroySandbox: &fluidv1.DestroySandboxCommand{
+		Payload: &deerv1.ControlMessage_DestroySandbox{
+			DestroySandbox: &deerv1.DestroySandboxCommand{
 				SandboxId: "sbx-1",
 			},
 		},
@@ -264,10 +290,10 @@ func TestSendAndWait_Success(t *testing.T) {
 		// Wait briefly for SendAndWait to register the pending request.
 		time.Sleep(50 * time.Millisecond)
 
-		response := &fluidv1.HostMessage{
+		response := &deerv1.HostMessage{
 			RequestId: "req-123",
-			Payload: &fluidv1.HostMessage_SandboxDestroyed{
-				SandboxDestroyed: &fluidv1.SandboxDestroyed{
+			Payload: &deerv1.HostMessage_SandboxDestroyed{
+				SandboxDestroyed: &deerv1.SandboxDestroyed{
 					SandboxId: "sbx-1",
 				},
 			},
@@ -275,7 +301,7 @@ func TestSendAndWait_Success(t *testing.T) {
 
 		// Deliver response via the pendingRequests map.
 		if ch, ok := handler.pendingRequests.Load("req-123"); ok {
-			respCh := ch.(chan *fluidv1.HostMessage)
+			respCh := ch.(chan *deerv1.HostMessage)
 			respCh <- response
 		}
 	}()
@@ -307,9 +333,9 @@ func TestSendAndWait_Timeout(t *testing.T) {
 	handler := NewStreamHandler(reg, &mockStore{}, nil, 90*time.Second)
 
 	mock := &mockConnectServer{}
-	handler.streams.Store("host-1", fluidv1.HostService_ConnectServer(mock))
+	handler.streams.Store("host-1", deerv1.HostService_ConnectServer(mock))
 
-	msg := &fluidv1.ControlMessage{
+	msg := &deerv1.ControlMessage{
 		RequestId: "req-timeout",
 	}
 
@@ -330,9 +356,9 @@ func TestSendAndWait_SendError(t *testing.T) {
 	mock := &mockConnectServer{
 		sendErr: fmt.Errorf("stream broken"),
 	}
-	handler.streams.Store("host-1", fluidv1.HostService_ConnectServer(mock))
+	handler.streams.Store("host-1", deerv1.HostService_ConnectServer(mock))
 
-	msg := &fluidv1.ControlMessage{
+	msg := &deerv1.ControlMessage{
 		RequestId: "req-fail",
 	}
 
@@ -350,9 +376,9 @@ func TestSendAndWait_CleansPendingOnTimeout(t *testing.T) {
 	handler := NewStreamHandler(reg, &mockStore{}, nil, 90*time.Second)
 
 	mock := &mockConnectServer{}
-	handler.streams.Store("host-1", fluidv1.HostService_ConnectServer(mock))
+	handler.streams.Store("host-1", deerv1.HostService_ConnectServer(mock))
 
-	msg := &fluidv1.ControlMessage{
+	msg := &deerv1.ControlMessage{
 		RequestId: "req-cleanup",
 	}
 
@@ -421,14 +447,14 @@ func (s *connectTestStore) UpdateHostHeartbeat(_ context.Context, hostID string,
 // ---------------------------------------------------------------------------
 
 type mockConnectServerQueued struct {
-	msgs    []*fluidv1.HostMessage
+	msgs    []*deerv1.HostMessage
 	idx     int
-	sent    []*fluidv1.ControlMessage
+	sent    []*deerv1.ControlMessage
 	sendErr error
 	ctx     context.Context
 }
 
-func (m *mockConnectServerQueued) Recv() (*fluidv1.HostMessage, error) {
+func (m *mockConnectServerQueued) Recv() (*deerv1.HostMessage, error) {
 	if m.idx >= len(m.msgs) {
 		return nil, io.EOF
 	}
@@ -437,7 +463,7 @@ func (m *mockConnectServerQueued) Recv() (*fluidv1.HostMessage, error) {
 	return msg, nil
 }
 
-func (m *mockConnectServerQueued) Send(msg *fluidv1.ControlMessage) error {
+func (m *mockConnectServerQueued) Send(msg *deerv1.ControlMessage) error {
 	if m.sendErr != nil {
 		return m.sendErr
 	}
@@ -485,9 +511,9 @@ func TestConnect_FirstMessageNotRegistration(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Heartbeat{
-				Heartbeat: &fluidv1.Heartbeat{AvailableCpus: 4},
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Heartbeat{
+				Heartbeat: &deerv1.Heartbeat{AvailableCpus: 4},
 			}},
 		},
 	}
@@ -507,9 +533,9 @@ func TestConnect_SendAckError(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-1",
 					Hostname: "test-host",
 				},
@@ -534,9 +560,9 @@ func TestConnect_SuccessfulRegistrationAndEOF(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-1",
 					Hostname: "test-host",
 					Version:  "1.0.0",
@@ -591,9 +617,9 @@ func TestConnect_PersistHostCreatesWhenNotFound(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-new",
 					Hostname: "new-host",
 				},
@@ -621,15 +647,15 @@ func TestConnect_HeartbeatDispatch(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-hb",
 					Hostname: "heartbeat-host",
 				},
 			}},
-			{Payload: &fluidv1.HostMessage_Heartbeat{
-				Heartbeat: &fluidv1.Heartbeat{
+			{Payload: &deerv1.HostMessage_Heartbeat{
+				Heartbeat: &deerv1.Heartbeat{
 					AvailableCpus:     8,
 					AvailableMemoryMb: 16384,
 					AvailableDiskMb:   256000,
@@ -668,21 +694,21 @@ func TestConnect_ResponseDispatch(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	// Pre-populate a pending request channel.
-	respCh := make(chan *fluidv1.HostMessage, 1)
+	respCh := make(chan *deerv1.HostMessage, 1)
 	handler.pendingRequests.Store("req-test", respCh)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-resp",
 					Hostname: "resp-host",
 				},
 			}},
 			{
 				RequestId: "req-test",
-				Payload: &fluidv1.HostMessage_SandboxDestroyed{
-					SandboxDestroyed: &fluidv1.SandboxDestroyed{
+				Payload: &deerv1.HostMessage_SandboxDestroyed{
+					SandboxDestroyed: &deerv1.SandboxDestroyed{
 						SandboxId: "sbx-1",
 					},
 				},
@@ -718,15 +744,15 @@ func TestConnect_ErrorReportDoesNotPanic(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-err",
 					Hostname: "err-host",
 				},
 			}},
-			{Payload: &fluidv1.HostMessage_ErrorReport{
-				ErrorReport: &fluidv1.ErrorReport{
+			{Payload: &deerv1.HostMessage_ErrorReport{
+				ErrorReport: &deerv1.ErrorReport{
 					Error:     "disk full",
 					SandboxId: "sbx-42",
 					Context:   "creating overlay",
@@ -749,15 +775,15 @@ func TestConnect_ResourceReportUpdatesHeartbeat(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-rr",
 					Hostname: "resource-host",
 				},
 			}},
-			{Payload: &fluidv1.HostMessage_ResourceReport{
-				ResourceReport: &fluidv1.ResourceReport{
+			{Payload: &deerv1.HostMessage_ResourceReport{
+				ResourceReport: &deerv1.ResourceReport{
 					AvailableCpus:     16,
 					AvailableMemoryMb: 32768,
 					AvailableDiskMb:   512000,
@@ -783,9 +809,9 @@ func TestConnect_MessageWithoutRequestIDDropped(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-drop",
 					Hostname: "drop-host",
 				},
@@ -793,8 +819,8 @@ func TestConnect_MessageWithoutRequestIDDropped(t *testing.T) {
 			// A response-type message with no request_id should be dropped.
 			{
 				RequestId: "",
-				Payload: &fluidv1.HostMessage_SandboxCreated{
-					SandboxCreated: &fluidv1.SandboxCreated{
+				Payload: &deerv1.HostMessage_SandboxCreated{
+					SandboxCreated: &deerv1.SandboxCreated{
 						SandboxId: "sbx-orphan",
 					},
 				},
@@ -818,9 +844,9 @@ func TestConnect_UnmatchedRequestIDDropped(t *testing.T) {
 	// No pending requests pre-populated.
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-unmatched",
 					Hostname: "unmatched-host",
 				},
@@ -828,8 +854,8 @@ func TestConnect_UnmatchedRequestIDDropped(t *testing.T) {
 			// A response with a request_id that has no pending listener.
 			{
 				RequestId: "req-nobody",
-				Payload: &fluidv1.HostMessage_SandboxDestroyed{
-					SandboxDestroyed: &fluidv1.SandboxDestroyed{
+				Payload: &deerv1.HostMessage_SandboxDestroyed{
+					SandboxDestroyed: &deerv1.SandboxDestroyed{
 						SandboxId: "sbx-gone",
 					},
 				},
@@ -851,9 +877,9 @@ func TestConnect_EmptyTokenID_Rejected(t *testing.T) {
 	handler := NewStreamHandler(reg, st, nil, 90*time.Second)
 
 	mock := &mockConnectServerQueued{
-		msgs: []*fluidv1.HostMessage{
-			{Payload: &fluidv1.HostMessage_Registration{
-				Registration: &fluidv1.HostRegistration{
+		msgs: []*deerv1.HostMessage{
+			{Payload: &deerv1.HostMessage_Registration{
+				Registration: &deerv1.HostRegistration{
 					HostId:   "host-1",
 					Hostname: "test-host",
 				},

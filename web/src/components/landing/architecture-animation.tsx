@@ -10,7 +10,7 @@ const fast = prefersReducedMotion ? 0 : 0.4
 const med = prefersReducedMotion ? 0 : 0.6
 
 // Colors - matched to docs architecture-diagram.tsx (TierBox + Arrow)
-const BLUE = '#60a5fa'
+const BLUE = '#15803d'
 const TEXT_MUTED = '#737373' // neutral-500
 const BORDER = '#262626' // neutral-800
 const LINE_COLOR = '#404040' // neutral-700
@@ -125,8 +125,8 @@ function NodeBox({
   borderColor?: string
   labelColor?: string
 }) {
-  const stroke = highlight ? 'rgba(96,165,250,0.4)' : (borderColor ?? BORDER)
-  const fill = highlight ? 'rgba(96,165,250,0.05)' : CARD_BG
+  const stroke = highlight ? 'rgba(21,128,61,0.4)' : (borderColor ?? BORDER)
+  const fill = highlight ? 'rgba(21,128,61,0.05)' : CARD_BG
 
   return (
     <motion.g animate={{ opacity }} transition={{ duration: fast }}>
@@ -279,8 +279,8 @@ function PlaybookCard({ phase }: { phase: DiagramPhase }) {
         width={cardW}
         height={cardH}
         rx={0}
-        fill="rgba(96,165,250,0.05)"
-        stroke="rgba(96,165,250,0.4)"
+        fill="rgba(21,128,61,0.05)"
+        stroke="rgba(21,128,61,0.4)"
         strokeWidth={1}
       />
 
@@ -514,7 +514,7 @@ export function ArchitectureAnimation({ phase }: { phase: DiagramPhase }) {
       {/* CLI node */}
       <NodeBox
         {...cli}
-        label="Fluid CLI"
+        label="deer CLI"
         sublabel="client"
         opacity={cliActive ? 1 : 0.3}
         labelColor={cliActive ? '#ffffff' : TEXT_MUTED}
@@ -531,8 +531,8 @@ export function ArchitectureAnimation({ phase }: { phase: DiagramPhase }) {
           width={daemon.w}
           height={daemon.h}
           rx={0}
-          fill={daemonActive ? 'rgba(96,165,250,0.05)' : CARD_BG}
-          stroke={daemonActive ? 'rgba(96,165,250,0.4)' : BORDER}
+          fill={daemonActive ? 'rgba(21,128,61,0.05)' : CARD_BG}
+          stroke={daemonActive ? 'rgba(21,128,61,0.4)' : BORDER}
           strokeWidth={1}
         />
         {/* Window dots + sublabel */}
@@ -545,7 +545,7 @@ export function ArchitectureAnimation({ phase }: { phase: DiagramPhase }) {
           fontSize={9}
           fontFamily="ui-monospace, SFMono-Regular, monospace"
         >
-          fluid-daemon
+          deer-daemon
         </text>
         {/* Title */}
         <text

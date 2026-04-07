@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
-	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
-	"github.com/aspectrr/fluid.sh/api/internal/orchestrator"
+	serverError "github.com/aspectrr/deer.sh/api/internal/error"
+	serverJSON "github.com/aspectrr/deer.sh/api/internal/json"
+	"github.com/aspectrr/deer.sh/api/internal/orchestrator"
 )
 
 // handleListVMs godoc

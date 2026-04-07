@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"fmt"
-	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	serverError "github.com/aspectrr/deer.sh/api/internal/error"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 type userKey struct{}

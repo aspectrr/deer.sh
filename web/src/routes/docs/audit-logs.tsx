@@ -71,7 +71,7 @@ function AuditLogsPage() {
       <CodeBlock
         code={`audit:
   enabled: true
-  log_path: ~/.config/fluid/audit.jsonl
+  log_path: ~/.config/deer/audit.jsonl
   max_size_mb: 50`}
         lang="yaml"
       />
@@ -84,15 +84,15 @@ function AuditLogsPage() {
       <H3>CLI Commands</H3>
       <CodeBlock
         code={`# View recent entries (last 50)
-fluid audit show
+deer audit show
 
 # Verify hash chain integrity
-fluid audit verify`}
+deer audit verify`}
         lang="bash"
       />
 
       <H3>Direct Access</H3>
-      <CodeBlock code={`cat ~/.config/fluid/audit.jsonl | jq .`} lang="bash" />
+      <CodeBlock code={`cat ~/.config/deer/audit.jsonl | jq .`} lang="bash" />
 
       <H2>Data Redaction</H2>
       <p className="mb-3 text-xs text-neutral-400">
@@ -103,7 +103,7 @@ fluid audit verify`}
       <H2>Enterprise</H2>
       <Callout type="info">
         Need exportable audit logs across your whole team? Reach out to{' '}
-        <a className="text-blue-400 hover:text-blue-300" href="mailto:cpfeifer@madcactus.org">
+        <a className="text-green-800 hover:text-green-900" href="mailto:cpfeifer@madcactus.org">
           Collin
         </a>{' '}
         about enterprise plans.

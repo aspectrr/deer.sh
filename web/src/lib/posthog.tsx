@@ -10,7 +10,7 @@ let initialized = false
 function initPostHog() {
   if (initialized || !POSTHOG_KEY) return
   posthog.init(POSTHOG_KEY, {
-    api_host: POSTHOG_HOST || 'https://nautilus.fluid.sh',
+    api_host: POSTHOG_HOST || 'https://nautilus.deer.sh',
     capture_pageview: false, // we handle this manually via router
     capture_pageleave: true,
   })

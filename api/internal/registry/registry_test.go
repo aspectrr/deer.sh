@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 )
 
 // mockStream implements HostStream for testing.
 type mockStream struct{}
 
-func (m *mockStream) Send(_ *fluidv1.ControlMessage) error { return nil }
+func (m *mockStream) Send(_ *deerv1.ControlMessage) error { return nil }
 
 func TestRegister(t *testing.T) {
 	reg := New()
@@ -111,16 +111,16 @@ func TestSetRegistration(t *testing.T) {
 	reg := New()
 	_ = reg.Register("host-1", "org-1", "h1", &mockStream{})
 
-	regData := &fluidv1.HostRegistration{
+	regData := &deerv1.HostRegistration{
 		Hostname:          "updated-host",
 		AvailableCpus:     8,
 		AvailableMemoryMb: 16384,
 		AvailableDiskMb:   102400,
 		BaseImages:        []string{"ubuntu-22.04", "debian-12"},
-		SourceVms: []*fluidv1.SourceVMInfo{
+		SourceVms: []*deerv1.SourceVMInfo{
 			{Name: "web-server", State: "running"},
 		},
-		Bridges: []*fluidv1.BridgeInfo{
+		Bridges: []*deerv1.BridgeInfo{
 			{Name: "br0", Subnet: "10.0.0.0/24"},
 		},
 	}
@@ -159,7 +159,7 @@ func TestSetRegistration(t *testing.T) {
 func TestSetRegistration_NonexistentHost(t *testing.T) {
 	reg := New()
 	// Should not panic.
-	reg.SetRegistration("nonexistent", &fluidv1.HostRegistration{})
+	reg.SetRegistration("nonexistent", &deerv1.HostRegistration{})
 }
 
 func TestUpdateHeartbeat(t *testing.T) {

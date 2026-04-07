@@ -29,7 +29,7 @@ export function StepTracker({
   progressEndpoint,
   sessionCode: externalCode,
 }: StepTrackerProps) {
-  const fullKey = `fluid-docs-progress-${storageKey}`
+  const fullKey = `deer-docs-progress-${storageKey}`
 
   const [initialCompleted] = useState<Set<number>>(() => {
     const set = new Set<number>()
@@ -56,7 +56,7 @@ export function StepTracker({
     return steps.length - 1
   })
 
-  const sessionStorageKey = `fluid-docs-session-${storageKey}`
+  const sessionStorageKey = `deer-docs-session-${storageKey}`
 
   const [sessionState] = useState<{ code: string | null; restoredFromStorage: boolean }>(() => {
     if (!progressEndpoint) return { code: null, restoredFromStorage: false }
@@ -188,12 +188,12 @@ export function StepTracker({
       </div>
 
       {sessionCode && (
-        <div className="mb-4 border border-blue-400/20 bg-blue-400/5 p-3">
+        <div className="mb-4 border border-green-900/20 bg-green-800/5 p-3">
           {externalCode ? (
-            <p className="text-xs text-blue-400">Progress syncs with your CLI session.</p>
+            <p className="text-xs text-green-800">Progress syncs with your CLI session.</p>
           ) : (
             <>
-              <p className="text-xs text-blue-400">
+              <p className="text-xs text-green-800">
                 Session code: <code className="font-mono font-bold text-white">{sessionCode}</code>
               </p>
               <p className="mt-1 text-[10px] text-neutral-500">
@@ -243,15 +243,15 @@ export function StepTracker({
                   <div
                     className={cn(
                       'relative z-10 flex h-3.75 w-3.75 shrink-0 items-center justify-center',
-                      isComplete && 'bg-blue-400/20',
+                      isComplete && 'bg-green-800/20',
                       isCurrent && 'shadow-[0_0_8px_2px_rgba(96,165,250,0.6)]'
                     )}
                   >
                     {isComplete ? (
-                      <Check className="h-2.5 w-2.5 text-blue-400" />
+                      <Check className="h-2.5 w-2.5 text-green-800" />
                     ) : (
                       <div
-                        className={cn('h-2 w-2', isCurrent ? 'bg-blue-400' : 'bg-neutral-700')}
+                        className={cn('h-2 w-2', isCurrent ? 'bg-green-800' : 'bg-neutral-700')}
                       />
                     )}
                   </div>
@@ -288,8 +288,8 @@ export function StepTracker({
       </div>
 
       {allComplete && (
-        <div className="mt-4 border border-blue-400/20 bg-blue-400/5 p-3">
-          <p className="text-xs text-blue-400">All steps complete.</p>
+        <div className="mt-4 border border-green-900/20 bg-green-800/5 p-3">
+          <p className="text-xs text-green-800">All steps complete.</p>
         </div>
       )}
     </div>

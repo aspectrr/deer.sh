@@ -5,7 +5,7 @@ info:
   title: Fluid API
   version: "1.0"
 servers:
-- url: //api.fluid.sh/
+- url: //api.deer.sh/
 paths:
   /v1/auth/github:
     get:

@@ -23,7 +23,7 @@ export function DocsSidebar() {
                       className={cn(
                         'flex items-center gap-2 border-l-2 px-3 py-1.5 text-xs transition-colors',
                         isActive
-                          ? 'border-blue-400 text-blue-400'
+                          ? 'border-green-900 text-green-800'
                           : 'text-muted-foreground hover:text-foreground border-transparent hover:border-neutral-700'
                       )}
                     >

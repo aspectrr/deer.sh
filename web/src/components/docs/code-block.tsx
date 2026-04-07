@@ -52,7 +52,7 @@ export function CodeBlock({ code, lang = 'bash', filename, className }: CodeBloc
           onClick={handleCopy}
           className="text-muted-foreground hover:text-foreground absolute top-2 right-2 p-1 opacity-0 transition-opacity group-hover:opacity-100"
         >
-          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-800" /> : <Copy className="h-3 w-3" />}
         </button>
         {html ? (
           // WARNING: Do not pass user-controlled content to this component.

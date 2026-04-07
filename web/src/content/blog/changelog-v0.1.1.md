@@ -2,7 +2,7 @@
 title: 'Changelog #001 v0.1.1'
 pubDate: 2026-02-07
 description: 'Read-only mode, clearer project identity, and updated tool permissions'
-author: 'Collin @ Fluid.sh'
+author: 'Collin @ Deer.sh'
 authorImage: '/images/skeleton_smoking_cigarette.jpg'
 authorEmail: 'cpfeifer@madcactus.org'
 authorPhone: '+3179955114'
@@ -13,23 +13,23 @@ authorDiscord: 'https://discordapp.com/users/301068417685913600'
 
 Hi everyone!
 
-Fluid.sh has been undergoing some major renovations.
+Deer.sh has been undergoing some major renovations.
 
 ## Update to v0.1.1
 
 Update your CLI agent with `go install`
 
 ```bash
-go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest
+go install github.com/aspectrr/deer.sh/deer-cli/cmd/deer@latest
 ```
 
 ## Clarity
 
 The #1 comment from launching on HN was "Your website has no information on what this project does."
 
-I took that to heart and to be honest, I wasn't really sure how to describe fluid.
+I took that to heart and to be honest, I wasn't really sure how to describe deer.
 
-I spent this time to better identify what Fluid.sh was built for; managing and debugging VMs.
+I spent this time to better identify what Deer.sh was built for; managing and debugging VMs.
 
 ## Read-only Mode
 
@@ -74,4 +74,4 @@ Below are the tools that the agent can use when setting the agent in `READ-ONLY`
 
 Questions? Join us on [Discord](https://discord.gg/4WGGXJWm8J)
 
-Found a bug? Open an issue on [GitHub](https://github.com/aspectrr/fluid.sh/issues)
+Found a bug? Open an issue on [GitHub](https://github.com/aspectrr/deer.sh/issues)

@@ -9,16 +9,16 @@ import (
 	"sync"
 	"time"
 
-	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
+	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	"github.com/aspectrr/fluid.sh/api/internal/registry"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	"github.com/aspectrr/deer.sh/api/internal/registry"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
-// StreamHandler implements fluidv1.HostServiceServer.
+// StreamHandler implements deerv1.HostServiceServer.
 type StreamHandler struct {
-	fluidv1.UnimplementedHostServiceServer
+	deerv1.UnimplementedHostServiceServer
 
 	registry         *registry.Registry
 	store            store.Store
@@ -26,10 +26,10 @@ type StreamHandler struct {
 	heartbeatTimeout time.Duration
 
 	// pendingRequests maps request_id -> response channel.
-	pendingRequests sync.Map // map[string]chan *fluidv1.HostMessage
+	pendingRequests sync.Map // map[string]chan *deerv1.HostMessage
 
 	// streams maps host_id -> active server stream.
-	streams sync.Map // map[string]fluidv1.HostService_ConnectServer
+	streams sync.Map // map[string]deerv1.HostService_ConnectServer
 
 	// streamMu holds a per-host mutex to serialize stream.Send calls.
 	streamMu sync.Map // map[string]*sync.Mutex
@@ -69,7 +69,7 @@ func (h *StreamHandler) hostMu(hostID string) *sync.Mutex {
 }
 
 // Connect handles a single bidirectional stream from a sandbox host.
-func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error {
+func (h *StreamHandler) Connect(stream deerv1.HostService_ConnectServer) error {
 	firstMsg, err := stream.Recv()
 	if err != nil {
 		return fmt.Errorf("recv registration: %w", err)
@@ -101,10 +101,10 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	logger.Info("host connecting", "version", reg.GetVersion())
 
 	// Send RegistrationAck.
-	ack := &fluidv1.ControlMessage{
+	ack := &deerv1.ControlMessage{
 		RequestId: firstMsg.GetRequestId(),
-		Payload: &fluidv1.ControlMessage_RegistrationAck{
-			RegistrationAck: &fluidv1.RegistrationAck{
+		Payload: &deerv1.ControlMessage_RegistrationAck{
+			RegistrationAck: &deerv1.RegistrationAck{
 				Accepted:       true,
 				AssignedHostId: hostID,
 			},
@@ -184,9 +184,9 @@ func (h *StreamHandler) Connect(stream fluidv1.HostService_ConnectServer) error 
 	}
 }
 
-func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, msg *fluidv1.HostMessage, logger *slog.Logger) {
+func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, msg *deerv1.HostMessage, logger *slog.Logger) {
 	switch msg.Payload.(type) {
-	case *fluidv1.HostMessage_Heartbeat:
+	case *deerv1.HostMessage_Heartbeat:
 		hb := msg.GetHeartbeat()
 		h.registry.UpdateHeartbeat(hostID)
 		h.registry.UpdateHeartbeatCounts(hostID, hb.GetActiveSandboxes(), hb.GetSourceVmCount())
@@ -201,11 +201,11 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 		}
 		h.registry.UpdateResources(hostID, hb.GetAvailableCpus(), hb.GetAvailableMemoryMb())
 
-	case *fluidv1.HostMessage_ResourceReport:
+	case *deerv1.HostMessage_ResourceReport:
 		h.registry.UpdateHeartbeat(hostID)
 		logger.Info("received resource report")
 
-	case *fluidv1.HostMessage_ErrorReport:
+	case *deerv1.HostMessage_ErrorReport:
 		er := msg.GetErrorReport()
 		logger.Error("host reported error",
 			"sandbox_id", er.GetSandboxId(),
@@ -220,7 +220,7 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 			return
 		}
 		if ch, ok := h.pendingRequests.LoadAndDelete(reqID); ok {
-			respCh, ok := ch.(chan *fluidv1.HostMessage)
+			respCh, ok := ch.(chan *deerv1.HostMessage)
 			if !ok {
 				logger.Error("pendingRequests contains non-channel value", "request_id", reqID)
 				return
@@ -235,12 +235,12 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 // SendAndWait sends a ControlMessage to a specific host and blocks until the
 // host responds with a matching request_id, the context is cancelled, or the
 // timeout expires.
-func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *fluidv1.ControlMessage, timeout time.Duration) (*fluidv1.HostMessage, error) {
+func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
 	streamVal, ok := h.streams.Load(hostID)
 	if !ok {
 		return nil, fmt.Errorf("host %s is not connected", hostID)
 	}
-	stream, ok := streamVal.(fluidv1.HostService_ConnectServer)
+	stream, ok := streamVal.(deerv1.HostService_ConnectServer)
 	if !ok {
 		return nil, fmt.Errorf("host %s: stream has unexpected type", hostID)
 	}
@@ -250,7 +250,7 @@ func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *flu
 		return nil, fmt.Errorf("control message must have a request_id")
 	}
 
-	respCh := make(chan *fluidv1.HostMessage, 1)
+	respCh := make(chan *deerv1.HostMessage, 1)
 	h.pendingRequests.Store(reqID, respCh)
 	defer h.pendingRequests.Delete(reqID)
 
@@ -321,7 +321,7 @@ func (h *StreamHandler) monitorHeartbeat(ctx context.Context, cancel context.Can
 	}
 }
 
-func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID, orgID string, reg *fluidv1.HostRegistration) {
+func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID, orgID string, reg *deerv1.HostRegistration) {
 	existing, err := h.store.GetHost(ctx, hostID)
 	if err != nil {
 		if !errors.Is(err, store.ErrNotFound) {
@@ -356,7 +356,7 @@ func (h *StreamHandler) persistHostRegistration(ctx context.Context, hostID, org
 	}
 }
 
-func sourceVMsFromProto(vms []*fluidv1.SourceVMInfo) store.SourceVMSlice {
+func sourceVMsFromProto(vms []*deerv1.SourceVMInfo) store.SourceVMSlice {
 	result := make(store.SourceVMSlice, 0, len(vms))
 	for _, vm := range vms {
 		result = append(result, store.SourceVMJSON{
@@ -369,7 +369,7 @@ func sourceVMsFromProto(vms []*fluidv1.SourceVMInfo) store.SourceVMSlice {
 	return result
 }
 
-func bridgesFromProto(bridges []*fluidv1.BridgeInfo) store.BridgeSlice {
+func bridgesFromProto(bridges []*deerv1.BridgeInfo) store.BridgeSlice {
 	result := make(store.BridgeSlice, 0, len(bridges))
 	for _, b := range bridges {
 		result = append(result, store.BridgeJSON{
@@ -380,7 +380,7 @@ func bridgesFromProto(bridges []*fluidv1.BridgeInfo) store.BridgeSlice {
 	return result
 }
 
-func hostFromRegistration(hostID, orgID string, reg *fluidv1.HostRegistration) *store.Host {
+func hostFromRegistration(hostID, orgID string, reg *deerv1.HostRegistration) *store.Host {
 	return &store.Host{
 		ID:                hostID,
 		OrgID:             orgID,

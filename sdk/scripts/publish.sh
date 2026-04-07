@@ -30,7 +30,7 @@ bash scripts/generate.sh
 
 # Build
 echo -e "${BLUE}Building package...${NC}"
-cd fluid-py
+cd deer-py
 python3 -m build
 
 # Check

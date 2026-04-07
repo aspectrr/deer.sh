@@ -33,7 +33,7 @@ function SettingsLayout() {
               className={cn(
                 '-mb-px border-b-2 px-3 py-2 text-xs transition-colors',
                 isActive
-                  ? 'border-blue-400 text-blue-400'
+                  ? 'border-green-900 text-green-800'
                   : 'border-transparent text-neutral-500 hover:text-neutral-300'
               )}
             >

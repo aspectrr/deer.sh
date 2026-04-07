@@ -431,6 +431,52 @@ type SourceHost struct {
 	UpdatedAt        time.Time   `json:"updated_at"`
 }
 
+// KafkaCaptureConfig describes how the daemon should capture a bounded recent
+// segment from a production-adjacent Kafka cluster for a specific source VM.
+type KafkaCaptureConfig struct {
+	ID                 string      `json:"id"`
+	OrgID              string      `json:"org_id"`
+	SourceHostID       string      `json:"source_host_id"`
+	SourceVM           string      `json:"source_vm"`
+	Name               string      `json:"name"`
+	BootstrapServers   StringSlice `json:"bootstrap_servers"`
+	Topics             StringSlice `json:"topics"`
+	Username           string      `json:"username,omitempty"`
+	Password           string      `json:"-"`
+	SASLMechanism      string      `json:"sasl_mechanism,omitempty"`
+	TLSEnabled         bool        `json:"tls_enabled"`
+	InsecureSkipVerify bool        `json:"insecure_skip_verify"`
+	TLSCAPEM           string      `json:"tls_ca_pem,omitempty"`
+	Codec              string      `json:"codec"`
+	RedactionRules     StringSlice `json:"redaction_rules"`
+	MaxBufferAgeSecs   int32       `json:"max_buffer_age_seconds"`
+	MaxBufferBytes     int64       `json:"max_buffer_bytes"`
+	Enabled            bool        `json:"enabled"`
+	LastCaptureState   string      `json:"last_capture_state"`
+	BufferedBytes      int64       `json:"buffered_bytes"`
+	SegmentCount       int32       `json:"segment_count"`
+	LastSeenAt         *time.Time  `json:"last_seen_at,omitempty"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
+}
+
+// SandboxKafkaStub is the sandbox-scoped runtime stub attached to one sandbox.
+type SandboxKafkaStub struct {
+	ID                  string      `json:"id"`
+	OrgID               string      `json:"org_id"`
+	SandboxID           string      `json:"sandbox_id"`
+	CaptureConfigID     string      `json:"capture_config_id"`
+	BrokerEndpoint      string      `json:"broker_endpoint"`
+	Topics              StringSlice `json:"topics"`
+	ReplayWindowSeconds int32       `json:"replay_window_seconds"`
+	State               string      `json:"state"`
+	LastReplayCursor    string      `json:"last_replay_cursor"`
+	LastError           string      `json:"last_error,omitempty"`
+	AutoStart           bool        `json:"auto_start"`
+	CreatedAt           time.Time   `json:"created_at"`
+	UpdatedAt           time.Time   `json:"updated_at"`
+}
+
 // HostToken is a bearer token that a sandbox host uses to authenticate its
 // gRPC connection. Tokens are scoped to an organization.
 type HostToken struct {
@@ -515,6 +561,20 @@ type DataStore interface {
 	GetSourceHost(ctx context.Context, id string) (*SourceHost, error)
 	ListSourceHostsByOrg(ctx context.Context, orgID string) ([]*SourceHost, error)
 	DeleteSourceHost(ctx context.Context, id string) error
+
+	// KafkaCaptureConfig
+	CreateKafkaCaptureConfig(ctx context.Context, cfg *KafkaCaptureConfig) error
+	GetKafkaCaptureConfig(ctx context.Context, id string) (*KafkaCaptureConfig, error)
+	ListKafkaCaptureConfigsByOrg(ctx context.Context, orgID string) ([]*KafkaCaptureConfig, error)
+	UpdateKafkaCaptureConfig(ctx context.Context, cfg *KafkaCaptureConfig) error
+	DeleteKafkaCaptureConfig(ctx context.Context, id string) error
+
+	// SandboxKafkaStub
+	CreateSandboxKafkaStub(ctx context.Context, stub *SandboxKafkaStub) error
+	GetSandboxKafkaStub(ctx context.Context, id string) (*SandboxKafkaStub, error)
+	ListSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) ([]*SandboxKafkaStub, error)
+	UpdateSandboxKafkaStub(ctx context.Context, stub *SandboxKafkaStub) error
+	DeleteSandboxKafkaStubsBySandbox(ctx context.Context, sandboxID string) error
 
 	// HostToken
 	CreateHostToken(ctx context.Context, token *HostToken) error

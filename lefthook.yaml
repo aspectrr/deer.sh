@@ -1,17 +1,17 @@
 pre-commit:
   parallel: false
   commands:
-    # Go - fluid CLI
-    fmt-fluid-cli:
+    # Go - deer CLI
+    fmt-deer-cli:
       glob: "*.go"
-      root: "fluid-cli"
+      root: "deer-cli"
       run: "make fmt"
       stage_fixed: true
 
-    # Go - fluid daemon
-    fmt-fluid-daemon:
+    # Go - deer daemon
+    fmt-deer-daemon:
       glob: "*.go"
-      root: "fluid-daemon"
+      root: "deer-daemon"
       run: "make fmt"
       stage_fixed: true
 
@@ -45,36 +45,36 @@ pre-commit:
 pre-push:
   parallel: true
   commands:
-    # Go - fluid CLI
-    vet-fluid-cli:
+    # Go - deer CLI
+    vet-deer-cli:
       glob: "*.go"
-      root: "fluid-cli"
+      root: "deer-cli"
       run: make vet
 
-    test-fluid-cli:
+    test-deer-cli:
       glob: "*.go"
-      root: "fluid-cli"
+      root: "deer-cli"
       run: make test
 
-    lint-fluid-cli:
+    lint-deer-cli:
       glob: "*.go"
-      root: "fluid-cli"
+      root: "deer-cli"
       run: make lint
 
-    # Go - fluid daemon
-    vet-fluid-daemon:
+    # Go - deer daemon
+    vet-deer-daemon:
       glob: "*.go"
-      root: "fluid-daemon"
+      root: "deer-daemon"
       run: make vet
 
-    test-fluid-daemon:
+    test-deer-daemon:
       glob: "*.go"
-      root: "fluid-daemon"
+      root: "deer-daemon"
       run: make test
 
-    lint-fluid-daemon:
+    lint-deer-daemon:
       glob: "*.go"
-      root: "fluid-daemon"
+      root: "deer-daemon"
       run: make lint
 
     # Go - API

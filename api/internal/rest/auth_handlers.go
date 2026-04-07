@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aspectrr/fluid.sh/api/internal/auth"
-	serverError "github.com/aspectrr/fluid.sh/api/internal/error"
-	"github.com/aspectrr/fluid.sh/api/internal/id"
-	serverJSON "github.com/aspectrr/fluid.sh/api/internal/json"
-	"github.com/aspectrr/fluid.sh/api/internal/store"
+	"github.com/aspectrr/deer.sh/api/internal/auth"
+	serverError "github.com/aspectrr/deer.sh/api/internal/error"
+	"github.com/aspectrr/deer.sh/api/internal/id"
+	serverJSON "github.com/aspectrr/deer.sh/api/internal/json"
+	"github.com/aspectrr/deer.sh/api/internal/store"
 )
 
 var oauthHTTPClient = &http.Client{Timeout: 10 * time.Second}

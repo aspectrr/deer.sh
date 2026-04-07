@@ -119,7 +119,7 @@ function LocalSetupPage() {
       />
       <Callout type="tip">
         For ARM64 hosts (Apple Silicon dev, Graviton, etc.), download the arm64 variant:{' '}
-        <code className="text-green-400">jammy-server-cloudimg-arm64.img</code>
+        <code className="text-green-800">jammy-server-cloudimg-arm64.img</code>
       </Callout>
 
       <H2>Configuration</H2>
@@ -155,7 +155,7 @@ LIBVIRT_URI=qemu+ssh://user@remote-host/system`}
       <H3>SSH connection refused</H3>
       <p className="mb-3 text-xs text-neutral-400">
         Verify Remote Login is enabled (macOS) or sshd is running (Linux). Test manually:{' '}
-        <code className="text-blue-400">ssh $(whoami)@localhost</code>
+        <code className="text-green-800">ssh $(whoami)@localhost</code>
       </p>
 
       <H3>VM won't start</H3>

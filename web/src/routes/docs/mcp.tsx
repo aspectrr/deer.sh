@@ -12,8 +12,8 @@ export const Route = createFileRoute('/docs/mcp')({
 
 const claudeConfig = `{
   "mcpServers": {
-    "fluid": {
-      "command": "fluid",
+    "deer": {
+      "command": "deer",
       "args": ["mcp"],
       "env": {}
     }
@@ -22,8 +22,8 @@ const claudeConfig = `{
 
 const codexConfig = `{
   "mcpServers": {
-    "fluid": {
-      "command": "fluid",
+    "deer": {
+      "command": "deer",
       "args": ["mcp"],
       "env": {}
     }
@@ -32,8 +32,8 @@ const codexConfig = `{
 
 const cursorConfig = `{
   "mcpServers": {
-    "fluid": {
-      "command": "fluid",
+    "deer": {
+      "command": "deer",
       "args": ["mcp"],
       "env": {}
     }
@@ -65,7 +65,7 @@ function McpPage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <h1 className="mb-1 text-lg font-medium text-white">MCP Server</h1>
       <p className="text-muted-foreground mb-8 text-xs">
-        Connect AI coding tools to fluid.sh sandboxes via the Model Context Protocol.
+        Connect AI coding tools to deer.sh sandboxes via the Model Context Protocol.
       </p>
 
       <Callout type="info">
@@ -82,8 +82,8 @@ function McpPage() {
             content: (
               <>
                 <p>
-                  Install the fluid CLI before configuring MCP. Follow the{' '}
-                  <Link to="/docs/quickstart" className="text-blue-400 underline">
+                  Install the deer CLI before configuring MCP. Follow the{' '}
+                  <Link to="/docs/quickstart" className="text-green-800 underline">
                     quickstart guide
                   </Link>{' '}
                   to get set up.
@@ -99,7 +99,7 @@ function McpPage() {
                   The MCP server is built into the CLI. It communicates over stdin/stdout using the
                   MCP protocol:
                 </p>
-                <TerminalBlock lines={[{ command: 'fluid mcp' }]} />
+                <TerminalBlock lines={[{ command: 'deer mcp' }]} />
                 <Callout type="tip">
                   You do not need to run this manually. MCP clients (Claude Code, Cursor) will start
                   the server automatically when configured.
@@ -111,7 +111,7 @@ function McpPage() {
             title: 'Configure',
             content: (
               <>
-                <p>Add the fluid MCP server to your editor of choice:</p>
+                <p>Add the deer MCP server to your editor of choice:</p>
                 <CodeBlock
                   code={claudeConfig}
                   lang="json"
@@ -128,7 +128,7 @@ function McpPage() {
             content: (
               <>
                 <p>
-                  Ask your AI tool to list available fluid tools. You should see the sandbox
+                  Ask your AI tool to list available deer tools. You should see the sandbox
                   management tools listed below.
                 </p>
                 <Callout type="tip">
@@ -152,7 +152,7 @@ function McpPage() {
           <tbody>
             {mcpTools.map((tool) => (
               <tr key={tool.name} className="border-border border-b last:border-0">
-                <td className="px-3 py-1.5 font-mono text-blue-400">{tool.name}</td>
+                <td className="px-3 py-1.5 font-mono text-green-800">{tool.name}</td>
                 <td className="px-3 py-1.5 text-neutral-400">{tool.description}</td>
               </tr>
             ))}

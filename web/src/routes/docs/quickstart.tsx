@@ -17,7 +17,7 @@ function QuickstartPage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <h1 className="mb-1 text-lg font-medium text-white">Quickstart</h1>
       <p className="text-muted-foreground mb-8 text-xs">
-        Get up and running with fluid.sh in under 5 minutes.
+        Get up and running with deer.sh in under 5 minutes.
       </p>
 
       <StepTracker
@@ -34,19 +34,19 @@ function QuickstartPage() {
         <ul className="ml-4 list-disc space-y-1 text-xs text-neutral-400">
           <li>
             Learn about{' '}
-            <a href="/docs/sandboxes" className="text-blue-400 hover:text-blue-300">
+            <a href="/docs/sandboxes" className="text-green-800 hover:text-green-900">
               sandbox internals
             </a>
           </li>
           <li>
             Connect your{' '}
-            <a href="/docs/mcp" className="text-blue-400 hover:text-blue-300">
+            <a href="/docs/mcp" className="text-green-800 hover:text-green-900">
               AI tools via MCP
             </a>
           </li>
           <li>
             See the full{' '}
-            <a href="/docs/cli-reference" className="text-blue-400 hover:text-blue-300">
+            <a href="/docs/cli-reference" className="text-green-800 hover:text-green-900">
               TUI & MCP reference
             </a>
           </li>

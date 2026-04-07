@@ -1181,7 +1181,7 @@ def patch_api_client(sdk_dir: Path):
 
 
 def main():
-    sdk_dir = Path("fluid-py/fluid")
+    sdk_dir = Path("deer-py/fluid")
     package_name = "fluid"
 
     if not sdk_dir.exists():

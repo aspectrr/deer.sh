@@ -27,7 +27,7 @@ function PackageManagerTabs({ tabs }: { tabs: TabDef[] }) {
             onClick={() => setActiveTab(tab.id)}
             className={`border-b-2 px-4 py-2 font-mono text-sm transition-colors ${
               activeTab === tab.id
-                ? 'border-blue-400 text-blue-400'
+                ? 'border-green-900 text-green-800'
                 : 'border-transparent text-neutral-500 hover:text-neutral-300'
             }`}
           >
@@ -51,11 +51,11 @@ const repoSetupTabs: TabDef[] = [
     lines: [
       {
         command:
-          'curl -fsSL https://packages.fluid.sh/gpg | sudo gpg --dearmor -o /usr/share/keyrings/fluid.gpg',
+          'curl -fsSL https://packages.deer.sh/gpg | sudo gpg --dearmor -o /usr/share/keyrings/fluid.gpg',
       },
       {
         command:
-          'echo "deb [signed-by=/usr/share/keyrings/fluid.gpg] https://packages.fluid.sh/apt stable main" | sudo tee /etc/apt/sources.list.d/fluid.list',
+          'echo "deb [signed-by=/usr/share/keyrings/fluid.gpg] https://packages.deer.sh/apt stable main" | sudo tee /etc/apt/sources.list.d/fluid.list',
       },
       { command: 'sudo apt update' },
     ],
@@ -64,15 +64,15 @@ const repoSetupTabs: TabDef[] = [
     id: 'dnf',
     label: 'dnf (Fedora/RHEL)',
     lines: [
-      { command: 'sudo rpm --import https://packages.fluid.sh/gpg' },
+      { command: 'sudo rpm --import https://packages.deer.sh/gpg' },
       {
-        command: `sudo tee /etc/yum.repos.d/fluid.repo <<'EOF'
-[fluid]
+        command: `sudo tee /etc/yum.repos.d/deer.repo <<'EOF'
+[deer]
 name=Fluid
-baseurl=https://packages.fluid.sh/yum/$basearch
+baseurl=https://packages.deer.sh/yum/$basearch
 enabled=1
 gpgcheck=1
-gpgkey=https://packages.fluid.sh/gpg
+gpgkey=https://packages.deer.sh/gpg
 EOF`,
       },
     ],
@@ -81,15 +81,15 @@ EOF`,
     id: 'yum',
     label: 'yum (CentOS)',
     lines: [
-      { command: 'sudo rpm --import https://packages.fluid.sh/gpg' },
+      { command: 'sudo rpm --import https://packages.deer.sh/gpg' },
       {
-        command: `sudo tee /etc/yum.repos.d/fluid.repo <<'EOF'
-[fluid]
+        command: `sudo tee /etc/yum.repos.d/deer.repo <<'EOF'
+[deer]
 name=Fluid
-baseurl=https://packages.fluid.sh/yum/$basearch
+baseurl=https://packages.deer.sh/yum/$basearch
 enabled=1
 gpgcheck=1
-gpgkey=https://packages.fluid.sh/gpg
+gpgkey=https://packages.deer.sh/gpg
 EOF`,
       },
     ],
@@ -100,17 +100,17 @@ const installTabs: TabDef[] = [
   {
     id: 'apt',
     label: 'apt',
-    lines: [{ command: 'sudo apt install fluid-daemon' }],
+    lines: [{ command: 'sudo apt install deer-daemon' }],
   },
   {
     id: 'dnf',
     label: 'dnf',
-    lines: [{ command: 'sudo dnf install fluid-daemon' }],
+    lines: [{ command: 'sudo dnf install deer-daemon' }],
   },
   {
     id: 'yum',
     label: 'yum',
-    lines: [{ command: 'sudo yum install fluid-daemon' }],
+    lines: [{ command: 'sudo yum install deer-daemon' }],
   },
 ]
 
@@ -125,21 +125,21 @@ export const daemonSetupSteps: Step[] = [
     ),
   },
   {
-    title: 'Install fluid-daemon',
+    title: 'Install deer-daemon',
     content: (
       <>
         <p>
           Install the daemon package. This creates a{' '}
-          <code className="text-green-400">fluid-daemon</code> system user, installs the systemd
+          <code className="text-green-800">deer-daemon</code> system user, installs the systemd
           unit, and places a default config at{' '}
-          <code className="text-green-400">/etc/fluid-daemon/daemon.yaml</code>.
+          <code className="text-green-800">/etc/deer-daemon/daemon.yaml</code>.
         </p>
         <PackageManagerTabs tabs={installTabs} />
         <Callout type="info">
           QEMU, libvirt, libguestfs-tools, and networking tools are listed as recommended
           dependencies. On Debian/Ubuntu they install automatically; on RHEL/Fedora install them
           separately if needed:{' '}
-          <code className="text-blue-400">
+          <code className="text-green-800">
             sudo dnf install qemu-kvm libvirt libguestfs-tools-c
           </code>
         </Callout>
@@ -156,9 +156,9 @@ export const daemonSetupSteps: Step[] = [
         </p>
         <TerminalBlock
           lines={[
-            { command: 'sudo vi /etc/fluid-daemon/daemon.yaml  # optional' },
-            { command: 'sudo systemctl start fluid-daemon' },
-            { command: 'sudo systemctl status fluid-daemon' },
+            { command: 'sudo vi /etc/deer-daemon/daemon.yaml  # optional' },
+            { command: 'sudo systemctl start deer-daemon' },
+            { command: 'sudo systemctl status deer-daemon' },
             { output: 'Active: active (running)' },
           ]}
         />
@@ -179,7 +179,7 @@ export const daemonSetupSteps: Step[] = [
         </p>
         <TerminalBlock
           lines={[
-            { command: 'fluid connect your-sandbox-host:9091' },
+            { command: 'deer connect your-sandbox-host:9091' },
             { output: '  [ok] Health check passed' },
             { output: '  [ok] Host info retrieved' },
             { output: '' },
@@ -194,9 +194,9 @@ export const daemonSetupSteps: Step[] = [
           ]}
         />
         <Callout type="tip">
-          You can also use <code className="text-green-400">/connect</code> inside the TUI for a
+          You can also use <code className="text-green-800">/connect</code> inside the TUI for a
           guided wizard experience. Use{' '}
-          <code className="text-green-400">fluid connect --no-save</code> to test without saving.
+          <code className="text-green-800">deer connect --no-save</code> to test without saving.
         </Callout>
       </>
     ),
@@ -211,16 +211,16 @@ export const daemonSetupSteps: Step[] = [
         </p>
         <CodeBlock
           code={`control_plane:
-  address: "api.fluid.sh:9090"
+  address: "api.deer.sh:9090"
   token: "host_abc123..."`}
           lang="yaml"
           filename="daemon.yaml (append)"
         />
         <p>Restart the daemon to pick up the change:</p>
-        <TerminalBlock lines={[{ command: 'sudo systemctl restart fluid-daemon' }]} />
+        <TerminalBlock lines={[{ command: 'sudo systemctl restart deer-daemon' }]} />
         <p>
           See{' '}
-          <a href="/docs/upgrade" className="text-blue-400 hover:text-blue-300">
+          <a href="/docs/upgrade" className="text-green-800 hover:text-green-900">
             Upgrade to Hosted
           </a>{' '}
           for the full walkthrough.
@@ -275,44 +275,44 @@ const depsTabs: TabDef[] = [
   },
 ]
 
-const daemonConfig = `# /etc/fluid-daemon/daemon.yaml
+const daemonConfig = `# /etc/deer-daemon/daemon.yaml
 listen:
   grpc: ":9091"
 
 backend: qemu
 
 storage:
-  images: /var/lib/fluid-daemon/images
-  overlays: /var/lib/fluid-daemon/overlays
-  state: /var/lib/fluid-daemon/state.db
+  images: /var/lib/deer-daemon/images
+  overlays: /var/lib/deer-daemon/overlays
+  state: /var/lib/deer-daemon/state.db
 
 network:
   bridge: fluid0
   subnet: 10.0.0.0/24
 
 ssh:
-  ca_key_path: /etc/fluid-daemon/ssh_ca
-  ca_pub_key_path: /etc/fluid-daemon/ssh_ca.pub
-  key_dir: /var/lib/fluid-daemon/keys
+  ca_key_path: /etc/deer-daemon/ssh_ca
+  ca_pub_key_path: /etc/deer-daemon/ssh_ca.pub
+  key_dir: /var/lib/deer-daemon/keys
   cert_ttl: 30m
   default_user: sandbox
-  identity_file: /etc/fluid-daemon/identity
-  # proxy_jump: "fluid-daemon@vm-host"  # Set by CLI onboarding for NAT networks
+  identity_file: /etc/deer-daemon/identity
+  # proxy_jump: "deer-daemon@vm-host"  # Set by CLI onboarding for NAT networks
 
 # Optional: connect to control plane
 # control_plane:
-#   address: "api.fluid.sh:9090"
+#   address: "api.deer.sh:9090"
 #   token: "your-host-token"
 `
 
 const systemdUnit = `[Unit]
-Description=fluid-daemon sandbox host
+Description=deer-daemon sandbox host
 After=network.target libvirtd.service
 
 [Service]
-User=fluid-daemon
-Group=fluid-daemon
-ExecStart=/usr/local/bin/fluid-daemon --config /etc/fluid-daemon/daemon.yaml
+User=deer-daemon
+Group=deer-daemon
+ExecStart=/usr/local/bin/deer-daemon --config /etc/deer-daemon/daemon.yaml
 AmbientCapabilities=CAP_NET_ADMIN
 Restart=on-failure
 RestartSec=5
@@ -341,7 +341,7 @@ const manualSteps: Array<{ title: string; content: ReactNode }> = [
           lines={[
             {
               command:
-                'curl -fsSL https://raw.githubusercontent.com/aspectrr/fluid.sh/main/public-key.asc | gpg --import',
+                'curl -fsSL https://raw.githubusercontent.com/aspectrr/deer.sh/main/public-key.asc | gpg --import',
             },
           ]}
         />
@@ -359,11 +359,11 @@ const manualSteps: Array<{ title: string; content: ReactNode }> = [
             { command: 'ARCH=amd64  # or arm64' },
             {
               command:
-                'wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/fluid-daemon_${VERSION}_linux_${ARCH}.tar.gz',
+                'wget https://github.com/aspectrr/deer.sh/releases/download/v${VERSION}/deer-daemon_${VERSION}_linux_${ARCH}.tar.gz',
             },
             {
               command:
-                'wget https://github.com/aspectrr/fluid.sh/releases/download/v${VERSION}/checksums.txt{,.sig}',
+                'wget https://github.com/aspectrr/deer.sh/releases/download/v${VERSION}/checksums.txt{,.sig}',
             },
             { command: 'gpg --verify checksums.txt.sig checksums.txt' },
             { command: 'sha256sum -c checksums.txt --ignore-missing' },
@@ -378,57 +378,57 @@ const manualSteps: Array<{ title: string; content: ReactNode }> = [
       <>
         <TerminalBlock
           lines={[
-            { command: 'tar -xzf fluid-daemon_${VERSION}_linux_${ARCH}.tar.gz' },
-            { command: 'sudo install -m 755 fluid-daemon /usr/local/bin/' },
+            { command: 'tar -xzf deer-daemon_${VERSION}_linux_${ARCH}.tar.gz' },
+            { command: 'sudo install -m 755 deer-daemon /usr/local/bin/' },
             {
               command:
-                'sudo useradd --system --home /var/lib/fluid-daemon --shell /usr/sbin/nologin fluid-daemon',
+                'sudo useradd --system --home /var/lib/deer-daemon --shell /usr/sbin/nologin deer-daemon',
             },
             {
               command:
-                'sudo mkdir -p /etc/fluid-daemon /var/lib/fluid-daemon/{images,overlays} /var/log/fluid-daemon',
+                'sudo mkdir -p /etc/deer-daemon /var/lib/deer-daemon/{images,overlays} /var/log/deer-daemon',
             },
             {
               command:
-                'sudo chown -R fluid-daemon:fluid-daemon /var/lib/fluid-daemon /var/log/fluid-daemon',
+                'sudo chown -R deer-daemon:deer-daemon /var/lib/deer-daemon /var/log/deer-daemon',
             },
             {
               command:
-                'sudo ssh-keygen -t ed25519 -f /etc/fluid-daemon/ssh_ca -N "" -C "fluid-daemon CA"',
+                'sudo ssh-keygen -t ed25519 -f /etc/deer-daemon/ssh_ca -N "" -C "deer-daemon CA"',
             },
             {
               command:
-                'sudo chown fluid-daemon:fluid-daemon /etc/fluid-daemon/ssh_ca /etc/fluid-daemon/ssh_ca.pub',
+                'sudo chown deer-daemon:deer-daemon /etc/deer-daemon/ssh_ca /etc/deer-daemon/ssh_ca.pub',
             },
             {
               command:
-                'sudo ssh-keygen -t ed25519 -f /etc/fluid-daemon/identity -N "" -C "fluid-daemon"',
+                'sudo ssh-keygen -t ed25519 -f /etc/deer-daemon/identity -N "" -C "deer-daemon"',
             },
             {
               command:
-                'sudo chown fluid-daemon:fluid-daemon /etc/fluid-daemon/identity /etc/fluid-daemon/identity.pub',
+                'sudo chown deer-daemon:deer-daemon /etc/deer-daemon/identity /etc/deer-daemon/identity.pub',
             },
           ]}
         />
         <Callout type="info">
-          Deploy <code className="text-green-400">/etc/fluid-daemon/identity.pub</code> to{' '}
-          <code className="text-green-400">~/.ssh/authorized_keys</code> on each{' '}
+          Deploy <code className="text-green-800">/etc/deer-daemon/identity.pub</code> to{' '}
+          <code className="text-green-800">~/.ssh/authorized_keys</code> on each{' '}
           <strong>source VM host</strong> (the machine running libvirt) so the daemon can SSH for
           virsh and rsync operations.
         </Callout>
         <p>Create the configuration file:</p>
-        <CodeBlock code={daemonConfig} lang="yaml" filename="/etc/fluid-daemon/daemon.yaml" />
+        <CodeBlock code={daemonConfig} lang="yaml" filename="/etc/deer-daemon/daemon.yaml" />
         <p>Create the systemd service file:</p>
         <CodeBlock
           code={systemdUnit}
           lang="ini"
-          filename="/etc/systemd/system/fluid-daemon.service"
+          filename="/etc/systemd/system/deer-daemon.service"
         />
         <p>Enable and start:</p>
         <TerminalBlock
           lines={[
             { command: 'sudo systemctl daemon-reload' },
-            { command: 'sudo systemctl enable --now fluid-daemon' },
+            { command: 'sudo systemctl enable --now deer-daemon' },
           ]}
         />
       </>
@@ -444,7 +444,7 @@ export function ManualInstallSteps() {
     <div className="mt-4">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="text-xs text-blue-400 transition-colors hover:text-blue-300"
+        className="text-xs text-green-800 transition-colors hover:text-green-900"
       >
         {expanded ? 'Hide' : 'Show'} manual installation
       </button>
@@ -463,7 +463,7 @@ export function ManualInstallSteps() {
                       className={cn(
                         'flex h-5 w-5 shrink-0 items-center justify-center text-[10px] font-medium',
                         isExpanded
-                          ? 'bg-blue-400/20 text-blue-400'
+                          ? 'bg-green-800/20 text-green-800'
                           : 'bg-neutral-800 text-neutral-500'
                       )}
                     >
@@ -541,7 +541,9 @@ export function DaemonSubsteps() {
                 <span
                   className={cn(
                     'flex h-5 w-5 shrink-0 items-center justify-center text-[10px] font-medium',
-                    isExpanded ? 'bg-blue-400/20 text-blue-400' : 'bg-neutral-800 text-neutral-500'
+                    isExpanded
+                      ? 'bg-green-800/20 text-green-800'
+                      : 'bg-neutral-800 text-neutral-500'
                   )}
                 >
                   {i + 1}

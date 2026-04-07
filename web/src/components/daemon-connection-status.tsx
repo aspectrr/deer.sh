@@ -42,16 +42,16 @@ export function DaemonConnectionStatus({ orgSlug }: { orgSlug: string }) {
 
   return (
     <div
-      className={`flex items-center gap-2 border border-blue-500/30 bg-blue-500/10 px-3 py-2 transition-all duration-300 ${
+      className={`flex items-center gap-2 border border-green-900/30 bg-green-900/10 px-3 py-2 transition-all duration-300 ${
         connected ? 'opacity-80' : 'opacity-100'
       }`}
     >
       {connected ? (
-        <Check className="h-3.5 w-3.5 text-blue-400" />
+        <Check className="h-3.5 w-3.5 text-green-800" />
       ) : (
-        <span className="w-4 text-center text-sm text-blue-400">{BRAILLE_FRAMES[frameIndex]}</span>
+        <span className="w-4 text-center text-sm text-green-800">{BRAILLE_FRAMES[frameIndex]}</span>
       )}
-      <span className="text-xs text-blue-400">
+      <span className="text-xs text-green-800">
         {connected ? 'Connected' : 'Waiting for connection...'}
       </span>
     </div>

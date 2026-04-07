@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	OAuthStateCookieName = "fluid_oauth_state"
+	OAuthStateCookieName = "deer_oauth_state"
 	oauthStateLen        = 32
 	oauthStateMaxAge     = 600 // 10 minutes
 )

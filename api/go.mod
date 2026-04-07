@@ -1,4 +1,4 @@
-module github.com/aspectrr/fluid.sh/api
+module github.com/aspectrr/deer.sh/api
 
 go 1.24.0
 
@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/MarceloPetrucio/go-scalar-api-reference v0.0.0-20240521013641-ce5d2efe0e06
-	github.com/aspectrr/fluid.sh/proto/gen/go v0.1.5
+	github.com/aspectrr/deer.sh/proto/gen/go v0.1.5
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgconn v1.14.3
@@ -43,3 +43,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/aspectrr/deer.sh/proto/gen/go => ../proto/gen/go

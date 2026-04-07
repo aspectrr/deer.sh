@@ -1,4 +1,4 @@
-## What would be needed for a Fluid.sh Terminal Agent
+## What would be needed for a Deer.sh Terminal Agent
 
 ## MCP Connections
 - Google Drive, Sharepoint for Internal Docs

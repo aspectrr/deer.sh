@@ -31,7 +31,7 @@ function DaemonPage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <h1 className="mb-1 text-lg font-medium text-white">Daemon Setup</h1>
       <p className="text-muted-foreground mb-8 text-xs">
-        Install and configure fluid-daemon on each sandbox host.
+        Install and configure deer-daemon on each sandbox host.
       </p>
 
       <Callout type="info" title="One daemon per sandbox host">
@@ -44,7 +44,7 @@ function DaemonPage() {
       <div className="mb-6 space-y-2">
         <button
           onClick={() => setShowSource(!showSource)}
-          className="text-xs text-blue-400 transition-colors hover:text-blue-300"
+          className="text-xs text-green-800 transition-colors hover:text-green-900"
         >
           {showSource ? 'Hide' : 'Show'} build from source
         </button>
@@ -52,10 +52,10 @@ function DaemonPage() {
           <div className="border-border border bg-neutral-900/30 p-4">
             <TerminalBlock
               lines={[
-                { command: 'git clone https://github.com/aspectrr/fluid.sh.git' },
+                { command: 'git clone https://github.com/aspectrr/deer.sh.git' },
                 {
                   command:
-                    'cd fluid.sh/fluid-daemon && go build -o /usr/local/bin/fluid-daemon ./cmd/fluid-daemon',
+                    'cd deer.sh/deer-daemon && go build -o /usr/local/bin/deer-daemon ./cmd/deer-daemon',
                 },
               ]}
             />

@@ -25,7 +25,7 @@ function AuthLayout() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="font-logo text-3xl tracking-tight">
-            <span className="text-blue-400">$</span> fluid.sh
+            <span className="text-green-800">$</span> deer.sh
           </h1>
           <p className="text-muted-foreground mt-2 text-xs">The AI Sys-Admin for Enterprise</p>
         </div>

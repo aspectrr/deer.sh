@@ -1,7 +1,7 @@
 import { defineConfig } from 'orval'
 
 export default defineConfig({
-  'fluid-api': {
+  'deer-api': {
     output: {
       client: 'react-query',
       mode: 'tags-split',

@@ -203,7 +203,7 @@ function ProductPage() {
                 Docs
               </Link>
               <a
-                href="https://github.com/aspectrr/fluid.sh"
+                href="https://github.com/aspectrr/deer.sh"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-neutral-200"
@@ -274,7 +274,7 @@ function ProductPage() {
                   Docs
                 </Link>
                 <a
-                  href="https://github.com/aspectrr/fluid.sh"
+                  href="https://github.com/aspectrr/deer.sh"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="transition-colors hover:text-white"

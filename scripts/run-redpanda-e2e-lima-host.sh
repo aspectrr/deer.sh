@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-lima_name="fluid-redpanda-e2e"
+lima_name="deer-redpanda-e2e"
 lima_template="template://ubuntu"
 host_repo_root="${REPO_ROOT}"
 guest_repo_root=""
@@ -32,7 +32,7 @@ Create or start a Lima VM from the host, install guest dependencies, and run
 the Redpanda live microVM integration test inside the Linux guest.
 
 Options:
-  --lima-name <name>        Lima VM name. Default: fluid-redpanda-e2e
+  --lima-name <name>        Lima VM name. Default: deer-redpanda-e2e
   --template <template>     Lima template for first boot. Default: template://ubuntu
   --repo-root <path>        Repository root on the host. Default: directory above this script
   --guest-repo-root <path>  Repository root inside the Lima guest.
@@ -299,7 +299,7 @@ if [ "$skip_guest_setup" -eq 0 ]; then
     read -r -d '' guest_setup_cmd <<EOF || true
 set -euo pipefail
 test -d ${guest_repo_q}
-sudo find /tmp /var/tmp -maxdepth 1 \\( -name 'fluid-*' -o -name 'go-build*' \\) -exec rm -rf {} + 2>/dev/null || true
+sudo find /tmp /var/tmp -maxdepth 1 \\( -name 'deer-*' -o -name 'go-build*' \\) -exec rm -rf {} + 2>/dev/null || true
 sudo apt-get clean
 sudo env TMPDIR=/var/tmp apt-get update
 sudo env TMPDIR=/var/tmp apt-get install -y gpgv gnupg qemu-system qemu-utils libvirt-daemon-system libvirt-clients iproute2 openssh-client golang-go

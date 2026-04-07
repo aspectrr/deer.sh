@@ -1,0 +1,7 @@
+node.name: deer-demo-sandbox
+pipeline.workers: 2
+pipeline.batch.size: 125
+pipeline.batch.delay: 50
+log.level: warn
+path.logs: /var/log/logstash
+xpack.monitoring.enabled: false

@@ -67,7 +67,7 @@ function HypervisorSeries() {
               to="/"
               className="font-logo text-2xl tracking-tight text-white no-underline hover:no-underline md:text-3xl"
             >
-              <span className="text-blue-400">$</span> fluid.sh
+              <span className="text-green-800">$</span> deer.sh
             </Link>
             <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
               <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
@@ -80,7 +80,7 @@ function HypervisorSeries() {
                 Pricing
               </Link>
               <a
-                href="https://github.com/aspectrr/fluid.sh"
+                href="https://github.com/aspectrr/deer.sh"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-neutral-200"
@@ -157,7 +157,7 @@ function HypervisorSeries() {
                   Pricing
                 </Link>
                 <a
-                  href="https://github.com/aspectrr/fluid.sh"
+                  href="https://github.com/aspectrr/deer.sh"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="transition-colors hover:text-white"
@@ -190,11 +190,11 @@ function HypervisorSeries() {
       <main className="px-4 pb-24 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <div>
-            <span className="font-mono text-[10px] tracking-wider text-blue-400 uppercase">
+            <span className="font-mono text-[10px] tracking-wider text-green-800 uppercase">
               Technical Deep Dive - {publishedCount}/{series.chapters.length} parts
             </span>
             <h1 className="font-logo mt-2 text-2xl tracking-tight md:text-3xl">
-              <span className="text-blue-400">#</span> {series.title}
+              <span className="text-green-800">#</span> {series.title}
             </h1>
             <p className="mt-1 font-mono text-sm text-neutral-400">{series.subtitle}</p>
             <p className="mt-4 text-sm leading-relaxed text-neutral-500">{series.description}</p>
@@ -218,14 +218,14 @@ function HypervisorSeries() {
                   key={ch.slug}
                   to="/blog/$slug"
                   params={{ slug: ch.slug }}
-                  className="group flex items-start gap-4 rounded-lg border border-neutral-800 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-blue-500/30 hover:no-underline"
+                  className="group flex items-start gap-4 rounded-lg border border-neutral-800 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-green-900/30 hover:no-underline"
                 >
-                  <span className="mt-0.5 shrink-0 font-mono text-sm text-blue-400">
+                  <span className="mt-0.5 shrink-0 font-mono text-sm text-green-800">
                     {String(ch.part).padStart(2, '0')}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <h2 className="font-mono text-sm text-neutral-200 transition-colors group-hover:text-blue-400">
+                      <h2 className="font-mono text-sm text-neutral-200 transition-colors group-hover:text-green-800">
                         {ch.title}
                       </h2>
                       <time

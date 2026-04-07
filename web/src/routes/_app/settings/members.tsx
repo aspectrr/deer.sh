@@ -15,7 +15,7 @@ function MembersPage() {
           <h2 className="text-sm font-medium text-white">Team Members</h2>
           <p className="text-muted-foreground text-xs">Manage who has access</p>
         </div>
-        <Button className="bg-blue-500 text-xs text-black hover:bg-blue-400">
+        <Button className="bg-green-900 text-xs text-black hover:bg-green-800">
           <UserPlus className="mr-1 h-3.5 w-3.5" />
           Invite Member
         </Button>

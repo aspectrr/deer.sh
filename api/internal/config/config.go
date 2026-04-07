@@ -210,7 +210,7 @@ func Load() *Config {
 		},
 		PostHog: PostHogConfig{
 			APIKey:   os.Getenv("POSTHOG_API_KEY"),
-			Endpoint: envOr("POSTHOG_ENDPOINT", "https://nautilus.fluid.sh"),
+			Endpoint: envOr("POSTHOG_ENDPOINT", "https://nautilus.deer.sh"),
 		},
 		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
 	}

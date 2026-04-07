@@ -1,8 +1,8 @@
 # config.yaml
-packageName: fluid
+packageName: deer
 projectName: Fluid
 packageVersion: 0.1.0
-packageUrl: https://github.com/aspectrr/fluid.sh
+packageUrl: https://github.com/aspectrr/deer.sh
 
 # Better naming
 enumPropertyNaming: UPPERCASE
