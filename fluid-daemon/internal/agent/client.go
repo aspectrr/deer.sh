@@ -11,12 +11,14 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	fluidv1 "github.com/aspectrr/fluid.sh/proto/gen/go/fluid/v1"
 
+	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/kafkastub"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/provider"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/snapshotpull"
 	"github.com/aspectrr/fluid.sh/fluid-daemon/internal/sshconfig"
@@ -44,6 +46,7 @@ type Client struct {
 	prov       provider.SandboxProvider
 	localStore *state.Store
 	puller     *snapshotpull.Puller
+	kafkaMgr   *kafkastub.Manager
 	logger     *slog.Logger
 
 	// stream is the active bidirectional stream to the control plane.
@@ -85,6 +88,12 @@ func NewClient(
 		hostname, _ = os.Hostname()
 	}
 
+	kafkaBaseDir := filepath.Join(os.TempDir(), "fluid-kafka-stub", cfg.HostID)
+	kafkaMgr, err := newKafkaManager(kafkaBaseDir, logger, localStore)
+	if err != nil && logger != nil {
+		logger.Warn("failed to initialize kafka stub manager", "error", err)
+	}
+
 	return &Client{
 		hostID:          cfg.HostID,
 		hostname:        hostname,
@@ -99,6 +108,7 @@ func NewClient(
 		prov:            prov,
 		localStore:      localStore,
 		puller:          puller,
+		kafkaMgr:        kafkaMgr,
 		logger:          logger.With("component", "agent"),
 		handlerSem:      make(chan struct{}, 64),
 	}
@@ -344,6 +354,18 @@ func (c *Client) handleCommand(ctx context.Context, stream fluidv1.HostService_C
 		resp = c.handleStartSandbox(ctx, reqID, cmd.StartSandbox)
 	case *fluidv1.ControlMessage_StopSandbox:
 		resp = c.handleStopSandbox(ctx, reqID, cmd.StopSandbox)
+	case *fluidv1.ControlMessage_ListSandboxKafkaStubs:
+		resp = c.handleListSandboxKafkaStubs(ctx, reqID, cmd.ListSandboxKafkaStubs)
+	case *fluidv1.ControlMessage_GetSandboxKafkaStub:
+		resp = c.handleGetSandboxKafkaStub(ctx, reqID, cmd.GetSandboxKafkaStub)
+	case *fluidv1.ControlMessage_StartSandboxKafkaStub:
+		resp = c.handleStartSandboxKafkaStub(ctx, reqID, cmd.StartSandboxKafkaStub)
+	case *fluidv1.ControlMessage_StopSandboxKafkaStub:
+		resp = c.handleStopSandboxKafkaStub(ctx, reqID, cmd.StopSandboxKafkaStub)
+	case *fluidv1.ControlMessage_RestartSandboxKafkaStub:
+		resp = c.handleRestartSandboxKafkaStub(ctx, reqID, cmd.RestartSandboxKafkaStub)
+	case *fluidv1.ControlMessage_GetKafkaCaptureStatus:
+		resp = c.handleGetKafkaCaptureStatus(ctx, reqID, cmd.GetKafkaCaptureStatus)
 	case *fluidv1.ControlMessage_RunCommand:
 		resp = c.handleRunCommand(ctx, reqID, cmd.RunCommand)
 	case *fluidv1.ControlMessage_CreateSnapshot:
@@ -424,6 +446,8 @@ func (c *Client) handleCreateSandbox(ctx context.Context, reqID string, cmd *flu
 		TTLSeconds:   int(cmd.GetTtlSeconds()),
 		AgentID:      cmd.GetAgentId(),
 		SSHPublicKey: cmd.GetSshPublicKey(),
+		DataSources:  providerDataSourcesFromProto(cmd.GetDataSources(), cmd.GetKafkaCaptureConfigs()),
+		KafkaBroker:  kafkaBrokerConfigForDataSources(cmd.GetDataSources(), cmd.GetKafkaCaptureConfigs()),
 	})
 	if err != nil {
 		return errorResponse(reqID, sandboxID, fmt.Sprintf("create sandbox: %v", err))
@@ -448,6 +472,8 @@ func (c *Client) handleCreateSandbox(ctx context.Context, reqID string, cmd *flu
 		c.logger.Error("failed to persist sandbox locally", "sandbox_id", sandboxID, "error", err)
 	}
 
+	kafkaStubs := c.attachKafkaDataSources(ctx, sandboxID, result.IPAddress, cmd.GetDataSources(), cmd.GetKafkaCaptureConfigs())
+
 	c.logger.Info("sandbox created",
 		"sandbox_id", sandboxID,
 		"ip", result.IPAddress,
@@ -465,6 +491,7 @@ func (c *Client) handleCreateSandbox(ctx context.Context, reqID string, cmd *flu
 				MacAddress: result.MACAddress,
 				Bridge:     result.Bridge,
 				Pid:        int32(result.PID),
+				KafkaStubs: kafkaStubs,
 			},
 		},
 	}
@@ -482,6 +509,7 @@ func (c *Client) handleDestroySandbox(ctx context.Context, reqID string, cmd *fl
 	if err := c.localStore.DeleteSandbox(ctx, sandboxID); err != nil {
 		c.logger.Error("delete local sandbox state failed", "sandbox_id", sandboxID, "error", err)
 	}
+	c.detachKafkaStubs(ctx, sandboxID)
 
 	return &fluidv1.HostMessage{
 		RequestId: reqID,
@@ -527,6 +555,102 @@ func (c *Client) handleStopSandbox(ctx context.Context, reqID string, cmd *fluid
 				SandboxId: sandboxID,
 				State:     "STOPPED",
 			},
+		},
+	}
+}
+
+func (c *Client) handleListSandboxKafkaStubs(ctx context.Context, reqID string, cmd *fluidv1.ListSandboxKafkaStubsCommand) *fluidv1.HostMessage {
+	stubs, err := c.listKafkaStubs(ctx, cmd.GetSandboxId())
+	if err != nil {
+		return errorResponse(reqID, cmd.GetSandboxId(), fmt.Sprintf("list sandbox kafka stubs: %v", err))
+	}
+	return &fluidv1.HostMessage{
+		RequestId: reqID,
+		Payload: &fluidv1.HostMessage_ListSandboxKafkaStubsResponse{
+			ListSandboxKafkaStubsResponse: &fluidv1.ListSandboxKafkaStubsResponse{Stubs: stubs},
+		},
+	}
+}
+
+func (c *Client) handleGetSandboxKafkaStub(ctx context.Context, reqID string, cmd *fluidv1.GetSandboxKafkaStubCommand) *fluidv1.HostMessage {
+	stub, err := c.getKafkaStub(ctx, cmd.GetSandboxId(), cmd.GetStubId())
+	if err != nil {
+		return errorResponse(reqID, cmd.GetSandboxId(), fmt.Sprintf("get sandbox kafka stub: %v", err))
+	}
+	return &fluidv1.HostMessage{
+		RequestId: reqID,
+		Payload: &fluidv1.HostMessage_SandboxKafkaStubInfo{
+			SandboxKafkaStubInfo: stub,
+		},
+	}
+}
+
+func (c *Client) handleStartSandboxKafkaStub(ctx context.Context, reqID string, cmd *fluidv1.StartSandboxKafkaStubCommand) *fluidv1.HostMessage {
+	stub, err := c.transitionKafkaStub(ctx, cmd.GetSandboxId(), cmd.GetStubId(), "start")
+	if err != nil {
+		return errorResponse(reqID, cmd.GetSandboxId(), fmt.Sprintf("start sandbox kafka stub: %v", err))
+	}
+	return &fluidv1.HostMessage{
+		RequestId: reqID,
+		Payload: &fluidv1.HostMessage_SandboxKafkaStubInfo{
+			SandboxKafkaStubInfo: stub,
+		},
+	}
+}
+
+func (c *Client) handleStopSandboxKafkaStub(ctx context.Context, reqID string, cmd *fluidv1.StopSandboxKafkaStubCommand) *fluidv1.HostMessage {
+	stub, err := c.transitionKafkaStub(ctx, cmd.GetSandboxId(), cmd.GetStubId(), "stop")
+	if err != nil {
+		return errorResponse(reqID, cmd.GetSandboxId(), fmt.Sprintf("stop sandbox kafka stub: %v", err))
+	}
+	return &fluidv1.HostMessage{
+		RequestId: reqID,
+		Payload: &fluidv1.HostMessage_SandboxKafkaStubInfo{
+			SandboxKafkaStubInfo: stub,
+		},
+	}
+}
+
+func (c *Client) handleRestartSandboxKafkaStub(ctx context.Context, reqID string, cmd *fluidv1.RestartSandboxKafkaStubCommand) *fluidv1.HostMessage {
+	stub, err := c.transitionKafkaStub(ctx, cmd.GetSandboxId(), cmd.GetStubId(), "restart")
+	if err != nil {
+		return errorResponse(reqID, cmd.GetSandboxId(), fmt.Sprintf("restart sandbox kafka stub: %v", err))
+	}
+	return &fluidv1.HostMessage{
+		RequestId: reqID,
+		Payload: &fluidv1.HostMessage_SandboxKafkaStubInfo{
+			SandboxKafkaStubInfo: stub,
+		},
+	}
+}
+
+func (c *Client) handleGetKafkaCaptureStatus(ctx context.Context, reqID string, cmd *fluidv1.KafkaCaptureStatusRequest) *fluidv1.HostMessage {
+	var statuses []*fluidv1.KafkaCaptureStatus
+	if c.kafkaMgr != nil {
+		items, err := c.kafkaMgr.ListCaptureStatuses(ctx, cmd.GetCaptureConfigIds())
+		if err != nil {
+			return errorResponse(reqID, "", fmt.Sprintf("get kafka capture status: %v", err))
+		}
+		statuses = make([]*fluidv1.KafkaCaptureStatus, 0, len(items))
+		for _, item := range items {
+			_ = mergeCaptureStatus(ctx, c.localStore, item)
+			statuses = append(statuses, &fluidv1.KafkaCaptureStatus{
+				CaptureConfigId:      item.CaptureConfigID,
+				SourceVm:             item.SourceVM,
+				State:                item.State,
+				BufferedBytes:        item.BufferedBytes,
+				SegmentCount:         int32(item.SegmentCount),
+				UpdatedAtUnix:        item.UpdatedAt.Unix(),
+				AttachedSandboxCount: int32(item.AttachedSandboxCount),
+				LastError:            item.LastError,
+				LastResumeCursor:     item.LastResumeCursor,
+			})
+		}
+	}
+	return &fluidv1.HostMessage{
+		RequestId: reqID,
+		Payload: &fluidv1.HostMessage_KafkaCaptureStatusResponse{
+			KafkaCaptureStatusResponse: &fluidv1.KafkaCaptureStatusResponse{Statuses: statuses},
 		},
 	}
 }
@@ -704,9 +828,90 @@ func (c *Client) handleValidateSourceVM(ctx context.Context, reqID string, cmd *
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+func (c *Client) attachKafkaDataSources(ctx context.Context, sandboxID, sandboxIP string, dataSources []*fluidv1.DataSourceAttachment, fallback []*fluidv1.KafkaCaptureConfigBinding) []*fluidv1.SandboxKafkaStubInfo {
+	attachments := kafkaSandboxAttachmentsFromProto(dataSources, fallback)
+	if c.kafkaMgr == nil || len(attachments) == 0 {
+		return nil
+	}
+
+	for _, attachment := range attachments {
+		cfg := attachment.CaptureConfig
+		_ = c.localStore.UpsertKafkaCaptureConfig(ctx, kafkaCaptureConfigToLocal(cfg))
+	}
+
+	stubs, err := c.kafkaMgr.AttachSandbox(ctx, sandboxID, sandboxBrokerEndpoint(sandboxIP), attachments)
+	if err != nil {
+		c.logger.Error("attach kafka stubs failed", "sandbox_id", sandboxID, "error", err)
+		return nil
+	}
+
+	out := make([]*fluidv1.SandboxKafkaStubInfo, 0, len(stubs))
+	for _, stub := range stubs {
+		_ = c.localStore.UpsertSandboxKafkaStub(ctx, sandboxKafkaStubToLocal(stub))
+		out = append(out, sandboxKafkaStubToProto(stub))
+	}
+	return out
+}
+
+func (c *Client) detachKafkaStubs(ctx context.Context, sandboxID string) {
+	if c.kafkaMgr != nil {
+		_ = c.kafkaMgr.DetachSandbox(ctx, sandboxID)
+	}
+	_ = c.localStore.DeleteSandboxKafkaStubs(ctx, sandboxID)
+}
+
+func (c *Client) listKafkaStubs(ctx context.Context, sandboxID string) ([]*fluidv1.SandboxKafkaStubInfo, error) {
+	if c.kafkaMgr == nil {
+		return nil, nil
+	}
+	stubs, err := c.kafkaMgr.ListSandboxStubs(ctx, sandboxID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*fluidv1.SandboxKafkaStubInfo, 0, len(stubs))
+	for _, stub := range stubs {
+		_ = c.localStore.UpsertSandboxKafkaStub(ctx, sandboxKafkaStubToLocal(stub))
+		out = append(out, sandboxKafkaStubToProto(stub))
+	}
+	return out, nil
+}
+
+func (c *Client) getKafkaStub(ctx context.Context, sandboxID, stubID string) (*fluidv1.SandboxKafkaStubInfo, error) {
+	if c.kafkaMgr == nil {
+		return nil, kafkastub.ErrNotFound
+	}
+	stub, err := c.kafkaMgr.GetSandboxStub(ctx, sandboxID, stubID)
+	if err != nil {
+		return nil, err
+	}
+	_ = c.localStore.UpsertSandboxKafkaStub(ctx, sandboxKafkaStubToLocal(stub))
+	return sandboxKafkaStubToProto(stub), nil
+}
+
+func (c *Client) transitionKafkaStub(ctx context.Context, sandboxID, stubID, action string) (*fluidv1.SandboxKafkaStubInfo, error) {
+	if c.kafkaMgr == nil {
+		return nil, kafkastub.ErrNotFound
+	}
+	var (
+		stub *kafkastub.SandboxStub
+		err  error
+	)
+	switch action {
+	case "start":
+		stub, err = c.kafkaMgr.StartSandboxStub(ctx, sandboxID, stubID)
+	case "stop":
+		stub, err = c.kafkaMgr.StopSandboxStub(ctx, sandboxID, stubID)
+	case "restart":
+		stub, err = c.kafkaMgr.RestartSandboxStub(ctx, sandboxID, stubID)
+	default:
+		return nil, fmt.Errorf("unsupported action %q", action)
+	}
+	if err != nil {
+		return nil, err
+	}
+	_ = c.localStore.UpsertSandboxKafkaStub(ctx, sandboxKafkaStubToLocal(stub))
+	return sandboxKafkaStubToProto(stub), nil
+}
 
 func (c *Client) handleDiscoverHosts(ctx context.Context, reqID string, cmd *fluidv1.DiscoverHostsCommand) *fluidv1.HostMessage {
 	c.logger.Info("discovering hosts from SSH config")

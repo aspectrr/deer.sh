@@ -69,10 +69,6 @@ func restoreKafkaRuntime(ctx context.Context, localStore *state.Store, manager *
 	return manager.Restore(ctx, configs, stubs)
 }
 
-func kafkaBrokerConfigForRequest(bindings []*fluidv1.KafkaCaptureConfigBinding) *provider.KafkaBrokerConfig {
-	return kafkaBrokerConfigForDataSources(nil, bindings)
-}
-
 func kafkaBrokerConfigForDataSources(dataSources []*fluidv1.DataSourceAttachment, fallback []*fluidv1.KafkaCaptureConfigBinding) *provider.KafkaBrokerConfig {
 	if len(kafkaSandboxAttachmentsFromProto(dataSources, fallback)) == 0 {
 		return nil
@@ -191,19 +187,6 @@ func kafkaCaptureConfigFromLocal(row *state.KafkaCaptureConfig) kafkastub.Captur
 		MaxBufferAge:       time.Duration(row.MaxBufferAgeSecs) * time.Second,
 		MaxBufferBytes:     row.MaxBufferBytes,
 		Enabled:            row.Enabled,
-	}
-}
-
-func captureStatusToLocal(item kafkastub.CaptureStatus) *state.KafkaCaptureConfig {
-	return &state.KafkaCaptureConfig{
-		ID:               item.CaptureConfigID,
-		SourceVM:         item.SourceVM,
-		State:            item.State,
-		BufferedBytes:    item.BufferedBytes,
-		SegmentCount:     item.SegmentCount,
-		LastError:        item.LastError,
-		LastResumeCursor: item.LastResumeCursor,
-		UpdatedAt:        item.UpdatedAt,
 	}
 }
 

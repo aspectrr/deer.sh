@@ -687,7 +687,7 @@ func (m *Manager) runReplayWorker(ctx context.Context, stubID string) {
 		m.setStubError(stubID, err)
 		return
 	}
-	defer producer.Close()
+	defer func() { _ = producer.Close() }()
 
 	started := stub.LastReplayCursor == "" || stub.LastReplayCursor == "head"
 	lastSentAt := time.Time{}

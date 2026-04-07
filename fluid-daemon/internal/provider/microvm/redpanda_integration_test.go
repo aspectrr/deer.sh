@@ -546,7 +546,7 @@ func buildRedpandaArchiveFromDebs(t *testing.T, cacheDir string, urls []string) 
 	if err != nil {
 		t.Fatalf("create stage dir: %v", err)
 	}
-	defer os.RemoveAll(stageDir)
+	defer func() { _ = os.RemoveAll(stageDir) }()
 
 	for _, pkgURL := range urls {
 		pkgName := filepath.Base(pkgURL)
@@ -587,7 +587,7 @@ func buildRedpandaArchiveFromDebs(t *testing.T, cacheDir string, urls []string) 
 	}
 	tmpArchivePath := tmpArchive.Name()
 	_ = tmpArchive.Close()
-	defer os.Remove(tmpArchivePath)
+	defer func() { _ = os.Remove(tmpArchivePath) }()
 
 	writeTarGzFromDir(t, tmpArchivePath, payloadDir)
 	if err := os.Rename(tmpArchivePath, archivePath); err != nil {
@@ -608,7 +608,7 @@ func downloadArchiveToCache(t *testing.T, cacheDir, archiveName, sourceURL strin
 	if err != nil {
 		t.Fatalf("download %s: %v", sourceURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("download %s: unexpected status %s", sourceURL, resp.Status)
 	}
@@ -617,7 +617,7 @@ func downloadArchiveToCache(t *testing.T, cacheDir, archiveName, sourceURL strin
 	if err != nil {
 		t.Fatalf("create archive file: %v", err)
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		t.Fatalf("write archive file: %v", err)
 	}
@@ -631,13 +631,13 @@ func writeTarGzFromDir(t *testing.T, archivePath, root string) {
 	if err != nil {
 		t.Fatalf("create archive %s: %v", archivePath, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	gz := gzip.NewWriter(file)
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	tw := tar.NewWriter(gz)
-	defer tw.Close()
+	defer func() { _ = tw.Close() }()
 
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -676,7 +676,7 @@ func writeTarGzFromDir(t *testing.T, archivePath, root string) {
 		if err != nil {
 			return err
 		}
-		defer in.Close()
+		defer func() { _ = in.Close() }()
 		_, err = io.Copy(tw, in)
 		return err
 	}); err != nil {

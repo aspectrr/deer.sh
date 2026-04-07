@@ -71,10 +71,6 @@ func restoreKafkaRuntime(ctx context.Context, store *state.Store, manager *kafka
 	return manager.Restore(ctx, configs, stubs)
 }
 
-func (s *Server) attachKafkaStubs(ctx context.Context, sandboxID, sandboxIP string, bindings []*fluidv1.KafkaCaptureConfigBinding) ([]*fluidv1.SandboxKafkaStubInfo, error) {
-	return s.attachKafkaDataSources(ctx, sandboxID, sandboxIP, nil, bindings)
-}
-
 func (s *Server) attachKafkaDataSources(ctx context.Context, sandboxID, sandboxIP string, dataSources []*fluidv1.DataSourceAttachment, fallback []*fluidv1.KafkaCaptureConfigBinding) ([]*fluidv1.SandboxKafkaStubInfo, error) {
 	attachments := kafkaSandboxAttachmentsFromProto(dataSources, fallback)
 	if s.kafkaMgr == nil || len(attachments) == 0 {
@@ -221,10 +217,6 @@ func (s *Server) GetKafkaCaptureStatus(ctx context.Context, req *fluidv1.KafkaCa
 	return resp, nil
 }
 
-func kafkaBrokerConfigForRequest(bindings []*fluidv1.KafkaCaptureConfigBinding) *provider.KafkaBrokerConfig {
-	return kafkaBrokerConfigForDataSources(nil, bindings)
-}
-
 func kafkaBrokerConfigForDataSources(dataSources []*fluidv1.DataSourceAttachment, fallback []*fluidv1.KafkaCaptureConfigBinding) *provider.KafkaBrokerConfig {
 	if len(kafkaSandboxAttachmentsFromProto(dataSources, fallback)) == 0 {
 		return nil
@@ -352,19 +344,6 @@ func captureConfigToState(cfg kafkastub.CaptureConfig) *state.KafkaCaptureConfig
 		MaxBufferBytes:     cfg.MaxBufferBytes,
 		Enabled:            cfg.Enabled,
 		UpdatedAt:          time.Now().UTC(),
-	}
-}
-
-func captureStatusToState(item kafkastub.CaptureStatus) *state.KafkaCaptureConfig {
-	return &state.KafkaCaptureConfig{
-		ID:               item.CaptureConfigID,
-		SourceVM:         item.SourceVM,
-		State:            item.State,
-		BufferedBytes:    item.BufferedBytes,
-		SegmentCount:     item.SegmentCount,
-		LastError:        item.LastError,
-		LastResumeCursor: item.LastResumeCursor,
-		UpdatedAt:        item.UpdatedAt,
 	}
 }
 

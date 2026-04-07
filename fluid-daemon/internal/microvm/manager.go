@@ -1,11 +1,15 @@
 package microvm
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,6 +48,7 @@ type SandboxInfo struct {
 type Manager struct {
 	mu      sync.RWMutex
 	vms     map[string]*SandboxInfo // sandbox_id -> info
+	qmpStop map[string]context.CancelFunc
 	qemuBin string
 	workDir string
 	logger  *slog.Logger
@@ -67,6 +72,7 @@ func NewManager(qemuBin, workDir string, logger *slog.Logger) (*Manager, error) 
 
 	m := &Manager{
 		vms:     make(map[string]*SandboxInfo),
+		qmpStop: make(map[string]context.CancelFunc),
 		qemuBin: bin,
 		workDir: workDir,
 		logger:  logger.With("component", "microvm"),
@@ -199,10 +205,19 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	}()
 
 	pidFile := filepath.Join(sandboxDir, "qemu.pid")
+	qmpSocket := filepath.Join(sandboxDir, "qmp.sock")
+	qemuStderrPath := filepath.Join(sandboxDir, "qemu-stderr.log")
+	qemuEventsPath := filepath.Join(sandboxDir, "qemu-events.log")
+	stderrFile, err := os.OpenFile(qemuStderrPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("open qemu stderr log: %w", err)
+	}
+	defer func() { _ = stderrFile.Close() }()
 
 	rootDev := cfg.RootDevice
+	platform := qemuPlatformOptions(m.qemuBin)
 	if rootDev == "" {
-		rootDev = "/dev/vda"
+		rootDev = platform.defaultRootDevice
 	}
 
 	// Build QEMU command args
@@ -210,7 +225,7 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	if cfg.Accel == "tcg" {
 		accelArgs = []string{"-accel", "tcg", "-cpu", "max"}
 	}
-	args := append([]string{"-M", "microvm"}, accelArgs...)
+	args := append([]string{"-M", platform.machineType}, accelArgs...)
 	args = append(args,
 		"-m", strconv.Itoa(cfg.MemoryMB),
 		"-smp", strconv.Itoa(cfg.VCPUs),
@@ -219,13 +234,20 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	if cfg.InitrdPath != "" {
 		args = append(args, "-initrd", cfg.InitrdPath)
 	}
+	kernelArgs := fmt.Sprintf("console=%s root=%s rw rootwait", platform.consoleDevice, rootDev)
+	if extraKernelArgs := strings.TrimSpace(os.Getenv("FLUID_QEMU_KERNEL_APPEND")); extraKernelArgs != "" {
+		kernelArgs = kernelArgs + " " + extraKernelArgs
+	} else {
+		kernelArgs = kernelArgs + " quiet"
+	}
 	args = append(args,
-		"-append", fmt.Sprintf("console=ttyS0 root=%s rw quiet", rootDev),
+		"-append", kernelArgs,
 		"-drive", fmt.Sprintf("id=root,file=%s,format=qcow2,if=none", cfg.OverlayPath),
-		"-device", "virtio-blk-device,drive=root",
+		"-device", fmt.Sprintf("%s,drive=root", platform.blockDevice),
 		"-netdev", fmt.Sprintf("tap,id=net0,ifname=%s,script=no,downscript=no", cfg.TAPDevice),
-		"-device", fmt.Sprintf("virtio-net-device,netdev=net0,mac=%s", cfg.MACAddress),
+		"-device", fmt.Sprintf("%s,netdev=net0,mac=%s", platform.netDevice, cfg.MACAddress),
 		"-serial", fmt.Sprintf("file:%s", filepath.Join(sandboxDir, "serial.log")),
+		"-qmp", fmt.Sprintf("unix:%s,server=on,wait=off", qmpSocket),
 		"-nographic", "-nodefaults",
 		"-daemonize",
 		"-pidfile", pidFile,
@@ -233,10 +255,11 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 
 	// Add cloud-init ISO if provided
 	if cfg.CloudInitISO != "" {
-		args = append(args,
-			"-drive", fmt.Sprintf("id=cidata,file=%s,format=raw,if=none", cfg.CloudInitISO),
-			"-device", "virtio-blk-device,drive=cidata",
-		)
+		args = append(args, "-drive", fmt.Sprintf("id=cidata,file=%s,format=raw,readonly=on,if=none", cfg.CloudInitISO))
+		if platform.cloudInitCtl != "" {
+			args = append(args, "-device", platform.cloudInitCtl)
+		}
+		args = append(args, "-device", platform.cloudInitDevice)
 	}
 
 	m.logger.Info("launching microVM",
@@ -250,9 +273,13 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	)
 
 	cmd := exec.CommandContext(ctx, m.qemuBin, args...)
-	output, err := cmd.CombinedOutput()
+	var launchOutput bytes.Buffer
+	logWriter := io.MultiWriter(stderrFile, &launchOutput)
+	cmd.Stdout = logWriter
+	cmd.Stderr = logWriter
+	err = cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("qemu launch failed: %w: %s", err, string(output))
+		return nil, fmt.Errorf("qemu launch failed: %w: %s", err, strings.TrimSpace(launchOutput.String()))
 	}
 
 	// Read PID from pidfile (QEMU writes it after daemonizing)
@@ -298,8 +325,11 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	}
 
 	m.vms[cfg.SandboxID] = info
+	watchCtx, cancel := context.WithCancel(context.Background())
+	m.qmpStop[cfg.SandboxID] = cancel
 	success = true
 	m.logger.Info("microVM launched", "sandbox_id", cfg.SandboxID, "pid", pid)
+	go m.watchQMPEvents(watchCtx, cfg.SandboxID, qmpSocket, qemuEventsPath)
 
 	return info, nil
 }
@@ -312,6 +342,10 @@ func (m *Manager) Stop(ctx context.Context, sandboxID string, force bool) error 
 	info, ok := m.vms[sandboxID]
 	if !ok {
 		return fmt.Errorf("sandbox %s not found", sandboxID)
+	}
+	if cancel, ok := m.qmpStop[sandboxID]; ok {
+		cancel()
+		delete(m.qmpStop, sandboxID)
 	}
 
 	proc, err := os.FindProcess(info.PID)
@@ -344,6 +378,41 @@ func (m *Manager) Stop(ctx context.Context, sandboxID string, force bool) error 
 	return nil
 }
 
+type qemuPlatform struct {
+	machineType       string
+	consoleDevice     string
+	blockDevice       string
+	netDevice         string
+	defaultRootDevice string
+	cloudInitCtl      string
+	cloudInitDevice   string
+}
+
+func qemuPlatformOptions(qemuBin string) qemuPlatform {
+	base := strings.ToLower(filepath.Base(qemuBin))
+	switch {
+	case strings.Contains(base, "aarch64"), strings.Contains(base, "arm"):
+		return qemuPlatform{
+			machineType:       "virt",
+			consoleDevice:     "ttyAMA0",
+			blockDevice:       "virtio-blk-device",
+			netDevice:         "virtio-net-device",
+			defaultRootDevice: "/dev/vda1",
+			cloudInitCtl:      "virtio-scsi-device,id=scsi0",
+			cloudInitDevice:   "scsi-cd,drive=cidata,bus=scsi0.0",
+		}
+	default:
+		return qemuPlatform{
+			machineType:       "microvm",
+			consoleDevice:     "ttyS0",
+			blockDevice:       "virtio-blk-device",
+			netDevice:         "virtio-net-device",
+			defaultRootDevice: "/dev/vda",
+			cloudInitDevice:   "virtio-blk-device,drive=cidata",
+		}
+	}
+}
+
 // Destroy stops the QEMU process and removes all associated resources.
 func (m *Manager) Destroy(ctx context.Context, sandboxID string) error {
 	m.mu.Lock()
@@ -354,6 +423,10 @@ func (m *Manager) Destroy(ctx context.Context, sandboxID string) error {
 		// Even if not tracked, try to clean up disk
 		_ = RemoveOverlay(m.workDir, sandboxID)
 		return nil
+	}
+	if cancel, ok := m.qmpStop[sandboxID]; ok {
+		cancel()
+		delete(m.qmpStop, sandboxID)
 	}
 
 	// Kill the process
@@ -458,4 +531,65 @@ func readMetadata(workDir, sandboxID string) (sandboxMetadata, error) {
 		return sandboxMetadata{}, err
 	}
 	return meta, nil
+}
+
+func (m *Manager) watchQMPEvents(ctx context.Context, sandboxID, socketPath, logPath string) {
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		m.logger.Warn("open qmp events log failed", "sandbox_id", sandboxID, "error", err)
+		return
+	}
+	defer func() { _ = logFile.Close() }()
+
+	writeLine := func(format string, args ...any) {
+		_, _ = fmt.Fprintf(logFile, format+"\n", args...)
+	}
+
+	deadline := time.Now().Add(30 * time.Second)
+	var conn net.Conn
+	for {
+		if ctx.Err() != nil {
+			writeLine("qmp watcher canceled before connect")
+			return
+		}
+		conn, err = net.DialTimeout("unix", socketPath, time.Second)
+		if err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			writeLine("qmp watcher connect timeout: %v", err)
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	defer func() { _ = conn.Close() }()
+
+	go func() {
+		<-ctx.Done()
+		_ = conn.Close()
+	}()
+
+	reader := bufio.NewReader(conn)
+	if line, readErr := reader.ReadString('\n'); readErr == nil || len(line) > 0 {
+		writeLine("%s", strings.TrimSpace(line))
+	} else {
+		writeLine("qmp watcher handshake failed: %v", readErr)
+		return
+	}
+	if _, err := io.WriteString(conn, "{\"execute\":\"qmp_capabilities\"}\n"); err != nil {
+		writeLine("qmp watcher capabilities failed: %v", err)
+		return
+	}
+
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		writeLine("%s", scanner.Text())
+	}
+	if err := scanner.Err(); err != nil && ctx.Err() == nil {
+		writeLine("qmp watcher read failed: %v", err)
+	}
+	if ctx.Err() != nil {
+		writeLine("qmp watcher stopped")
+	}
 }
