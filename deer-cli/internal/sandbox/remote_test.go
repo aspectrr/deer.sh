@@ -97,6 +97,30 @@ func (m *mockDaemonClient) DoctorCheck(context.Context, *deerv1.DoctorCheckReque
 	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+func (m *mockDaemonClient) GetKafkaCaptureStatus(context.Context, *deerv1.KafkaCaptureStatusRequest, ...grpc.CallOption) (*deerv1.KafkaCaptureStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (m *mockDaemonClient) GetSandboxKafkaStub(context.Context, *deerv1.GetSandboxKafkaStubCommand, ...grpc.CallOption) (*deerv1.SandboxKafkaStubInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (m *mockDaemonClient) ListSandboxKafkaStubs(context.Context, *deerv1.ListSandboxKafkaStubsCommand, ...grpc.CallOption) (*deerv1.ListSandboxKafkaStubsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (m *mockDaemonClient) StartSandboxKafkaStub(context.Context, *deerv1.StartSandboxKafkaStubCommand, ...grpc.CallOption) (*deerv1.SandboxKafkaStubInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (m *mockDaemonClient) StopSandboxKafkaStub(context.Context, *deerv1.StopSandboxKafkaStubCommand, ...grpc.CallOption) (*deerv1.SandboxKafkaStubInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (m *mockDaemonClient) RestartSandboxKafkaStub(context.Context, *deerv1.RestartSandboxKafkaStubCommand, ...grpc.CallOption) (*deerv1.SandboxKafkaStubInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (m *mockDaemonClient) CreateSandboxStream(_ context.Context, _ *deerv1.CreateSandboxCommand, _ ...grpc.CallOption) (grpc.ServerStreamingClient[deerv1.SandboxProgress], error) {
 	if m.createStreamErr != nil {
 		return nil, m.createStreamErr
