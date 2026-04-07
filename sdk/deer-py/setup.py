@@ -11,7 +11,7 @@ setup(
     description="API for managing sandboxes, organizations, billing, and hosts",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/aspectrr/fluid.sh",
+    url="https://github.com/aspectrr/deer.sh",
     packages=find_packages(exclude=["tests", "tests.*"]),
     classifiers=[
         "Development Status :: 4 - Beta",
