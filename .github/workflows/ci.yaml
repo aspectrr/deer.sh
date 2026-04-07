@@ -11,7 +11,7 @@ on:
 jobs:
   # Go services - deer CLI
   deer-cli:
-    name: Fluid CLI
+    name: Deer CLI
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -44,7 +44,7 @@ jobs:
 
   # Go services - deer daemon
   deer-daemon:
-    name: Fluid Daemon
+    name: Deer Daemon
     runs-on: ubuntu-latest
     defaults:
       run:
