@@ -210,6 +210,35 @@ func (m *tickerMockStore) GetSubscriptionByStripeID(context.Context, string) (*s
 func (m *tickerMockStore) AcquireAdvisoryLock(context.Context, int64) error { return nil }
 func (m *tickerMockStore) ReleaseAdvisoryLock(context.Context, int64) error { return nil }
 
+func (m *tickerMockStore) CreateKafkaCaptureConfig(context.Context, *store.KafkaCaptureConfig) error {
+	return nil
+}
+func (m *tickerMockStore) GetKafkaCaptureConfig(context.Context, string) (*store.KafkaCaptureConfig, error) {
+	return nil, nil
+}
+func (m *tickerMockStore) ListKafkaCaptureConfigsByOrg(context.Context, string) ([]*store.KafkaCaptureConfig, error) {
+	return nil, nil
+}
+func (m *tickerMockStore) UpdateKafkaCaptureConfig(context.Context, *store.KafkaCaptureConfig) error {
+	return nil
+}
+func (m *tickerMockStore) DeleteKafkaCaptureConfig(context.Context, string) error { return nil }
+func (m *tickerMockStore) CreateSandboxKafkaStub(context.Context, *store.SandboxKafkaStub) error {
+	return nil
+}
+func (m *tickerMockStore) GetSandboxKafkaStub(context.Context, string) (*store.SandboxKafkaStub, error) {
+	return nil, nil
+}
+func (m *tickerMockStore) ListSandboxKafkaStubsBySandbox(context.Context, string) ([]*store.SandboxKafkaStub, error) {
+	return nil, nil
+}
+func (m *tickerMockStore) UpdateSandboxKafkaStub(context.Context, *store.SandboxKafkaStub) error {
+	return nil
+}
+func (m *tickerMockStore) DeleteSandboxKafkaStubsBySandbox(context.Context, string) error {
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // mockHostStream - minimal HostStream for registry.Register
 // ---------------------------------------------------------------------------

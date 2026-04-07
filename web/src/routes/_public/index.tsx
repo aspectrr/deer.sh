@@ -1,72 +1,17 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useCallback, useRef } from 'react'
-import { Menu, X, ChevronDown, ArrowRight } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState } from 'react'
+import { Menu, X, ArrowRight, CheckCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
-import { ScriptedDemo } from '~/components/landing/scripted-demo'
-import { ArchitectureAnimation } from '~/components/landing/architecture-animation'
-import type { DiagramPhase } from '~/lib/diagram-phases'
-import { useAuth } from '~/lib/auth'
-import { usePostHog } from '~/lib/posthog'
-import { useReturningVisitor } from '~/lib/use-returning-visitor'
 
 export const Route = createFileRoute('/_public/')({
-  component: LandingPage,
+  component: ConsultingHomePage,
 })
 
-const CopyIcon = () => (
-  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-    />
-  </svg>
-)
-
-const CheckIcon = () => (
-  <svg className="h-4 w-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-  </svg>
-)
-
-function CopyButton({ command, method }: { command: string; method?: string }) {
-  const posthog = usePostHog()
-  const [copied, setCopied] = useState(false)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null)
-
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(command)
-    if (method) {
-      posthog.capture('install_command_copied', { method })
-    }
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    setCopied(true)
-    timeoutRef.current = setTimeout(() => setCopied(false), 2000)
-  }, [command, method, posthog])
-
+function FadeIn({ children, className }: { children: React.ReactNode; className?: string }) {
+  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
   return (
-    <button
-      onClick={handleCopy}
-      className="rounded p-2 text-neutral-600 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
-      aria-label="Copy to clipboard"
-    >
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </button>
-  )
-}
-
-function SecuritySection({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.15 })
-  return (
-    <motion.section
+    <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 20 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
@@ -74,172 +19,176 @@ function SecuritySection({
       className={className}
     >
       {children}
-    </motion.section>
+    </motion.div>
   )
 }
 
-const faqs = [
+const services = [
   {
-    question: 'What is Fluid and how does it work?',
-    answer:
-      'Fluid is an AI agent built for working on Linux servers. It uses tools you already know like ssh, login shells, and Ansible playbooks to investigate Linux servers. Fluid creates a dedicated fluid-readonly user with a restricted login shell. A client-side allowlist validates every command against ~50 permitted read-only commands (cat, ls, grep, ps, journalctl, etc.) before it is even sent. Server-side, the restricted shell blocks 50+ destructive patterns - sudo, rm, mv, chmod, wget, python, bash - at the OS level. Command substitution ($(...), backticks), output redirection, and subshells are all blocked. Even if the AI constructs something creative, the shell will not execute it. If a sandbox host is configured and a possible fix can be constructed, Fluid will create a sandbox of the server to test changes and updates. Finally, Fluid will create an ansible playbook that can be applied to production to fix the issue.',
+    id: 'cluster-setup',
+    title: 'Cluster Setup',
+    tagline: 'production-ready from day one',
+    description:
+      'End-to-end Elasticsearch cluster provisioning - sizing, shard strategy, index lifecycle management, and cross-cluster replication. We get your cluster right the first time.',
+    details: [
+      'Node sizing and hardware recommendations',
+      'Index lifecycle management (ILM) policies',
+      'Cross-cluster replication and failover',
+      'Security hardening and TLS configuration',
+      'Snapshot and restore strategy',
+    ],
   },
   {
-    question: 'What data leaves my environment?',
-    answer:
-      'Command output passes through a PII redactor before reaching the LLM. IP addresses, API keys (sk-..., Bearer tokens), AWS credentials (AKIA...), SSH private keys, and connection strings are replaced with deterministic tokens like [REDACTED_IP_1]. The same value always maps to the same token within a session, so the AI can reason about relationships without seeing the actual data. You can add custom patterns and allowlists. You can choose to use a different OpenAI-compatible endpoint within /settings',
+    id: 'pipeline-architecture',
+    title: 'Pipeline Architecture',
+    tagline: 'data flows that actually work',
+    description:
+      'Logstash and Beats pipeline design for your specific data sources. We architect pipelines that are maintainable, observable, and built to handle production load.',
+    details: [
+      'Logstash pipeline design and optimization',
+      'Beats configuration for servers, containers, and cloud',
+      'Dead letter queue setup and error handling',
+      'Parsing complex log formats (JSON, multiline, custom)',
+      'Kafka and message queue integration',
+    ],
   },
   {
-    question: 'What happens if the AI hallucinates a destructive command?',
-    answer:
-      'It gets blocked by technical enforcement, not a system prompt. The client-side allowlist rejects the command before it touches SSH. If somehow bypassed, the server-side restricted shell - installed as the actual login shell for the fluid-readonly user - blocks it independently. Both layers parse pipelines, detect chained commands (;, &&, ||), and validate each segment. This is defense in depth: two independent enforcement layers, neither relying on LLM compliance.',
+    id: 'pipeline-debugging',
+    title: 'Pipeline Debugging',
+    tagline: 'find it fast, fix it right',
+    description:
+      'Broken ingestion, missing documents, mapping conflicts, slow queries - we diagnose and resolve ELK issues that your team has been chasing for weeks.',
+    details: [
+      'Ingestion pipeline failure diagnosis',
+      'Mapping conflict resolution',
+      'Query performance analysis',
+      'Memory pressure and GC investigation',
+      'Hot shard and split-brain remediation',
+    ],
   },
   {
-    question: 'Who else can see my infrastructure through this?',
-    answer:
-      'Nobody. Fluid runs on your infrastructure. The CLI runs on your workstation. The daemon runs on your sandbox host. Source VM access uses SSH from your network. For multi-daemon setups, there is a hosted control-plane option used for remote agent execution, sandbox management, and enterprise features. SOC2 compliant. We use anonymized and redacted telemetry to improve the product.',
-  },
-  {
-    question: 'Does this open a new attack surface?',
-    answer:
-      'Fluid uses SSH certificates with 30-minute TTLs issued by a local CA, not persistent credentials. Certificates are scoped to a single principal (fluid-readonly) with port forwarding, agent forwarding, and X11 forwarding disabled. The daemon listens on gRPC :9091 for local CLI communication. No new ports are opened on your production VMs - Fluid uses standard SSH (port 22).',
-  },
-  {
-    question: 'Can I audit everything it did after the fact?',
-    answer:
-      'Every tool call, every LLM request and response, and every session start/end is logged in JSONL format. Each entry contains a SHA-256 hash of the previous entry plus its own content, forming a tamper-evident chain. Run VerifyChain() on the log file - it will detect if any entry was modified, inserted, or deleted. Logs record tool name, arguments, results, duration, and timestamps. User input records length only (not content) for privacy.',
+    id: 'system-integration',
+    title: 'System Integration',
+    tagline: 'connect elk to everything',
+    description:
+      'Integrate ELK with your existing infrastructure - SIEMs, monitoring platforms, ticketing systems, cloud providers. We handle the connective tissue.',
+    details: [
+      'SIEM and security tooling integration',
+      'AWS, GCP, and Azure log ingestion',
+      'Alerting and incident routing setup',
+      'Kibana dashboard and visualization design',
+      'APM and distributed tracing configuration',
+    ],
   },
 ]
 
-function FAQSection() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null)
-  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
+const logos = [
+  { src: '/images/logos/Indiana-University-Logo-465862039.png', name: 'Indiana University' },
+  { src: '/images/logos/omnisoc-768w-3770841716.png', name: 'OmniSOC' },
+  { src: '/images/logos/internet2-logo-png_seeklogo-72798-1654782020.png', name: 'Internet2' },
+  { src: '/images/logos/Purdue-Logo-PNG-HD-2002129623.png', name: 'Purdue' },
+  { src: '/images/logos/Clemson-University-Emblem-2654677447.png', name: 'Clemson University' },
+  { src: '/images/logos/Virginia-Tech-Logo-PNG-Photo-2687094516.png', name: 'Virginia Tech' },
+  {
+    src: '/images/logos/lehigh-mountain-hawks-ncaa-logo-sticker-ncaa142-5215-4a50fb-2570742203.png',
+    name: 'Lehigh University',
+  },
+  {
+    src: '/images/logos/Santa_Clara_University_Logo-588491151.png',
+    name: 'Santa Clara University',
+  },
+  { src: '/images/logos/ucsc-logo-png-4-4148969120.png', name: 'UC Santa Cruz' },
+  { src: '/images/logos/UCSD-Seal-Logo-3371647571.png', name: 'UC San Diego' },
+  { src: '/images/logos/951515-249938965.png', name: '' },
+]
 
+// 4 copies per half = 8 total; mr-12 on each item makes slot width exact (160+48=208px)
+// so -50% = exactly 4 sets, seamless on any screen width
+const marqueeItems = Array.from({ length: 8 }, () => logos).flat()
+
+function LogoMarquee() {
   return (
-    <motion.section
-      ref={ref}
-      initial={{ opacity: 0, y: 20 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.5 }}
-      className="mt-24"
-    >
-      <h2 className="mb-6 text-xl text-neutral-200">FAQ</h2>
-      <div className="border border-neutral-800">
-        {faqs.map((faq, i) => (
-          <div key={i} className="border-b border-neutral-800 last:border-b-0">
-            <button
-              onClick={() => setOpenIndex(openIndex === i ? null : i)}
-              className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left font-mono text-sm text-neutral-200 transition-colors hover:bg-neutral-900"
-            >
-              <span>{faq.question}</span>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 text-neutral-500 transition-transform duration-200 ${openIndex === i ? 'rotate-180' : ''}`}
-              />
-            </button>
-            <AnimatePresence>
-              {openIndex === i && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 pb-4 font-mono text-xs leading-relaxed text-neutral-400">
-                    {faq.answer}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+    <div className="w-full overflow-hidden border-y border-neutral-800 py-12">
+      <div
+        className="flex items-center"
+        style={{
+          width: 'max-content',
+          animation: 'marquee 40s linear infinite',
+        }}
+      >
+        {marqueeItems.map((logo, i) => (
+          <div key={i} className="mr-16 flex h-12 w-40 shrink-0 items-center justify-center">
+            <img
+              src={logo.src}
+              alt={logo.name}
+              className="max-h-full max-w-full object-contain opacity-40 grayscale transition-opacity duration-300 hover:opacity-70"
+            />
           </div>
         ))}
       </div>
-    </motion.section>
+    </div>
   )
 }
 
-const installTabs = [
+const process = [
   {
-    id: 'go',
-    label: 'go',
-    command: 'go install github.com/aspectrr/fluid.sh/fluid-cli/cmd/fluid@latest',
-    method: 'go_install',
+    step: '01',
+    title: 'Discovery',
+    description:
+      'We start with a call to understand your current setup, pain points, and goals. No templates - just questions specific to your environment.',
   },
   {
-    id: 'curl',
-    label: 'curl',
-    command: 'curl -fsSL https://fluid.sh/install.sh | bash',
-    method: 'curl',
+    step: '02',
+    title: 'Architecture Review',
+    description:
+      'We audit your existing ELK configuration, identify gaps, and produce a written assessment with prioritized recommendations.',
   },
-] as const
+  {
+    step: '03',
+    title: 'Implementation',
+    description:
+      'We do the work. Changes are tested in isolated environments before touching production. Every change is documented.',
+  },
+  {
+    step: '04',
+    title: 'Handoff',
+    description:
+      'Your team gets runbooks, architecture diagrams, and a walkthrough of everything we built. We leave you self-sufficient.',
+  },
+]
 
-function LandingPage() {
-  const { isAuthenticated } = useAuth()
-  const isReturning = useReturningVisitor()
-  const [activeTab, setActiveTab] = useState<string>('go')
-  const [diagramPhase, setDiagramPhase] = useState<DiagramPhase>('idle')
+function ConsultingHomePage() {
   const [mobileOpen, setMobileOpen] = useState(false)
-
-  const currentTab = installTabs.find((t) => t.id === activeTab)!
+  const [expandedService, setExpandedService] = useState<string | null>(null)
 
   return (
     <>
-      <header className="px-4 py-24 sm:px-6">
+      {/* Nav */}
+      <header className="px-4 pt-8 pb-0 sm:px-6">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="font-logo text-2xl tracking-tight md:text-3xl">
-                <span className="text-blue-400">$</span> fluid.sh
-              </h1>
-            </div>
+          <div className="mb-0 flex items-center justify-between">
+            <Link
+              to="/"
+              className="font-logo text-2xl tracking-tight text-white no-underline hover:no-underline md:text-3xl"
+            >
+              🦌 <span className="text-green-800">deer.sh</span>
+            </Link>
             <div className="hidden items-center gap-6 font-mono text-sm text-neutral-400 md:flex">
-              <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
-                Docs
-              </Link>
-              <Link to="/blog" className="transition-colors hover:text-neutral-200">
-                Blog
-              </Link>
-              <Link to="/pricing" className="transition-colors hover:text-neutral-200">
-                Pricing
+              <a href="#services" className="transition-colors hover:text-neutral-200">
+                Services
+              </a>
+              <a href="#case-studies" className="transition-colors hover:text-neutral-200">
+                Case Studies
+              </a>
+              <Link to="/product" className="transition-colors hover:text-neutral-200">
+                Product
               </Link>
               <a
-                href="https://github.com/aspectrr/fluid.sh"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="transition-colors hover:text-neutral-200"
+                href="#contact"
+                className="inline-flex items-center gap-1 rounded border border-green-900/40 bg-green-900/10 px-3 py-1 text-green-800 transition-colors hover:border-green-900/60 hover:bg-green-900/20"
               >
-                GitHub
+                Get in Touch
               </a>
-              <a
-                href="https://discord.gg/4WGGXJWm8J"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="transition-colors hover:text-neutral-200"
-              >
-                Discord
-              </a>
-              {isAuthenticated ? (
-                <Link
-                  to="/dashboard"
-                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
-                >
-                  Dashboard
-                </Link>
-              ) : isReturning ? (
-                <Link
-                  to="/login"
-                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
-                >
-                  Login
-                </Link>
-              ) : (
-                <Link
-                  to="/register"
-                  className="rounded border border-neutral-700 px-3 py-1 text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
-                >
-                  Sign Up
-                </Link>
-              )}
             </div>
             <button
               className="text-neutral-400 hover:text-white md:hidden"
@@ -249,7 +198,6 @@ function LandingPage() {
             </button>
           </div>
 
-          {/* Mobile nav overlay */}
           {mobileOpen && (
             <div
               className="fixed inset-0 z-30 bg-black md:hidden"
@@ -259,271 +207,241 @@ function LandingPage() {
                 className="flex flex-col gap-6 p-8 pt-20 font-mono text-lg text-neutral-300"
                 onClick={(e) => e.stopPropagation()}
               >
-                <Link
-                  to="/docs/quickstart"
-                  onClick={() => setMobileOpen(false)}
-                  className="transition-colors hover:text-white"
-                >
-                  Docs
-                </Link>
-                <Link
-                  to="/blog"
-                  onClick={() => setMobileOpen(false)}
-                  className="transition-colors hover:text-white"
-                >
-                  Blog
-                </Link>
-                <Link
-                  to="/pricing"
-                  onClick={() => setMobileOpen(false)}
-                  className="transition-colors hover:text-white"
-                >
-                  Pricing
-                </Link>
                 <a
-                  href="https://github.com/aspectrr/fluid.sh"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-colors hover:text-white"
+                  href="#services"
                   onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
                 >
-                  GitHub
+                  Services
                 </a>
                 <a
-                  href="https://discord.gg/4WGGXJWm8J"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-colors hover:text-white"
+                  href="#case-studies"
                   onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
                 >
-                  Discord
+                  Case Studies
                 </a>
                 <Link
-                  to={isAuthenticated ? '/dashboard' : isReturning ? '/login' : '/register'}
+                  to="/product"
                   onClick={() => setMobileOpen(false)}
                   className="transition-colors hover:text-white"
                 >
-                  {isAuthenticated ? 'Dashboard' : isReturning ? 'Login' : 'Sign Up'}
+                  Product
                 </Link>
+                <a
+                  href="#contact"
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  Get in Touch
+                </a>
               </nav>
             </div>
           )}
-          <p className="font-logo mt-2 text-lg tracking-tight text-neutral-200">
-            The AI Sys-Admin for Enterprise.
-          </p>
-          <p className="my-2 text-neutral-400">
-            Read-only shell access. PII redaction. Tamper-evident audit logs. Sandboxes for edits.
-            Generate IaC for fixes. Fluid gets the minimum access it needs to debug and manage your
-            servers.
-          </p>
-          <div className="mt-4 flex items-center gap-3">
-            <a
-              href="#install"
-              className="inline-flex items-center gap-2 bg-blue-500 px-5 py-2 font-mono text-sm text-white transition-colors hover:bg-blue-600"
-            >
-              Get Started <ArrowRight className="h-4 w-4" />
-            </a>
-            <Link
-              to="/docs/quickstart"
-              className="inline-flex items-center gap-2 border border-neutral-700 px-5 py-2 font-mono text-sm text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
-            >
-              Read the Docs
-            </Link>
-          </div>
-        </div>
-        <div className="mx-auto mt-6 max-w-2xl">
-          <ScriptedDemo onPhase={setDiagramPhase} />
-          <ArchitectureAnimation phase={diagramPhase} />
-        </div>
-        <div className="mx-auto max-w-2xl">
-          {/* Read-Only Shell */}
-          <SecuritySection className="mt-16">
-            <h3 className="font-logo text-lg tracking-tight">
-              <span className="text-blue-400">&gt;</span> read-only shell
-            </h3>
-            <p className="mt-2 text-neutral-400">
-              Client-side command allowlist validates every command before execution. Server-side
-              restricted shell blocks destructive operations even if the allowlist is bypassed.
-              Defense in depth - not just a system prompt.
-            </p>
-            <div className="mt-4 overflow-hidden border border-neutral-800 bg-neutral-900">
-              <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-2">
-                <span className="font-mono text-xs text-neutral-500">fluid-readonly-shell</span>
-              </div>
-              <div className="p-4 font-mono text-xs">
-                <div className="text-green-400">allowed:</div>
-                <div className="ml-4 text-neutral-400">
-                  cat ls grep ps systemctl status journalctl df ss dig ...
-                </div>
-                <div className="mt-2 text-red-400">blocked:</div>
-                <div className="ml-4 text-neutral-500 line-through">
-                  sudo rm mv chmod wget curl python bash sh
-                </div>
-                <div className="mt-2 text-red-400">blocked patterns:</div>
-                <div className="ml-4 text-neutral-500 line-through">
-                  {'$(...) `...` >(...) > >> |&'}
-                </div>
-              </div>
-            </div>
-          </SecuritySection>
-
-          {/* PII Redaction */}
-          <SecuritySection className="mt-12">
-            <h3 className="font-logo text-lg tracking-tight">
-              <span className="text-blue-400">&gt;</span> pii redaction
-            </h3>
-            <p className="mt-2 text-neutral-400">
-              Sensitive data is replaced with deterministic tokens before it reaches the LLM. IP
-              addresses, API keys, AWS credentials, SSH private keys, connection strings - detected
-              and redacted automatically.
-            </p>
-            <div className="mt-4 overflow-hidden border border-neutral-800 bg-neutral-900">
-              <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-2">
-                <span className="font-mono text-xs text-neutral-500">redactor output</span>
-              </div>
-              <div className="space-y-1 p-4 font-mono text-xs">
-                <div>
-                  <span className="text-neutral-500">upstream: </span>
-                  <span className="text-blue-400">[REDACTED_IP_1]</span>
-                  <span className="text-neutral-500">:3000</span>
-                </div>
-                <div>
-                  <span className="text-neutral-500">api_key: </span>
-                  <span className="text-blue-400">[REDACTED_KEY_1]</span>
-                </div>
-                <div>
-                  <span className="text-neutral-500">db: </span>
-                  <span className="text-blue-400">[REDACTED_SECRET_1]</span>
-                </div>
-                <div className="mt-2 text-neutral-600">
-                  {'// categories: IP, KEY, SECRET, HOST, PATH'}
-                </div>
-              </div>
-            </div>
-          </SecuritySection>
-
-          {/* Audit Trail */}
-          <SecuritySection className="mt-12">
-            <h3 className="font-logo text-lg tracking-tight">
-              <span className="text-blue-400">&gt;</span> audit trail
-            </h3>
-            <p className="mt-2 text-neutral-400">
-              Every tool call, LLM request, and session is logged to tamper-evident JSONL files.
-              SHA-256 hash chains link each entry to the previous one. Run VerifyChain() to detect
-              any tampering.
-            </p>
-            <div className="mt-4 overflow-hidden border border-neutral-800 bg-neutral-900">
-              <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-2">
-                <span className="font-mono text-xs text-neutral-500">audit.jsonl</span>
-              </div>
-              <div className="space-y-1 overflow-x-auto p-4 font-mono text-xs">
-                <div className="whitespace-nowrap">
-                  <span className="text-neutral-500">{'{"'}</span>
-                  <span className="text-blue-400">seq</span>
-                  <span className="text-neutral-500">{'":1,"'}</span>
-                  <span className="text-blue-400">type</span>
-                  <span className="text-neutral-500">{'":"tool_call","'}</span>
-                  <span className="text-blue-400">tool</span>
-                  <span className="text-neutral-500">{'":"run_source_command","'}</span>
-                  <span className="text-blue-400">prev_hash</span>
-                  <span className="text-neutral-500">{'":"0000...","'}</span>
-                  <span className="text-blue-400">hash</span>
-                  <span className="text-neutral-500">{'":"a3f2..."}'}</span>
-                </div>
-                <div className="whitespace-nowrap">
-                  <span className="text-neutral-500">{'{"'}</span>
-                  <span className="text-blue-400">seq</span>
-                  <span className="text-neutral-500">{'":2,"'}</span>
-                  <span className="text-blue-400">type</span>
-                  <span className="text-neutral-500">{'":"llm_response","'}</span>
-                  <span className="text-blue-400">prev_hash</span>
-                  <span className="text-neutral-500">{'":"a3f2...","'}</span>
-                  <span className="text-blue-400">hash</span>
-                  <span className="text-neutral-500">{'":"b7c1..."}'}</span>
-                </div>
-              </div>
-            </div>
-          </SecuritySection>
-
-          {/* Allowlists */}
-          <SecuritySection className="mt-12">
-            <h3 className="font-logo text-lg tracking-tight">
-              <span className="text-blue-400">&gt;</span> allowlists
-            </h3>
-            <p className="mt-2 text-neutral-400">
-              Explicit command allowlist you can inspect and customize. Subcommand restrictions for
-              tools like systemctl - only status, show, list-units are permitted. No implicit trust.
-            </p>
-            <div className="mt-4 overflow-hidden border border-neutral-800 bg-neutral-900">
-              <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-2">
-                <span className="font-mono text-xs text-neutral-500">subcommand restrictions</span>
-              </div>
-              <div className="space-y-1 p-4 font-mono text-xs">
-                <div>
-                  <span className="text-neutral-200">systemctl </span>
-                  <span className="text-green-400">
-                    status show list-units is-active is-enabled
-                  </span>
-                </div>
-                <div>
-                  <span className="text-neutral-200">dpkg </span>
-                  <span className="text-green-400">-l --list</span>
-                </div>
-                <div>
-                  <span className="text-neutral-200">apt </span>
-                  <span className="text-green-400">list</span>
-                </div>
-                <div>
-                  <span className="text-neutral-200">rpm </span>
-                  <span className="text-green-400">-qa -q</span>
-                </div>
-                <div className="mt-2 text-neutral-600">{'// all other subcommands blocked'}</div>
-              </div>
-            </div>
-          </SecuritySection>
-
-          <FAQSection />
-
-          <h2 id="install" className="mt-24 mb-4 text-xl text-neutral-200">
-            Installation
-          </h2>
-          <p className="my-2 text-neutral-400">
-            This will install the <span className="text-blue-400">$</span>{' '}
-            <span className="font-logo text-white">fluid.sh</span> terminal agent / mcp server meant
-            to be installed on your local workstation.
-          </p>
-          {/* Install tabs */}
-          <div className="mt-8 overflow-hidden rounded-lg bg-neutral-900">
-            <div className="flex border-b border-neutral-800">
-              {installTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`border-b-2 px-4 py-2 font-mono text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-blue-400 text-blue-400'
-                      : 'border-transparent text-neutral-500 hover:text-neutral-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="px-5 py-4">
-              <div className="flex items-center justify-between gap-4 font-mono text-sm">
-                <div className="min-w-0 overflow-x-auto text-neutral-400">
-                  <span className="text-blue-400 select-none">$ </span>
-                  <span className="whitespace-nowrap">{currentTab.command}</span>
-                </div>
-                <CopyButton command={currentTab.command} method={currentTab.method} />
-              </div>
-              <div className="mt-4 border-t border-neutral-800 pt-4 font-mono text-sm text-neutral-500">
-                <span className="text-blue-400 select-none">$ </span>fluid
-              </div>
-            </div>
-          </div>
         </div>
       </header>
+
+      {/* Hero */}
+      <section className="px-4 pt-20 pb-20 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="mb-3 inline-block border border-green-900/30 px-2 py-0.5 font-mono text-xs text-green-800">
+              ELK Stack Consulting
+            </div>
+            <h1 className="font-logo text-3xl tracking-tight text-neutral-100 md:text-4xl">
+              Expert ELK Stack Consulting for Higher Education
+            </h1>
+            <p className="mt-4 leading-relaxed text-neutral-400">
+              Cluster setup, pipeline architecture, and system integration - done right. We work
+              alongside your team to build ELK infrastructure that handles production scale without
+              the months of trial and error.
+            </p>
+            <div className="mt-6 flex items-center gap-3">
+              <a
+                href="#contact"
+                className="inline-flex items-center gap-2 bg-green-900 px-5 py-2 font-mono text-sm text-white transition-colors hover:bg-green-950"
+              >
+                Book a Consultation <ArrowRight className="h-4 w-4" />
+              </a>
+              <a
+                href="#services"
+                className="inline-flex items-center gap-2 border border-neutral-700 px-5 py-2 font-mono text-sm text-neutral-300 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+              >
+                See Our Work
+              </a>
+            </div>
+          </motion.div>
+
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-12 grid grid-cols-3 border border-neutral-800"
+          >
+            {[
+              { value: '3+', label: 'Universities' },
+              { value: '<2wk', label: 'Avg. time to production' },
+              { value: '100%', label: 'Documented handoffs' },
+            ].map((stat, i) => (
+              <div
+                key={i}
+                className={`p-4 text-center ${i < 2 ? 'border-r border-neutral-800' : ''}`}
+              >
+                <div className="font-logo text-xl text-green-800">{stat.value}</div>
+                <div className="mt-1 font-mono text-xs text-neutral-500">{stat.label}</div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Services */}
+      <section id="services" className="border-t border-neutral-800/60 px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <FadeIn>
+            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
+              <span className="text-green-800">#</span> Services
+            </h2>
+            <p className="mt-2 text-sm text-neutral-500">
+              Four core engagements. Scoped to your needs, priced by outcome.
+            </p>
+          </FadeIn>
+
+          <div className="mt-8 space-y-3">
+            {services.map((svc) => (
+              <FadeIn key={svc.id}>
+                <div className="border border-neutral-800 bg-neutral-900/40">
+                  <button
+                    onClick={() => setExpandedService(expandedService === svc.id ? null : svc.id)}
+                    className="w-full px-5 py-4 text-left"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-mono text-sm text-neutral-200">{svc.title}</div>
+                        <div className="mt-0.5 font-mono text-xs text-green-800">{svc.tagline}</div>
+                      </div>
+                      <span className="mt-0.5 shrink-0 font-mono text-xs text-neutral-600">
+                        {expandedService === svc.id ? '[-]' : '[+]'}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-neutral-500">
+                      {svc.description}
+                    </p>
+                  </button>
+
+                  {expandedService === svc.id && (
+                    <div className="border-t border-neutral-800 px-5 py-4">
+                      <ul className="space-y-1.5">
+                        {svc.details.map((d) => (
+                          <li key={d} className="flex items-start gap-2 font-mono text-xs">
+                            <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-green-800" />
+                            <span className="text-neutral-400">{d}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Case Studies / Customers */}
+      <section id="case-studies" className="border-t border-neutral-800/60 py-16">
+        <div className="mx-auto max-w-2xl px-4 sm:px-6">
+          <FadeIn>
+            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
+              <span className="text-green-800">#</span> Customers
+            </h2>
+            <p className="mt-2 text-sm text-neutral-500">
+              Our engineers have worked with these organizations.
+            </p>
+          </FadeIn>
+        </div>
+        <div className="mt-8">
+          <LogoMarquee />
+        </div>
+      </section>
+
+      {/* How We Work */}
+      <section className="border-t border-neutral-800/60 px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <FadeIn>
+            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
+              <span className="text-green-800">#</span> How We Work
+            </h2>
+            <p className="mt-2 text-sm text-neutral-500">
+              A repeatable process that gets to production fast.
+            </p>
+          </FadeIn>
+
+          <div className="mt-8 space-y-0 border border-neutral-800">
+            {process.map((p, i) => (
+              <FadeIn key={p.step}>
+                <div
+                  className={`flex gap-5 px-5 py-5 ${i < process.length - 1 ? 'border-b border-neutral-800' : ''}`}
+                >
+                  <div className="shrink-0 pt-0.5 font-mono text-xs text-green-800">{p.step}</div>
+                  <div>
+                    <div className="font-mono text-sm text-neutral-200">{p.title}</div>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-500">{p.description}</p>
+                  </div>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact / CTA */}
+      <section id="contact" className="border-t border-neutral-800/60 px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <FadeIn>
+            <h2 className="font-logo text-xl tracking-tight text-neutral-200">
+              <span className="text-green-800">#</span> Get in Touch
+            </h2>
+            <p className="mt-2 leading-relaxed text-neutral-400">
+              Ready to modernize your logging infrastructure? Tell us what you're working with and
+              what's not working. We'll respond within one business day.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <a
+                href="mailto:hello@deer.sh"
+                className="inline-flex items-center gap-2 bg-green-900 px-6 py-3 font-mono text-sm text-white transition-colors hover:bg-green-950"
+              >
+                hello@deer.sh <ArrowRight className="h-4 w-4" />
+              </a>
+              <span className="font-mono text-xs text-neutral-600">
+                or book a 30-min discovery call
+              </span>
+            </div>
+
+            <div className="mt-12 border border-neutral-800 bg-neutral-900/40 p-5">
+              <div className="mb-3 font-mono text-xs text-neutral-500">what to include</div>
+              <ul className="space-y-1.5">
+                {[
+                  'Current ELK version and deployment method',
+                  'Data volume (events/sec or GB/day)',
+                  'What is broken or missing today',
+                  'Timeline and any compliance constraints',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2 font-mono text-xs">
+                    <span className="mt-0.5 text-green-800">-</span>
+                    <span className="text-neutral-400">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
     </>
   )
 }
