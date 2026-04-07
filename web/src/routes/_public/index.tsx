@@ -317,7 +317,7 @@ function ConsultingHomePage() {
                 href="#contact"
                 className="inline-flex items-center gap-2 rounded-full bg-stone-800 px-6 py-2.5 text-sm text-white transition-colors hover:bg-stone-900"
               >
-                Contac <ArrowRight className="h-4 w-4" />
+                Contact <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href="#services"
@@ -336,8 +336,8 @@ function ConsultingHomePage() {
             className="mt-12 grid grid-cols-3 divide-x divide-stone-200 rounded-2xl border border-stone-200"
           >
             {[
-              { value: '3+', label: 'Universities' },
-              { value: '<2wk', label: 'Avg. time to production' },
+              { value: '10+', label: 'Universities' },
+              { value: '< 2 weeks', label: 'Avg. time to production' },
               { value: '100%', label: 'Documented handoffs' },
             ].map((stat, i) => (
               <div key={i} className="p-4 text-center">
