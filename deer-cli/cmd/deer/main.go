@@ -1183,11 +1183,19 @@ func runSandboxList() error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() {
+		if err := core.store.Close(); err != nil {
+			logger.Error("failed to close store", "error", err)
+		}
+	}()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() {
+		if err := svc.Close(); err != nil {
+			logger.Error("failed to close sandbox service", "error", err)
+		}
+	}()
 
 	sandboxes, err := svc.ListSandboxes(ctx)
 	if err != nil {
@@ -1231,11 +1239,19 @@ func runSandboxCreate(sourceVM string, cpu, memoryMB int, live bool) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() {
+		if err := core.store.Close(); err != nil {
+			logger.Error("failed to close store", "error", err)
+		}
+	}()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() {
+		if err := svc.Close(); err != nil {
+			logger.Error("failed to close sandbox service", "error", err)
+		}
+	}()
 
 	sb, err := svc.CreateSandbox(ctx, sandbox.CreateRequest{
 		SourceVM: sourceVM,
@@ -1273,11 +1289,19 @@ func runSandboxDestroy(sandboxID string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() {
+		if err := core.store.Close(); err != nil {
+			logger.Error("failed to close store", "error", err)
+		}
+	}()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() {
+		if err := svc.Close(); err != nil {
+			logger.Error("failed to close sandbox service", "error", err)
+		}
+	}()
 
 	err = svc.DestroySandbox(ctx, sandboxID)
 	if err != nil {
