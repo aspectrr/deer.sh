@@ -145,7 +145,7 @@ func (m ModelPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ModelPickerModel) View() string {
 	var b strings.Builder
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#3B82F6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#166534"))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280"))
 
 	if m.selectingCompact {
@@ -215,7 +215,7 @@ func (m ModelPickerModel) View() string {
 		line := fmt.Sprintf("%-*s  %-24s  %-10s  %s", nameWidth, name, cost, ctx, tagStr)
 
 		if i == m.cursor {
-			cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Bold(true)
+			cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#166534")).Bold(true)
 			b.WriteString(cursorStyle.Render("> " + line))
 		} else {
 			b.WriteString("  " + line)

@@ -2,9 +2,9 @@ package llm
 
 // readOnlyTools is the set of tool names allowed in read-only mode.
 var readOnlyTools = map[string]bool{
-	"list_sandboxes": true,
-	"get_sandbox":    true,
-	// "list_vms":          true, // use list_hosts instead
+	"list_sandboxes":     true,
+	"get_sandbox":        true,
+	"list_vms":           true,
 	"read_file":          true,
 	"list_playbooks":     true,
 	"get_playbook":       true,
@@ -84,13 +84,13 @@ func GetTools() []Tool {
 			Type: "function",
 			Function: Function{
 				Name:        "create_sandbox",
-				Description: "Create a new sandbox VM by cloning from a source VM. Set live=true for current state, live=false to use cached image if available.",
+				Description: "Create a new sandbox VM by cloning from a base image. Use list_vms first to see available base images for cloning.",
 				Parameters: ParameterSchema{
 					Type: "object",
 					Properties: map[string]Property{
 						"source_vm": {
 							Type:        "string",
-							Description: "The name of the source VM to clone from (e.g., 'ubuntu-base').",
+							Description: "The name of the base VM image to clone from. Must be a name returned by list_vms.",
 						},
 						"host": {
 							Type:        "string",
@@ -107,6 +107,10 @@ func GetTools() []Tool {
 						"live": {
 							Type:        "boolean",
 							Description: "If true, clone from the VM's live current state. If false (default), use cached image if available.",
+						},
+						"kafka_stub": {
+							Type:        "boolean",
+							Description: "If true, start a local Redpanda Kafka broker (localhost:9092) inside the sandbox. Use when the source service depends on Kafka. After creation, update service configs to use localhost:9092 instead of the original Kafka address.",
 						},
 					},
 					Required: []string{"source_vm"},
@@ -202,17 +206,17 @@ func GetTools() []Tool {
 				},
 			},
 		},
-		// {
-		// 	Type: "function",
-		// 	Function: Function{
-		// 		Name:        "list_vms",
-		// 		Description: "List available host VMs (base images) that can be cloned to create sandboxes. Does not include sandboxes - use list_sandboxes for those.",
-		// 		Parameters: ParameterSchema{
-		// 			Type:       "object",
-		// 			Properties: map[string]Property{},
-		// 		},
-		// 	},
-		// },
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "list_vms",
+				Description: "List available base VM images that can be cloned to create sandboxes. These are the valid values for the source_vm parameter in create_sandbox. Does not include sandboxes - use list_sandboxes for those.",
+				Parameters: ParameterSchema{
+					Type:       "object",
+					Properties: map[string]Property{},
+				},
+			},
+		},
 		{
 			Type: "function",
 			Function: Function{
@@ -412,7 +416,7 @@ func GetTools() []Tool {
 			Type: "function",
 			Function: Function{
 				Name:        "list_hosts",
-				Description: "List all configured source hosts with their preparation status.",
+				Description: "List all configured source hosts (production systems) with their preparation status. These are for read-only investigation via run_source_command, NOT for create_sandbox.",
 				Parameters: ParameterSchema{
 					Type:       "object",
 					Properties: map[string]Property{},

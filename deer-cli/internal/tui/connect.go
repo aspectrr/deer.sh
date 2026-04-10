@@ -107,7 +107,7 @@ func NewConnectModel(logger *slog.Logger) ConnectModel {
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6"))
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#166534"))
 
 	return ConnectModel{
 		step:    StepAddress,
@@ -360,14 +360,14 @@ func (m ConnectModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m ConnectModel) View() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#3B82F6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#166534"))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
 	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444"))
 	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E"))
 
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(titleStyle.Render("  Connect to Fluid Daemon"))
+	b.WriteString(titleStyle.Render("  Connect to Deer Daemon"))
 	b.WriteString("\n\n")
 
 	switch m.step {

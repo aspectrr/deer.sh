@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +43,7 @@ type SandboxInfo struct {
 	Bridge     string
 	VCPUs      int
 	MemoryMB   int
+	IPAddress  string
 }
 
 // Manager manages QEMU microVM processes.
@@ -82,6 +84,14 @@ func NewManager(qemuBin, workDir string, logger *slog.Logger) (*Manager, error) 
 }
 
 // WorkDir returns the working directory for sandbox data.
+func (m *Manager) SetIP(sandboxID, ip string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if info, ok := m.vms[sandboxID]; ok {
+		info.IPAddress = ip
+	}
+}
+
 func (m *Manager) WorkDir() string {
 	return m.workDir
 }
@@ -151,6 +161,7 @@ func (m *Manager) RecoverState(ctx context.Context) error {
 			Bridge:     meta.Bridge,
 			VCPUs:      meta.VCPUs,
 			MemoryMB:   meta.MemoryMB,
+			IPAddress:  meta.IPAddress,
 		}
 		m.vms[sandboxID] = info
 		m.logger.Info("recovered sandbox", "sandbox_id", sandboxID, "pid", pid)
@@ -173,7 +184,11 @@ type LaunchConfig struct {
 	InitrdPath   string // optional initramfs image
 	RootDevice   string // kernel root= device, defaults to /dev/vda
 	CloudInitISO string // optional
-	Accel        string // "kvm" (default) or "tcg"
+	Accel        string // "kvm" (default), "hvf", or "tcg"
+	// SocketVMNetClient is the path to socket_vmnet_client binary (macOS only).
+	// When set, networking uses socket_vmnet instead of TAP devices.
+	SocketVMNetClient string
+	SocketVMNetPath   string
 }
 
 // Launch starts a QEMU microVM process with the given configuration.
@@ -221,10 +236,7 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	}
 
 	// Build QEMU command args
-	accelArgs := []string{"-enable-kvm", "-cpu", "host"}
-	if cfg.Accel == "tcg" {
-		accelArgs = []string{"-accel", "tcg", "-cpu", "max"}
-	}
+	accelArgs := resolveAccelArgs(runtime.GOOS, cfg.Accel)
 	args := append([]string{"-M", platform.machineType}, accelArgs...)
 	args = append(args,
 		"-m", strconv.Itoa(cfg.MemoryMB),
@@ -240,11 +252,17 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 	} else {
 		kernelArgs = kernelArgs + " quiet"
 	}
+	var netdevArg string
+	if cfg.SocketVMNetClient != "" {
+		netdevArg = "socket,id=net0,fd=3"
+	} else {
+		netdevArg = fmt.Sprintf("tap,id=net0,ifname=%s,script=no,downscript=no", cfg.TAPDevice)
+	}
 	args = append(args,
 		"-append", kernelArgs,
 		"-drive", fmt.Sprintf("id=root,file=%s,format=qcow2,if=none", cfg.OverlayPath),
 		"-device", fmt.Sprintf("%s,drive=root", platform.blockDevice),
-		"-netdev", fmt.Sprintf("tap,id=net0,ifname=%s,script=no,downscript=no", cfg.TAPDevice),
+		"-netdev", netdevArg,
 		"-device", fmt.Sprintf("%s,netdev=net0,mac=%s", platform.netDevice, cfg.MACAddress),
 		"-serial", fmt.Sprintf("file:%s", filepath.Join(sandboxDir, "serial.log")),
 		"-qmp", fmt.Sprintf("unix:%s,server=on,wait=off", qmpSocket),
@@ -272,7 +290,15 @@ func (m *Manager) Launch(ctx context.Context, cfg LaunchConfig) (*SandboxInfo, e
 		"memory_mb", cfg.MemoryMB,
 	)
 
-	cmd := exec.CommandContext(ctx, m.qemuBin, args...)
+	var cmd *exec.Cmd
+	if cfg.SocketVMNetClient != "" {
+		// socket_vmnet_client <socket_path> <qemu_binary> [qemu_args...]
+		// It opens the vmnet socket, passes fd=3 to QEMU, then execs QEMU.
+		cmdArgs := append([]string{cfg.SocketVMNetPath, m.qemuBin}, args...)
+		cmd = exec.CommandContext(ctx, cfg.SocketVMNetClient, cmdArgs...)
+	} else {
+		cmd = exec.CommandContext(ctx, m.qemuBin, args...)
+	}
 	var launchOutput bytes.Buffer
 	logWriter := io.MultiWriter(stderrFile, &launchOutput)
 	cmd.Stdout = logWriter
@@ -376,6 +402,19 @@ func (m *Manager) Stop(ctx context.Context, sandboxID string, force bool) error 
 	info.State = StateStopped
 	m.logger.Info("microVM stopped", "sandbox_id", sandboxID, "pid", info.PID, "force", force)
 	return nil
+}
+
+// resolveAccelArgs returns the QEMU accelerator flags for the given OS and accel config.
+// On darwin, an empty accel defaults to HVF. On linux, an empty accel defaults to KVM.
+func resolveAccelArgs(goos, accel string) []string {
+	switch {
+	case accel == "tcg":
+		return []string{"-accel", "tcg", "-cpu", "max"}
+	case accel == "hvf" || (accel == "" && goos == "darwin"):
+		return []string{"-accel", "hvf", "-cpu", "max"}
+	default: // "kvm" or empty on linux
+		return []string{"-enable-kvm", "-cpu", "host"}
+	}
 }
 
 type qemuPlatform struct {
@@ -506,6 +545,7 @@ type sandboxMetadata struct {
 	Bridge     string `json:"bridge"`
 	VCPUs      int    `json:"vcpus"`
 	MemoryMB   int    `json:"memory_mb"`
+	IPAddress  string `json:"ip_address"`
 }
 
 func writeMetadata(workDir, sandboxID string, meta sandboxMetadata) error {

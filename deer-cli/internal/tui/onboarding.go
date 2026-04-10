@@ -28,8 +28,8 @@ import (
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sshconfig"
 )
 
-// probeFluidReadonly tests if the fluid-readonly user is reachable on a host.
-func probeFluidReadonly(hostname, keyDir string) bool {
+// probeDeerReadonly tests if the deer-readonly user is reachable on a host.
+func probeDeerReadonly(hostname, keyDir string) bool {
 	keyPath := sourcekeys.GetPrivateKeyPath(keyDir)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -61,7 +61,7 @@ func generateSessionCode() string {
 type OnboardingStep int
 
 const (
-	StepWelcome  OnboardingStep = iota // Branding + what fluid does
+	StepWelcome  OnboardingStep = iota // Branding + what deer.sh does
 	StepAPIKey                         // OpenRouter API key input
 	StepPrepare                        // Source host preparation
 	StepComplete                       // Done
@@ -118,7 +118,7 @@ type onboardingProbeResultMsg struct {
 func NewOnboardingModel(cfg *config.Config, configPath string) OnboardingModel {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("71"))
 
 	ti := textinput.New()
 	ti.Placeholder = "sk-or-v1-..."
@@ -350,7 +350,7 @@ func (m OnboardingModel) hasAnyPrepared() bool {
 func (m OnboardingModel) probeHostCmd(hostname string) tea.Cmd {
 	keyDir := m.cfg.SSH.SourceKeyDir
 	return func() tea.Msg {
-		reachable := probeFluidReadonly(hostname, keyDir)
+		reachable := probeDeerReadonly(hostname, keyDir)
 		return onboardingProbeResultMsg{host: hostname, alreadyPrepared: reachable}
 	}
 }
@@ -440,8 +440,8 @@ func (m OnboardingModel) viewWelcome() string {
 	}
 	b.WriteString("\n")
 
-	brandStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("69"))
-	b.WriteString(brandStyle.Render("FLUID"))
+	brandStyle := lipgloss.NewStyle().Bold(true).Foreground(primaryColor)
+	b.WriteString(brandStyle.Render("DEER.SH"))
 	b.WriteString("\n")
 
 	subtitleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("243"))
@@ -449,7 +449,7 @@ func (m OnboardingModel) viewWelcome() string {
 	b.WriteString("\n\n")
 
 	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-	b.WriteString(infoStyle.Render("Fluid gives AI agents read-only access to your servers"))
+	b.WriteString(infoStyle.Render("Deer.sh gives AI agents read-only access to your servers"))
 	b.WriteString("\n")
 	b.WriteString(infoStyle.Render("so they can diagnose issues and generate Ansible playbooks."))
 	b.WriteString("\n\n")
@@ -474,7 +474,7 @@ func (m OnboardingModel) viewAPIKey() string {
 	b.WriteString(titleStyle.Render("OpenRouter API Key"))
 	b.WriteString("\n\n")
 
-	linkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
+	linkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("71"))
 	b.WriteString("Get a key at ")
 	b.WriteString(linkStyle.Render("https://openrouter.ai/keys"))
 	b.WriteString("\n\n")
@@ -510,7 +510,7 @@ func (m OnboardingModel) viewPrepare() string {
 	b.WriteString(subtitleStyle.Render("Select hosts to set up for read-only access."))
 	b.WriteString("\n")
 
-	linkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
+	linkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("71"))
 	b.WriteString(subtitleStyle.Render("Learn more: "))
 	srcPrepURL, _ := url.JoinPath(m.cfg.WebURL, "/docs/source-prepare")
 	b.WriteString(linkStyle.Render(srcPrepURL))
@@ -523,7 +523,7 @@ func (m OnboardingModel) viewPrepare() string {
 		return b.String()
 	}
 
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
+	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("71"))
 	checkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("243"))
@@ -578,9 +578,9 @@ func (m OnboardingModel) viewComplete() string {
 	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	b.WriteString(infoStyle.Render("Next steps:"))
 	b.WriteString("\n")
-	b.WriteString(infoStyle.Render("  1. Prepare a source host:  fluid source prepare <hostname>"))
+	b.WriteString(infoStyle.Render("  1. Prepare a source host:  deer source prepare <hostname>"))
 	b.WriteString("\n")
-	b.WriteString(infoStyle.Render("  2. Start the agent:        fluid"))
+	b.WriteString(infoStyle.Render("  2. Start the agent:        deer"))
 	b.WriteString("\n\n")
 
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("243"))

@@ -27,106 +27,125 @@ type ScriptAction =
   | { type: 'pause'; ms: number }
 
 const SCRIPT: ScriptAction[] = [
-  { type: 'type', text: 'nginx is returning 502 on web-prod-01' },
+  { type: 'type', text: 'no data in Kibana from kafka-logs topic since 10am' },
   { type: 'think', ms: 3000 },
   {
     type: 'message',
     content:
-      "I'll investigate the nginx issue on web-prod-01. Let me start by checking the service status and recent logs.",
+      "I'll investigate the Kafka-to-Elasticsearch pipeline. Let me check Logstash status and consumer lag.",
   },
   {
     type: 'tool',
     name: 'run_source_command',
-    args: 'vm=web-prod-01, cmd=systemctl status nginx',
-    result: 'active (running) since Mon 2026-02-16 09:12:03 UTC',
+    args: 'vm=logstash-prod-01, cmd=systemctl status logstash',
+    result: 'active (running) since Mon 2026-02-16 08:00:03 UTC',
   },
   {
     type: 'tool',
     name: 'run_source_command',
-    args: 'vm=web-prod-01, cmd=journalctl -u nginx --since "5 min ago"',
-    result: 'connect() failed (111: Connection refused) while connecting to upstream',
-  },
-  {
-    type: 'tool',
-    name: 'read_source_file',
-    args: 'vm=web-prod-01, path=/etc/nginx/conf.d/app.conf',
-    result: 'upstream backend { server 127.0.0.1:3000; }',
+    args: 'vm=logstash-prod-01, cmd=curl -s localhost:9600/_node/stats/pipelines',
+    result: 'pipeline.events.in: 0, events.out: 0, events.filtered: 0',
   },
   {
     type: 'tool',
     name: 'run_source_command',
-    args: 'vm=web-prod-01, cmd=ss -tlnp | grep 3000',
-    result: '(empty - nothing listening)',
+    args: 'vm=kafka-prod-01, cmd=/opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash',
+    result:
+      'GROUP      TOPIC       PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG\nlogstash   kafka-logs  0          1247891         8923451         7675560',
   },
   { type: 'think', ms: 2000 },
   {
     type: 'message',
     content:
-      'Found it. Nginx is proxying to port 3000 but nothing is listening there. The app service likely crashed. Let me create a sandbox to test the fix.',
+      'Logstash is running but not consuming. Consumer group shows 7.6M message lag - the consumer is stuck. Checking Logstash logs for errors.',
+  },
+  {
+    type: 'tool',
+    name: 'run_source_command',
+    args: 'vm=logstash-prod-01, cmd=journalctl -u logstash --since "10 min ago" | grep -i error',
+    result: 'Kafka::Consumer::RebalanceInProgressError: revoked partitions during rebalance loop',
+  },
+  {
+    type: 'tool',
+    name: 'read_source_file',
+    args: 'vm=logstash-prod-01, path=/etc/logstash/pipelines/kafka.conf',
+    result: 'input { kafka { topics => ["kafka-logs"] consumer_threads => 1 } }',
+  },
+  { type: 'think', ms: 2000 },
+  {
+    type: 'message',
+    content:
+      'Found it. Single consumer thread cannot keep up with the partition count. Frequent rebalances cause the consumer to stall. I willincrease consumer_threads to match partition count and test in a sandbox.',
   },
   {
     type: 'tool',
     name: 'create_sandbox',
-    args: 'source=web-prod-01',
-    result: 'sandbox sbx-a1b2c3 created (192.168.122.45)',
+    args: 'source=logstash-prod-01',
+    result: 'sandbox sbx-elastic1 created (192.168.122.45)',
+  },
+  {
+    type: 'tool',
+    name: 'read_source_file',
+    args: 'sandbox=sbx-elastic1, path=/etc/logstash/pipelines/kafka.conf',
+    result: 'input { kafka { topics => ["kafka-logs"] consumer_threads =>1 } }',
+  },
+  {
+    type: 'tool',
+    name: 'write_file',
+    args: 'sandbox=sbx-elastic1, path=/etc/logstash/pipelines/kafka.conf, content=input { kafka { topics => ["kafka-logs"] consumer_threads => 3 } }',
+    result: 'file written',
   },
   {
     type: 'tool',
     name: 'run_command',
-    args: 'sandbox=sbx-a1b2c3, cmd=systemctl restart app',
+    args: 'sandbox=sbx-elastic1, cmd=systemctl restart logstash',
     result: '(started)',
   },
   {
     type: 'tool',
     name: 'run_command',
-    args: 'sandbox=sbx-a1b2c3, cmd=curl -s localhost:3000/health',
-    result: '{"status":"ok"}',
-  },
-  {
-    type: 'tool',
-    name: 'run_command',
-    args: 'sandbox=sbx-a1b2c3, cmd=curl -s localhost/health',
-    result: '{"status":"ok"}',
+    args: 'sandbox=sbx-elastic1, cmd=sleep 5 && curl -s localhost:9600/_node/stats/pipelines | jq .pipelines.main.events',
+    result: '{"in":1523,"out":1523,"filtered":1523}',
   },
   { type: 'think', ms: 2000 },
   {
     type: 'message',
     content:
-      'Fix confirmed in sandbox. The app service had crashed. Let me generate an Ansible playbook for production.',
+      'Fix confirmed. Events now flowing through Logstash. Let me generate an Ansible playbook for production.',
   },
   {
     type: 'tool',
     name: 'create_playbook',
-    args: 'name=fix-nginx-502',
+    args: 'name=fix-logstash-consumer',
     result: 'playbook created',
   },
   {
     type: 'tool',
     name: 'add_playbook_task',
-    args: 'playbook=fix-nginx-502, task=restart app service',
+    args: 'playbook=fix-logstash-consumer, task=set consumer_threads to match partition count',
     result: 'task added',
   },
   {
     type: 'tool',
     name: 'add_playbook_task',
-    args: 'playbook=fix-nginx-502, task=verify nginx upstream',
+    args: 'playbook=fix-logstash-consumer, task=restart logstash service',
     result: 'task added',
   },
   {
     type: 'message',
     content:
-      'Playbook ready for review. Applied fix: restart the app service and verify nginx upstream connectivity.',
+      'Playbook ready for review. Fix: increase kafka input consumer_threads from 1 to 3 to match partition count.',
   },
   {
     type: 'tool',
     name: 'destroy_sandbox',
-    args: 'sandbox=sbx-a1b2c3',
+    args: 'sandbox=sbx-elastic1',
     result: 'sandbox destroyed',
   },
   {
     type: 'message',
     content:
-      "Sandbox cleaned up. The playbook `fix-nginx-502` is ready to apply to production when you're ready.",
+      "Sandbox cleaned up. The playbook `fix-logstash-consumer` is ready to apply to production when you're ready.",
   },
   { type: 'pause', ms: 8000 },
 ]
@@ -373,7 +392,7 @@ export class ScriptedDemoEngine {
   }
 
   private writeToolComplete(name: string, result?: string) {
-    this.writeLn(`${ANSI.cyan}    v ${ANSI.bold}${name}${ANSI.reset}`)
+    this.writeLn(`${ANSI.olive}    ✓ ${ANSI.bold}${name}${ANSI.reset}`)
     if (result != null) {
       const maxLen = 200
       const display = result.length > maxLen ? result.slice(0, maxLen) + '...' : result

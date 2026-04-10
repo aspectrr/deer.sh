@@ -117,7 +117,7 @@ func Update(downloadURL string) error {
 		return fmt.Errorf("checksum verification: %w", err)
 	}
 
-	// Extract the "fluid" binary from the tar.gz archive
+	// Extract the "deer" binary from the tar.gz archive
 	gz, err := gzip.NewReader(bytes.NewReader(archiveData))
 	if err != nil {
 		return fmt.Errorf("open gzip: %w", err)
@@ -134,9 +134,9 @@ func Update(downloadURL string) error {
 		if err != nil {
 			return fmt.Errorf("read tar: %w", err)
 		}
-		// Look for the fluid binary (may be at root or in a subdirectory)
+		// Look for the deer binary (may be at root or in a subdirectory)
 		base := filepath.Base(hdr.Name)
-		if base == "fluid" && hdr.Typeflag == tar.TypeReg {
+		if base == "deer" && hdr.Typeflag == tar.TypeReg {
 			binaryData, err = io.ReadAll(io.LimitReader(tr, maxBinarySize))
 			if err != nil {
 				return fmt.Errorf("read binary from archive: %w", err)
@@ -146,7 +146,7 @@ func Update(downloadURL string) error {
 	}
 
 	if binaryData == nil {
-		return fmt.Errorf("fluid binary not found in archive")
+		return fmt.Errorf("deer binary not found in archive")
 	}
 
 	// Get current executable path
@@ -161,7 +161,7 @@ func Update(downloadURL string) error {
 
 	// Write to temp file in same directory (for atomic rename)
 	dir := filepath.Dir(execPath)
-	tmp, err := os.CreateTemp(dir, "fluid-update-*")
+	tmp, err := os.CreateTemp(dir, "deer-update-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
@@ -188,7 +188,7 @@ func Update(downloadURL string) error {
 	return nil
 }
 
-// CacheDir returns the fluid data directory path for caching update checks.
+// CacheDir returns the deer data directory path for caching update checks.
 func CacheDir() string {
 	dir, err := paths.DataDir()
 	if err != nil {

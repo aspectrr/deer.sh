@@ -6,6 +6,7 @@ const ANSI = {
   primary: '\x1b[38;2;59;130;246m', // #3B82F6 blue
   cyan: '\x1b[38;2;6;182;212m', // #06B6D4
   green: '\x1b[38;2;16;185;129m', // #10B981
+  olive: '\x1b[38;2;163;190;140m', // #A3BE8C light forest green
   red: '\x1b[38;2;239;68;68m', // #EF4444
   muted: '\x1b[38;2;107;114;128m', // #6B7280
   text: '\x1b[38;2;249;250;251m', // #F9FAFB
@@ -263,7 +264,7 @@ export class DemoEngine {
 
   private writeToolComplete(toolName: string, success: boolean, result: unknown) {
     if (success) {
-      this.term.writeln(`${ANSI.cyan}    v ${ANSI.bold}${toolName}${ANSI.reset}`)
+      this.term.writeln(`${ANSI.olive}    ✓ ${ANSI.bold}${toolName}${ANSI.reset}`)
     } else {
       this.term.writeln(`${ANSI.red}    x ${ANSI.bold}${toolName}${ANSI.reset}`)
     }

@@ -29,9 +29,11 @@ type KafkaBrokerOptions struct {
 }
 
 type CloudInitOptions struct {
-	CAPubKey     string
-	PhoneHomeURL string
-	KafkaBroker  KafkaBrokerOptions
+	CAPubKey         string
+	PhoneHomeURL     string
+	KafkaBroker      KafkaBrokerOptions
+	RedpandaCacheURL string // file:// URL for local Redpanda tarball (faster than S3 download)
+	Disable          bool   // If true, skip cloud-init ISO creation entirely (for pre-baked images)
 }
 
 // generateUserData builds cloud-init user-data YAML with the CA public key
@@ -115,7 +117,9 @@ func generateUserData(opts CloudInitOptions) string {
 			configAdvertiseAddr = "__FLUID_ADVERTISE_ADDRESS__"
 		}
 		archiveURL := opts.KafkaBroker.ArchiveURL
-		if archiveURL == "" {
+		if opts.RedpandaCacheURL != "" {
+			archiveURL = opts.RedpandaCacheURL
+		} else if archiveURL == "" {
 			archiveURL = defaultRedpandaArchiveURL()
 		}
 		writeFiles += fmt.Sprintf(`  - path: /etc/redpanda/redpanda.yaml
@@ -597,6 +601,9 @@ runcmd:
 // If PhoneHomeURL is non-empty, an explicit notify script is added to runcmd
 // that POSTs to the daemon readiness endpoint after guest-side checks complete.
 func GenerateCloudInitISO(workDir, sandboxID string, opts CloudInitOptions) (string, error) {
+	if opts.Disable {
+		return "", nil
+	}
 	dir := filepath.Join(workDir, sandboxID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create sandbox dir: %w", err)

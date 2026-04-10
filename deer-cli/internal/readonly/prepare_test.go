@@ -162,8 +162,8 @@ func TestPrepare_CommandContent(t *testing.T) {
 	}
 
 	// Step 1: install restricted shell - should contain the shell script path
-	if !strings.Contains(decoded[0], "/usr/local/bin/fluid-readonly-shell") {
-		t.Error("step 1 should install shell to /usr/local/bin/fluid-readonly-shell")
+	if !strings.Contains(decoded[0], "/usr/local/bin/deer-readonly-shell") {
+		t.Error("step 1 should install shell to /usr/local/bin/deer-readonly-shell")
 	}
 	if !strings.Contains(decoded[0], "chmod 755") {
 		t.Error("step 1 should chmod the shell script")
@@ -173,9 +173,9 @@ func TestPrepare_CommandContent(t *testing.T) {
 		t.Error("step 1 should contain the restricted shell script content")
 	}
 
-	// Step 2: create user - should reference fluid-readonly
-	if !strings.Contains(decoded[1], "fluid-readonly") {
-		t.Error("step 2 should create fluid-readonly user")
+	// Step 2: create user - should reference deer-readonly
+	if !strings.Contains(decoded[1], "deer-readonly") {
+		t.Error("step 2 should create deer-readonly user")
 	}
 	if !strings.Contains(decoded[1], "useradd") {
 		t.Error("step 2 should contain useradd command")
@@ -346,8 +346,8 @@ func TestPrepare_FailAtCreateUser(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when user creation fails")
 	}
-	if !strings.Contains(err.Error(), "create fluid-readonly user") {
-		t.Errorf("error should mention create fluid-readonly user: %v", err)
+	if !strings.Contains(err.Error(), "create deer-readonly user") {
+		t.Errorf("error should mention create deer-readonly user: %v", err)
 	}
 	if !result.ShellInstalled {
 		t.Error("ShellInstalled should be true (succeeded before failure)")
@@ -640,9 +640,9 @@ func TestPrepare_ShellScriptContent(t *testing.T) {
 		t.Error("install shell command should embed the full RestrictedShellScript content")
 	}
 
-	// Should use a heredoc with the FLUID_SHELL_EOF delimiter
-	if !strings.Contains(shellCmd, "FLUID_SHELL_EOF") {
-		t.Error("shell install should use FLUID_SHELL_EOF heredoc delimiter")
+	// Should use a heredoc with the DEER_SHELL_EOF delimiter
+	if !strings.Contains(shellCmd, "DEER_SHELL_EOF") {
+		t.Error("shell install should use DEER_SHELL_EOF heredoc delimiter")
 	}
 }
 
@@ -745,7 +745,7 @@ func TestPrepare_IdempotentUserCreation(t *testing.T) {
 	}
 
 	// Should check if user exists before creating
-	if !strings.Contains(userCmd, "id fluid-readonly") {
+	if !strings.Contains(userCmd, "id deer-readonly") {
 		t.Error("user creation should check if user already exists via 'id' command")
 	}
 

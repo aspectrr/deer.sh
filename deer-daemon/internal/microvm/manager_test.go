@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -87,6 +88,67 @@ func defaultLogger() *slog.Logger {
 	return slog.Default()
 }
 
+func TestSetIP(t *testing.T) {
+	m := &Manager{
+		vms:     make(map[string]*SandboxInfo),
+		qmpStop: make(map[string]context.CancelFunc),
+		workDir: t.TempDir(),
+		logger:  defaultLogger(),
+	}
+	m.vms["sbx-test"] = &SandboxInfo{ID: "sbx-test", State: StateRunning}
+
+	m.SetIP("sbx-test", "10.0.0.5")
+
+	info, ok := m.vms["sbx-test"]
+	if !ok {
+		t.Fatal("expected sandbox to exist")
+	}
+	if info.IPAddress != "10.0.0.5" {
+		t.Errorf("IPAddress = %q, want %q", info.IPAddress, "10.0.0.5")
+	}
+}
+
+func TestSetIP_NotFound(t *testing.T) {
+	m := &Manager{
+		vms:     make(map[string]*SandboxInfo),
+		qmpStop: make(map[string]context.CancelFunc),
+		workDir: t.TempDir(),
+		logger:  defaultLogger(),
+	}
+	m.SetIP("nonexistent", "10.0.0.5")
+}
+
+func TestWriteReadMetadata_WithIP(t *testing.T) {
+	workDir := t.TempDir()
+	sandboxID := "test-sandbox-ip"
+	if err := os.MkdirAll(workDir+"/"+sandboxID, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	want := sandboxMetadata{
+		Name:       "test",
+		TAPDevice:  "fluid-abc123",
+		MACAddress: "52:54:00:aa:bb:cc",
+		Bridge:     "fluid0",
+		VCPUs:      2,
+		MemoryMB:   2048,
+		IPAddress:  "10.0.0.42",
+	}
+
+	if err := writeMetadata(workDir, sandboxID, want); err != nil {
+		t.Fatalf("writeMetadata: %v", err)
+	}
+
+	got, err := readMetadata(workDir, sandboxID)
+	if err != nil {
+		t.Fatalf("readMetadata: %v", err)
+	}
+
+	if got != want {
+		t.Errorf("metadata mismatch:\n got: %+v\nwant: %+v", got, want)
+	}
+}
+
 func TestQEMUPlatformOptions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -126,6 +188,60 @@ func TestQEMUPlatformOptions(t *testing.T) {
 			got := qemuPlatformOptions(tt.qemuBin)
 			if got != tt.wantOpts {
 				t.Fatalf("qemuPlatformOptions(%q) = %+v, want %+v", tt.qemuBin, got, tt.wantOpts)
+			}
+		})
+	}
+}
+
+func TestResolveAccelArgs(t *testing.T) {
+	tests := []struct {
+		name  string
+		goos  string
+		accel string
+		want  []string
+	}{
+		{
+			name:  "empty accel on darwin auto-selects HVF",
+			goos:  "darwin",
+			accel: "",
+			want:  []string{"-accel", "hvf", "-cpu", "max"},
+		},
+		{
+			name:  "explicit hvf",
+			goos:  "linux",
+			accel: "hvf",
+			want:  []string{"-accel", "hvf", "-cpu", "max"},
+		},
+		{
+			name:  "empty accel on linux defaults to KVM",
+			goos:  "linux",
+			accel: "",
+			want:  []string{"-enable-kvm", "-cpu", "host"},
+		},
+		{
+			name:  "explicit kvm",
+			goos:  "linux",
+			accel: "kvm",
+			want:  []string{"-enable-kvm", "-cpu", "host"},
+		},
+		{
+			name:  "explicit tcg",
+			goos:  "darwin",
+			accel: "tcg",
+			want:  []string{"-accel", "tcg", "-cpu", "max"},
+		},
+		{
+			name:  "explicit tcg on linux",
+			goos:  "linux",
+			accel: "tcg",
+			want:  []string{"-accel", "tcg", "-cpu", "max"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveAccelArgs(tt.goos, tt.accel)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("resolveAccelArgs(%q, %q) = %v, want %v", tt.goos, tt.accel, got, tt.want)
 			}
 		})
 	}

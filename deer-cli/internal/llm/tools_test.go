@@ -92,7 +92,7 @@ func TestGetReadOnlyTools(t *testing.T) {
 		"list_hosts",
 		"list_playbooks",
 		"list_sandboxes",
-		// "list_vms", // removed - use list_hosts instead
+		"list_vms",
 		"read_file",
 		"read_source_file",
 		"run_source_command",

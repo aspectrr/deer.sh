@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
 
@@ -177,6 +179,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	// Read daemon identity pub key for sharing with CLI
 	var identityPubKey string
+	identityGenerated, identityErr := sshca.EnsureSSHCA(cfg.SSH.IdentityFile, cfg.SSH.IdentityFile+".pub", "deer-daemon-identity")
+	if identityErr != nil {
+		logger.Warn("SSH identity key generation failed", "error", identityErr)
+	} else if identityGenerated {
+		logger.Info("SSH identity key generated", "path", cfg.SSH.IdentityFile)
+	}
 	if pubKeyData, err := os.ReadFile(cfg.SSH.IdentityFile + ".pub"); err == nil {
 		identityPubKey = strings.TrimSpace(string(pubKeyData))
 		logger.Info("loaded SSH identity pub key", "path", cfg.SSH.IdentityFile+".pub")
@@ -187,7 +195,26 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	// Start DaemonService gRPC server (inbound from CLI)
 	if cfg.Daemon.Enabled {
 		daemonSrv := daemon.NewServer(cfg, prov, st, puller, keyMgr, tele, redactor, auditLog, cfg.HostID, version, cfg.SSH.IdentityFile, caPubKey, identityPubKey, logger)
-		grpcServer := grpc.NewServer()
+		grpcServer := grpc.NewServer(
+			grpc.UnaryInterceptor(func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Error("panic recovered in gRPC handler", "method", info.FullMethod, "panic", r)
+						err = status.Errorf(codes.Internal, "internal error: %v", r)
+					}
+				}()
+				return handler(ctx, req)
+			}),
+			grpc.StreamInterceptor(func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Error("panic recovered in gRPC stream handler", "method", info.FullMethod, "panic", r)
+						err = status.Errorf(codes.Internal, "internal error: %v", r)
+					}
+				}()
+				return handler(srv, ss)
+			}),
+		)
 		deerv1.RegisterDaemonServiceServer(grpcServer, daemonSrv)
 
 		lis, err := net.Listen("tcp", cfg.Daemon.ListenAddr)
@@ -308,6 +335,12 @@ func initMicroVMProvider(ctx context.Context, cfg *config.Config, logger *slog.L
 	if caErr != nil {
 		logger.Warn("SSH CA initialization failed", "error", caErr)
 	} else {
+		generated, ensureErr := sshca.EnsureSSHCA(cfg.SSH.CAKeyPath, cfg.SSH.CAPubKeyPath, "deer-daemon-ca")
+		if ensureErr != nil {
+			logger.Warn("SSH CA key generation failed", "error", ensureErr)
+		} else if generated {
+			logger.Info("SSH CA key generated", "path", cfg.SSH.CAKeyPath)
+		}
 		if initErr := ca.Initialize(ctx); initErr != nil {
 			logger.Warn("SSH CA key loading failed - source VM operations will use ad-hoc connections only", "error", initErr)
 		} else {
@@ -367,7 +400,24 @@ func initMicroVMProvider(ctx context.Context, cfg *config.Config, logger *slog.L
 		logger.Info("readiness server started", "addr", readinessAddr)
 	}
 
-	return microvmProvider.New(vmMgr, netMgr, imgStore, srcVMMgr, keyMgr, cfg.MicroVM.KernelPath, cfg.MicroVM.InitrdPath, cfg.MicroVM.RootDevice, cfg.MicroVM.Accel, cfg.MicroVM.IPDiscoveryTimeout, cfg.MicroVM.ReadinessTimeout, caPubKey, bridgeIP, readiness, logger), keyMgr, caPubKey, nil
+	redpandaCacheURL := ""
+	if cfg.MicroVM.RedpandaCachePath != "" {
+		redpandaCacheURL = "file://" + cfg.MicroVM.RedpandaCachePath
+		logger.Info("Redpanda cache configured", "path", cfg.MicroVM.RedpandaCachePath)
+	}
+	disableCloudInit := cfg.MicroVM.DisableCloudInit
+	if disableCloudInit {
+		logger.Info("cloud-init disabled (pre-baked images)")
+	}
+
+	// Build the microVM provider. When readiness is nil (no bridge IP),
+	// pass nil directly to avoid the nil-typed-pointer-in-interface trap
+	// where a nil *ReadinessServer stored in a ReadinessWaiter interface
+	// is non-nil, causing a panic on method calls.
+	if readiness != nil {
+		return microvmProvider.New(vmMgr, netMgr, imgStore, srcVMMgr, keyMgr, cfg.MicroVM.KernelPath, cfg.MicroVM.InitrdPath, cfg.MicroVM.RootDevice, cfg.MicroVM.Accel, cfg.MicroVM.IPDiscoveryTimeout, cfg.MicroVM.ReadinessTimeout, caPubKey, bridgeIP, readiness, redpandaCacheURL, disableCloudInit, cfg.MicroVM.SocketVMNetClient, cfg.MicroVM.SocketVMNetPath, logger), keyMgr, caPubKey, nil
+	}
+	return microvmProvider.New(vmMgr, netMgr, imgStore, srcVMMgr, keyMgr, cfg.MicroVM.KernelPath, cfg.MicroVM.InitrdPath, cfg.MicroVM.RootDevice, cfg.MicroVM.Accel, cfg.MicroVM.IPDiscoveryTimeout, cfg.MicroVM.ReadinessTimeout, caPubKey, bridgeIP, nil, redpandaCacheURL, disableCloudInit, cfg.MicroVM.SocketVMNetClient, cfg.MicroVM.SocketVMNetPath, logger), keyMgr, caPubKey, nil
 }
 
 func initLXCProvider(cfg *config.Config, logger *slog.Logger) (provider.SandboxProvider, error) {

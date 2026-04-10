@@ -21,7 +21,7 @@ func NewOpenRouterClient(cfg config.AIAgentConfig) Client {
 	return &openRouterClient{
 		config: cfg,
 		client: &http.Client{
-			Timeout: 2 * time.Minute,
+			Timeout: 10 * time.Minute,
 		},
 	}
 }

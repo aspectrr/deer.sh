@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,11 +16,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/aspectrr/deer.sh/deer-cli/internal/ansible"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/audit"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/chatlog"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/config"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/doctor"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/hostexec"
-	fluidmcp "github.com/aspectrr/deer.sh/deer-cli/internal/mcp"
+	deermcp "github.com/aspectrr/deer.sh/deer-cli/internal/mcp"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/paths"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/readonly"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/redact"
@@ -40,8 +44,9 @@ var (
 )
 
 var (
-	cfgFile string
-	cfg     *config.Config
+	cfgFile      string
+	cfg          *config.Config
+	globalPrompt string
 )
 
 func main() {
@@ -56,8 +61,8 @@ func main() {
 
 var rootCmd = &cobra.Command{
 	Use:   "deer",
-	Short: "Fluid - Make Infrastructure Safe for AI",
-	Long:  "Fluid is a terminal agent that AI manage infrastructure via sandboxed resources, audit trails and human approval.",
+	Short: "Deer.sh - Make Infrastructure Safe for AI",
+	Long:  "Deer.sh is a terminal agent that AI manage infrastructure via sandboxed resources, audit trails and human approval.",
 	// Default to TUI when no subcommand is provided
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if v, _ := cmd.Flags().GetBool("version"); v {
@@ -65,8 +70,11 @@ var rootCmd = &cobra.Command{
 			if len(short) > 7 {
 				short = short[:7]
 			}
-			fmt.Printf("fluid %s (%s, %s)\n", version, short, date)
+			fmt.Printf("deer %s (%s, %s)\n", version, short, date)
 			return nil
+		}
+		if globalPrompt != "" {
+			return runHeadless(globalPrompt)
 		}
 		return runTUI()
 	},
@@ -75,7 +83,7 @@ var rootCmd = &cobra.Command{
 var mcpCmd = &cobra.Command{
 	Use:   "mcp",
 	Short: "Start MCP server on stdio",
-	Long:  "Start an MCP (Model Context Protocol) server that exposes fluid tools over stdio for use with Claude Code, Cursor, and other MCP clients.",
+	Long:  "Start an MCP (Model Context Protocol) server that exposes deer tools over stdio for use with Claude Code, Cursor, and other MCP clients.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runMCP()
 	},
@@ -149,7 +157,7 @@ var doctorCmd = &cobra.Command{
 var updateCmd = &cobra.Command{
 	Use:     "update",
 	Aliases: []string{"upgrade"},
-	Short:   "Update fluid to the latest version",
+	Short:   "Update deer to the latest version",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		latest, url, needsUpdate, err := updater.CheckLatest(version)
 		if err != nil {
@@ -178,7 +186,7 @@ var sourceCmd = &cobra.Command{
 var sourcePrepareCmd = &cobra.Command{
 	Use:   "prepare <hostname>",
 	Short: "Prepare a host for read-only access",
-	Long:  "Set up the fluid-readonly user and SSH key on a remote host. Uses ssh -G to resolve connection details from ~/.ssh/config.",
+	Long:  "Set up the deer-readonly user and SSH key on a remote host. Uses ssh -G to resolve connection details from ~/.ssh/config.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		hostname := args[0]
@@ -194,11 +202,32 @@ var sourceListCmd = &cobra.Command{
 	},
 }
 
+var sourceRunCmd = &cobra.Command{
+	Use:   "run <host> <command>",
+	Short: "Run a read-only command on a source host",
+	Args:  cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		host := args[0]
+		command := strings.Join(args[1:], " ")
+		timeoutSec, _ := cmd.Flags().GetInt("timeout")
+		return runSourceRun(host, command, timeoutSec)
+	},
+}
+
+var sourceReadFileCmd = &cobra.Command{
+	Use:   "read <host> <path>",
+	Short: "Read a file from a source host",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSourceReadFile(args[0], args[1])
+	},
+}
+
 // --- connect command ---
 
 var connectCmd = &cobra.Command{
 	Use:           "connect <address>",
-	Short:         "Connect to a fluid daemon and save config",
+	Short:         "Connect to a deer daemon and save config",
 	Long:          "Test the gRPC connection to a deer-daemon, run doctor checks via SSH, display host info, and save the daemon to your config.",
 	Args:          cobra.ExactArgs(1),
 	SilenceErrors: true,
@@ -209,6 +238,176 @@ var connectCmd = &cobra.Command{
 		skipSave, _ := cmd.Flags().GetBool("no-save")
 		sshUser, _ := cmd.Flags().GetString("ssh-user")
 		return runConnect(args[0], name, insecure, skipSave, sshUser)
+	},
+}
+
+// --- sandbox commands ---
+
+var sandboxCmd = &cobra.Command{
+	Use:   "sandbox",
+	Short: "Manage sandbox VMs",
+}
+
+var sandboxListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all sandboxes",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSandboxList()
+	},
+}
+
+var sandboxCreateCmd = &cobra.Command{
+	Use:   "create <source_vm>",
+	Short: "Create a new sandbox VM",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		sourceVM := args[0]
+		cpu, _ := cmd.Flags().GetInt("cpu")
+		memoryMB, _ := cmd.Flags().GetInt("memory")
+		live, _ := cmd.Flags().GetBool("live")
+		return runSandboxCreate(sourceVM, cpu, memoryMB, live)
+	},
+}
+
+var sandboxDestroyCmd = &cobra.Command{
+	Use:   "destroy <sandbox_id>",
+	Short: "Destroy a sandbox VM",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSandboxDestroy(args[0])
+	},
+}
+
+var sandboxStartCmd = &cobra.Command{
+	Use:   "start <sandbox_id>",
+	Short: "Start a stopped sandbox",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSandboxStart(args[0])
+	},
+}
+
+var sandboxStopCmd = &cobra.Command{
+	Use:   "stop <sandbox_id>",
+	Short: "Stop a running sandbox",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSandboxStop(args[0])
+	},
+}
+
+var sandboxGetCmd = &cobra.Command{
+	Use:   "get <sandbox_id>",
+	Short: "Get sandbox details",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSandboxGet(args[0])
+	},
+}
+
+var sandboxRunCmd = &cobra.Command{
+	Use:   "run <sandbox_id> <command>",
+	Short: "Run a command in a sandbox",
+	Args:  cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		sandboxID := args[0]
+		command := strings.Join(args[1:], " ")
+		timeoutSec, _ := cmd.Flags().GetInt("timeout")
+		return runSandboxRun(sandboxID, command, timeoutSec)
+	},
+}
+
+var sandboxSnapshotCmd = &cobra.Command{
+	Use:   "snapshot <sandbox_id> [name]",
+	Short: "Create a snapshot of a sandbox",
+	Args:  cobra.RangeArgs(1, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		sandboxID := args[0]
+		name := ""
+		if len(args) > 1 {
+			name = args[1]
+		}
+		return runSandboxSnapshot(sandboxID, name)
+	},
+}
+
+// --- playbook commands ---
+
+var playbookCmd = &cobra.Command{
+	Use:   "playbook",
+	Short: "Manage Ansible playbooks",
+}
+
+// --- file commands ---
+
+var fileCmd = &cobra.Command{
+	Use:   "file",
+	Short: "Manage files on sandboxes",
+}
+
+var fileReadCmd = &cobra.Command{
+	Use:   "read <sandbox_id> <path>",
+	Short: "Read a file from a sandbox",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runFileRead(args[0], args[1])
+	},
+}
+
+var fileEditCmd = &cobra.Command{
+	Use:   "edit <sandbox_id> <path>",
+	Short: "Edit a file on a sandbox",
+	Long:  "Edit a file on a sandbox by replacing text or creating a new file. Use --old to specify text to replace, or omit to create/overwrite the file.",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		sandboxID := args[0]
+		path := args[1]
+		oldStr, _ := cmd.Flags().GetString("old")
+		newStr, _ := cmd.Flags().GetString("new")
+		replaceAll, _ := cmd.Flags().GetBool("replace-all")
+		return runFileEdit(sandboxID, path, oldStr, newStr, replaceAll)
+	},
+}
+
+var playbookListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all playbooks",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runPlaybookList()
+	},
+}
+
+var playbookCreateCmd = &cobra.Command{
+	Use:   "create <name>",
+	Short: "Create a new playbook",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name := args[0]
+		hosts, _ := cmd.Flags().GetString("hosts")
+		become, _ := cmd.Flags().GetBool("become")
+		return runPlaybookCreate(name, hosts, become)
+	},
+}
+
+var playbookGetCmd = &cobra.Command{
+	Use:   "get <playbook_id>",
+	Short: "Get playbook details",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runPlaybookGet(args[0])
+	},
+}
+
+var playbookAddTaskCmd = &cobra.Command{
+	Use:   "add-task <playbook_id> <name> <module>",
+	Short: "Add a task to a playbook",
+	Args:  cobra.ExactArgs(3),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		playbookID := args[0]
+		name := args[1]
+		module := args[2]
+		paramsJSON, _ := cmd.Flags().GetString("params")
+		return runPlaybookAddTask(playbookID, name, module, paramsJSON)
 	},
 }
 
@@ -236,7 +435,8 @@ var auditShowCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $XDG_CONFIG_HOME/fluid/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $XDG_CONFIG_HOME/deer/config.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&globalPrompt, "prompt", "p", "", "run agent non-interactively with prompt and print session JSON to stdout")
 	rootCmd.Flags().BoolP("version", "v", false, "print version")
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if err := paths.MaybeMigrate(); err != nil {
@@ -253,8 +453,42 @@ func init() {
 
 	sourceCmd.AddCommand(sourcePrepareCmd)
 	sourceCmd.AddCommand(sourceListCmd)
+	sourceCmd.AddCommand(sourceRunCmd)
+	sourceCmd.AddCommand(sourceReadFileCmd)
+
+	sourceRunCmd.Flags().Int("timeout", 0, "Command timeout in seconds")
 	auditCmd.AddCommand(auditVerifyCmd)
 	auditCmd.AddCommand(auditShowCmd)
+
+	sandboxCmd.AddCommand(sandboxListCmd)
+	sandboxCmd.AddCommand(sandboxCreateCmd)
+	sandboxCmd.AddCommand(sandboxDestroyCmd)
+	sandboxCmd.AddCommand(sandboxStartCmd)
+	sandboxCmd.AddCommand(sandboxStopCmd)
+	sandboxCmd.AddCommand(sandboxGetCmd)
+	sandboxCmd.AddCommand(sandboxRunCmd)
+	sandboxCmd.AddCommand(sandboxSnapshotCmd)
+
+	sandboxCreateCmd.Flags().Int("cpu", 0, "Number of vCPUs")
+	sandboxCreateCmd.Flags().Int("memory", 0, "RAM in MB")
+	sandboxCreateCmd.Flags().Bool("live", false, "Clone from live state instead of cached image")
+	sandboxRunCmd.Flags().Int("timeout", 0, "Command timeout in seconds")
+
+	playbookCmd.AddCommand(playbookListCmd)
+	playbookCmd.AddCommand(playbookCreateCmd)
+	playbookCmd.AddCommand(playbookGetCmd)
+	playbookCmd.AddCommand(playbookAddTaskCmd)
+
+	playbookCreateCmd.Flags().String("hosts", "", "Target hosts (default: 'all')")
+	playbookCreateCmd.Flags().Bool("become", false, "Use privilege escalation (sudo)")
+	playbookAddTaskCmd.Flags().String("params", "", "Task parameters as JSON")
+
+	fileCmd.AddCommand(fileReadCmd)
+	fileCmd.AddCommand(fileEditCmd)
+
+	fileEditCmd.Flags().String("old", "", "String to find and replace")
+	fileEditCmd.Flags().String("new", "", "Replacement string (required)")
+	fileEditCmd.Flags().Bool("replace-all", false, "Replace all occurrences")
 
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(updateCmd)
@@ -262,6 +496,9 @@ func init() {
 	rootCmd.AddCommand(connectCmd)
 	rootCmd.AddCommand(sourceCmd)
 	rootCmd.AddCommand(auditCmd)
+	rootCmd.AddCommand(sandboxCmd)
+	rootCmd.AddCommand(playbookCmd)
+	rootCmd.AddCommand(fileCmd)
 }
 
 // colorFunc returns an ANSI color wrapper when useColor is true.
@@ -282,7 +519,7 @@ func resolveConfigPath() (string, error) {
 	return paths.ConfigFile()
 }
 
-// runSourcePrepare prepares a host for read-only fluid access.
+// runSourcePrepare prepares a host for read-only deer access.
 func runSourcePrepare(hostname string) error {
 	configPath, err := resolveConfigPath()
 	if err != nil {
@@ -305,7 +542,7 @@ func runSourcePrepare(hostname string) error {
 	_, _, probeCode, probeErr := probeRun(probeCtx, "echo ok")
 	probeCancel()
 	if probeErr == nil && probeCode == 0 {
-		fmt.Printf("  Host %s already has fluid-readonly access configured.\n", hostname)
+		fmt.Printf("  Host %s already has deer-readonly access configured.\n", hostname)
 		fmt.Print("  Re-prepare? [y/N] ")
 		reader := bufio.NewReader(os.Stdin)
 		answer, _ := reader.ReadString('\n')
@@ -325,7 +562,7 @@ func runSourcePrepare(hostname string) error {
 	fmt.Printf("  %s Resolved: %s@%s:%d\n", green("[ok]"), resolved.User, resolved.Hostname, resolved.Port)
 
 	// 2. Generate dedicated key pair
-	fmt.Printf("  Generating fluid SSH key pair...\n")
+	fmt.Printf("  Generating deer SSH key pair...\n")
 	privPath, pubKey, err := sourcekeys.EnsureKeyPair(loadedCfg.SSH.SourceKeyDir)
 	if err != nil {
 		return fmt.Errorf("generate key pair: %w", err)
@@ -376,7 +613,7 @@ func runSourcePrepare(hostname string) error {
 
 	fmt.Println()
 	fmt.Printf("  %s Host %q is ready for read-only access.\n", green("[done]"), hostname)
-	fmt.Printf("  Run `fluid` to start the agent and inspect this host.\n")
+	fmt.Printf("  Run `deer` to start the agent and inspect this host.\n")
 	return nil
 }
 
@@ -541,7 +778,7 @@ func runSourceList() error {
 
 	if len(loadedCfg.Hosts) == 0 {
 		fmt.Println("  No source hosts configured.")
-		fmt.Println("  Run: fluid source prepare <hostname>")
+		fmt.Println("  Run: deer source prepare <hostname>")
 		return nil
 	}
 
@@ -647,7 +884,7 @@ func runMCP() error {
 	}
 
 	// Log to file - stdout is the MCP transport
-	logPath := filepath.Join(filepath.Dir(configPath), "fluid-mcp.log")
+	logPath := filepath.Join(filepath.Dir(configPath), "deer-mcp.log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		logFile = nil
@@ -675,11 +912,71 @@ func runMCP() error {
 	svc := initSandboxService(cfg, logger)
 	defer func() { _ = svc.Close() }()
 
-	srv := fluidmcp.NewServer(cfg, core.store, svc, core.source, core.telemetry, logger)
+	srv := deermcp.NewServer(cfg, core.store, svc, core.source, core.telemetry, logger)
 	return srv.Serve()
 }
 
 // runTUI launches the interactive TUI
+// runHeadless runs the agent with a single prompt and writes the full session
+// as a JSON array to stdout. Uses the same service setup as runTUI but skips
+// the Bubbletea model entirely.
+func runHeadless(prompt string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	cfg, err = tui.EnsureConfigExists(configPath)
+	if err != nil {
+		return fmt.Errorf("ensure config: %w", err)
+	}
+
+	fileLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	core, err := initCoreServices(cfg, fileLogger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer func() { _ = core.store.Close() }()
+	defer core.telemetry.Close()
+	if core.auditLog != nil {
+		defer func() { _ = core.auditLog.Close() }()
+	}
+
+	svc := initSandboxService(cfg, fileLogger)
+	defer func() { _ = svc.Close() }()
+
+	if cfg.ChatsDir == "" {
+		return fmt.Errorf("chats_dir not configured")
+	}
+	chatLogger, _, err := chatlog.New(cfg.ChatsDir)
+	if err != nil {
+		return fmt.Errorf("open chat log: %w", err)
+	}
+	chatLogger.LogSessionStart(cfg.AIAgent.Model)
+
+	agent := tui.NewDeerAgent(cfg, core.store, svc, core.source, core.telemetry, core.redactor, core.auditLog, chatLogger, fileLogger)
+
+	ctx := context.Background()
+	if _, err := agent.RunHeadless(ctx, prompt); err != nil {
+		chatLogger.LogSessionEnd(0, 0)
+		_ = chatLogger.Close()
+		return fmt.Errorf("agent: %w", err)
+	}
+
+	chatLogger.LogSessionEnd(0, 0)
+	_ = chatLogger.Close()
+
+	events, err := chatLogger.ReadEvents()
+	if err != nil {
+		return fmt.Errorf("read chat log: %w", err)
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(events)
+}
+
 func runTUI() error {
 	configPath, err := resolveConfigPath()
 	if err != nil {
@@ -705,7 +1002,7 @@ func runTUI() error {
 	}
 
 	// Log to file to avoid corrupting the TUI
-	logPath := filepath.Join(filepath.Dir(configPath), "fluid.log")
+	logPath := filepath.Join(filepath.Dir(configPath), "deer.log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not open log file %s: %v\n", logPath, err)
@@ -734,9 +1031,23 @@ func runTUI() error {
 	svc := initSandboxService(cfg, fileLogger)
 	defer func() { _ = svc.Close() }()
 
-	agent := tui.NewFluidAgent(cfg, core.store, svc, core.source, core.telemetry, core.redactor, core.auditLog, fileLogger)
+	var chatLogger *chatlog.Logger
+	if cfg.ChatsDir != "" {
+		var sessionID string
+		var chatErr error
+		chatLogger, sessionID, chatErr = chatlog.New(cfg.ChatsDir)
+		if chatErr != nil {
+			fileLogger.Warn("failed to open chat log", "error", chatErr)
+		} else {
+			defer func() { _ = chatLogger.Close() }()
+			chatLogger.LogSessionStart(cfg.AIAgent.Model)
+			fileLogger.Info("chat log", "session_id", sessionID, "path", cfg.ChatsDir+"/"+sessionID+".jsonl")
+		}
+	}
 
-	model := tui.NewModel("fluid", "daemon", "vm-agent", agent, cfg, configPath, fileLogger)
+	agent := tui.NewDeerAgent(cfg, core.store, svc, core.source, core.telemetry, core.redactor, core.auditLog, chatLogger, fileLogger)
+
+	model := tui.NewModel("deer", "daemon", "vm-agent", agent, cfg, configPath, fileLogger)
 	return tui.Run(model)
 }
 
@@ -850,4 +1161,746 @@ func initSandboxService(loadedCfg *config.Config, logger *slog.Logger) sandbox.S
 		return sandbox.NewNoopService()
 	}
 	return svc
+}
+
+// --- sandbox command handlers ---
+
+func runSandboxList() error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	sandboxes, err := svc.ListSandboxes(ctx)
+	if err != nil {
+		return fmt.Errorf("list sandboxes: %w", err)
+	}
+
+	if len(sandboxes) == 0 {
+		fmt.Println("  No sandboxes found.")
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Printf("  %-20s %-15s %-20s %-15s %s\n", "ID", "NAME", "STATE", "BASE IMAGE", "IP")
+	fmt.Printf("  %-20s %-15s %-20s %-15s %s\n", strings.Repeat("-", 20), strings.Repeat("-", 15), strings.Repeat("-", 20), strings.Repeat("-", 15), strings.Repeat("-", 15))
+	for _, sb := range sandboxes {
+		ip := "-"
+		if sb.IPAddress != "" {
+			ip = sb.IPAddress
+		}
+		fmt.Printf("  %-20s %-15s %-20s %-15s %s\n", sb.ID, sb.Name, sb.State, sb.BaseImage, ip)
+	}
+	fmt.Println()
+	return nil
+}
+
+func runSandboxCreate(sourceVM string, cpu, memoryMB int, live bool) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	sb, err := svc.CreateSandbox(ctx, sandbox.CreateRequest{
+		SourceVM: sourceVM,
+		AgentID:  "cli",
+		VCPUs:    cpu,
+		MemoryMB: memoryMB,
+		Live:     live,
+	})
+	if err != nil {
+		return fmt.Errorf("create sandbox: %w", err)
+	}
+
+	fmt.Printf("  Created sandbox %s (%s)\n", sb.ID, sb.Name)
+	if sb.IPAddress != "" {
+		fmt.Printf("  IP: %s\n", sb.IPAddress)
+	}
+	return nil
+}
+
+func runSandboxDestroy(sandboxID string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	err = svc.DestroySandbox(ctx, sandboxID)
+	if err != nil {
+		return fmt.Errorf("destroy sandbox: %w", err)
+	}
+
+	fmt.Printf("  Destroyed sandbox %s\n", sandboxID)
+	return nil
+}
+
+func runSandboxStart(sandboxID string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	sb, err := svc.StartSandbox(ctx, sandboxID)
+	if err != nil {
+		return fmt.Errorf("start sandbox: %w", err)
+	}
+
+	fmt.Printf("  Started sandbox %s\n", sandboxID)
+	if sb.IPAddress != "" {
+		fmt.Printf("  IP: %s\n", sb.IPAddress)
+	}
+	return nil
+}
+
+func runSandboxStop(sandboxID string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	err = svc.StopSandbox(ctx, sandboxID, false)
+	if err != nil {
+		return fmt.Errorf("stop sandbox: %w", err)
+	}
+
+	fmt.Printf("  Stopped sandbox %s\n", sandboxID)
+	return nil
+}
+
+func runSandboxGet(sandboxID string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	sb, err := svc.GetSandbox(ctx, sandboxID)
+	if err != nil {
+		return fmt.Errorf("get sandbox: %w", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("  ID:         %s\n", sb.ID)
+	fmt.Printf("  Name:       %s\n", sb.Name)
+	fmt.Printf("  State:      %s\n", sb.State)
+	fmt.Printf("  Base Image: %s\n", sb.BaseImage)
+	fmt.Printf("  Agent ID:   %s\n", sb.AgentID)
+	fmt.Printf("  Created:    %s\n", sb.CreatedAt.Format(time.RFC3339))
+	if sb.IPAddress != "" {
+		fmt.Printf("  IP:         %s\n", sb.IPAddress)
+	}
+	fmt.Println()
+	return nil
+}
+
+func runSandboxRun(sandboxID, command string, timeoutSec int) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	result, err := svc.RunCommand(ctx, sandboxID, command, timeoutSec, nil)
+	if err != nil {
+		return fmt.Errorf("run command: %w", err)
+	}
+
+	fmt.Printf("  Exit code: %d\n", result.ExitCode)
+	if result.Stdout != "" {
+		fmt.Println("  STDOUT:")
+		fmt.Println(indentLines(result.Stdout, "    "))
+	}
+	if result.Stderr != "" {
+		fmt.Println("  STDERR:")
+		fmt.Println(indentLines(result.Stderr, "    "))
+	}
+	return nil
+}
+
+func runSandboxSnapshot(sandboxID, name string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	if name == "" {
+		name = fmt.Sprintf("snap-%d", time.Now().Unix())
+	}
+
+	snap, err := svc.CreateSnapshot(ctx, sandboxID, name)
+	if err != nil {
+		return fmt.Errorf("create snapshot: %w", err)
+	}
+
+	fmt.Printf("  Created snapshot %s (%s)\n", snap.SnapshotID, snap.SnapshotName)
+	return nil
+}
+
+// indentLines indents each line of text with the given prefix
+func indentLines(text, prefix string) string {
+	lines := strings.Split(text, "\n")
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		result = append(result, prefix+line)
+	}
+	return strings.Join(result, "\n")
+}
+
+// --- playbook command handlers ---
+
+func runPlaybookList() error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
+
+	playbooks, err := playbookSvc.ListPlaybooks(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("list playbooks: %w", err)
+	}
+
+	if len(playbooks) == 0 {
+		fmt.Println("  No playbooks found.")
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Printf("  %-20s %-30s %s\n", "ID", "NAME", "CREATED")
+	fmt.Printf("  %-20s %-30s %s\n", strings.Repeat("-", 20), strings.Repeat("-", 30), strings.Repeat("-", 20))
+	for _, pb := range playbooks {
+		path := ""
+		if pb.FilePath != nil {
+			path = *pb.FilePath
+		}
+		fmt.Printf("  %-20s %-30s %s\n", pb.ID, pb.Name, pb.CreatedAt.Format("2006-01-02"))
+		if path != "" {
+			fmt.Printf("  %s%s\n", strings.Repeat(" ", 22), path)
+		}
+	}
+	fmt.Println()
+	return nil
+}
+
+func runPlaybookCreate(name, hosts string, become bool) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
+
+	pb, err := playbookSvc.CreatePlaybook(ctx, ansible.CreatePlaybookRequest{
+		Name:   name,
+		Hosts:  hosts,
+		Become: become,
+	})
+	if err != nil {
+		return fmt.Errorf("create playbook: %w", err)
+	}
+
+	fmt.Printf("  Created playbook %s (%s)\n", pb.ID, pb.Name)
+	if pb.FilePath != nil {
+		fmt.Printf("  Path: %s\n", *pb.FilePath)
+	}
+	return nil
+}
+
+func runPlaybookGet(playbookID string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
+
+	pbWithTasks, err := playbookSvc.GetPlaybookWithTasks(ctx, playbookID)
+	if err != nil {
+		return fmt.Errorf("get playbook: %w", err)
+	}
+
+	yamlContent, err := playbookSvc.ExportPlaybook(ctx, playbookID)
+	if err != nil {
+		return fmt.Errorf("export playbook: %w", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("  ID:      %s\n", pbWithTasks.Playbook.ID)
+	fmt.Printf("  Name:    %s\n", pbWithTasks.Playbook.Name)
+	fmt.Printf("  Hosts:   %s\n", pbWithTasks.Playbook.Hosts)
+	fmt.Printf("  Become:  %v\n", pbWithTasks.Playbook.Become)
+	fmt.Printf("  Created: %s\n", pbWithTasks.Playbook.CreatedAt.Format(time.RFC3339))
+	if pbWithTasks.Playbook.FilePath != nil {
+		fmt.Printf("  Path:    %s\n", *pbWithTasks.Playbook.FilePath)
+	}
+
+	if len(pbWithTasks.Tasks) > 0 {
+		fmt.Println("\n  Tasks:")
+		for _, t := range pbWithTasks.Tasks {
+			fmt.Printf("    [%d] %s (%s)\n", t.Position, t.Name, t.Module)
+		}
+	}
+
+	fmt.Println("\n  YAML Content:")
+	fmt.Println(indentLines(string(yamlContent), "    "))
+	fmt.Println()
+	return nil
+}
+
+func runPlaybookAddTask(playbookID, name, module, paramsJSON string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
+
+	var params map[string]any
+	if paramsJSON != "" {
+		if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
+			return fmt.Errorf("parse params JSON: %w", err)
+		}
+	}
+
+	task, err := playbookSvc.AddTask(ctx, playbookID, ansible.AddTaskRequest{
+		Name:   name,
+		Module: module,
+		Params: params,
+	})
+	if err != nil {
+		return fmt.Errorf("add task: %w", err)
+	}
+
+	fmt.Printf("  Added task %s to playbook %s\n", task.ID, playbookID)
+	fmt.Printf("  Position: %d\n", task.Position)
+	return nil
+}
+
+// --- file command handlers ---
+
+func runFileRead(sandboxID, path string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	validatedPath, err := deermcp.ValidateFilePath(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+
+	escapedPath, err := deermcp.ShellEscape(validatedPath)
+	if err != nil {
+		return fmt.Errorf("escape path: %w", err)
+	}
+
+	result, err := svc.RunCommand(ctx, sandboxID, fmt.Sprintf("base64 %s", escapedPath), 0, nil)
+	if err != nil {
+		return fmt.Errorf("read file: %w", err)
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("read file failed with exit code %d: %s", result.ExitCode, result.Stderr)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(result.Stdout))
+	if err != nil {
+		return fmt.Errorf("decode file content: %w", err)
+	}
+
+	fmt.Println(string(decoded))
+	return nil
+}
+
+func runFileEdit(sandboxID, path, oldStr, newStr string, replaceAll bool) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	svc := initSandboxService(loadedCfg, logger)
+	defer svc.Close()
+
+	validatedPath, err := deermcp.ValidateFilePath(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+
+	escapedPath, err := deermcp.ShellEscape(validatedPath)
+	if err != nil {
+		return fmt.Errorf("escape path: %w", err)
+	}
+
+	if oldStr == "" {
+		// Create/overwrite file
+		if err := deermcp.CheckFileSize(int64(len(newStr))); err != nil {
+			return fmt.Errorf("file too large: %w", err)
+		}
+		encoded := base64.StdEncoding.EncodeToString([]byte(newStr))
+		cmd := fmt.Sprintf("base64 -d > %s << '--DEER_B64--'\n%s\n--DEER_B64--", escapedPath, encoded)
+		result, err := svc.RunCommand(ctx, sandboxID, cmd, 0, nil)
+		if err != nil {
+			return fmt.Errorf("create file: %w", err)
+		}
+		if result.ExitCode != 0 {
+			return fmt.Errorf("create file failed with exit code %d: %s", result.ExitCode, result.Stderr)
+		}
+		fmt.Printf("  Created file %s on sandbox %s\n", path, sandboxID)
+		return nil
+	}
+
+	// Read existing file
+	readResult, err := svc.RunCommand(ctx, sandboxID, fmt.Sprintf("base64 %s", escapedPath), 0, nil)
+	if err != nil {
+		return fmt.Errorf("read file for edit: %w", err)
+	}
+	if readResult.ExitCode != 0 {
+		return fmt.Errorf("read file failed with exit code %d: %s", readResult.ExitCode, readResult.Stderr)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(readResult.Stdout))
+	if err != nil {
+		return fmt.Errorf("decode file content: %w", err)
+	}
+	original := string(decoded)
+
+	if !strings.Contains(original, oldStr) {
+		return fmt.Errorf("old_str not found in file")
+	}
+
+	n := 1
+	if replaceAll {
+		n = -1
+	}
+	edited := strings.Replace(original, oldStr, newStr, n)
+	if err := deermcp.CheckFileSize(int64(len(edited))); err != nil {
+		return fmt.Errorf("edited file too large: %w", err)
+	}
+	encoded := base64.StdEncoding.EncodeToString([]byte(edited))
+	writeCmd := fmt.Sprintf("base64 -d > %s << '--DEER_B64--'\n%s\n--DEER_B64--", escapedPath, encoded)
+	writeResult, err := svc.RunCommand(ctx, sandboxID, writeCmd, 0, nil)
+	if err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+	if writeResult.ExitCode != 0 {
+		return fmt.Errorf("write file failed with exit code %d: %s", writeResult.ExitCode, writeResult.Stderr)
+	}
+
+	fmt.Printf("  Edited file %s on sandbox %s\n", path, sandboxID)
+	return nil
+}
+
+// --- source command handlers ---
+
+func runSourceRun(host, command string, timeoutSec int) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	if timeoutSec > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
+		defer cancel()
+	}
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	result, err := core.source.RunCommand(ctx, host, command)
+	if err != nil {
+		return fmt.Errorf("run source command: %w", err)
+	}
+
+	fmt.Printf("  Exit code: %d\n", result.ExitCode)
+	if result.Stdout != "" {
+		fmt.Println("  STDOUT:")
+		fmt.Println(indentLines(result.Stdout, "    "))
+	}
+	if result.Stderr != "" {
+		fmt.Println("  STDERR:")
+		fmt.Println(indentLines(result.Stderr, "    "))
+	}
+	return nil
+}
+
+func runSourceReadFile(host, path string) error {
+	configPath, err := resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("determine config path: %w", err)
+	}
+
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+
+	core, err := initCoreServices(loadedCfg, logger)
+	if err != nil {
+		return fmt.Errorf("init core services: %w", err)
+	}
+	defer core.store.Close()
+	defer core.telemetry.Close()
+
+	validatedPath, err := deermcp.ValidateFilePath(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+
+	content, err := core.source.ReadFile(ctx, host, validatedPath)
+	if err != nil {
+		return fmt.Errorf("read source file: %w", err)
+	}
+
+	fmt.Println(content)
+	return nil
 }

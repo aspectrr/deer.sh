@@ -19,7 +19,7 @@ func HistoryPath() string {
 	if err != nil {
 		// Best-effort fallback
 		home, _ := os.UserHomeDir()
-		dir = filepath.Join(home, ".local", "share", "fluid")
+		dir = filepath.Join(home, ".local", "share", "deer")
 	}
 	return filepath.Join(dir, "history")
 }

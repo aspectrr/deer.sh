@@ -440,7 +440,7 @@ func TestShellEscape(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			result, err := shellEscape(tt.input)
+			result, err := ShellEscape(tt.input)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -459,7 +459,7 @@ func TestShellEscape_ValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := shellEscape(tt.input)
+			_, err := ShellEscape(tt.input)
 			assert.Error(t, err)
 		})
 	}
@@ -1034,7 +1034,7 @@ func TestHandleEditFile_ReplaceAll(t *testing.T) {
 		runCommandFn: func(_ context.Context, _, command string, _ int, _ map[string]string) (*sandbox.CommandResult, error) {
 			if strings.Contains(command, "base64 -d >") {
 				// Write command - capture the base64 content from the heredoc
-				const delim = "--FLUID_B64--"
+				const delim = "--DEER_B64--"
 				first := strings.Index(command, delim)
 				if first >= 0 {
 					rest := command[first+len(delim):]

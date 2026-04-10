@@ -36,9 +36,9 @@ func errorResult(v any) (*mcp.CallToolResult, error) {
 	return result, nil
 }
 
-// shellEscape safely escapes a string for use in a shell command.
-func shellEscape(s string) (string, error) {
-	if err := validateShellArg(s); err != nil {
+// ShellEscape safely escapes a string for use in a shell command.
+func ShellEscape(s string) (string, error) {
+	if err := ValidateShellArg(s); err != nil {
 		return "", err
 	}
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'", nil
@@ -101,13 +101,15 @@ func (s *Server) handleCreateSandbox(ctx context.Context, request mcp.CallToolRe
 	cpu := request.GetInt("cpu", 0)
 	memoryMB := request.GetInt("memory_mb", 0)
 	live := request.GetBool("live", false)
+	kafkaStub := request.GetBool("kafka_stub", false)
 
 	sb, err := s.service.CreateSandbox(ctx, sandbox.CreateRequest{
-		SourceVM: sourceVM,
-		AgentID:  mcpAgentID,
-		VCPUs:    cpu,
-		MemoryMB: memoryMB,
-		Live:     live,
+		SourceVM:          sourceVM,
+		AgentID:           mcpAgentID,
+		VCPUs:             cpu,
+		MemoryMB:          memoryMB,
+		Live:              live,
+		SimpleKafkaBroker: kafkaStub,
 	})
 	if err != nil {
 		s.logger.Error("create_sandbox failed", "error", err, "source_vm", sourceVM)
@@ -271,38 +273,35 @@ func (s *Server) handleGetSandbox(ctx context.Context, request mcp.CallToolReque
 	return jsonResult(result)
 }
 
-// list_vms - use list_hosts instead
-// func (s *Server) handleListVMs(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-// 	s.trackToolCall("list_vms")
-//
-// 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-// 	defer cancel()
-//
-// 	vms, err := s.service.ListVMs(ctx)
-// 	if err != nil {
-// 		s.logger.Error("list_vms failed", "error", err)
-// 		return errorResult(map[string]any{"error": fmt.Sprintf("list vms: %s", err)})
-// 	}
-//
-// 	result := make([]map[string]any, 0, len(vms))
-// 	for _, vm := range vms {
-// 		item := map[string]any{
-// 			"name":     vm.Name,
-// 			"state":    vm.State,
-// 			"prepared": vm.Prepared,
-// 		}
-// 		if vm.IPAddress != "" {
-// 			item["ip"] = vm.IPAddress
-// 		}
-// 		result = append(result, item)
-// 	}
-//
-// 	return jsonResult(map[string]any{
-// 		"vms":   result,
-// 		"count": len(result),
-// 		"total": len(result),
-// 	})
-// }
+func (s *Server) handleListVMs(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.trackToolCall("list_vms")
+
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	vms, err := s.service.ListVMs(ctx)
+	if err != nil {
+		s.logger.Error("list_vms failed", "error", err)
+		return errorResult(map[string]any{"error": fmt.Sprintf("list vms: %s", err)})
+	}
+
+	result := make([]map[string]any, 0, len(vms))
+	for _, vm := range vms {
+		item := map[string]any{
+			"name":  vm.Name,
+			"state": vm.State,
+		}
+		if vm.IPAddress != "" {
+			item["ip"] = vm.IPAddress
+		}
+		result = append(result, item)
+	}
+
+	return jsonResult(map[string]any{
+		"vms":   result,
+		"count": len(result),
+	})
+}
 
 func (s *Server) handleCreateSnapshot(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.trackToolCall("create_snapshot")
@@ -418,14 +417,14 @@ func (s *Server) handleEditFile(ctx context.Context, request mcp.CallToolRequest
 	if sandboxID == "" {
 		return nil, fmt.Errorf("sandbox_id is required")
 	}
-	path, err := validateFilePath(request.GetString("path", ""))
+	path, err := ValidateFilePath(request.GetString("path", ""))
 	if err != nil {
 		return nil, fmt.Errorf("invalid path: %w", err)
 	}
 	oldStr := request.GetString("old_str", "")
 	newStr := request.GetString("new_str", "")
 
-	escapedPath, err := shellEscape(path)
+	escapedPath, err := ShellEscape(path)
 	if err != nil {
 		s.logger.Error("edit_file failed", "error", err, "sandbox_id", sandboxID, "path", path)
 		return errorResult(map[string]any{"sandbox_id": sandboxID, "path": path, "error": fmt.Sprintf("invalid path: %s", err)})
@@ -433,12 +432,12 @@ func (s *Server) handleEditFile(ctx context.Context, request mcp.CallToolRequest
 
 	if oldStr == "" {
 		// Create/overwrite file
-		if err := checkFileSize(int64(len(newStr))); err != nil {
+		if err := CheckFileSize(int64(len(newStr))); err != nil {
 			s.logger.Error("edit_file failed", "error", err, "sandbox_id", sandboxID, "path", path)
 			return errorResult(map[string]any{"sandbox_id": sandboxID, "path": path, "error": fmt.Sprintf("file too large: %s", err)})
 		}
 		encoded := base64.StdEncoding.EncodeToString([]byte(newStr))
-		cmd := fmt.Sprintf("base64 -d > %s << '--FLUID_B64--'\n%s\n--FLUID_B64--", escapedPath, encoded)
+		cmd := fmt.Sprintf("base64 -d > %s << '--DEER_B64--'\n%s\n--DEER_B64--", escapedPath, encoded)
 		result, err := s.service.RunCommand(ctx, sandboxID, cmd, 0, nil)
 		if err != nil {
 			s.logger.Error("edit_file failed", "error", err, "sandbox_id", sandboxID, "path", path)
@@ -505,12 +504,12 @@ func (s *Server) handleEditFile(ctx context.Context, request mcp.CallToolRequest
 		n = -1
 	}
 	edited := strings.Replace(original, oldStr, newStr, n)
-	if err := checkFileSize(int64(len(edited))); err != nil {
+	if err := CheckFileSize(int64(len(edited))); err != nil {
 		s.logger.Error("edit_file failed", "error", err, "sandbox_id", sandboxID, "path", path)
 		return errorResult(map[string]any{"sandbox_id": sandboxID, "path": path, "error": fmt.Sprintf("edited file too large: %s", err)})
 	}
 	encoded := base64.StdEncoding.EncodeToString([]byte(edited))
-	writeCmd := fmt.Sprintf("base64 -d > %s << '--FLUID_B64--'\n%s\n--FLUID_B64--", escapedPath, encoded)
+	writeCmd := fmt.Sprintf("base64 -d > %s << '--DEER_B64--'\n%s\n--DEER_B64--", escapedPath, encoded)
 	writeResult, err := s.service.RunCommand(ctx, sandboxID, writeCmd, 0, nil)
 	if err != nil {
 		s.logger.Error("edit_file failed", "error", err, "sandbox_id", sandboxID, "path", path)
@@ -547,12 +546,12 @@ func (s *Server) handleReadFile(ctx context.Context, request mcp.CallToolRequest
 	if sandboxID == "" {
 		return nil, fmt.Errorf("sandbox_id is required")
 	}
-	path, err := validateFilePath(request.GetString("path", ""))
+	path, err := ValidateFilePath(request.GetString("path", ""))
 	if err != nil {
 		return nil, fmt.Errorf("invalid path: %w", err)
 	}
 
-	escapedPath, err := shellEscape(path)
+	escapedPath, err := ShellEscape(path)
 	if err != nil {
 		s.logger.Error("read_file failed", "error", err, "sandbox_id", sandboxID, "path", path)
 		return errorResult(map[string]any{"sandbox_id": sandboxID, "path": path, "error": fmt.Sprintf("invalid path: %s", err)})
@@ -743,7 +742,7 @@ func (s *Server) handleReadSourceFile(ctx context.Context, request mcp.CallToolR
 	if host == "" {
 		return nil, fmt.Errorf("host is required")
 	}
-	path, err := validateFilePath(request.GetString("path", ""))
+	path, err := ValidateFilePath(request.GetString("path", ""))
 	if err != nil {
 		return nil, fmt.Errorf("invalid path: %w", err)
 	}

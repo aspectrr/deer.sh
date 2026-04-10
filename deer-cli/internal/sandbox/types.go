@@ -20,14 +20,15 @@ type SandboxInfo struct {
 
 // CreateRequest holds parameters for creating a sandbox.
 type CreateRequest struct {
-	SourceVM   string
-	Name       string
-	AgentID    string
-	VCPUs      int
-	MemoryMB   int
-	TTLSeconds int
-	Network    string
-	Live       bool
+	SourceVM          string
+	Name              string
+	AgentID           string
+	VCPUs             int
+	MemoryMB          int
+	TTLSeconds        int
+	Network           string
+	Live              bool
+	SimpleKafkaBroker bool
 }
 
 // CommandResult holds the result of a command execution.

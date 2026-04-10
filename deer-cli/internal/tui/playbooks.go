@@ -76,7 +76,7 @@ func newPlaybooksStyles() playbooksStyles {
 	return playbooksStyles{
 		title: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#3B82F6")).
+			Foreground(lipgloss.Color("#166534")).
 			MarginTop(10).
 			MarginBottom(1),
 		listItem: lipgloss.NewStyle().
@@ -92,14 +92,14 @@ func newPlaybooksStyles() playbooksStyles {
 			Padding(1),
 		panelTitle: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#06B6D4")).
+			Foreground(lipgloss.Color("#15803d")).
 			MarginBottom(1),
 		info: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#94A3B8")),
 		infoLabel: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#64748B")),
 		preview: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#A5B4FC")),
+			Foreground(lipgloss.Color("#4ade80")),
 		help: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#64748B")).
 			MarginTop(1),
@@ -114,8 +114,8 @@ func newPlaybooksStyles() playbooksStyles {
 		buttonFocus: lipgloss.NewStyle().
 			Padding(0, 2).
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#3B82F6")).
-			Foreground(lipgloss.Color("#3B82F6")).
+			BorderForeground(lipgloss.Color("#166534")).
+			Foreground(lipgloss.Color("#166534")).
 			Bold(true),
 		warning: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FACC15")),

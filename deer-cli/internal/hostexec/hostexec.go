@@ -160,9 +160,9 @@ func NewSSHWithKey(addr, user string, port int, keyPath string) RunFunc {
 	}
 }
 
-// NewReadOnlySSH returns a RunFunc that connects as fluid-readonly using a specific key.
+// NewReadOnlySSH returns a RunFunc that connects as deer-readonly using a specific key.
 func NewReadOnlySSH(addr string, port int, keyPath string) RunFunc {
-	return NewSSHWithKey(addr, "fluid-readonly", port, keyPath)
+	return NewSSHWithKey(addr, "deer-readonly", port, keyPath)
 }
 
 // NewSSHAlias returns a RunFunc that executes commands via SSH using the original
@@ -198,11 +198,11 @@ func NewSSHAlias(hostAlias string, extraArgs ...string) RunFunc {
 	}
 }
 
-// NewReadOnlySSHAlias returns a RunFunc that connects as fluid-readonly using
-// the host alias (preserving ~/.ssh/config) plus the fluid key.
+// NewReadOnlySSHAlias returns a RunFunc that connects as deer-readonly using
+// the host alias (preserving ~/.ssh/config) plus the deer key.
 func NewReadOnlySSHAlias(hostAlias, keyPath string) RunFunc {
 	return NewSSHAlias(hostAlias,
-		"-l", "fluid-readonly",
+		"-l", "deer-readonly",
 		"-o", "IdentitiesOnly=yes",
 		"-i", keyPath,
 	)
@@ -255,7 +255,7 @@ func RunStreamingSSHAlias(ctx context.Context, hostAlias string, extraArgs []str
 		}
 		if err := scanner.Err(); err != nil {
 			if onOutput != nil {
-				onOutput(fmt.Sprintf("[fluid] stdout scanner error: %v\n", err), true)
+				onOutput(fmt.Sprintf("[deer] stdout scanner error: %v\n", err), true)
 			}
 		}
 	}()
@@ -273,7 +273,7 @@ func RunStreamingSSHAlias(ctx context.Context, hostAlias string, extraArgs []str
 		}
 		if err := scanner.Err(); err != nil {
 			if onOutput != nil {
-				onOutput(fmt.Sprintf("[fluid] stderr scanner error: %v\n", err), true)
+				onOutput(fmt.Sprintf("[deer] stderr scanner error: %v\n", err), true)
 			}
 		}
 	}()

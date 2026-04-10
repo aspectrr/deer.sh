@@ -325,7 +325,7 @@ func (m *SettingsModel) ensureFocusedVisible() {
 func (m SettingsModel) View() string {
 	var b strings.Builder
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#3B82F6"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#166534"))
 	b.WriteString(titleStyle.Render("Settings"))
 	b.WriteString("\n")
 
@@ -333,7 +333,7 @@ func (m SettingsModel) View() string {
 	b.WriteString(helpStyle.Render("Tab/arrows: navigate | Ctrl+S: save | Esc: cancel"))
 	b.WriteString("\n")
 
-	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4"))
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#15803d"))
 
 	visibleItems := m.visibleItemCount()
 	visibleStart := m.scrollY
@@ -407,7 +407,7 @@ func (m SettingsModel) renderField(idx int) string {
 	focusIndicator := "  "
 	if idx == m.focused {
 		focusIndicator = "> "
-		inputStyle = inputStyle.Foreground(lipgloss.Color("#3B82F6"))
+		inputStyle = inputStyle.Foreground(lipgloss.Color("#166534"))
 	}
 
 	return fmt.Sprintf("%s%s %s\n",

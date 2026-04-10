@@ -17,7 +17,7 @@ func setupTestStore(t *testing.T) (store.Store, func()) {
 	t.Helper()
 
 	// Create temp directory for test database
-	tmpDir, err := os.MkdirTemp("", "fluid-sqlite-test-*")
+	tmpDir, err := os.MkdirTemp("", "deer-sqlite-test-*")
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(tmpDir, "test.db")

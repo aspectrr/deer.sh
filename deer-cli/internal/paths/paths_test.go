@@ -15,7 +15,7 @@ func TestConfigDir_XDGOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	want := filepath.Join(tmp, "fluid")
+	want := filepath.Join(tmp, "deer")
 	if dir != want {
 		t.Errorf("ConfigDir() = %q, want %q", dir, want)
 	}
@@ -28,8 +28,8 @@ func TestConfigDir_Default(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.HasSuffix(dir, filepath.Join(".config", "fluid")) {
-		t.Errorf("ConfigDir() = %q, want suffix %q", dir, filepath.Join(".config", "fluid"))
+	if !strings.HasSuffix(dir, filepath.Join(".config", "deer")) {
+		t.Errorf("ConfigDir() = %q, want suffix %q", dir, filepath.Join(".config", "deer"))
 	}
 }
 
@@ -41,7 +41,7 @@ func TestDataDir_XDGOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	want := filepath.Join(tmp, "fluid")
+	want := filepath.Join(tmp, "deer")
 	if dir != want {
 		t.Errorf("DataDir() = %q, want %q", dir, want)
 	}
@@ -54,8 +54,8 @@ func TestDataDir_Default(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.HasSuffix(dir, filepath.Join(".local", "share", "fluid")) {
-		t.Errorf("DataDir() = %q, want suffix %q", dir, filepath.Join(".local", "share", "fluid"))
+	if !strings.HasSuffix(dir, filepath.Join(".local", "share", "deer")) {
+		t.Errorf("DataDir() = %q, want suffix %q", dir, filepath.Join(".local", "share", "deer"))
 	}
 }
 
@@ -123,23 +123,23 @@ func TestMaybeMigrate_OldDirExists(t *testing.T) {
 	}
 
 	// Verify config files migrated
-	if _, err := os.Stat(filepath.Join(configBase, "fluid", "config.yaml")); err != nil {
+	if _, err := os.Stat(filepath.Join(configBase, "deer", "config.yaml")); err != nil {
 		t.Errorf("config.yaml not migrated: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(configBase, "fluid", "ssh-ca", "ssh-ca")); err != nil {
+	if _, err := os.Stat(filepath.Join(configBase, "deer", "ssh-ca", "ssh-ca")); err != nil {
 		t.Errorf("ssh-ca not migrated: %v", err)
 	}
 
 	// Verify data files migrated
-	if _, err := os.Stat(filepath.Join(dataBase, "fluid", "state.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(dataBase, "deer", "state.db")); err != nil {
 		t.Errorf("state.db not migrated: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dataBase, "fluid", "history")); err != nil {
+	if _, err := os.Stat(filepath.Join(dataBase, "deer", "history")); err != nil {
 		t.Errorf("history not migrated: %v", err)
 	}
 
 	// Sentinel file should exist
-	if _, err := os.Stat(filepath.Join(configBase, "fluid", sentinelName)); err != nil {
+	if _, err := os.Stat(filepath.Join(configBase, "deer", sentinelName)); err != nil {
 		t.Errorf("sentinel file not created: %v", err)
 	}
 
@@ -160,7 +160,7 @@ func TestMaybeMigrate_AlreadyMigrated(t *testing.T) {
 	}
 
 	configBase := filepath.Join(fakeHome, "xdg-config")
-	newConfigDir := filepath.Join(configBase, "fluid")
+	newConfigDir := filepath.Join(configBase, "deer")
 	if err := os.MkdirAll(newConfigDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestMaybeMigrate_FreshInstall(t *testing.T) {
 	}
 
 	// New dirs should NOT be created
-	if _, err := os.Stat(filepath.Join(fakeHome, "xdg-config", "fluid")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(fakeHome, "xdg-config", "deer")); !os.IsNotExist(err) {
 		t.Errorf("config dir should not exist on fresh install")
 	}
 }
@@ -221,7 +221,7 @@ func TestMaybeMigrate_RetriableAfterPartialFailure(t *testing.T) {
 	configBase := filepath.Join(fakeHome, "xdg-config")
 	dataBase := filepath.Join(fakeHome, "xdg-data")
 	// Pre-create config dir without sentinel (simulates partial failure)
-	if err := os.MkdirAll(filepath.Join(configBase, "fluid"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(configBase, "deer"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -234,11 +234,11 @@ func TestMaybeMigrate_RetriableAfterPartialFailure(t *testing.T) {
 	}
 
 	// Config should have been copied on retry
-	if _, err := os.Stat(filepath.Join(configBase, "fluid", "config.yaml")); err != nil {
+	if _, err := os.Stat(filepath.Join(configBase, "deer", "config.yaml")); err != nil {
 		t.Errorf("config.yaml not migrated on retry: %v", err)
 	}
 	// Sentinel should now exist
-	if _, err := os.Stat(filepath.Join(configBase, "fluid", sentinelName)); err != nil {
+	if _, err := os.Stat(filepath.Join(configBase, "deer", sentinelName)); err != nil {
 		t.Errorf("sentinel not written after retry: %v", err)
 	}
 }

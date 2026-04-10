@@ -7,39 +7,39 @@ import (
 	"runtime"
 )
 
-// ConfigDir returns the fluid configuration directory.
+// ConfigDir returns the deer configuration directory.
 //
 // Resolution order:
-//  1. $XDG_CONFIG_HOME/fluid (if set)
-//  2. os.UserConfigDir()/fluid (Windows)
+//  1. $XDG_CONFIG_HOME/deer (if set)
+//  2. os.UserConfigDir()/deer (Windows)
 //  3. ~/.config/deer (macOS, Linux)
 func ConfigDir() (string, error) {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "fluid"), nil
+		return filepath.Join(xdg, "deer"), nil
 	}
 	if runtime.GOOS == "windows" {
 		dir, err := os.UserConfigDir()
 		if err != nil {
 			return "", fmt.Errorf("paths: config dir: %w", err)
 		}
-		return filepath.Join(dir, "fluid"), nil
+		return filepath.Join(dir, "deer"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("paths: config dir: %w", err)
 	}
-	return filepath.Join(home, ".config", "fluid"), nil
+	return filepath.Join(home, ".config", "deer"), nil
 }
 
-// DataDir returns the fluid data directory for state, history, and logs.
+// DataDir returns the deer data directory for state, history, and logs.
 //
 // Resolution order:
-//  1. $XDG_DATA_HOME/fluid (if set)
-//  2. %LOCALAPPDATA%/fluid (Windows)
+//  1. $XDG_DATA_HOME/deer (if set)
+//  2. %LOCALAPPDATA%/deer (Windows)
 //  3. ~/.local/share/deer (macOS, Linux)
 func DataDir() (string, error) {
 	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-		return filepath.Join(xdg, "fluid"), nil
+		return filepath.Join(xdg, "deer"), nil
 	}
 	if runtime.GOOS == "windows" {
 		dir := os.Getenv("LOCALAPPDATA")
@@ -50,13 +50,13 @@ func DataDir() (string, error) {
 				return "", fmt.Errorf("paths: data dir: %w", err)
 			}
 		}
-		return filepath.Join(dir, "fluid"), nil
+		return filepath.Join(dir, "deer"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("paths: data dir: %w", err)
 	}
-	return filepath.Join(home, ".local", "share", "fluid"), nil
+	return filepath.Join(home, ".local", "share", "deer"), nil
 }
 
 // ConfigFile returns the path to the config.yaml file.

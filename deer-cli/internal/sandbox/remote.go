@@ -81,15 +81,16 @@ func (r *RemoteService) Close() error {
 
 func (r *RemoteService) CreateSandbox(ctx context.Context, req CreateRequest) (*SandboxInfo, error) {
 	resp, err := r.client.CreateSandbox(ctx, &deerv1.CreateSandboxCommand{
-		BaseImage:  req.SourceVM,
-		SourceVm:   req.SourceVM,
-		Name:       req.Name,
-		Vcpus:      int32(req.VCPUs),
-		MemoryMb:   int32(req.MemoryMB),
-		TtlSeconds: int32(req.TTLSeconds),
-		AgentId:    req.AgentID,
-		Network:    req.Network,
-		Live:       req.Live,
+		BaseImage:         req.SourceVM,
+		SourceVm:          req.SourceVM,
+		Name:              req.Name,
+		Vcpus:             int32(req.VCPUs),
+		MemoryMb:          int32(req.MemoryMB),
+		TtlSeconds:        int32(req.TTLSeconds),
+		AgentId:           req.AgentID,
+		Network:           req.Network,
+		Live:              req.Live,
+		SimpleKafkaBroker: req.SimpleKafkaBroker,
 	})
 	if err != nil {
 		return nil, err

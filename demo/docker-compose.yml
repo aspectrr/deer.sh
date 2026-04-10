@@ -10,13 +10,16 @@ services:
       - --overprovisioned
       - --node-id=0
       - --check=false
-      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
-      - --advertise-kafka-addr=PLAINTEXT://localhost:9092
+      - --kafka-addr=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
+      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://host.lima.internal:9093
     ports:
-      # Bind only to loopback so the daemon can reach Redpanda at localhost:9092
-      # but it does NOT conflict with the deer-daemon readiness server which
-      # binds to the virbr0 bridge IP (192.168.122.1:9092) for sandbox phone_home.
+      # INTERNAL listener: loopback only for weather-producer (Docker internal network).
+      # Does not conflict with deer-daemon readiness server on virbr0:9092.
       - "127.0.0.1:9092:9092"
+      # EXTERNAL listener: all interfaces so Lima VMs can reach Redpanda at
+      # host.lima.internal:9093. Advertised as host.lima.internal:9093 so
+      # Logstash clients follow broker metadata correctly.
+      - "9093:9093"
     healthcheck:
       test: ["CMD", "rpk", "cluster", "info", "--brokers=localhost:9092"]
       interval: 5s

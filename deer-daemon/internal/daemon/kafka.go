@@ -217,8 +217,8 @@ func (s *Server) GetKafkaCaptureStatus(ctx context.Context, req *deerv1.KafkaCap
 	return resp, nil
 }
 
-func kafkaBrokerConfigForDataSources(dataSources []*deerv1.DataSourceAttachment, fallback []*deerv1.KafkaCaptureConfigBinding) *provider.KafkaBrokerConfig {
-	if len(kafkaSandboxAttachmentsFromProto(dataSources, fallback)) == 0 {
+func kafkaBrokerConfigForDataSources(dataSources []*deerv1.DataSourceAttachment, fallback []*deerv1.KafkaCaptureConfigBinding, simpleKafkaBroker bool) *provider.KafkaBrokerConfig {
+	if !simpleKafkaBroker && len(kafkaSandboxAttachmentsFromProto(dataSources, fallback)) == 0 {
 		return nil
 	}
 	return &provider.KafkaBrokerConfig{

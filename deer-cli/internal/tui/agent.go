@@ -16,6 +16,7 @@ import (
 
 	"github.com/aspectrr/deer.sh/deer-cli/internal/ansible"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/audit"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/chatlog"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/config"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/hostexec"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/llm"
@@ -46,17 +47,18 @@ type PendingApproval struct {
 	ResponseChan chan bool
 }
 
-// FluidAgent implements AgentRunner for the fluid CLI
-type FluidAgent struct {
+// DeerAgent implements AgentRunner for the deer CLI
+type DeerAgent struct {
 	cfg             *config.Config
 	store           store.Store
 	service         sandbox.Service
-	sourceService   *source.Service
+	sourceService   source.Provider
 	llmClient       llm.Client
 	playbookService *ansible.PlaybookService
 	telemetry       telemetry.Service
 	redactor        *redact.Redactor
 	auditLog        *audit.Logger
+	chatLog         *chatlog.Logger
 	logger          *slog.Logger
 
 	// Status callback for sending updates to TUI
@@ -110,8 +112,8 @@ type PendingNetworkApproval struct {
 	ResponseChan chan bool
 }
 
-// NewFluidAgent creates a new fluid agent
-func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc *source.Service, tele telemetry.Service, redactor *redact.Redactor, auditLog *audit.Logger, logger *slog.Logger) *FluidAgent {
+// NewDeerAgent creates a new deer agent
+func NewDeerAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc source.Provider, tele telemetry.Service, redactor *redact.Redactor, auditLog *audit.Logger, chatLog *chatlog.Logger, logger *slog.Logger) *DeerAgent {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -121,7 +123,7 @@ func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcS
 		llmClient = llm.NewOpenRouterClient(cfg.AIAgent)
 	}
 
-	return &FluidAgent{
+	return &DeerAgent{
 		cfg:             cfg,
 		store:           st,
 		service:         svc,
@@ -131,6 +133,7 @@ func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcS
 		telemetry:       tele,
 		redactor:        redactor,
 		auditLog:        auditLog,
+		chatLog:         chatLog,
 		logger:          logger,
 		history:         make([]llm.Message, 0),
 		swapTimeout:     2 * time.Second,
@@ -139,12 +142,12 @@ func NewFluidAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcS
 }
 
 // SetStatusCallback sets the callback function for status updates
-func (a *FluidAgent) SetStatusCallback(callback func(tea.Msg)) {
+func (a *DeerAgent) SetStatusCallback(callback func(tea.Msg)) {
 	a.statusCallback = callback
 }
 
 // SetReadOnly toggles read-only mode on the agent
-func (a *FluidAgent) SetReadOnly(ro bool) {
+func (a *DeerAgent) SetReadOnly(ro bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.readOnly = ro
@@ -153,7 +156,7 @@ func (a *FluidAgent) SetReadOnly(ro bool) {
 // SetSandboxService hot-swaps the sandbox service (e.g. after /connect).
 // Must be called after Cancel() to avoid race conditions with running agent.
 // Waits for the running goroutine to finish before swapping.
-func (a *FluidAgent) SetSandboxService(svc sandbox.Service) error {
+func (a *DeerAgent) SetSandboxService(svc sandbox.Service) error {
 	a.mu.Lock()
 	if a.cancelFunc != nil {
 		a.mu.Unlock()
@@ -185,7 +188,7 @@ func (a *FluidAgent) SetSandboxService(svc sandbox.Service) error {
 }
 
 // sendStatus sends a status message through the callback if set
-func (a *FluidAgent) sendStatus(msg tea.Msg) {
+func (a *DeerAgent) sendStatus(msg tea.Msg) {
 	if a.statusCallback != nil {
 		a.statusCallback(msg)
 	}
@@ -194,7 +197,7 @@ func (a *FluidAgent) sendStatus(msg tea.Msg) {
 // finishRun sends the final TUI-facing status update and returns the only
 // direct completion signal for Run(). AgentDoneMsg must not be queued through
 // statusCallback, otherwise it can remain buffered and break the next run.
-func (a *FluidAgent) finishRun(msg tea.Msg) tea.Msg {
+func (a *DeerAgent) finishRun(msg tea.Msg) tea.Msg {
 	if msg != nil {
 		a.sendStatus(msg)
 	}
@@ -203,7 +206,7 @@ func (a *FluidAgent) finishRun(msg tea.Msg) tea.Msg {
 
 // sendRedactedMsg sends a SensitiveContentRedactedMsg with dedup by host/path.
 // Only sends the message the first time per unique key per agent run.
-func (a *FluidAgent) sendRedactedMsg(host, path string) {
+func (a *DeerAgent) sendRedactedMsg(host, path string) {
 	key := host
 	if path != "" {
 		key = host + ":" + path
@@ -216,14 +219,14 @@ func (a *FluidAgent) sendRedactedMsg(host, path string) {
 }
 
 // RunID returns the current run generation counter.
-func (a *FluidAgent) RunID() uint64 {
+func (a *DeerAgent) RunID() uint64 {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.runID
 }
 
 // Cancel stops the currently running agent loop
-func (a *FluidAgent) Cancel() {
+func (a *DeerAgent) Cancel() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.cancelFunc != nil {
@@ -235,7 +238,7 @@ func (a *FluidAgent) Cancel() {
 // withAutoReadOnly temporarily enables read-only mode for source VM operations.
 // It sets currentSourceVM, enables auto-read-only mode, and restores the previous
 // state when the function returns.
-func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (any, error) {
+func (a *DeerAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (any, error) {
 	a.mu.Lock()
 	a.currentSourceVM = sourceVM
 	wasAutoReadOnly := a.autoReadOnly
@@ -264,7 +267,7 @@ func (a *FluidAgent) withAutoReadOnly(sourceVM string, fn func() (any, error)) (
 }
 
 // Run executes a command and returns the result
-func (a *FluidAgent) Run(input string) tea.Cmd {
+func (a *DeerAgent) Run(input string) tea.Cmd {
 	// Increment runID eagerly so the caller can read it via RunID() immediately.
 	a.mu.Lock()
 	a.runID++
@@ -304,7 +307,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 					}})
 				}
 				// Probe if host is already prepared
-				if probeFluidReadonly(hostname, a.cfg.SSH.SourceKeyDir) {
+				if probeDeerReadonly(hostname, a.cfg.SSH.SourceKeyDir) {
 					if a.lastPrepareWarned != hostname {
 						a.lastPrepareWarned = hostname
 						return a.finishRun(AgentResponseMsg{Response: AgentResponse{
@@ -345,7 +348,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 					}
 					content := "**Source Hosts:**\n" + strings.Join(lines, "\n")
 					if len(hosts) == 0 {
-						content = "No source hosts configured. Run: `fluid source prepare <hostname>`"
+						content = "No source hosts configured. Run: `deer source prepare <hostname>`"
 					}
 					return a.finishRun(AgentResponseMsg{Response: AgentResponse{Content: content, Done: true}})
 				}
@@ -438,6 +441,9 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 		if a.auditLog != nil {
 			a.auditLog.LogUserInput(len(input))
 		}
+		if a.chatLog != nil {
+			a.chatLog.LogUserMessage(input)
+		}
 
 		// LLM client is required
 		if a.llmClient == nil || a.cfg.AIAgent.APIKey == "" {
@@ -480,7 +486,7 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				systemPrompt += "\n\nThe user has not prepared any source hosts yet. You have no access to any servers. " +
 					"You can still answer questions about infrastructure, Linux, DevOps, and help plan tasks. " +
 					"If the user asks you to do anything that requires server access (running commands, reading files, diagnosing issues), " +
-					"let them know they need to prepare a host first with `/prepare <hostname>` or `fluid prepare <hostname>` to give you read-only SSH access to their servers."
+					"let them know they need to prepare a host first with `/prepare <hostname>` or `deer source prepare <hostname>` to give you read-only SSH access to their servers."
 			} else if !a.cfg.HasSandboxHosts() {
 				tools = llm.GetSourceOnlyTools()
 				systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a daemon host (https://deer.sh/docs/daemon) then use /connect to link it.\"" +
@@ -565,6 +571,20 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 				}
 			}
 
+			if a.chatLog != nil {
+				chatTCs := make([]chatlog.ToolCallEntry, 0, len(msg.ToolCalls))
+				for _, tc := range msg.ToolCalls {
+					var args map[string]any
+					_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+					chatTCs = append(chatTCs, chatlog.ToolCallEntry{
+						ID:   tc.ID,
+						Name: tc.Function.Name,
+						Args: args,
+					})
+				}
+				a.chatLog.LogLLMResponse(msg.Content, a.cfg.AIAgent.Model, chatTCs)
+			}
+
 			a.history = append(a.history, msg)
 
 			if len(msg.ToolCalls) > 0 {
@@ -597,17 +617,17 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 						errMsg = err.Error()
 						toolResultContent = fmt.Sprintf("Error: %v", err)
 					} else {
-						if m, ok := result.(map[string]any); ok {
-							resultMap = m
-						}
 						jsonResult, _ := json.Marshal(result)
 						toolResultContent = string(jsonResult)
+						// Normalize to map[string]any via JSON round-trip so all slice
+						// elements are []any (not []map[string]any etc.) for the TUI renderer.
+						_ = json.Unmarshal(jsonResult, &resultMap)
 					}
 
-					// Log tool call to audit
+					// Log tool call to audit and chat log
+					var toolArgs map[string]any
+					_ = json.Unmarshal([]byte(tc.Function.Arguments), &toolArgs)
 					if a.auditLog != nil {
-						var toolArgs map[string]any
-						_ = json.Unmarshal([]byte(tc.Function.Arguments), &toolArgs)
 						auditArgs := toolArgs
 						auditResult := result
 						if a.redactor != nil {
@@ -615,6 +635,9 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 							auditResult = a.redactor.RedactAny(result)
 						}
 						a.auditLog.LogToolCall(tc.Function.Name, auditArgs, auditResult, err, time.Since(toolStart).Milliseconds())
+					}
+					if a.chatLog != nil {
+						a.chatLog.LogToolCall(tc.Function.Name, toolArgs, result, err, time.Since(toolStart).Milliseconds())
 					}
 
 					// Send tool completion status to TUI
@@ -647,8 +670,160 @@ func (a *FluidAgent) Run(input string) tea.Cmd {
 	}
 }
 
+// RunHeadless runs a single prompt through the agent synchronously and returns
+// the final LLM response text. It is the non-interactive equivalent of Run(),
+// with no TUI coupling: no slash commands, no sendStatus calls, no tea.Cmd.
+// The full session is still written to the chatlog and audit log as normal.
+func (a *DeerAgent) RunHeadless(ctx context.Context, input string) (string, error) {
+	// Add user message to history.
+	a.history = append(a.history, llm.Message{Role: llm.RoleUser, Content: input})
+	if a.auditLog != nil {
+		a.auditLog.LogUserInput(len(input))
+	}
+	if a.chatLog != nil {
+		a.chatLog.LogUserMessage(input)
+	}
+
+	if a.llmClient == nil || a.cfg.AIAgent.APIKey == "" {
+		return "", fmt.Errorf("LLM provider not configured - set OPENROUTER_API_KEY or configure in settings")
+	}
+
+	if a.NeedsCompaction() {
+		if _, err := a.Compact(ctx); err != nil {
+			a.logger.Warn("auto-compaction failed", "error", err)
+		}
+	}
+
+	for {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+
+		systemPrompt := a.cfg.AIAgent.DefaultSystem
+		tools := llm.GetTools()
+
+		a.mu.Lock()
+		isReadOnly := a.readOnly
+		a.mu.Unlock()
+
+		if !a.cfg.HasSandboxHosts() && len(a.cfg.PreparedHosts()) == 0 {
+			tools = llm.GetNoSourceTools()
+		} else if !a.cfg.HasSandboxHosts() {
+			tools = llm.GetSourceOnlyTools()
+			systemPrompt += "\n\nYou have read-only SSH access to the user's servers. Use run_source_command and read_source_file to diagnose issues. You CANNOT modify anything on source hosts.\n\nWhen you identify a fix or change:\n1. Explain the diagnosis and proposed fix\n2. Say: \"This is a fix I could test in a sandbox and generate a playbook for. Set up a daemon host (https://deer.sh/docs/daemon) then use /connect to link it.\""
+		} else if isReadOnly {
+			tools = llm.GetReadOnlyTools()
+			systemPrompt += "\n\nYou are in READ-ONLY mode. You can only query and observe - you cannot create, modify, or destroy any resources."
+		}
+
+		if len(a.cfg.PreparedHosts()) > 0 && a.cfg.HasSandboxHosts() && !isReadOnly {
+			systemPrompt += tlsDebuggingGuidance
+		}
+
+		messages := append([]llm.Message{{Role: llm.RoleSystem, Content: systemPrompt}}, a.history...)
+
+		if a.redactor != nil {
+			redacted := make([]llm.Message, len(messages))
+			for i, msg := range messages {
+				redacted[i] = msg
+				redacted[i].Content = a.redactor.Redact(msg.Content)
+				if len(msg.ToolCalls) > 0 {
+					tcs := make([]llm.ToolCall, len(msg.ToolCalls))
+					copy(tcs, msg.ToolCalls)
+					for j, tc := range tcs {
+						tcs[j].Function.Arguments = a.redactor.Redact(tc.Function.Arguments)
+					}
+					redacted[i].ToolCalls = tcs
+				}
+			}
+			messages = redacted
+		}
+
+		req := llm.ChatRequest{Messages: messages, Tools: tools}
+
+		if a.auditLog != nil {
+			a.auditLog.LogLLMRequest(len(req.Messages), a.EstimateTokens(), a.cfg.AIAgent.Model)
+		}
+
+		resp, err := a.llmClient.Chat(ctx, req)
+		if err != nil {
+			return "", fmt.Errorf("llm chat: %w", err)
+		}
+		if len(resp.Choices) == 0 {
+			return "", fmt.Errorf("llm returned no choices")
+		}
+
+		msg := resp.Choices[0].Message
+
+		if a.auditLog != nil {
+			a.auditLog.LogLLMResponse(len(msg.Content)/4, len(msg.ToolCalls))
+		}
+
+		if a.redactor != nil {
+			msg.Content = a.redactor.Restore(msg.Content)
+			for i, tc := range msg.ToolCalls {
+				msg.ToolCalls[i].Function.Arguments = a.redactor.Restore(tc.Function.Arguments)
+			}
+		}
+
+		if a.chatLog != nil {
+			chatTCs := make([]chatlog.ToolCallEntry, 0, len(msg.ToolCalls))
+			for _, tc := range msg.ToolCalls {
+				var args map[string]any
+				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+				chatTCs = append(chatTCs, chatlog.ToolCallEntry{ID: tc.ID, Name: tc.Function.Name, Args: args})
+			}
+			a.chatLog.LogLLMResponse(msg.Content, a.cfg.AIAgent.Model, chatTCs)
+		}
+
+		a.history = append(a.history, msg)
+
+		if len(msg.ToolCalls) == 0 {
+			return msg.Content, nil
+		}
+
+		for _, tc := range msg.ToolCalls {
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+			toolStart := time.Now()
+			result, toolErr := a.executeTool(ctx, tc)
+
+			var toolResultContent string
+			if toolErr != nil {
+				toolResultContent = fmt.Sprintf("Error: %v", toolErr)
+			} else {
+				jsonResult, _ := json.Marshal(result)
+				toolResultContent = string(jsonResult)
+			}
+
+			var toolArgs map[string]any
+			_ = json.Unmarshal([]byte(tc.Function.Arguments), &toolArgs)
+			if a.auditLog != nil {
+				auditArgs := toolArgs
+				auditResult := result
+				if a.redactor != nil {
+					auditArgs = a.redactor.RedactMap(toolArgs)
+					auditResult = a.redactor.RedactAny(result)
+				}
+				a.auditLog.LogToolCall(tc.Function.Name, auditArgs, auditResult, toolErr, time.Since(toolStart).Milliseconds())
+			}
+			if a.chatLog != nil {
+				a.chatLog.LogToolCall(tc.Function.Name, toolArgs, result, toolErr, time.Since(toolStart).Milliseconds())
+			}
+
+			a.history = append(a.history, llm.Message{
+				Role:       llm.RoleTool,
+				Content:    toolResultContent,
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+			})
+		}
+	}
+}
+
 // executeTool dispatches tool calls to internal methods
-func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, error) {
+func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, error) {
 	// Parse args for status message
 	var args map[string]any
 	_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
@@ -673,16 +848,17 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 	case "create_sandbox":
 		a.clearStickyReadOnly()
 		var args struct {
-			SourceVM string `json:"source_vm"`
-			Host     string `json:"host"`
-			CPU      int    `json:"cpu"`
-			MemoryMB int    `json:"memory_mb"`
-			Live     bool   `json:"live"`
+			SourceVM          string `json:"source_vm"`
+			Host              string `json:"host"`
+			CPU               int    `json:"cpu"`
+			MemoryMB          int    `json:"memory_mb"`
+			Live              bool   `json:"live"`
+			SimpleKafkaBroker bool   `json:"kafka_stub"`
 		}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		return a.createSandbox(ctx, args.SourceVM, args.Host, args.CPU, args.MemoryMB, args.Live)
+		return a.createSandbox(ctx, args.SourceVM, args.Host, args.CPU, args.MemoryMB, args.Live, args.SimpleKafkaBroker)
 	case "destroy_sandbox":
 		a.clearStickyReadOnly()
 		var args struct {
@@ -808,10 +984,11 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 				var innerErr error
 				result, innerErr = a.sourceService.RunCommandStreaming(ctx, args.Host, args.Command,
 					func(chunk string, isStderr bool) {
+						redacted, _ := a.redactContent(chunk)
 						a.sendStatus(CommandOutputChunkMsg{
 							SandboxID: args.Host,
 							IsStderr:  isStderr,
-							Chunk:     chunk,
+							Chunk:     redacted,
 						})
 					})
 				return result, innerErr
@@ -874,7 +1051,16 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 		})
 	case "list_hosts":
 		if a.sourceService != nil {
-			return a.sourceService.ListHosts(), nil
+			hosts := a.sourceService.ListHosts()
+			hostList := make([]map[string]any, 0, len(hosts))
+			for _, h := range hosts {
+				hostList = append(hostList, map[string]any{
+					"name":     h.Name,
+					"address":  h.Address,
+					"prepared": h.Prepared,
+				})
+			}
+			return map[string]any{"hosts": hostList, "count": len(hostList)}, nil
 		}
 		return a.listHostsWithVMs(ctx)
 	default:
@@ -884,13 +1070,13 @@ func (a *FluidAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, err
 }
 
 // Reset clears the conversation history
-func (a *FluidAgent) Reset() {
+func (a *DeerAgent) Reset() {
 	a.logger.Debug("conversation reset", "previous_message_count", len(a.history))
 	a.history = make([]llm.Message, 0)
 }
 
 // EstimateTokens estimates the token count for the current conversation history
-func (a *FluidAgent) EstimateTokens() int {
+func (a *DeerAgent) EstimateTokens() int {
 	tokensPerChar := a.cfg.AIAgent.TokensPerChar
 	if tokensPerChar <= 0 {
 		tokensPerChar = 0.25 // default
@@ -914,7 +1100,7 @@ func (a *FluidAgent) EstimateTokens() int {
 }
 
 // GetContextUsage returns the current context usage as a percentage
-func (a *FluidAgent) GetContextUsage() float64 {
+func (a *DeerAgent) GetContextUsage() float64 {
 	maxTokens := a.cfg.AIAgent.TotalContextTokens
 	if maxTokens <= 0 {
 		maxTokens = 64000
@@ -923,7 +1109,7 @@ func (a *FluidAgent) GetContextUsage() float64 {
 }
 
 // NeedsCompaction returns true if the context is at or above the compaction threshold
-func (a *FluidAgent) NeedsCompaction() bool {
+func (a *DeerAgent) NeedsCompaction() bool {
 	threshold := a.cfg.AIAgent.CompactThreshold
 	if threshold <= 0 {
 		threshold = 0.9
@@ -932,7 +1118,7 @@ func (a *FluidAgent) NeedsCompaction() bool {
 }
 
 // Compact summarizes the conversation history using a smaller LLM and resets with the summary
-func (a *FluidAgent) Compact(ctx context.Context) (CompactCompleteMsg, error) {
+func (a *DeerAgent) Compact(ctx context.Context) (CompactCompleteMsg, error) {
 	if len(a.history) == 0 {
 		return CompactCompleteMsg{}, fmt.Errorf("no conversation history to compact")
 	}
@@ -1021,7 +1207,7 @@ func (a *FluidAgent) Compact(ctx context.Context) (CompactCompleteMsg, error) {
 }
 
 // RunCompact executes the compaction as a tea.Cmd
-func (a *FluidAgent) RunCompact() tea.Cmd {
+func (a *DeerAgent) RunCompact() tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		a.sendStatus(CompactStartMsg{})
@@ -1037,7 +1223,7 @@ func (a *FluidAgent) RunCompact() tea.Cmd {
 
 // Command implementations
 
-func (a *FluidAgent) listSandboxes(ctx context.Context) (map[string]any, error) {
+func (a *DeerAgent) listSandboxes(ctx context.Context) (map[string]any, error) {
 	sandboxes, err := a.service.ListSandboxes(ctx)
 	if err != nil {
 		a.logger.Error("list sandboxes query failed", "error", err)
@@ -1055,7 +1241,7 @@ func (a *FluidAgent) listSandboxes(ctx context.Context) (map[string]any, error) 
 			"created_at": sb.CreatedAt.Format(time.RFC3339),
 		}
 		if sb.IPAddress != "" {
-			item["ip"] = sb.IPAddress
+			item["ip_address"] = sb.IPAddress
 		}
 		result = append(result, item)
 	}
@@ -1066,21 +1252,54 @@ func (a *FluidAgent) listSandboxes(ctx context.Context) (map[string]any, error) 
 	}, nil
 }
 
-func (a *FluidAgent) createSandbox(ctx context.Context, sourceVM, hostName string, cpu, memoryMB int, live bool) (map[string]any, error) {
+func normalizeVMName(name string) string {
+	s := strings.ToLower(name)
+	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "_", "-")
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	return strings.Trim(s, "-")
+}
+
+func (a *DeerAgent) createSandbox(ctx context.Context, sourceVM, hostName string, cpu, memoryMB int, live bool, simpleKafkaBroker bool) (map[string]any, error) {
 	if sourceVM == "" {
-		return nil, fmt.Errorf("source-vm is required (e.g., create ubuntu-base)")
+		return nil, fmt.Errorf("source-vm is required - call list_vms first to see available VM images for cloning")
 	}
 
-	a.logger.Info("sandbox creation attempt", "source_vm", sourceVM, "cpu", cpu, "memory_mb", memoryMB, "live", live)
+	// Validate the source VM exists before attempting creation.
+	vms, err := a.service.ListVMs(ctx)
+	if err == nil {
+		found := false
+		names := make([]string, 0, len(vms))
+		resolvedName := sourceVM
+		for _, v := range vms {
+			names = append(names, v.Name)
+			if v.Name == sourceVM {
+				found = true
+				resolvedName = v.Name
+			} else if normalizeVMName(v.Name) == normalizeVMName(sourceVM) {
+				found = true
+				resolvedName = v.Name
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("source VM %q not found - call list_vms to see available VM images for cloning. Available: %s", sourceVM, strings.Join(names, ", "))
+		}
+		sourceVM = resolvedName
+	}
+
+	a.logger.Info("sandbox creation attempt", "source_vm", sourceVM, "cpu", cpu, "memory_mb", memoryMB, "live", live, "kafka_stub", simpleKafkaBroker)
 	lastStepNum := 0
 	lastTotal := 0
 
 	sb, err := a.service.CreateSandboxStream(ctx, sandbox.CreateRequest{
-		SourceVM: sourceVM,
-		AgentID:  "tui-agent",
-		VCPUs:    cpu,
-		MemoryMB: memoryMB,
-		Live:     live,
+		SourceVM:          sourceVM,
+		AgentID:           "tui-agent",
+		VCPUs:             cpu,
+		MemoryMB:          memoryMB,
+		Live:              live,
+		SimpleKafkaBroker: simpleKafkaBroker,
 	}, func(step string, stepNum, total int) {
 		lastStepNum = stepNum
 		lastTotal = total
@@ -1133,13 +1352,13 @@ func (a *FluidAgent) createSandbox(ctx context.Context, sourceVM, hostName strin
 }
 
 // HandleApprovalResponse handles the response from the memory approval dialog
-func (a *FluidAgent) HandleApprovalResponse(approved bool) {
+func (a *DeerAgent) HandleApprovalResponse(approved bool) {
 	// No-op in remote mode - daemon handles resource checking
 	a.logger.Debug("memory approval response (no-op in remote mode)", "approved", approved)
 }
 
 // HandleNetworkApprovalResponse handles the response from the network approval dialog
-func (a *FluidAgent) HandleNetworkApprovalResponse(approved bool) {
+func (a *DeerAgent) HandleNetworkApprovalResponse(approved bool) {
 	a.logger.Info("network approval response", "approved", approved)
 	if a.pendingNetworkApproval != nil && a.pendingNetworkApproval.ResponseChan != nil {
 		a.pendingNetworkApproval.ResponseChan <- approved
@@ -1147,13 +1366,13 @@ func (a *FluidAgent) HandleNetworkApprovalResponse(approved bool) {
 }
 
 // HandleSourcePrepareApprovalResponse handles the response from the source prepare approval dialog
-func (a *FluidAgent) HandleSourcePrepareApprovalResponse(approved bool) {
+func (a *DeerAgent) HandleSourcePrepareApprovalResponse(approved bool) {
 	// No-op in remote mode - daemon handles source VM preparation
 	a.logger.Debug("source prepare approval response (no-op in remote mode)", "approved", approved)
 }
 
 // runPrepareInline runs source host preparation inline in the TUI, sending progress via SourcePrepareProgressMsg.
-func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.Msg {
+func (a *DeerAgent) runPrepareInline(ctx context.Context, hostname string) tea.Msg {
 	identityPubKey := config.DaemonIdentityPubKey(a.cfg.SandboxHosts)
 	totalSteps := 4
 	if identityPubKey != "" {
@@ -1220,7 +1439,7 @@ func (a *FluidAgent) runPrepareInline(ctx context.Context, hostname string) tea.
 	}})
 }
 
-func (a *FluidAgent) destroySandbox(ctx context.Context, id string) (map[string]any, error) {
+func (a *DeerAgent) destroySandbox(ctx context.Context, id string) (map[string]any, error) {
 	err := a.service.DestroySandbox(ctx, id)
 	if err != nil {
 		a.logger.Error("destroy sandbox failed", "sandbox_id", id, "error", err)
@@ -1241,7 +1460,7 @@ func (a *FluidAgent) destroySandbox(ctx context.Context, id string) (map[string]
 	}, nil
 }
 
-func (a *FluidAgent) runCommand(ctx context.Context, sandboxID, command string) (map[string]any, error) {
+func (a *DeerAgent) runCommand(ctx context.Context, sandboxID, command string) (map[string]any, error) {
 	truncCmd := command
 	if len(truncCmd) > 120 {
 		truncCmd = truncCmd[:120] + "..."
@@ -1390,7 +1609,7 @@ func detectNetworkAccess(command string) (string, []string) {
 
 // editFile edits a file on a sandbox by replacing old_str with new_str, or creates the file if old_str is empty.
 // This operates on files inside the sandbox VM via SSH.
-func (a *FluidAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newStr string) (map[string]any, error) {
+func (a *DeerAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newStr string) (map[string]any, error) {
 	if sandboxID == "" {
 		return nil, fmt.Errorf("sandbox_id is required - this tool operates on files inside a sandbox VM")
 	}
@@ -1483,7 +1702,7 @@ func (a *FluidAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newS
 
 // redactContent runs the Redactor on content and returns whether any redaction occurred.
 // If the redactor is nil (redaction disabled), content passes through unchanged.
-func (a *FluidAgent) redactContent(content string) (string, bool) {
+func (a *DeerAgent) redactContent(content string) (string, bool) {
 	if a.redactor == nil {
 		return content, false
 	}
@@ -1493,7 +1712,7 @@ func (a *FluidAgent) redactContent(content string) (string, bool) {
 
 // readFile reads the contents of a file on a sandbox VM via SSH.
 // This operates on files inside the sandbox - not local files or playbooks.
-func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[string]any, error) {
+func (a *DeerAgent) readFile(ctx context.Context, sandboxID, path string) (map[string]any, error) {
 	if sandboxID == "" {
 		return nil, fmt.Errorf("sandbox_id is required - this tool operates on files inside a sandbox VM. For playbooks, use get_playbook instead")
 	}
@@ -1542,7 +1761,7 @@ func (a *FluidAgent) readFile(ctx context.Context, sandboxID, path string) (map[
 
 // getPlaybook retrieves a playbook's full definition including YAML content and tasks.
 // This is the correct way to view playbook definitions - not read_file.
-func (a *FluidAgent) getPlaybook(ctx context.Context, playbookID string) (map[string]any, error) {
+func (a *DeerAgent) getPlaybook(ctx context.Context, playbookID string) (map[string]any, error) {
 	if playbookID == "" {
 		return nil, fmt.Errorf("playbook_id is required")
 	}
@@ -1590,7 +1809,7 @@ func (a *FluidAgent) getPlaybook(ctx context.Context, playbookID string) (map[st
 	return result, nil
 }
 
-func (a *FluidAgent) startSandbox(ctx context.Context, id string) (map[string]any, error) {
+func (a *DeerAgent) startSandbox(ctx context.Context, id string) (map[string]any, error) {
 	sb, err := a.service.StartSandbox(ctx, id)
 	if err != nil {
 		a.logger.Error("start sandbox failed", "sandbox_id", id, "error", err)
@@ -1609,7 +1828,7 @@ func (a *FluidAgent) startSandbox(ctx context.Context, id string) (map[string]an
 	return result, nil
 }
 
-func (a *FluidAgent) stopSandbox(ctx context.Context, id string) (map[string]any, error) {
+func (a *DeerAgent) stopSandbox(ctx context.Context, id string) (map[string]any, error) {
 	err := a.service.StopSandbox(ctx, id, false)
 	if err != nil {
 		a.logger.Error("stop sandbox failed", "sandbox_id", id, "error", err)
@@ -1623,7 +1842,7 @@ func (a *FluidAgent) stopSandbox(ctx context.Context, id string) (map[string]any
 	}, nil
 }
 
-func (a *FluidAgent) getSandbox(ctx context.Context, id string) (map[string]any, error) {
+func (a *DeerAgent) getSandbox(ctx context.Context, id string) (map[string]any, error) {
 	sb, err := a.service.GetSandbox(ctx, id)
 	if err != nil {
 		a.logger.Error("get sandbox failed", "sandbox_id", id, "error", err)
@@ -1646,7 +1865,7 @@ func (a *FluidAgent) getSandbox(ctx context.Context, id string) (map[string]any,
 }
 
 // list_vms - use list_hosts instead
-// func (a *FluidAgent) listVMs(ctx context.Context) (map[string]any, error) {
+// func (a *DeerAgent) listVMs(ctx context.Context) (map[string]any, error) {
 // 	vms, err := a.service.ListVMs(ctx)
 // 	if err != nil {
 // 		a.logger.Error("list VMs failed", "error", err)
@@ -1672,7 +1891,7 @@ func (a *FluidAgent) getSandbox(ctx context.Context, id string) (map[string]any,
 // 	}, nil
 // }
 
-func (a *FluidAgent) createSnapshot(ctx context.Context, sandboxID, name string) (map[string]any, error) {
+func (a *DeerAgent) createSnapshot(ctx context.Context, sandboxID, name string) (map[string]any, error) {
 	if name == "" {
 		name = fmt.Sprintf("snap-%d", time.Now().Unix())
 	}
@@ -1694,7 +1913,7 @@ func (a *FluidAgent) createSnapshot(ctx context.Context, sandboxID, name string)
 // Formatting helpers
 
 // formatVMsResult - use list_hosts instead
-// func (a *FluidAgent) formatVMsResult(result map[string]any, err error) string {
+// func (a *DeerAgent) formatVMsResult(result map[string]any, err error) string {
 // 	if err != nil {
 // 		return fmt.Sprintf("Failed to list VMs: %v", err)
 // 	}
@@ -1743,7 +1962,7 @@ func (a *FluidAgent) createSnapshot(ctx context.Context, sandboxID, name string)
 // 	return b.String()
 // }
 
-func (a *FluidAgent) formatSandboxesResult(result map[string]any, err error) string {
+func (a *DeerAgent) formatSandboxesResult(result map[string]any, err error) string {
 	if err != nil {
 		return fmt.Sprintf("Failed to list sandboxes: %v", err)
 	}
@@ -1794,7 +2013,7 @@ func (a *FluidAgent) formatSandboxesResult(result map[string]any, err error) str
 }
 
 // listHostsWithVMs returns host info from the daemon
-func (a *FluidAgent) listHostsWithVMs(ctx context.Context) (map[string]any, error) {
+func (a *DeerAgent) listHostsWithVMs(ctx context.Context) (map[string]any, error) {
 	info, err := a.service.GetHostInfo(ctx)
 	if err != nil {
 		a.logger.Error("get host info failed", "error", err)
@@ -1829,7 +2048,7 @@ func (a *FluidAgent) listHostsWithVMs(ctx context.Context) (map[string]any, erro
 	}, nil
 }
 
-func (a *FluidAgent) formatHostsResult(result map[string]any, err error) string {
+func (a *DeerAgent) formatHostsResult(result map[string]any, err error) string {
 	if err != nil {
 		return fmt.Sprintf("Failed to list hosts: %v", err)
 	}
@@ -1927,7 +2146,7 @@ func (a *FluidAgent) formatHostsResult(result map[string]any, err error) string 
 	return b.String()
 }
 
-func (a *FluidAgent) listPlaybooks(ctx context.Context) (map[string]any, error) {
+func (a *DeerAgent) listPlaybooks(ctx context.Context) (map[string]any, error) {
 	playbooks, err := a.playbookService.ListPlaybooks(ctx, nil)
 	if err != nil {
 		a.logger.Error("list playbooks failed", "error", err)
@@ -1956,7 +2175,7 @@ func (a *FluidAgent) listPlaybooks(ctx context.Context) (map[string]any, error) 
 	}, nil
 }
 
-func (a *FluidAgent) formatPlaybooksResult(result map[string]any, err error) string {
+func (a *DeerAgent) formatPlaybooksResult(result map[string]any, err error) string {
 	if err != nil {
 		return fmt.Sprintf("Failed to list playbooks: %v", err)
 	}
@@ -1982,7 +2201,7 @@ func (a *FluidAgent) formatPlaybooksResult(result map[string]any, err error) str
 }
 
 // runSourceCommand executes a read-only command on a source/golden VM.
-func (a *FluidAgent) runSourceCommand(ctx context.Context, sourceVM, command string) (map[string]any, error) {
+func (a *DeerAgent) runSourceCommand(ctx context.Context, sourceVM, command string) (map[string]any, error) {
 	truncCmd := command
 	if len(truncCmd) > 120 {
 		truncCmd = truncCmd[:120] + "..."
@@ -2030,7 +2249,7 @@ func shellEscape(s string) string {
 }
 
 // readSourceFile reads a file from a source/golden VM.
-func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) (map[string]any, error) {
+func (a *DeerAgent) readSourceFile(ctx context.Context, sourceVM, path string) (map[string]any, error) {
 	if !filepath.IsAbs(path) {
 		return nil, fmt.Errorf("path must be absolute: %s", path)
 	}
@@ -2065,7 +2284,7 @@ func (a *FluidAgent) readSourceFile(ctx context.Context, sourceVM, path string) 
 
 // Cleanup destroys all sandboxes created during this session.
 // This is called when the TUI exits to ensure no orphaned VMs are left running.
-func (a *FluidAgent) Cleanup(ctx context.Context) error {
+func (a *DeerAgent) Cleanup(ctx context.Context) error {
 	if len(a.createdSandboxes) == 0 {
 		return nil
 	}
@@ -2098,25 +2317,25 @@ func (a *FluidAgent) Cleanup(ctx context.Context) error {
 }
 
 // CreatedSandboxCount returns the number of sandboxes created during this session.
-func (a *FluidAgent) CreatedSandboxCount() int {
+func (a *DeerAgent) CreatedSandboxCount() int {
 	return len(a.createdSandboxes)
 }
 
 // GetCreatedSandboxes returns a copy of the sandbox IDs created during this session.
-func (a *FluidAgent) GetCreatedSandboxes() []string {
+func (a *DeerAgent) GetCreatedSandboxes() []string {
 	result := make([]string, len(a.createdSandboxes))
 	copy(result, a.createdSandboxes)
 	return result
 }
 
 // ClearCreatedSandboxes clears the list of created sandboxes.
-func (a *FluidAgent) ClearCreatedSandboxes() {
+func (a *DeerAgent) ClearCreatedSandboxes() {
 	a.createdSandboxes = nil
 }
 
 // CleanupWithProgress destroys all sandboxes, sending progress updates through the status callback.
 // Each sandbox gets its own 60-second timeout to avoid one slow destroy blocking others.
-func (a *FluidAgent) CleanupWithProgress(sandboxIDs []string) {
+func (a *DeerAgent) CleanupWithProgress(sandboxIDs []string) {
 	total := len(sandboxIDs)
 	a.logger.Info("cleanup with progress starting", "total", total)
 	destroyed := 0
@@ -2187,30 +2406,30 @@ func (a *FluidAgent) CleanupWithProgress(sandboxIDs []string) {
 }
 
 // GetCurrentSandbox returns the currently active sandbox ID and host
-func (a *FluidAgent) GetCurrentSandbox() (id string, host string) {
+func (a *DeerAgent) GetCurrentSandbox() (id string, host string) {
 	return a.currentSandboxID, a.currentSandboxHost
 }
 
 // SetCurrentSandbox sets the currently active sandbox
-func (a *FluidAgent) SetCurrentSandbox(id string, host string) {
+func (a *DeerAgent) SetCurrentSandbox(id string, host string) {
 	a.currentSandboxID = id
 	a.currentSandboxHost = host
 }
 
 // GetCurrentSandboxBaseImage returns the base image of the current sandbox
-func (a *FluidAgent) GetCurrentSandboxBaseImage() string {
+func (a *DeerAgent) GetCurrentSandboxBaseImage() string {
 	return a.currentSandboxBaseImage
 }
 
 // GetCurrentSourceVM returns the source VM currently being operated on
-func (a *FluidAgent) GetCurrentSourceVM() string {
+func (a *DeerAgent) GetCurrentSourceVM() string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.currentSourceVM
 }
 
 // ClearAutoReadOnly clears the auto read-only flag (for manual override via Shift+Tab)
-func (a *FluidAgent) ClearAutoReadOnly() {
+func (a *DeerAgent) ClearAutoReadOnly() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.autoReadOnly = false
@@ -2219,7 +2438,7 @@ func (a *FluidAgent) ClearAutoReadOnly() {
 
 // clearStickyReadOnly clears the sticky read-only display state when a write tool executes.
 // Sends AutoReadOnlyMsg{Enabled: false} to the model if sticky display was active.
-func (a *FluidAgent) clearStickyReadOnly() {
+func (a *DeerAgent) clearStickyReadOnly() {
 	a.mu.Lock()
 	if !a.displayReadOnly {
 		a.mu.Unlock()

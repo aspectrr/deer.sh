@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"time"
 
 	deerv1 "github.com/aspectrr/deer.sh/proto/gen/go/deer/v1"
@@ -44,6 +45,9 @@ func (s *Server) checkQEMUBinary() *deerv1.DoctorCheckResult {
 }
 
 func (s *Server) checkKVMAvailable() *deerv1.DoctorCheckResult {
+	if runtime.GOOS == "darwin" {
+		return s.checkHVFAvailable()
+	}
 	if _, err := os.Stat("/dev/kvm"); err != nil {
 		return &deerv1.DoctorCheckResult{
 			Name:     "kvm-available",
@@ -59,6 +63,41 @@ func (s *Server) checkKVMAvailable() *deerv1.DoctorCheckResult {
 		Passed:   true,
 		Message:  "KVM available (/dev/kvm)",
 	}
+}
+
+func (s *Server) checkHVFAvailable() *deerv1.DoctorCheckResult {
+	// HVF (Hypervisor.framework) is always present on Apple Silicon.
+	// Verify by checking QEMU binary can be found - HVF itself needs no device node.
+	binary := s.cfg.MicroVM.QEMUBinary
+	if _, err := exec.LookPath(binary); err != nil {
+		return &deerv1.DoctorCheckResult{
+			Name:     "hvf-available",
+			Category: "prerequisites",
+			Passed:   false,
+			Message:  fmt.Sprintf("QEMU binary %q not found (required for HVF)", binary),
+			FixCmd:   "brew install qemu",
+		}
+	}
+	result := &deerv1.DoctorCheckResult{
+		Name:     "hvf-available",
+		Category: "prerequisites",
+		Passed:   true,
+		Message:  "HVF accelerator available (macOS Hypervisor.framework)",
+	}
+	// If socket_vmnet is configured, verify the socket path is accessible
+	if s.cfg.MicroVM.SocketVMNetClient != "" {
+		if _, err := os.Stat(s.cfg.MicroVM.SocketVMNetPath); err != nil {
+			return &deerv1.DoctorCheckResult{
+				Name:     "hvf-available",
+				Category: "prerequisites",
+				Passed:   false,
+				Message:  fmt.Sprintf("socket_vmnet socket not found at %s", s.cfg.MicroVM.SocketVMNetPath),
+				FixCmd:   "brew install socket_vmnet && sudo brew services start socket_vmnet",
+			}
+		}
+		result.Message += fmt.Sprintf(", socket_vmnet socket found at %s", s.cfg.MicroVM.SocketVMNetPath)
+	}
+	return result
 }
 
 func (s *Server) checkKernelPath() *deerv1.DoctorCheckResult {
@@ -135,6 +174,16 @@ func (s *Server) checkStorageDirs() []*deerv1.DoctorCheckResult {
 }
 
 func (s *Server) checkNetworkBridge() *deerv1.DoctorCheckResult {
+	// When socket_vmnet is configured (macOS), QEMU connects through a
+	// unix socket to the vmnet framework — no Linux bridge interface exists.
+	if s.cfg.MicroVM.SocketVMNetClient != "" {
+		return &deerv1.DoctorCheckResult{
+			Name:     "network-bridge",
+			Category: "network",
+			Passed:   true,
+			Message:  fmt.Sprintf("using socket_vmnet for networking (bridge %q configured but not required)", s.cfg.Network.DefaultBridge),
+		}
+	}
 	bridge := s.cfg.Network.DefaultBridge
 	if _, err := net.InterfaceByName(bridge); err != nil {
 		return &deerv1.DoctorCheckResult{

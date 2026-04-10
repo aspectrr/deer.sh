@@ -51,3 +51,50 @@ func TestReadLibvirtStatusIP_NotFound(t *testing.T) {
 		t.Fatalf("readLibvirtStatusIP returned %q, want empty string", ip)
 	}
 }
+
+func TestNormalizeARPMac(t *testing.T) {
+	tests := []struct {
+		name     string
+		line     string
+		expected string
+	}{
+		{
+			name:     "macOS with leading zeros stripped",
+			line:     "? (192.168.105.93) at 52:54:0:2c:c:9 on bridge100 ifscope [bridge]",
+			expected: "5254002c0c09",
+		},
+		{
+			name:     "standard format with all digits",
+			line:     "? (192.168.122.5) at 52:54:00:aa:bb:cc on virbr0 [ether]",
+			expected: "525400aabbcc",
+		},
+		{
+			name:     "single digit octets",
+			line:     "? (10.0.0.1) at 1:2:3:4:5:6 on eth0 [ether]",
+			expected: "010203040506",
+		},
+		{
+			name:     "no match - no 'at' keyword",
+			line:     "incomplete entry",
+			expected: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeARPMac(tt.line)
+			if got != tt.expected {
+				t.Errorf("normalizeARPMac(%q) = %q, want %q", tt.line, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizeARPMac_MatchesMAC(t *testing.T) {
+	macNormalized := "5254002c0c09"
+
+	line := "? (192.168.105.93) at 52:54:0:2c:c:9 on bridge100 ifscope [bridge]"
+	got := normalizeARPMac(line)
+	if got != macNormalized {
+		t.Errorf("normalizeARPMac = %q, want %q", got, macNormalized)
+	}
+}

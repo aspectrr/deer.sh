@@ -24,10 +24,10 @@ var (
 	errShellInputControlChar = errors.New("shell input contains control character")
 )
 
-// validateShellArg checks a string for dangerous characters before shell escaping.
+// ValidateShellArg checks a string for dangerous characters before shell escaping.
 // Rejects empty strings, null bytes, control characters (except tab/newline/carriage return),
 // and strings exceeding maxShellInputLength.
-func validateShellArg(s string) error {
+func ValidateShellArg(s string) error {
 	if s == "" {
 		return errShellInputEmpty
 	}
@@ -45,10 +45,10 @@ func validateShellArg(s string) error {
 	return nil
 }
 
-// validateFilePath validates and cleans a file path for sandbox operations.
+// ValidateFilePath validates and cleans a file path for sandbox operations.
 // Ensures the path is absolute and normalizes it with filepath.Clean.
 // Returns the cleaned path or an error.
-func validateFilePath(path string) (string, error) {
+func ValidateFilePath(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path is required")
 	}
@@ -69,8 +69,8 @@ func validateFilePath(path string) (string, error) {
 	return cleaned, nil
 }
 
-// checkFileSize validates that content size is within the allowed limit.
-func checkFileSize(size int64) error {
+// CheckFileSize validates that content size is within the allowed limit.
+func CheckFileSize(size int64) error {
 	if size > maxFileSize {
 		return fmt.Errorf("file size %d bytes exceeds maximum %d bytes (%.1f MB)", size, maxFileSize, float64(maxFileSize)/(1<<20))
 	}

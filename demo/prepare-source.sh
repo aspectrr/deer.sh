@@ -86,6 +86,20 @@ ethernets:
     dhcp4: true
 EOF
 
+# Pre-compute pipeline write_files for cloud-init (handles all current pipeline files)
+PIPELINE_WRITE_FILES=""
+for conf in "${PIPELINE_DIR}"/*.conf; do
+    fname="$(basename "$conf")"
+    PIPELINE_WRITE_FILES+="  - path: /etc/logstash/conf.d/${fname}
+    content: |
+$(sed 's/^/      /' "$conf")
+
+"
+done
+
+# Station timezone CSV has binary content (UTF-8 BOM + CRLF) - embed as base64
+CSV_B64="$(base64 "${REPO_ROOT}/demo/logstash/station_timezones.csv" | tr -d '\n')"
+
 cat > "${SEED_DIR}/user-data" <<CLOUDINIT
 #cloud-config
 password: ubuntu
@@ -119,29 +133,10 @@ write_files:
       echo "[setup] Logstash installed."
       touch /var/lib/cloud/instance/logstash-setup-done
 
-  - path: /etc/logstash/conf.d/01-input-kafka.conf
-    content: |
-$(sed 's/^/      /' "${PIPELINE_DIR}/01-input-kafka.conf")
-
-  - path: /etc/logstash/conf.d/02-filter-grok.conf
-    content: |
-$(sed 's/^/      /' "${PIPELINE_DIR}/02-filter-grok.conf")
-
-  - path: /etc/logstash/conf.d/03-filter-date.conf
-    content: |
-$(sed 's/^/      /' "${PIPELINE_DIR}/03-filter-date.conf")
-
-  - path: /etc/logstash/conf.d/04-filter-mutate.conf
-    content: |
-$(sed 's/^/      /' "${PIPELINE_DIR}/04-filter-mutate.conf")
-
-  - path: /etc/logstash/conf.d/05-filter-ruby.conf
-    content: |
-$(sed 's/^/      /' "${PIPELINE_DIR}/05-filter-ruby.conf")
-
-  - path: /etc/logstash/conf.d/06-output-es.conf
-    content: |
-$(sed 's/^/      /' "${PIPELINE_DIR}/06-output-es.conf")
+${PIPELINE_WRITE_FILES}
+  - path: /etc/logstash/station_timezones.csv
+    encoding: b64
+    content: ${CSV_B64}
 
   - path: /etc/logstash/logstash.yml
     content: |

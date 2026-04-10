@@ -19,7 +19,7 @@ const (
 	mcpAgentID = "mcp-agent"
 )
 
-// Server wraps an MCP server that exposes fluid tools over stdio.
+// Server wraps an MCP server that exposes deer tools over stdio.
 type Server struct {
 	cfg             *config.Config
 	store           store.Store
@@ -31,7 +31,7 @@ type Server struct {
 	mcpServer       *server.MCPServer
 }
 
-// NewServer creates a new MCP server wired to the fluid services.
+// NewServer creates a new MCP server wired to the deer services.
 func NewServer(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc *source.Service, tele telemetry.Service, logger *slog.Logger) *Server {
 	s := &Server{
 		cfg:             cfg,
@@ -43,7 +43,7 @@ func NewServer(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc *
 		logger:          logger,
 	}
 
-	s.mcpServer = server.NewMCPServer("fluid", "0.1.0",
+	s.mcpServer = server.NewMCPServer("deer", "0.1.0",
 		server.WithToolCapabilities(false),
 	)
 
@@ -56,18 +56,19 @@ func (s *Server) Serve() error {
 	return server.ServeStdio(s.mcpServer)
 }
 
-// registerTools registers all fluid tools on the MCP server.
+// registerTools registers all deer tools on the MCP server.
 func (s *Server) registerTools() {
 	s.mcpServer.AddTool(mcp.NewTool("list_sandboxes",
 		mcp.WithDescription("List all existing sandboxes with their state and IP addresses."),
 	), s.handleListSandboxes)
 
 	s.mcpServer.AddTool(mcp.NewTool("create_sandbox",
-		mcp.WithDescription("Create a new sandbox VM by cloning from a source VM. Set live=true for current state, live=false to use cached image if available."),
-		mcp.WithString("source_vm", mcp.Required(), mcp.Description("The name of the source VM to clone from (e.g., 'ubuntu-base').")),
+		mcp.WithDescription("Create a new sandbox VM by cloning from a base image. Use list_vms first to see available base images for cloning."),
+		mcp.WithString("source_vm", mcp.Required(), mcp.Description("The name of the base VM image to clone from. Must be a name returned by list_vms.")),
 		mcp.WithNumber("cpu", mcp.Description("Number of vCPUs (default: 2).")),
 		mcp.WithNumber("memory_mb", mcp.Description("RAM in MB (default: 4096).")),
 		mcp.WithBoolean("live", mcp.Description("If true, clone from the VM's live current state. If false (default), use cached image if available.")),
+		mcp.WithBoolean("kafka_stub", mcp.Description("If true, start a local Redpanda Kafka broker inside the sandbox at localhost:9092.")),
 	), s.handleCreateSandbox)
 
 	s.mcpServer.AddTool(mcp.NewTool("destroy_sandbox",
@@ -97,10 +98,9 @@ func (s *Server) registerTools() {
 		mcp.WithString("sandbox_id", mcp.Required(), mcp.Description("The ID of the sandbox.")),
 	), s.handleGetSandbox)
 
-	// list_vms - use list_hosts instead
-	// s.mcpServer.AddTool(mcp.NewTool("list_vms",
-	// 	mcp.WithDescription("List available source VMs that can be cloned to create sandboxes."),
-	// ), s.handleListVMs)
+	s.mcpServer.AddTool(mcp.NewTool("list_vms",
+		mcp.WithDescription("List available base VM images that can be cloned to create sandboxes. These are the valid values for the source_vm parameter in create_sandbox."),
+	), s.handleListVMs)
 
 	s.mcpServer.AddTool(mcp.NewTool("create_snapshot",
 		mcp.WithDescription("Create a snapshot of the current sandbox state."),
@@ -161,6 +161,6 @@ func (s *Server) registerTools() {
 	), s.handleReadSourceFile)
 
 	s.mcpServer.AddTool(mcp.NewTool("list_hosts",
-		mcp.WithDescription("List all configured source hosts with their preparation status."),
+		mcp.WithDescription("List all configured source hosts (production systems) with their preparation status. These are for read-only investigation via run_source_command, NOT for create_sandbox."),
 	), s.handleListHosts)
 }

@@ -149,7 +149,7 @@ func (s *Server) providerCreateRequest(req *deerv1.CreateSandboxCommand, sandbox
 		AgentID:      req.GetAgentId(),
 		SSHPublicKey: req.GetSshPublicKey(),
 		DataSources:  providerDataSourcesFromProto(req.GetDataSources(), req.GetKafkaCaptureConfigs()),
-		KafkaBroker:  kafkaBrokerConfigForDataSources(req.GetDataSources(), req.GetKafkaCaptureConfigs()),
+		KafkaBroker:  kafkaBrokerConfigForDataSources(req.GetDataSources(), req.GetKafkaCaptureConfigs(), req.GetSimpleKafkaBroker()),
 	}
 	normalized, clamped := provider.NormalizeCreateRequestResources(createReq, provider.DefaultSandboxVCPUs, provider.DefaultSandboxMemMB)
 	if clamped {
@@ -244,10 +244,12 @@ func (s *Server) CreateSandbox(ctx context.Context, req *deerv1.CreateSandboxCom
 				conn.GetProxmoxVerifySsl(), s.logger)
 		}
 		if backend != nil {
-			mode := "cached"
-			if req.GetSnapshotMode() == deerv1.SnapshotMode_SNAPSHOT_MODE_FRESH {
-				mode = "fresh"
-			}
+			// Caching disabled - always pull fresh snapshots from source VMs
+			mode := "fresh"
+			// mode := "cached"
+			// if req.GetSnapshotMode() == deerv1.SnapshotMode_SNAPSHOT_MODE_FRESH {
+			// 	mode = "fresh"
+			// }
 			pullResult, err := s.puller.Pull(ctx, snapshotpull.PullRequest{
 				SourceHost:   conn.GetSshHost(),
 				VMName:       req.GetSourceVm(),

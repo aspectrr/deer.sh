@@ -15,7 +15,7 @@ func TestHistoryPath(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", tmp)
 
 	got := HistoryPath()
-	assert.Equal(t, filepath.Join(tmp, "fluid", "history"), got)
+	assert.Equal(t, filepath.Join(tmp, "deer", "history"), got)
 }
 
 func TestLoadHistory_NoFile(t *testing.T) {

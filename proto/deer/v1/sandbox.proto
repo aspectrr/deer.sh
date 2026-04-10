@@ -136,6 +136,10 @@ message CreateSandboxCommand {
   // first supported type and carries a resolved capture binding plus optional
   // sandbox-local replay overrides.
   repeated DataSourceAttachment data_sources = 15;
+
+  // simple_kafka_broker starts a local Redpanda broker (no capture/replay)
+  // so the agent can publish test events and validate the service pipeline.
+  bool simple_kafka_broker = 16;
 }
 
 // SandboxCreated is sent by the host after successfully creating a sandbox.

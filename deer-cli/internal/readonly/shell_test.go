@@ -11,7 +11,7 @@ import (
 // blocks command chaining attempts using various shell metacharacters.
 func TestRestrictedShell_CommandChaining(t *testing.T) {
 	// Create a temporary shell script file for testing
-	tmpfile, err := os.CreateTemp("", "fluid-readonly-shell-test-*.sh")
+	tmpfile, err := os.CreateTemp("", "deer-readonly-shell-test-*.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestRestrictedShell_CommandChaining(t *testing.T) {
 // TestRestrictedShell_ComplexBypassAttempts tests more sophisticated attempts
 // to bypass the restricted shell restrictions.
 func TestRestrictedShell_ComplexBypassAttempts(t *testing.T) {
-	tmpfile, err := os.CreateTemp("", "fluid-readonly-shell-test-*.sh")
+	tmpfile, err := os.CreateTemp("", "deer-readonly-shell-test-*.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,7 +505,7 @@ func TestRestrictedShell_ComplexBypassAttempts(t *testing.T) {
 // TestRestrictedShell_InteractiveLoginBlocked tests that interactive login
 // (without SSH_ORIGINAL_COMMAND) is denied.
 func TestRestrictedShell_InteractiveLoginBlocked(t *testing.T) {
-	tmpfile, err := os.CreateTemp("", "fluid-readonly-shell-test-*.sh")
+	tmpfile, err := os.CreateTemp("", "deer-readonly-shell-test-*.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +538,7 @@ func TestRestrictedShell_InteractiveLoginBlocked(t *testing.T) {
 // TestRestrictedShell_OutputRedirectionBlocked tests that output redirection
 // is properly blocked.
 func TestRestrictedShell_OutputRedirectionBlocked(t *testing.T) {
-	tmpfile, err := os.CreateTemp("", "fluid-readonly-shell-test-*.sh")
+	tmpfile, err := os.CreateTemp("", "deer-readonly-shell-test-*.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -585,7 +585,7 @@ func TestRestrictedShell_OutputRedirectionBlocked(t *testing.T) {
 // accepts commands via -c argument (login shell invocation by sshd) in
 // addition to SSH_ORIGINAL_COMMAND.
 func TestRestrictedShell_LoginShellInvocation(t *testing.T) {
-	tmpfile, err := os.CreateTemp("", "fluid-readonly-shell-test-*.sh")
+	tmpfile, err := os.CreateTemp("", "deer-readonly-shell-test-*.sh")
 	if err != nil {
 		t.Fatal(err)
 	}

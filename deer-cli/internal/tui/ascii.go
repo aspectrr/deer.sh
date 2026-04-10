@@ -6,32 +6,33 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// FluidLogo returns the FLUID ASCII art logo in blue
-func FluidLogo() string {
+// DeerLogo returns the DEER ASCII art logo in forest green
+func DeerLogo() string {
 	logo := `
- ███████╗██╗     ██╗   ██╗██╗██████╗
- ██╔════╝██║     ██║   ██║██║██╔══██╗
- █████╗  ██║     ██║   ██║██║██║  ██║
- ██╔══╝  ██║     ██║   ██║██║██║  ██║
- ██║     ███████╗╚██████╔╝██║██████╔╝
- ╚═╝     ╚══════╝ ╚═════╝ ╚═╝╚═════╝
+ ██████╗ ███████╗███████╗██████╗
+ ██╔══██╗██╔════╝██╔════╝██╔══██╗
+ ██║  ██║█████╗  █████╗  ██████╔╝
+ ██║  ██║██╔══╝  ██╔══╝  ██╔══██╗
+ ██████╔╝███████╗███████╗██║  ██║
+ ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝
 `
 	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#3B82F6")).
+		Foreground(primaryColor).
 		Bold(true)
 
 	return style.Render(strings.TrimPrefix(logo, "\n"))
 }
 
-// FluidLogoSmall returns a smaller version of the logo
-func FluidLogoSmall() string {
+// DeerLogoSmall returns a smaller version of the logo
+func DeerLogoSmall() string {
 	logo := `
- ╔═╗╦  ╦ ╦╦╔╦╗
- ╠╣ ║  ║ ║║ ║║
- ╚  ╩═╝╚═╝╩═╩╝
+ ██████╗
+ ██╔══██╗
+ ██║  ██║
+ ╚═════╝
 `
 	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#3B82F6")).
+		Foreground(primaryColor).
 		Bold(true)
 
 	return style.Render(strings.TrimPrefix(logo, "\n"))
@@ -41,11 +42,11 @@ func FluidLogoSmall() string {
 func BoxedText(title, content string, width int) string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#3B82F6"))
+		Foreground(primaryColor)
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#3B82F6")).
+		BorderForeground(primaryColor).
 		Padding(1, 2).
 		Width(width)
 

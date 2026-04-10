@@ -37,15 +37,15 @@ type allowlistStyles struct {
 
 func defaultAllowlistStyles() allowlistStyles {
 	return allowlistStyles{
-		title:           lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#3B82F6")),
+		title:           lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#166534")),
 		help:            lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")),
-		section:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4")),
+		section:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#15803d")),
 		command:         lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")),
 		userCommand:     lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")),
 		dimmed:          lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")),
 		error:           lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")),
 		success:         lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")),
-		indicator:       lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")),
+		indicator:       lipgloss.NewStyle().Foreground(lipgloss.Color("#166534")),
 		toggleAllowlist: lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED")).Background(lipgloss.Color("#EDE9FE")),
 		toggleBlocklist: lipgloss.NewStyle().Foreground(lipgloss.Color("#D97706")).Background(lipgloss.Color("#FEF3C7")),
 	}

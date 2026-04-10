@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/aspectrr/deer.sh/deer-daemon/internal/config"
@@ -18,9 +19,14 @@ func TestDoctorCheck_KVMAvailable(t *testing.T) {
 	s := newTestServer(&config.Config{})
 	result := s.checkKVMAvailable()
 
-	// /dev/kvm may or may not exist in the test environment
-	if result.Name != "kvm-available" {
-		t.Errorf("name = %q, want %q", result.Name, "kvm-available")
+	// On macOS the check delegates to HVF; on Linux it checks /dev/kvm.
+	// Either way, category must be "prerequisites" and name must match platform.
+	wantName := "kvm-available"
+	if runtime.GOOS == "darwin" {
+		wantName = "hvf-available"
+	}
+	if result.Name != wantName {
+		t.Errorf("name = %q, want %q", result.Name, wantName)
 	}
 	if result.Category != "prerequisites" {
 		t.Errorf("category = %q, want %q", result.Category, "prerequisites")

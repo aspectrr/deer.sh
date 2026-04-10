@@ -36,21 +36,25 @@ type ReadinessWaiter interface {
 
 // Provider implements provider.SandboxProvider for QEMU microVMs.
 type Provider struct {
-	vmMgr        *microvm.Manager
-	netMgr       *network.NetworkManager
-	imgStore     *image.Store
-	srcVMMgr     *sourcevm.Manager
-	keyMgr       sshkeys.KeyProvider
-	kernelPath   string
-	initrdPath   string
-	rootDevice   string
-	accel        string
-	ipTimeout    time.Duration
-	readyTimeout time.Duration
-	caPubKey     string
-	bridgeIP     string
-	readiness    ReadinessWaiter
-	logger       *slog.Logger
+	vmMgr             *microvm.Manager
+	netMgr            *network.NetworkManager
+	imgStore          *image.Store
+	srcVMMgr          *sourcevm.Manager
+	keyMgr            sshkeys.KeyProvider
+	kernelPath        string
+	initrdPath        string
+	rootDevice        string
+	accel             string
+	ipTimeout         time.Duration
+	readyTimeout      time.Duration
+	caPubKey          string
+	bridgeIP          string
+	readiness         ReadinessWaiter
+	redpandaCacheURL  string // local Redpanda tarball for faster boot
+	disableCloudInit  bool   // skip cloud-init for pre-baked images
+	socketVMNetClient string // macOS: path to socket_vmnet_client binary
+	socketVMNetPath   string // macOS: Unix socket path for socket_vmnet daemon
+	logger            *slog.Logger
 }
 
 const (
@@ -74,27 +78,35 @@ func New(
 	caPubKey string,
 	bridgeIP string,
 	readiness ReadinessWaiter,
+	redpandaCacheURL string,
+	disableCloudInit bool,
+	socketVMNetClient string,
+	socketVMNetPath string,
 	logger *slog.Logger,
 ) *Provider {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &Provider{
-		vmMgr:        vmMgr,
-		netMgr:       netMgr,
-		imgStore:     imgStore,
-		srcVMMgr:     srcVMMgr,
-		keyMgr:       keyMgr,
-		kernelPath:   kernelPath,
-		initrdPath:   initrdPath,
-		rootDevice:   rootDevice,
-		accel:        accel,
-		ipTimeout:    ipDiscoveryTimeout,
-		readyTimeout: readinessTimeout,
-		caPubKey:     caPubKey,
-		bridgeIP:     bridgeIP,
-		readiness:    readiness,
-		logger:       logger.With("provider", "microvm"),
+		vmMgr:             vmMgr,
+		netMgr:            netMgr,
+		imgStore:          imgStore,
+		srcVMMgr:          srcVMMgr,
+		keyMgr:            keyMgr,
+		kernelPath:        kernelPath,
+		initrdPath:        initrdPath,
+		rootDevice:        rootDevice,
+		accel:             accel,
+		ipTimeout:         ipDiscoveryTimeout,
+		readyTimeout:      readinessTimeout,
+		caPubKey:          caPubKey,
+		bridgeIP:          bridgeIP,
+		readiness:         readiness,
+		redpandaCacheURL:  redpandaCacheURL,
+		disableCloudInit:  disableCloudInit,
+		socketVMNetClient: socketVMNetClient,
+		socketVMNetPath:   socketVMNetPath,
+		logger:            logger.With("provider", "microvm"),
 	}
 }
 
@@ -152,45 +164,51 @@ func (p *Provider) CreateSandbox(ctx context.Context, req provider.CreateRequest
 	// Generate cloud-init NoCloud ISO with catch-all DHCP config so the
 	// sandbox gets an IP regardless of the source VM's interface naming.
 	cloudInitISO, err := microvm.GenerateCloudInitISO(p.vmMgr.WorkDir(), req.SandboxID, microvm.CloudInitOptions{
-		CAPubKey:     p.caPubKey,
-		PhoneHomeURL: p.phoneHomeURL(req.SandboxID),
-		KafkaBroker:  kafkaBrokerOptions(req),
+		CAPubKey:         p.caPubKey,
+		PhoneHomeURL:     p.phoneHomeURL(req.SandboxID),
+		KafkaBroker:      kafkaBrokerOptions(req),
+		RedpandaCacheURL: p.redpandaCacheURL,
+		Disable:          p.disableCloudInit,
 	})
 	if err != nil {
 		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
 		return nil, fmt.Errorf("generate cloud-init ISO: %w", err)
 	}
 
-	// Generate MAC address and TAP device
+	// Generate MAC address; create TAP device unless using socket_vmnet
 	mac := microvm.GenerateMACAddress()
-	tapName := network.TAPName(req.SandboxID)
-
-	// Create TAP device
-	tapName, err = network.CreateTAP(ctx, tapName, bridge, p.logger)
-	if err != nil {
-		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
-		return nil, fmt.Errorf("create TAP: %w", err)
+	tapName := ""
+	if p.socketVMNetClient == "" {
+		tapName = network.TAPName(req.SandboxID)
+		tapName, err = network.CreateTAP(ctx, tapName, bridge, p.logger)
+		if err != nil {
+			_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
+			return nil, fmt.Errorf("create TAP: %w", err)
+		}
 	}
 
-	// Apply defaults
 	// Launch microVM
 	info, err := p.vmMgr.Launch(ctx, microvm.LaunchConfig{
-		SandboxID:    req.SandboxID,
-		Name:         req.Name,
-		OverlayPath:  overlayPath,
-		KernelPath:   kernelPath,
-		InitrdPath:   initrdPath,
-		RootDevice:   p.rootDevice,
-		TAPDevice:    tapName,
-		MACAddress:   mac,
-		Bridge:       bridge,
-		VCPUs:        req.VCPUs,
-		MemoryMB:     req.MemoryMB,
-		Accel:        p.accel,
-		CloudInitISO: cloudInitISO,
+		SandboxID:         req.SandboxID,
+		Name:              req.Name,
+		OverlayPath:       overlayPath,
+		KernelPath:        kernelPath,
+		InitrdPath:        initrdPath,
+		RootDevice:        p.rootDevice,
+		TAPDevice:         tapName,
+		MACAddress:        mac,
+		Bridge:            bridge,
+		VCPUs:             req.VCPUs,
+		MemoryMB:          req.MemoryMB,
+		Accel:             p.accel,
+		CloudInitISO:      cloudInitISO,
+		SocketVMNetClient: p.socketVMNetClient,
+		SocketVMNetPath:   p.socketVMNetPath,
 	})
 	if err != nil {
-		_ = network.DestroyTAP(ctx, tapName)
+		if tapName != "" {
+			_ = network.DestroyTAP(ctx, tapName)
+		}
 		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
 		return nil, fmt.Errorf("launch microVM: %w", err)
 	}
@@ -254,44 +272,53 @@ func (p *Provider) CreateSandboxWithProgress(ctx context.Context, req provider.C
 	// Step 3: Generate cloud-init
 	progress("Generating cloud-init", 3, totalSteps)
 	cloudInitISO, err := microvm.GenerateCloudInitISO(p.vmMgr.WorkDir(), req.SandboxID, microvm.CloudInitOptions{
-		CAPubKey:     p.caPubKey,
-		PhoneHomeURL: p.phoneHomeURL(req.SandboxID),
-		KafkaBroker:  kafkaBrokerOptions(req),
+		CAPubKey:         p.caPubKey,
+		PhoneHomeURL:     p.phoneHomeURL(req.SandboxID),
+		KafkaBroker:      kafkaBrokerOptions(req),
+		RedpandaCacheURL: p.redpandaCacheURL,
+		Disable:          p.disableCloudInit,
 	})
 	if err != nil {
 		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
 		return nil, fmt.Errorf("generate cloud-init ISO: %w", err)
 	}
 
-	// Step 4: Set up network (TAP)
-	progress("Setting up network (TAP)", 4, totalSteps)
+	// Step 4: Set up network (TAP or socket_vmnet)
+	progress("Setting up network", 4, totalSteps)
 	mac := microvm.GenerateMACAddress()
-	tapName := network.TAPName(req.SandboxID)
-	tapName, err = network.CreateTAP(ctx, tapName, bridge, p.logger)
-	if err != nil {
-		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
-		return nil, fmt.Errorf("create TAP: %w", err)
+	tapName := ""
+	if p.socketVMNetClient == "" {
+		tapName = network.TAPName(req.SandboxID)
+		tapName, err = network.CreateTAP(ctx, tapName, bridge, p.logger)
+		if err != nil {
+			_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
+			return nil, fmt.Errorf("create TAP: %w", err)
+		}
 	}
 
 	// Step 5: Boot microVM
 	progress("Booting microVM", 5, totalSteps)
 	info, err := p.vmMgr.Launch(ctx, microvm.LaunchConfig{
-		SandboxID:    req.SandboxID,
-		Name:         req.Name,
-		OverlayPath:  overlayPath,
-		KernelPath:   kernelPath,
-		InitrdPath:   initrdPath,
-		RootDevice:   p.rootDevice,
-		TAPDevice:    tapName,
-		MACAddress:   mac,
-		Bridge:       bridge,
-		VCPUs:        req.VCPUs,
-		MemoryMB:     req.MemoryMB,
-		Accel:        p.accel,
-		CloudInitISO: cloudInitISO,
+		SandboxID:         req.SandboxID,
+		Name:              req.Name,
+		OverlayPath:       overlayPath,
+		KernelPath:        kernelPath,
+		InitrdPath:        initrdPath,
+		RootDevice:        p.rootDevice,
+		TAPDevice:         tapName,
+		MACAddress:        mac,
+		Bridge:            bridge,
+		VCPUs:             req.VCPUs,
+		MemoryMB:          req.MemoryMB,
+		Accel:             p.accel,
+		CloudInitISO:      cloudInitISO,
+		SocketVMNetClient: p.socketVMNetClient,
+		SocketVMNetPath:   p.socketVMNetPath,
 	})
 	if err != nil {
-		_ = network.DestroyTAP(ctx, tapName)
+		if tapName != "" {
+			_ = network.DestroyTAP(ctx, tapName)
+		}
 		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
 		return nil, fmt.Errorf("launch microVM: %w", err)
 	}
@@ -305,7 +332,7 @@ func (p *Provider) CreateSandboxWithProgress(ctx context.Context, req provider.C
 func (p *Provider) DestroySandbox(ctx context.Context, sandboxID string) error {
 	if p.vmMgr != nil {
 		info, err := p.vmMgr.Get(sandboxID)
-		if err == nil {
+		if err == nil && info.TAPDevice != "" {
 			_ = network.DestroyTAP(ctx, info.TAPDevice)
 		}
 		if err := p.vmMgr.Destroy(ctx, sandboxID); err != nil {
@@ -326,9 +353,12 @@ func (p *Provider) StartSandbox(ctx context.Context, sandboxID string) (*provide
 		return nil, fmt.Errorf("get sandbox: %w", err)
 	}
 
-	ip := ""
-	if p.netMgr != nil {
-		ip, _ = p.netMgr.DiscoverIP(ctx, info.MACAddress, info.Bridge, 30*time.Second)
+	ip := info.IPAddress
+	if ip == "" && p.netMgr != nil {
+		ip, _ = p.netMgr.DiscoverIP(ctx, info.MACAddress, info.Bridge, p.resolvedIPDiscoveryTimeout())
+		if ip != "" {
+			p.vmMgr.SetIP(sandboxID, ip)
+		}
 	}
 
 	return &provider.SandboxResult{
@@ -355,11 +385,22 @@ func (p *Provider) GetSandboxIP(ctx context.Context, sandboxID string) (string, 
 		return "", fmt.Errorf("get sandbox: %w", err)
 	}
 
+	if info.IPAddress != "" {
+		return info.IPAddress, nil
+	}
+
 	if p.netMgr == nil {
 		return "", fmt.Errorf("network manager not available")
 	}
 
-	return p.netMgr.DiscoverIP(ctx, info.MACAddress, info.Bridge, 30*time.Second)
+	ip, err := p.netMgr.DiscoverIP(ctx, info.MACAddress, info.Bridge, p.resolvedIPDiscoveryTimeout())
+	if err != nil {
+		return "", err
+	}
+	if ip != "" {
+		p.vmMgr.SetIP(sandboxID, ip)
+	}
+	return ip, nil
 }
 
 func (p *Provider) CreateSnapshot(_ context.Context, sandboxID, name string) (*provider.SnapshotResult, error) {
@@ -387,9 +428,16 @@ func (p *Provider) RunCommand(ctx context.Context, sandboxID, command string, ti
 		return nil, fmt.Errorf("get sandbox: %w", err)
 	}
 
-	ip := ""
-	if p.netMgr != nil {
-		ip, _ = p.netMgr.DiscoverIP(ctx, info.MACAddress, info.Bridge, 30*time.Second)
+	ip := info.IPAddress
+	if ip == "" && p.netMgr != nil {
+		var discoverErr error
+		ip, discoverErr = p.netMgr.DiscoverIP(ctx, info.MACAddress, info.Bridge, p.resolvedIPDiscoveryTimeout())
+		if discoverErr != nil {
+			p.logger.Warn("IP discovery failed in RunCommand", "sandbox_id", sandboxID, "error", discoverErr)
+		}
+		if ip != "" {
+			p.vmMgr.SetIP(sandboxID, ip)
+		}
 	}
 	if ip == "" {
 		return nil, fmt.Errorf("unable to discover sandbox IP for SSH")
@@ -429,7 +477,9 @@ func (p *Provider) RunCommand(ctx context.Context, sandboxID, command string, ti
 			strings.Contains(errMsg, "No route to host") ||
 			strings.Contains(errMsg, "connection refused") ||
 			strings.Contains(errMsg, "connection reset") ||
-			strings.Contains(errMsg, "Permission denied")
+			strings.Contains(errMsg, "Permission denied") ||
+			strings.Contains(errMsg, "Received disconnect") ||
+			strings.Contains(errMsg, "Too many authentication failures")
 
 		if !isTransient || attempt == maxRetries {
 			return nil, fmt.Errorf("run command: %w", err)
@@ -465,23 +515,18 @@ func (p *Provider) ListTemplates(_ context.Context) ([]string, error) {
 }
 
 func (p *Provider) ListSourceVMs(ctx context.Context) ([]provider.SourceVMInfo, error) {
-	if p.srcVMMgr == nil {
-		return nil, fmt.Errorf("source VM manager not available")
-	}
-
-	vms, err := p.srcVMMgr.ListVMs(ctx)
+	// For the microVM provider, source VMs are base QCOW2 images in the image store.
+	// Return those rather than querying libvirt (which is unused in this provider).
+	imgs, err := p.imgStore.List()
 	if err != nil {
 		return nil, err
 	}
-
-	result := make([]provider.SourceVMInfo, len(vms))
-	for i, vm := range vms {
-		result[i] = provider.SourceVMInfo{
-			Name:      vm.Name,
-			State:     vm.State,
-			IPAddress: vm.IPAddress,
-			Prepared:  vm.Prepared,
-		}
+	result := make([]provider.SourceVMInfo, 0, len(imgs))
+	for _, img := range imgs {
+		result = append(result, provider.SourceVMInfo{
+			Name:  img.Name,
+			State: "available",
+		})
 	}
 	return result, nil
 }
@@ -666,6 +711,9 @@ func (p *Provider) completeCreate(ctx context.Context, req provider.CreateReques
 	}
 
 	ip = p.applyReadinessIPFallback(req.SandboxID, ip)
+	if ip != "" && p.vmMgr != nil {
+		p.vmMgr.SetIP(req.SandboxID, ip)
+	}
 	return &provider.SandboxResult{
 		SandboxID:  req.SandboxID,
 		Name:       req.Name,

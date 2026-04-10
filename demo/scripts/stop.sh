@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# scripts/demo/stop.sh
+# demo/scripts/stop.sh
 #
-# Stops deer-daemon and Docker Compose inside the Lima demo VM.
-# Leaves the Lima VM running (use demo-reset to fully destroy).
+# Stops deer-daemon and Docker Compose for the demo.
+# Leaves Lima VMs running (use demo-reset to fully destroy).
 #
-# Usage: ./scripts/demo/stop.sh [--repo-root <path>]
+# Usage: ./demo/scripts/stop.sh [--repo-root <path>]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-LIMA_NAME="deer-demo"
 
-usage() { printf 'Usage: ./scripts/demo/stop.sh [--repo-root <path>]\n'; }
+LIMA_SOURCE="deer-source"
+LIMA_SANDBOX="deer-sandbox"
+SSH_CONFIG="${HOME}/.ssh/config"
+
+usage() { printf 'Usage: ./demo/scripts/stop.sh [--repo-root <path>]\n'; }
 
 log()  { printf '[demo-stop] %s\n' "$*"; }
 fail() { printf '[demo-stop] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -27,19 +30,24 @@ done
 
 command -v limactl >/dev/null 2>&1 || fail "limactl not found. Install with: brew install lima"
 
-log "Stopping deer-daemon tmux session..."
-limactl shell "$LIMA_NAME" -- bash -lc "
+log "Stopping deer-daemon on '${LIMA_SANDBOX}'..."
+limactl shell "$LIMA_SANDBOX" -- bash -lc "
     tmux kill-session -t deer-daemon 2>/dev/null || true
     sudo pkill -f deer-daemon 2>/dev/null || true
     echo 'deer-daemon stopped.'
-" || true
+" 2>/dev/null || true
 
-log "Stopping Docker Compose services..."
-limactl shell "$LIMA_NAME" -- bash -lc "
-    cd ${REPO_ROOT}/demo
-    sudo docker compose down
-    echo 'Docker Compose stopped.'
-" || true
+log "Stopping Docker Compose services on Mac..."
+docker compose -f "${REPO_ROOT}/demo/docker-compose.yml" down 2>/dev/null || true
 
-log "Demo stopped. Lima VM '${LIMA_NAME}' is still running."
-log "To fully remove the VM: limactl delete ${LIMA_NAME} --force"
+log "Removing logstash-source SSH config entry..."
+if grep -q '# deer-demo-source-start' "$SSH_CONFIG" 2>/dev/null; then
+    TMPFILE="$(mktemp)"
+    awk '/^# deer-demo-source-start/{skip=1} skip{if(/^# deer-demo-source-end/){skip=0; next}; next} {print}' "$SSH_CONFIG" > "$TMPFILE"
+    mv "$TMPFILE" "$SSH_CONFIG"
+    log "Removed logstash-source from ${SSH_CONFIG}"
+fi
+
+log ""
+log "Demo stopped. Lima VMs '${LIMA_SOURCE}' and '${LIMA_SANDBOX}' are still running."
+log "To fully remove: make demo-reset"

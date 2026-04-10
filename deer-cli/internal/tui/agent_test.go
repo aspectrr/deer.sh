@@ -13,8 +13,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/aspectrr/deer.sh/deer-cli/internal/config"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/hostexec"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/llm"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/redact"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sandbox"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/source"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/telemetry"
 )
 
@@ -47,7 +50,11 @@ func (s *stubService) RunCommand(context.Context, string, string, int, map[strin
 func (s *stubService) CreateSnapshot(context.Context, string, string) (*sandbox.SnapshotInfo, error) {
 	return nil, nil
 }
-func (s *stubService) ListVMs(context.Context) ([]*sandbox.VMInfo, error) { return nil, nil }
+
+func (s *stubService) ListVMs(context.Context) ([]*sandbox.VMInfo, error) {
+	return []*sandbox.VMInfo{{Name: "ubuntu", State: "running"}}, nil
+}
+
 func (s *stubService) ValidateSourceVM(context.Context, string) (*sandbox.ValidationInfo, error) {
 	return nil, nil
 }
@@ -86,7 +93,7 @@ func (s *stubService) Close() error {
 }
 
 func TestSetSandboxService_AfterCancel(t *testing.T) {
-	a := &FluidAgent{}
+	a := &DeerAgent{}
 	svc := &stubService{}
 	if err := a.SetSandboxService(svc); err != nil {
 		t.Fatalf("SetSandboxService on idle agent should succeed: %v", err)
@@ -99,7 +106,7 @@ func TestSetSandboxService_AfterCancel(t *testing.T) {
 func TestSetSandboxService_WhileRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	a := &FluidAgent{
+	a := &DeerAgent{
 		cancelFunc: cancel,
 		done:       make(chan struct{}),
 	}
@@ -117,7 +124,7 @@ func TestSetSandboxService_WhileRunning(t *testing.T) {
 
 func TestSetSandboxService_ClosesOldService(t *testing.T) {
 	oldSvc := &stubService{}
-	a := &FluidAgent{service: oldSvc}
+	a := &DeerAgent{service: oldSvc}
 	newSvc := &stubService{}
 	if err := a.SetSandboxService(newSvc); err != nil {
 		t.Fatalf("SetSandboxService should succeed: %v", err)
@@ -132,7 +139,7 @@ func TestSetSandboxService_ClosesOldService(t *testing.T) {
 
 func TestSetSandboxService_WaitsForDone(t *testing.T) {
 	done := make(chan struct{})
-	a := &FluidAgent{done: done, swapTimeout: 2 * time.Second}
+	a := &DeerAgent{done: done, swapTimeout: 2 * time.Second}
 	// Close done channel to simulate goroutine finishing
 	close(done)
 	svc := &stubService{}
@@ -143,7 +150,7 @@ func TestSetSandboxService_WaitsForDone(t *testing.T) {
 
 func TestSetSandboxService_TimesOut(t *testing.T) {
 	done := make(chan struct{}) // never closed
-	a := &FluidAgent{done: done}
+	a := &DeerAgent{done: done}
 	svc := &stubService{}
 	err := a.SetSandboxService(svc)
 	if err == nil {
@@ -156,7 +163,7 @@ func TestSetSandboxService_TimesOut(t *testing.T) {
 
 func TestRun_SlashCommandSendsFinalResponseWithoutQueuedDoneStatus(t *testing.T) {
 	var statuses []tea.Msg
-	agent := &FluidAgent{
+	agent := &DeerAgent{
 		cfg:       &config.Config{},
 		telemetry: telemetry.NewNoopService(),
 		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -191,7 +198,7 @@ func TestRun_SlashCommandSendsFinalResponseWithoutQueuedDoneStatus(t *testing.T)
 
 func TestRun_LLMConfigErrorSendsStatusWithoutQueuedDone(t *testing.T) {
 	var statuses []tea.Msg
-	agent := &FluidAgent{
+	agent := &DeerAgent{
 		cfg:       &config.Config{},
 		telemetry: telemetry.NewNoopService(),
 		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -235,7 +242,7 @@ func TestCreateSandbox_SendsDoneProgressOnSuccess(t *testing.T) {
 			}, nil
 		},
 	}
-	agent := &FluidAgent{
+	agent := &DeerAgent{
 		service: svc,
 		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -243,7 +250,7 @@ func TestCreateSandbox_SendsDoneProgressOnSuccess(t *testing.T) {
 		statuses = append(statuses, msg)
 	})
 
-	result, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true)
+	result, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true, false)
 	if err != nil {
 		t.Fatalf("createSandbox returned error: %v", err)
 	}
@@ -274,7 +281,7 @@ func TestCreateSandbox_SendsDoneProgressOnError(t *testing.T) {
 			return nil, errors.New("boom")
 		},
 	}
-	agent := &FluidAgent{
+	agent := &DeerAgent{
 		service: svc,
 		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -282,7 +289,7 @@ func TestCreateSandbox_SendsDoneProgressOnError(t *testing.T) {
 		statuses = append(statuses, msg)
 	})
 
-	_, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true)
+	_, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true, false)
 	if err == nil {
 		t.Fatal("expected createSandbox to return error")
 	}
@@ -296,6 +303,31 @@ func TestCreateSandbox_SendsDoneProgressOnError(t *testing.T) {
 	}
 	if progresses[1].StepName != "" || progresses[1].StepNum != 0 || progresses[1].Total != 0 {
 		t.Fatalf("error done progress = %+v, want empty step details", progresses[1])
+	}
+}
+
+func TestNormalizeVMName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Deer Source VM", "deer-source-vm"},
+		{"deer-source-vm", "deer-source-vm"},
+		{"Deer_Source_VM", "deer-source-vm"},
+		{"deer_source_vm", "deer-source-vm"},
+		{"Deer--Source  VM", "deer-source-vm"},
+		{"  Deer Source VM  ", "deer-source-vm"},
+		{"Ubuntu", "ubuntu"},
+		{"My Cool Image", "my-cool-image"},
+		{"my-cool-image", "my-cool-image"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := normalizeVMName(tt.input)
+			if got != tt.expected {
+				t.Errorf("normalizeVMName(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
 	}
 }
 
@@ -556,7 +588,7 @@ func TestRedactPrivateKeys_CertificateNotRedacted(t *testing.T) {
 // AutoReadOnlyMsg{Enabled:true} but NOT AutoReadOnlyMsg{Enabled:false} on exit.
 func TestWithAutoReadOnly_StickyDisplay(t *testing.T) {
 	var msgs []AutoReadOnlyMsg
-	a := &FluidAgent{}
+	a := &DeerAgent{}
 	a.SetStatusCallback(func(msg tea.Msg) {
 		if m, ok := msg.(AutoReadOnlyMsg); ok {
 			msgs = append(msgs, m)
@@ -584,7 +616,7 @@ func TestWithAutoReadOnly_StickyDisplay(t *testing.T) {
 // TestClearStickyReadOnly_SendsExitMsg verifies that clearStickyReadOnly sends the exit message.
 func TestClearStickyReadOnly_SendsExitMsg(t *testing.T) {
 	var msgs []AutoReadOnlyMsg
-	a := &FluidAgent{displayReadOnly: true}
+	a := &DeerAgent{displayReadOnly: true}
 	a.SetStatusCallback(func(msg tea.Msg) {
 		if m, ok := msg.(AutoReadOnlyMsg); ok {
 			msgs = append(msgs, m)
@@ -607,7 +639,7 @@ func TestClearStickyReadOnly_SendsExitMsg(t *testing.T) {
 // TestClearStickyReadOnly_NoOp verifies that clearStickyReadOnly is a no-op when not sticky.
 func TestClearStickyReadOnly_NoOp(t *testing.T) {
 	var msgs []AutoReadOnlyMsg
-	a := &FluidAgent{displayReadOnly: false}
+	a := &DeerAgent{displayReadOnly: false}
 	a.SetStatusCallback(func(msg tea.Msg) {
 		if m, ok := msg.(AutoReadOnlyMsg); ok {
 			msgs = append(msgs, m)
@@ -623,7 +655,7 @@ func TestClearStickyReadOnly_NoOp(t *testing.T) {
 
 // TestClearAutoReadOnly_ClearsDisplayReadOnly verifies that Shift+Tab also clears displayReadOnly.
 func TestClearAutoReadOnly_ClearsDisplayReadOnly(t *testing.T) {
-	a := &FluidAgent{autoReadOnly: true, displayReadOnly: true}
+	a := &DeerAgent{autoReadOnly: true, displayReadOnly: true}
 	a.ClearAutoReadOnly()
 	if a.displayReadOnly {
 		t.Error("ClearAutoReadOnly should also clear displayReadOnly")
@@ -637,7 +669,7 @@ func TestClearAutoReadOnly_ClearsDisplayReadOnly(t *testing.T) {
 // displayReadOnly is not set (user controls the mode).
 func TestWithAutoReadOnly_AlreadyReadOnly(t *testing.T) {
 	var msgs []AutoReadOnlyMsg
-	a := &FluidAgent{readOnly: true}
+	a := &DeerAgent{readOnly: true}
 	a.SetStatusCallback(func(msg tea.Msg) {
 		if m, ok := msg.(AutoReadOnlyMsg); ok {
 			msgs = append(msgs, m)
@@ -698,6 +730,84 @@ func TestShellEscapeInjectionPrevention(t *testing.T) {
 				}
 				t.Errorf("Found unescaped single quote in result at position %d: %q", i, result)
 			}
+		}
+	}
+}
+
+// stubSourceProvider implements source.Provider for testing.
+type stubSourceProvider struct {
+	runStreamingFn func(ctx context.Context, hostName, command string, onOutput hostexec.OutputCallback) (*source.CommandResult, error)
+}
+
+func (s *stubSourceProvider) RunCommandStreaming(ctx context.Context, hostName, command string, onOutput hostexec.OutputCallback) (*source.CommandResult, error) {
+	if s.runStreamingFn != nil {
+		return s.runStreamingFn(ctx, hostName, command, onOutput)
+	}
+	return &source.CommandResult{ExitCode: 0}, nil
+}
+
+func (s *stubSourceProvider) ReadFile(_ context.Context, _, _ string) (string, error) { return "", nil }
+func (s *stubSourceProvider) ListHosts() []source.HostInfo                            { return nil }
+
+// TestRunSourceCommand_StreamingChunksAreRedacted verifies that sensitive content
+// in streaming output chunks is redacted before being sent to the TUI live output box.
+func TestRunSourceCommand_StreamingChunksAreRedacted(t *testing.T) {
+	sensitiveIP := "10.42.7.99"
+	sensitiveOutput := "Connected to " + sensitiveIP + ":9093\n"
+
+	stub := &stubSourceProvider{
+		runStreamingFn: func(_ context.Context, _, _ string, onOutput hostexec.OutputCallback) (*source.CommandResult, error) {
+			onOutput(sensitiveOutput, false)
+			return &source.CommandResult{
+				ExitCode: 0,
+				Stdout:   sensitiveOutput,
+			}, nil
+		},
+	}
+
+	cfg := &config.Config{}
+	cfg.Redact.Enabled = true
+	r := redact.New()
+
+	var chunks []CommandOutputChunkMsg
+	agent := &DeerAgent{
+		cfg:           cfg,
+		sourceService: stub,
+		redactor:      r,
+		redactedSeen:  make(map[string]bool),
+		logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	agent.SetStatusCallback(func(msg tea.Msg) {
+		if c, ok := msg.(CommandOutputChunkMsg); ok {
+			chunks = append(chunks, c)
+		}
+	})
+
+	result, err := agent.executeTool(context.Background(), llm.ToolCall{
+		ID: "test-call-1",
+		Function: llm.FunctionCall{
+			Name:      "run_source_command",
+			Arguments: `{"host":"logstash-source","command":"netstat -tuln | grep 9093"}`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("executeTool error: %v", err)
+	}
+
+	// Chunk sent to TUI must not contain the raw IP.
+	if len(chunks) == 0 {
+		t.Fatal("expected at least one CommandOutputChunkMsg")
+	}
+	for _, c := range chunks {
+		if strings.Contains(c.Chunk, sensitiveIP) {
+			t.Errorf("chunk sent to TUI contains unredacted IP %q: %q", sensitiveIP, c.Chunk)
+		}
+	}
+
+	// Tool result returned to the LLM must also not contain the raw IP.
+	if m, ok := result.(map[string]any); ok {
+		if stdout, ok := m["stdout"].(string); ok && strings.Contains(stdout, sensitiveIP) {
+			t.Errorf("tool result stdout contains unredacted IP %q: %q", sensitiveIP, stdout)
 		}
 	}
 }

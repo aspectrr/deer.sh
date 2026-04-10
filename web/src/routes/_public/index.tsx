@@ -305,7 +305,7 @@ function ConsultingHomePage() {
             transition={{ duration: 0.6 }}
           >
             <h1 className="font-logo text-3xl font-bold tracking-tight text-stone-900 md:text-4xl">
-              Expert ELK Stack Consulting for Higher Education
+              Expert ELK Stack Consulting
             </h1>
             <p className="mt-4 leading-relaxed text-stone-700">
               Cluster setup, pipeline architecture, and system integration - done right. We work

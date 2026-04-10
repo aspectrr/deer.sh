@@ -120,8 +120,8 @@ func newConfirmStyles() confirmStyles {
 		buttonFocus: lipgloss.NewStyle().
 			Padding(0, 2).
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#3B82F6")).
-			Foreground(lipgloss.Color("#3B82F6")).
+			BorderForeground(lipgloss.Color("#166534")).
+			Foreground(lipgloss.Color("#166534")).
 			Bold(true),
 		help: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#64748B")).
@@ -630,7 +630,7 @@ func (m SourcePrepareConfirmModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(m.styles.info.Render("  - Start the VM if it's not running"))
 	b.WriteString("\n")
-	b.WriteString(m.styles.info.Render("  - Create a 'fluid-readonly' user"))
+	b.WriteString(m.styles.info.Render("  - Create a 'deer-readonly' user"))
 	b.WriteString("\n")
 	b.WriteString(m.styles.info.Render("  - Install a restricted shell"))
 	b.WriteString("\n")

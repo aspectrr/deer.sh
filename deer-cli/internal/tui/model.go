@@ -33,9 +33,11 @@ const (
 
 // ConversationEntry represents a single entry in the conversation
 type ConversationEntry struct {
-	Role    string // "user", "assistant", "tool", "system"
-	Content string
-	Tool    *ToolResult
+	Role      string // "user", "assistant", "tool", "system"
+	Content   string
+	Tool      *ToolResult
+	SandboxID string // for live_output / live_create entries
+	Command   string // for live_output entries: the command that was run
 }
 
 // Model is the main Bubble Tea model for the TUI
@@ -177,7 +179,7 @@ var allCommands = []commandSuggestion{
 	{"/prepare", "Prepare a host for read-only access"},
 	{"/compact", "Summarize and compact conversation history"},
 	{"/context", "Show current context token usage"},
-	{"/connect", "Connect to a fluid daemon"},
+	{"/connect", "Connect to a deer daemon"},
 	{"/settings", "Open configuration settings"},
 	{"/allowlist", "Show and edit read-only command allowlist"},
 	{"/redaction", "Show and edit redaction patterns"},
@@ -219,7 +221,7 @@ func NewModel(title, provider, modelName string, runner AgentRunner, cfg *config
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6"))
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#166534"))
 
 	// Create markdown renderer
 	mdRenderer, _ := glamour.NewTermRenderer(
@@ -228,7 +230,7 @@ func NewModel(title, provider, modelName string, runner AgentRunner, cfg *config
 	)
 
 	// Build startup message
-	startupMsg := "Welcome to Fluid! Type '/help' for commands."
+	startupMsg := "Welcome to Deer.sh! Type '/help' for commands."
 
 	// if len(cfg.Hosts) > 0 {
 	// 	hostNames := make([]string, len(cfg.Hosts))
@@ -527,7 +529,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.thinkingDots = 0
 
 		// Send response to the agent
-		if agent, ok := m.agentRunner.(*FluidAgent); ok {
+		if agent, ok := m.agentRunner.(*DeerAgent); ok {
 			agent.HandleApprovalResponse(approvalResp.Result.Approved)
 		}
 
@@ -550,7 +552,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.thinkingDots = 0
 
 		// Send response to the agent
-		if agent, ok := m.agentRunner.(*FluidAgent); ok {
+		if agent, ok := m.agentRunner.(*DeerAgent); ok {
 			agent.HandleNetworkApprovalResponse(networkResp.Result.Approved)
 		}
 
@@ -572,7 +574,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.thinking = true
 		m.thinkingDots = 0
 
-		if agent, ok := m.agentRunner.(*FluidAgent); ok {
+		if agent, ok := m.agentRunner.(*DeerAgent); ok {
 			agent.HandleSourcePrepareApprovalResponse(spResp.Result.Approved)
 		}
 
@@ -696,7 +698,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.agentRunner.SetReadOnly(m.readOnly)
 			}
 			// Clear auto read-only so manual toggle sticks
-			if agent, ok := m.agentRunner.(*FluidAgent); ok {
+			if agent, ok := m.agentRunner.(*DeerAgent); ok {
 				agent.ClearAutoReadOnly()
 			}
 			mode := "edit"
@@ -722,7 +724,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			// Second ctrl-c with quitting=true: start cleanup
-			if agent, ok := m.agentRunner.(*FluidAgent); ok {
+			if agent, ok := m.agentRunner.(*DeerAgent); ok {
 				sandboxes := agent.GetCreatedSandboxes()
 				if len(sandboxes) > 0 {
 					m.inCleanup = true
@@ -824,7 +826,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// Handle /playbooks command - open playbooks browser
 				if input == "/playbooks" || input == "playbooks" {
-					if agent, ok := m.agentRunner.(*FluidAgent); ok {
+					if agent, ok := m.agentRunner.(*DeerAgent); ok {
 						m.inPlaybooks = true
 						m.playbooksModel = NewPlaybooksModel(agent.playbookService)
 						if err := m.playbooksModel.LoadPlaybooks(); err != nil {
@@ -1036,8 +1038,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.liveOutputCommand = m.extractLiveOutputCommand()
 			m.liveOutputIndex = len(m.conversation)
 			m.conversation = append(m.conversation, ConversationEntry{
-				Role:    "live_output",
-				Content: "",
+				Role:      "live_output",
+				Content:   "",
+				SandboxID: msg.SandboxID,
+				Command:   m.liveOutputCommand,
 			})
 			m.updateViewportContent(false)
 		}
@@ -1083,8 +1087,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.liveOutputCommand = m.extractLiveOutputCommand()
 			m.liveOutputIndex = len(m.conversation)
 			m.conversation = append(m.conversation, ConversationEntry{
-				Role:    "live_output",
-				Content: "",
+				Role:      "live_output",
+				Content:   "",
+				SandboxID: msg.SandboxID,
+				Command:   m.liveOutputCommand,
 			})
 		}
 
@@ -1358,7 +1364,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case UpdateAvailableMsg:
-		m.addSystemMessage(fmt.Sprintf("Update available: v%s - run `fluid update`", msg.Version))
+		m.addSystemMessage(fmt.Sprintf("Update available: v%s - run `deer update`", msg.Version))
 		m.updateViewportContent(false)
 		return m, nil
 
@@ -1629,9 +1635,9 @@ func (m Model) View() string {
 
 		lines := []string{}
 		if m.cfg.HasSandboxHosts() {
-			lines = append(lines, "Press Ctrl+C again to close Fluid and destroy all sandboxes created during this session.")
+			lines = append(lines, "Press Ctrl+C again to close Deer.sh and destroy all sandboxes created during this session.")
 		} else {
-			lines = append(lines, "Press Ctrl+C again to close Fluid.")
+			lines = append(lines, "Press Ctrl+C again to close Deer.sh.")
 		}
 
 		viewportContent = warnStyle.Render(strings.Join(lines, "\n"))
@@ -1663,7 +1669,7 @@ func (m Model) View() string {
 // getContextUsage returns the current context usage as a percentage (0.0 to 1.0)
 // This includes any live output that's being streamed but not yet added to agent history
 func (m *Model) getContextUsage() float64 {
-	if agent, ok := m.agentRunner.(*FluidAgent); ok {
+	if agent, ok := m.agentRunner.(*DeerAgent); ok {
 		baseUsage := agent.GetContextUsage()
 
 		// Add estimate for live output not yet in history
@@ -1698,21 +1704,21 @@ func (m *Model) getContextUsage() float64 {
 
 // getCurrentSandbox returns the currently active sandbox ID and host
 func (m *Model) getCurrentSandbox() (id string, host string) {
-	if agent, ok := m.agentRunner.(*FluidAgent); ok {
+	if agent, ok := m.agentRunner.(*DeerAgent); ok {
 		return agent.GetCurrentSandbox()
 	}
 	return "", ""
 }
 
 func (m *Model) getCurrentSourceVM() string {
-	if agent, ok := m.agentRunner.(*FluidAgent); ok {
+	if agent, ok := m.agentRunner.(*DeerAgent); ok {
 		return agent.GetCurrentSourceVM()
 	}
 	return ""
 }
 
 func (m *Model) getCurrentSandboxBaseImage() string {
-	if agent, ok := m.agentRunner.(*FluidAgent); ok {
+	if agent, ok := m.agentRunner.(*DeerAgent); ok {
 		return agent.GetCurrentSandboxBaseImage()
 	}
 	return ""
@@ -1948,16 +1954,16 @@ func (m *Model) updateViewportContent(forceScroll bool) {
 
 			style := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#3B82F6")).
+				BorderForeground(lipgloss.Color("#166534")).
 				Padding(0, 1).
 				Width(boxWidth)
 
-			headerText := fmt.Sprintf("$ Live output (%s):", m.liveOutputSandbox)
-			if m.liveOutputCommand != "" {
-				headerText = fmt.Sprintf("$ Live output (%s): %s", m.liveOutputSandbox, m.liveOutputCommand)
+			headerText := fmt.Sprintf("$ Live output (%s):", entry.SandboxID)
+			if entry.Command != "" {
+				headerText = fmt.Sprintf("$ Live output (%s): %s", entry.SandboxID, entry.Command)
 			}
 			header := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#3B82F6")).
+				Foreground(lipgloss.Color("#166534")).
 				Bold(true).
 				Render(headerText)
 
@@ -2044,7 +2050,7 @@ func (m *Model) updateViewportContent(forceScroll bool) {
 							statusText = fmt.Sprintf(" Running: %s", cmd)
 						}
 					case "create_sandbox":
-						if src, ok := m.currentToolArgs["source_vm_name"].(string); ok {
+						if src, ok := m.currentToolArgs["source_vm"].(string); ok {
 							statusText = fmt.Sprintf(" Creating sandbox from: %s", src)
 						}
 					case "destroy_sandbox":
@@ -2105,7 +2111,7 @@ func (m *Model) renderToolResult(tr ToolResult) string {
 			b.WriteString(m.styles.ToolDetailsError.Render(fmt.Sprintf("      Error: %s", errMsg)))
 		}
 	} else {
-		icon := "v"
+		icon := "✓"
 		b.WriteString(m.styles.ToolSuccess.Render(fmt.Sprintf("  %s %s", icon, tr.Name)))
 		b.WriteString("\n")
 
@@ -2269,29 +2275,102 @@ func (m *Model) formatToolOutput(toolName string, args, result map[string]any) s
 			b.WriteString("\n")
 		}
 
-	// case "list_vms":
-	// 	if vms, ok := result["vms"].([]any); ok {
-	// 		b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Found %d VM(s)", len(vms))))
-	// 		b.WriteString("\n")
-	// 		for i, vm := range vms {
-	// 			if i >= 10 {
-	// 				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... and %d more", len(vms)-10)))
-	// 				b.WriteString("\n")
-	// 				break
-	// 			}
-	// 			if vmMap, ok := vm.(map[string]any); ok {
-	// 				name := vmMap["name"]
-	// 				state := vmMap["state"]
-	// 				host := vmMap["host"]
-	// 				line := fmt.Sprintf("      - %v (%v)", name, state)
-	// 				if host != nil && host != "" {
-	// 					line += fmt.Sprintf(" on %v", host)
-	// 				}
-	// 				b.WriteString(m.styles.ToolDetails.Render(line))
-	// 				b.WriteString("\n")
-	// 			}
-	// 		}
-	// 	}
+	case "list_vms":
+		if vms, ok := result["vms"].([]any); ok {
+			if len(vms) == 0 {
+				b.WriteString(m.styles.ToolDetails.Render("      No VMs found"))
+				b.WriteString("\n")
+			} else {
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Found %d VM(s)", len(vms))))
+				b.WriteString("\n")
+				for i, vm := range vms {
+					if i >= 10 {
+						b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... and %d more", len(vms)-10)))
+						b.WriteString("\n")
+						break
+					}
+					if vmMap, ok := vm.(map[string]any); ok {
+						name := vmMap["name"]
+						state := vmMap["state"]
+						host := vmMap["host"]
+						line := fmt.Sprintf("      - %v (%v)", name, state)
+						if host != nil && host != "" {
+							line += fmt.Sprintf(" on %v", host)
+						}
+						b.WriteString(m.styles.ToolDetails.Render(line))
+						b.WriteString("\n")
+					}
+				}
+			}
+		}
+
+	case "list_hosts":
+		if hosts, ok := result["hosts"].([]any); ok {
+			if len(hosts) == 0 {
+				b.WriteString(m.styles.ToolDetails.Render("      No hosts configured"))
+				b.WriteString("\n")
+			} else {
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Found %d host(s)", len(hosts))))
+				b.WriteString("\n")
+				for i, h := range hosts {
+					if i >= 10 {
+						b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... and %d more", len(hosts)-10)))
+						b.WriteString("\n")
+						break
+					}
+					if hMap, ok := h.(map[string]any); ok {
+						name := hMap["name"]
+						addr := hMap["address"]
+						prepared := hMap["prepared"]
+						prepStr := ""
+						if p, ok := prepared.(bool); ok && p {
+							prepStr = " [prepared]"
+						}
+						b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      - %v @ %v%s", name, addr, prepStr)))
+						b.WriteString("\n")
+					}
+				}
+			}
+		}
+
+	case "list_playbooks":
+		if playbooks, ok := result["playbooks"].([]any); ok {
+			if len(playbooks) == 0 {
+				b.WriteString(m.styles.ToolDetails.Render("      No playbooks found"))
+				b.WriteString("\n")
+			} else {
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Found %d playbook(s)", len(playbooks))))
+				b.WriteString("\n")
+				for i, pb := range playbooks {
+					if i >= 10 {
+						b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... and %d more", len(playbooks)-10)))
+						b.WriteString("\n")
+						break
+					}
+					if pbMap, ok := pb.(map[string]any); ok {
+						name := pbMap["name"]
+						id := pbMap["id"]
+						b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      - %v (%v)", name, id)))
+						b.WriteString("\n")
+					}
+				}
+			}
+		}
+
+	case "edit_file":
+		if args != nil {
+			if path, ok := args["path"].(string); ok {
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      path: %s", path)))
+				b.WriteString("\n")
+			}
+		}
+		if msg, ok := result["message"].(string); ok && msg != "" {
+			if len(msg) > 100 {
+				msg = msg[:97] + "..."
+			}
+			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      %s", msg)))
+			b.WriteString("\n")
+		}
 
 	case "create_snapshot":
 		if id, ok := result["snapshot_id"]; ok {
@@ -2380,13 +2459,22 @@ func (m *Model) formatToolOutput(toolName string, args, result map[string]any) s
 		}
 
 	default:
-		// Generic formatting for unknown tools
-		content := fmt.Sprintf("%v", result)
-		if len(content) > 150 {
-			content = content[:147] + "..."
+		// Generic key-value rendering for unknown tools
+		lines := 0
+		for k, v := range result {
+			if lines >= 8 {
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... (%d more fields)", len(result)-lines)))
+				b.WriteString("\n")
+				break
+			}
+			val := fmt.Sprintf("%v", v)
+			if len(val) > 120 {
+				val = val[:117] + "..."
+			}
+			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      %s: %s", k, val)))
+			b.WriteString("\n")
+			lines++
 		}
-		b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      -> %s", content)))
-		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -2394,7 +2482,7 @@ func (m *Model) formatToolOutput(toolName string, args, result map[string]any) s
 
 // startCleanup begins the cleanup process for all created sandboxes
 func (m Model) startCleanup() tea.Cmd {
-	agent, ok := m.agentRunner.(*FluidAgent)
+	agent, ok := m.agentRunner.(*DeerAgent)
 	if !ok {
 		return func() tea.Msg {
 			return CleanupCompleteMsg{Total: 0}
@@ -2442,7 +2530,7 @@ func (m Model) renderCleanupView() string {
 			statusColor = "#6B7280" // gray
 		case CleanupStatusDestroying:
 			statusIcon = m.spinner.View()
-			statusColor = "#3B82F6" // blue
+			statusColor = "#166534" // forest green
 		case CleanupStatusDestroyed:
 			statusIcon = "v"
 			statusColor = "#10B981" // green

@@ -31,7 +31,7 @@ func TestValidateShellArg(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateShellArg(tt.input)
+			err := ValidateShellArg(tt.input)
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
@@ -63,7 +63,7 @@ func TestValidateFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := validateFilePath(tt.input)
+			result, err := ValidateFilePath(tt.input)
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.errContains != "" {
@@ -92,7 +92,7 @@ func TestCheckFileSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkFileSize(tt.size)
+			err := CheckFileSize(tt.size)
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "exceeds maximum")

@@ -4,8 +4,8 @@ import "github.com/charmbracelet/lipgloss"
 
 // Color palette
 var (
-	primaryColor   = lipgloss.Color("#3B82F6") // Blue
-	secondaryColor = lipgloss.Color("#06B6D4") // Cyan
+	primaryColor   = lipgloss.Color("#166534") // Forest green (Tailwind green-800)
+	secondaryColor = lipgloss.Color("#4ade80") // Light green (Tailwind green-400)
 	successColor   = lipgloss.Color("#10B981") // Green
 	errorColor     = lipgloss.Color("#EF4444") // Red
 	mutedColor     = lipgloss.Color("#6B7280") // Gray

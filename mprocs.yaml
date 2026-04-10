@@ -29,3 +29,8 @@ procs:
     cwd: "."
     autostart: false
     shell: "./scripts/cleanup-vms.sh"
+
+  reset-daemon:
+    cwd: "."
+    autostart: false
+    shell: "./demo/scripts/reset-daemon.sh"

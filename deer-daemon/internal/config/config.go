@@ -160,6 +160,25 @@ type MicroVMConfig struct {
 
 	// ReadinessTimeout is how long to wait for cloud-init phone_home readiness.
 	ReadinessTimeout time.Duration `yaml:"readiness_timeout"`
+
+	// RedpandaCachePath is the local path to a Redpanda tarball.
+	// If set, cloud-init will copy this file instead of downloading from S3.
+	// Useful for faster boot times in development.
+	RedpandaCachePath string `yaml:"redpanda_cache_path"`
+
+	// DisableCloudInit skips cloud-init entirely for pre-baked images.
+	// If true, base images should already have SSH CA keys, users,
+	// and any required services configured. Significantly speeds up boot.
+	DisableCloudInit bool `yaml:"disable_cloudinit"`
+
+	// SocketVMNetClient is the path to the socket_vmnet_client binary (macOS only).
+	// When set, networking uses socket_vmnet instead of TAP/bridge devices.
+	// e.g. /opt/homebrew/opt/socket_vmnet/bin/socket_vmnet_client
+	SocketVMNetClient string `yaml:"socket_vmnet_client"`
+
+	// SocketVMNetPath is the Unix socket path for the socket_vmnet daemon (macOS only).
+	// e.g. /opt/homebrew/var/run/socket_vmnet
+	SocketVMNetPath string `yaml:"socket_vmnet_path"`
 }
 
 // NetworkConfig configures networking for sandboxes.

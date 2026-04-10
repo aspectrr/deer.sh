@@ -40,7 +40,7 @@ func TestCreateOverlay_MissingBase(t *testing.T) {
 	}
 }
 
-func TestCreateOverlay_ResizesOverlay(t *testing.T) {
+func TestCreateOverlay_CreatesOverlay(t *testing.T) {
 	workDir := t.TempDir()
 	baseImage := filepath.Join(workDir, "base.qcow2")
 	if err := os.WriteFile(baseImage, []byte("base"), 0o644); err != nil {
@@ -54,8 +54,6 @@ func TestCreateOverlay_ResizesOverlay(t *testing.T) {
 		"case \"$1\" in\n" +
 		"  create)\n" +
 		"    : > \"$8\"\n" +
-		"    ;;\n" +
-		"  resize)\n" +
 		"    ;;\n" +
 		"esac\n"
 	if err := os.WriteFile(fakeQemuImg, []byte(script), 0o755); err != nil {
@@ -83,13 +81,10 @@ func TestCreateOverlay_ResizesOverlay(t *testing.T) {
 		t.Fatalf("read qemu-img log: %v", err)
 	}
 	lines := strings.Split(strings.TrimSpace(string(logBytes)), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("expected 2 qemu-img invocations, got %d: %q", len(lines), string(logBytes))
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 qemu-img invocation (create only, no resize), got %d: %q", len(lines), string(logBytes))
 	}
 	if !strings.Contains(lines[0], "create -f qcow2 -b "+baseImage+" -F qcow2 "+overlayPath) {
 		t.Fatalf("unexpected create invocation: %q", lines[0])
-	}
-	if !strings.Contains(lines[1], "resize "+overlayPath+" "+defaultOverlayVirtualSize) {
-		t.Fatalf("unexpected resize invocation: %q", lines[1])
 	}
 }

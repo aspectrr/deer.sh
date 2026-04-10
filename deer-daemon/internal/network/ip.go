@@ -109,6 +109,9 @@ func readLibvirtStatusIP(path, mac string) (string, error) {
 // discoverIPARP polls the ARP table to find IP for a MAC.
 func discoverIPARP(ctx context.Context, macAddress, bridge string, timeout time.Duration, logger *slog.Logger) (string, error) {
 	mac := strings.ToLower(macAddress)
+	// Normalize MAC to colon-free lowercase for comparison.
+	// macOS ARP collapses leading zeros: 52:54:00:4f:fb:3c -> 52:54:0:4f:fb:3c
+	macNormalized := strings.ReplaceAll(mac, ":", "")
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
@@ -118,7 +121,7 @@ func discoverIPARP(ctx context.Context, macAddress, bridge string, timeout time.
 		default:
 		}
 
-		// Try ip neigh first
+		// Try ip neigh first (Linux)
 		cmd := exec.CommandContext(ctx, "ip", "neigh", "show", "dev", bridge)
 		output, err := cmd.Output()
 		if err == nil {
@@ -133,27 +136,29 @@ func discoverIPARP(ctx context.Context, macAddress, bridge string, timeout time.
 				for i, f := range fields {
 					if strings.EqualFold(f, mac) && i > 0 {
 						ip := fields[0]
-						logger.Info("discovered IP via ARP", "mac", macAddress, "ip", ip)
+						logger.Info("discovered IP via ip neigh", "mac", macAddress, "ip", ip)
 						return ip, nil
 					}
 				}
 			}
 		}
 
-		// Fallback: arp -an
+		// Fallback: arp -an (works on macOS and Linux)
 		cmd = exec.CommandContext(ctx, "arp", "-an")
 		output, err = cmd.Output()
 		if err == nil {
 			for _, line := range strings.Split(string(output), "\n") {
-				if strings.Contains(strings.ToLower(line), mac) {
-					// Format: ? (IP) at MAC [ether] on interface
-					start := strings.Index(line, "(")
-					end := strings.Index(line, ")")
-					if start >= 0 && end > start {
-						ip := line[start+1 : end]
-						logger.Info("discovered IP via arp", "mac", macAddress, "ip", ip)
-						return ip, nil
-					}
+				lineLower := strings.ToLower(line)
+				if !strings.Contains(lineLower, mac) && !strings.Contains(normalizeARPMac(lineLower), macNormalized) {
+					continue
+				}
+				// Format: ? (IP) at MAC [ether] on interface
+				start := strings.Index(line, "(")
+				end := strings.Index(line, ")")
+				if start >= 0 && end > start {
+					ip := line[start+1 : end]
+					logger.Info("discovered IP via arp -an", "mac", macAddress, "ip", ip)
+					return ip, nil
 				}
 			}
 		}
@@ -162,6 +167,32 @@ func discoverIPARP(ctx context.Context, macAddress, bridge string, timeout time.
 	}
 
 	return "", fmt.Errorf("IP discovery timed out for MAC %s (arp mode)", macAddress)
+}
+
+// normalizeARPMac extracts the MAC from an arp line and returns it
+// colon-free, lowercased, and zero-padded for comparison.
+// macOS ARP drops leading zeros in octets: 52:54:00:0c:09 → 52:54:0:c:9
+func normalizeARPMac(line string) string {
+	// macOS format: ? (192.168.105.61) at 52:54:0:4f:fb:3c on bridge100
+	afterAt := ""
+	if idx := strings.Index(line, " at "); idx >= 0 {
+		afterAt = line[idx+4:]
+	}
+	if afterAt == "" {
+		return ""
+	}
+	fields := strings.Fields(afterAt)
+	if len(fields) == 0 {
+		return ""
+	}
+	rawMAC := fields[0]
+	parts := strings.Split(strings.ToLower(rawMAC), ":")
+	for i, p := range parts {
+		if len(p) == 1 {
+			parts[i] = "0" + p
+		}
+	}
+	return strings.Join(parts, "")
 }
 
 // discoverIPDnsmasq reads local dnsmasq lease file for IP discovery.

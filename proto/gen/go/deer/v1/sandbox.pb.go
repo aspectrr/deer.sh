@@ -740,9 +740,12 @@ type CreateSandboxCommand struct {
 	// data_sources are typed sandbox-local data source attachments. Kafka is the
 	// first supported type and carries a resolved capture binding plus optional
 	// sandbox-local replay overrides.
-	DataSources   []*DataSourceAttachment `protobuf:"bytes,15,rep,name=data_sources,json=dataSources,proto3" json:"data_sources,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	DataSources []*DataSourceAttachment `protobuf:"bytes,15,rep,name=data_sources,json=dataSources,proto3" json:"data_sources,omitempty"`
+	// simple_kafka_broker starts a local Redpanda broker (no capture/replay)
+	// so the agent can publish test events and validate the service pipeline.
+	SimpleKafkaBroker bool `protobuf:"varint,16,opt,name=simple_kafka_broker,json=simpleKafkaBroker,proto3" json:"simple_kafka_broker,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *CreateSandboxCommand) Reset() {
@@ -878,6 +881,13 @@ func (x *CreateSandboxCommand) GetDataSources() []*DataSourceAttachment {
 		return x.DataSources
 	}
 	return nil
+}
+
+func (x *CreateSandboxCommand) GetSimpleKafkaBroker() bool {
+	if x != nil {
+		return x.SimpleKafkaBroker
+	}
+	return false
 }
 
 // SandboxCreated is sent by the host after successfully creating a sandbox.
@@ -2257,7 +2267,7 @@ const file_deer_v1_sandbox_proto_rawDesc = "" +
 	"auto_start\x18\t \x01(\bR\tautoStart\x12\x1d\n" +
 	"\n" +
 	"last_error\x18\n" +
-	" \x01(\tR\tlastError\"\xf3\x04\n" +
+	" \x01(\tR\tlastError\"\xa3\x05\n" +
 	"\x14CreateSandboxCommand\x12\x1d\n" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x1d\n" +
@@ -2277,7 +2287,8 @@ const file_deer_v1_sandbox_proto_rawDesc = "" +
 	"\x16source_host_connection\x18\f \x01(\v2\x1d.deer.v1.SourceHostConnectionR\x14sourceHostConnection\x12\x12\n" +
 	"\x04live\x18\r \x01(\bR\x04live\x12V\n" +
 	"\x15kafka_capture_configs\x18\x0e \x03(\v2\".deer.v1.KafkaCaptureConfigBindingR\x13kafkaCaptureConfigs\x12@\n" +
-	"\fdata_sources\x18\x0f \x03(\v2\x1d.deer.v1.DataSourceAttachmentR\vdataSources\"\x83\x02\n" +
+	"\fdata_sources\x18\x0f \x03(\v2\x1d.deer.v1.DataSourceAttachmentR\vdataSources\x12.\n" +
+	"\x13simple_kafka_broker\x18\x10 \x01(\bR\x11simpleKafkaBroker\"\x83\x02\n" +
 	"\x0eSandboxCreated\x12\x1d\n" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +

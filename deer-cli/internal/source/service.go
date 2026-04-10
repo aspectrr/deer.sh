@@ -26,6 +26,14 @@ type HostInfo struct {
 	Prepared bool   `json:"prepared"`
 }
 
+// Provider is the interface the agent uses to interact with source hosts.
+// *Service satisfies this interface.
+type Provider interface {
+	RunCommandStreaming(ctx context.Context, hostName, command string, onOutput hostexec.OutputCallback) (*CommandResult, error)
+	ReadFile(ctx context.Context, hostName, path string) (string, error)
+	ListHosts() []HostInfo
+}
+
 // Service provides direct SSH access to source hosts for read-only operations.
 type Service struct {
 	cfg     *config.Config
@@ -50,7 +58,7 @@ func (s *Service) RunCommand(ctx context.Context, hostName, command string) (*Co
 		return nil, err
 	}
 	if !host.Prepared {
-		return nil, fmt.Errorf("host %q is not prepared - run: fluid source prepare %s", hostName, hostName)
+		return nil, fmt.Errorf("host %q is not prepared - run: deer source prepare %s", hostName, hostName)
 	}
 
 	if err := readonly.ValidateCommandWithExtra(command, s.cfg.ExtraAllowedCommands); err != nil {
@@ -85,7 +93,7 @@ func (s *Service) RunCommandStreaming(ctx context.Context, hostName, command str
 		return nil, err
 	}
 	if !host.Prepared {
-		return nil, fmt.Errorf("host %q is not prepared - run: fluid source prepare %s", hostName, hostName)
+		return nil, fmt.Errorf("host %q is not prepared - run: deer source prepare %s", hostName, hostName)
 	}
 
 	if err := readonly.ValidateCommandWithExtra(command, s.cfg.ExtraAllowedCommands); err != nil {
@@ -93,7 +101,7 @@ func (s *Service) RunCommandStreaming(ctx context.Context, hostName, command str
 	}
 
 	extraArgs := []string{
-		"-l", "fluid-readonly",
+		"-l", "deer-readonly",
 		"-o", "IdentitiesOnly=yes",
 		"-i", s.keyPath,
 	}
@@ -156,5 +164,5 @@ func (s *Service) findHost(name string) (*config.HostConfig, error) {
 			return &s.cfg.Hosts[i], nil
 		}
 	}
-	return nil, fmt.Errorf("host %q not found in config - run: fluid source prepare %s", name, name)
+	return nil, fmt.Errorf("host %q not found in config - run: deer source prepare %s", name, name)
 }

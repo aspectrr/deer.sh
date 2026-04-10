@@ -56,9 +56,9 @@ type redactionStyles struct {
 
 func defaultRedactionStyles() redactionStyles {
 	return redactionStyles{
-		title:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#3B82F6")),
+		title:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#166534")),
 		help:       lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")),
-		section:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#06B6D4")),
+		section:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#15803d")),
 		enabled:    lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")),
 		disabled:   lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")),
 		category:   lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")),
@@ -67,7 +67,7 @@ func defaultRedactionStyles() redactionStyles {
 		dimmed:     lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")),
 		error:      lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")),
 		success:    lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")),
-		indicator:  lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")),
+		indicator:  lipgloss.NewStyle().Foreground(lipgloss.Color("#166534")),
 		highlight:  lipgloss.NewStyle().Background(lipgloss.Color("#FEF3C7")).Foreground(lipgloss.Color("#92400E")),
 		redacted:   lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")),
 		previewBox: lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#F59E0B")).Padding(0, 1),

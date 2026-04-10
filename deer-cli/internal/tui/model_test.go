@@ -30,18 +30,18 @@ func newTestModel(t *testing.T) (Model, *stubModelRunner) {
 
 	runner := &stubModelRunner{runID: 1}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	model := NewModel("fluid", "test", "test-model", runner, &config.Config{}, "", logger)
+	model := NewModel("deer", "test", "test-model", runner, &config.Config{}, "", logger)
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	return updated.(Model), runner
 }
 
-func newTestModelWithAgent(t *testing.T) (Model, *FluidAgent) {
+func newTestModelWithAgent(t *testing.T) (Model, *DeerAgent) {
 	t.Helper()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	agent := &FluidAgent{logger: logger}
-	model := NewModel("fluid", "test", "test-model", agent, &config.Config{}, "", logger)
+	agent := &DeerAgent{logger: logger}
+	model := NewModel("deer", "test", "test-model", agent, &config.Config{}, "", logger)
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	return updated.(Model), agent
@@ -369,5 +369,100 @@ func TestStartCleanupReturnsCleanupStartMsg(t *testing.T) {
 	}
 	if len(startMsg.SandboxIDs) != 1 || startMsg.SandboxIDs[0] != "sbx-1" {
 		t.Fatalf("CleanupStartMsg = %+v, want sandbox sbx-1", startMsg)
+	}
+}
+
+// TestLiveOutputEntryStoresOwnCommandAndSandboxID verifies that each live_output
+// conversation entry stores its own SandboxID and Command so that historical
+// entries render the correct header after the active command changes.
+func TestLiveOutputEntryStoresOwnCommandAndSandboxID(t *testing.T) {
+	model, _ := newTestModel(t)
+	model.state = StateThinking
+
+	// First command: ping on host-a
+	model.currentToolName = "run_source_command"
+	model.currentToolArgs = map[string]any{"host": "host-a", "command": "ping -c 3 host.lima.internal"}
+	updated, _ := model.Update(CommandOutputStartMsg{SandboxID: "host-a"})
+	model = updated.(Model)
+	updated, _ = model.Update(CommandOutputChunkMsg{SandboxID: "host-a", Chunk: "64 bytes from host.lima.internal\n"})
+	model = updated.(Model)
+	updated, _ = model.Update(CommandOutputDoneMsg{SandboxID: "host-a"})
+	model = updated.(Model)
+
+	// Second command: netstat on host-a
+	model.currentToolName = "run_source_command"
+	model.currentToolArgs = map[string]any{"host": "host-a", "command": "netstat -tuln | grep 9093"}
+	updated, _ = model.Update(CommandOutputStartMsg{SandboxID: "host-a"})
+	model = updated.(Model)
+	updated, _ = model.Update(CommandOutputChunkMsg{SandboxID: "host-a", Chunk: "tcp 0.0.0.0:9093\n"})
+	model = updated.(Model)
+	updated, _ = model.Update(CommandOutputDoneMsg{SandboxID: "host-a"})
+	model = updated.(Model)
+
+	// Find the two live_output entries
+	var liveEntries []ConversationEntry
+	for _, e := range model.conversation {
+		if e.Role == "live_output" {
+			liveEntries = append(liveEntries, e)
+		}
+	}
+	if len(liveEntries) != 2 {
+		t.Fatalf("expected 2 live_output entries, got %d", len(liveEntries))
+	}
+
+	first := liveEntries[0]
+	if first.SandboxID != "host-a" {
+		t.Errorf("first entry SandboxID = %q, want %q", first.SandboxID, "host-a")
+	}
+	if first.Command != "ping -c 3 host.lima.internal" {
+		t.Errorf("first entry Command = %q, want %q", first.Command, "ping -c 3 host.lima.internal")
+	}
+	if !strings.Contains(first.Content, "64 bytes") {
+		t.Errorf("first entry Content = %q, want ping output", first.Content)
+	}
+
+	second := liveEntries[1]
+	if second.SandboxID != "host-a" {
+		t.Errorf("second entry SandboxID = %q, want %q", second.SandboxID, "host-a")
+	}
+	if second.Command != "netstat -tuln | grep 9093" {
+		t.Errorf("second entry Command = %q, want %q", second.Command, "netstat -tuln | grep 9093")
+	}
+	if !strings.Contains(second.Content, "9093") {
+		t.Errorf("second entry Content = %q, want netstat output", second.Content)
+	}
+}
+
+// TestLiveOutputEntryCommandNotOverwrittenByLaterCommand verifies the rendered
+// view uses each entry's own Command, not the current model-level liveOutputCommand.
+func TestLiveOutputEntryCommandNotOverwrittenByLaterCommand(t *testing.T) {
+	model, _ := newTestModel(t)
+	model.state = StateThinking
+
+	// First command completes
+	model.currentToolName = "run_source_command"
+	model.currentToolArgs = map[string]any{"host": "host-a", "command": "ping -c 3 host.lima.internal"}
+	updated, _ := model.Update(CommandOutputStartMsg{SandboxID: "host-a"})
+	model = updated.(Model)
+	updated, _ = model.Update(CommandOutputChunkMsg{SandboxID: "host-a", Chunk: "PING output\n"})
+	model = updated.(Model)
+	updated, _ = model.Update(CommandOutputDoneMsg{SandboxID: "host-a"})
+	model = updated.(Model)
+
+	// Second command is active - model-level state now has netstat
+	model.currentToolArgs = map[string]any{"host": "host-a", "command": "netstat -tuln"}
+	updated, _ = model.Update(CommandOutputStartMsg{SandboxID: "host-a"})
+	model = updated.(Model)
+	updated, _ = model.Update(CommandOutputChunkMsg{SandboxID: "host-a", Chunk: "netstat output\n"})
+	model = updated.(Model)
+
+	view := model.View()
+	// First entry must still show ping command, not netstat
+	if !strings.Contains(view, "ping -c 3 host.lima.internal") {
+		t.Errorf("view should contain first command header 'ping -c 3 host.lima.internal': %q", view)
+	}
+	// Second (active) entry shows netstat
+	if !strings.Contains(view, "netstat -tuln") {
+		t.Errorf("view should contain second command header 'netstat -tuln': %q", view)
 	}
 }

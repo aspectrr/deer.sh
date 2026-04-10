@@ -154,7 +154,7 @@ func TestLoad_ProxmoxConfig(t *testing.T) {
 provider: proxmox
 proxmox:
   host: "https://pve.example.com:8006"
-  token_id: "root@pam!fluid"
+  token_id: "root@pam!deer"
   secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   node: "pve1"
   verify_ssl: false
@@ -172,7 +172,7 @@ proxmox:
 
 	assert.Equal(t, "proxmox", cfg.Provider)
 	assert.Equal(t, "https://pve.example.com:8006", cfg.Proxmox.Host)
-	assert.Equal(t, "root@pam!fluid", cfg.Proxmox.TokenID)
+	assert.Equal(t, "root@pam!deer", cfg.Proxmox.TokenID)
 	assert.Equal(t, "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", cfg.Proxmox.Secret)
 	assert.Equal(t, "pve1", cfg.Proxmox.Node)
 	assert.Equal(t, false, cfg.Proxmox.VerifySSL)
@@ -191,7 +191,7 @@ func TestLoad_ProxmoxPartialConfig_AppliesDefaults(t *testing.T) {
 provider: proxmox
 proxmox:
   host: "https://pve.example.com:8006"
-  token_id: "root@pam!fluid"
+  token_id: "root@pam!deer"
   secret: "my-secret"
   node: "pve1"
 `
@@ -288,7 +288,7 @@ func TestSave_PreservesProxmoxConfig(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Provider = "proxmox"
 	cfg.Proxmox.Host = "https://pve.example.com:8006"
-	cfg.Proxmox.TokenID = "root@pam!fluid"
+	cfg.Proxmox.TokenID = "root@pam!deer"
 	cfg.Proxmox.Secret = "test-secret"
 	cfg.Proxmox.Node = "pve1"
 	cfg.Proxmox.Storage = "ceph"
@@ -303,7 +303,7 @@ func TestSave_PreservesProxmoxConfig(t *testing.T) {
 
 	assert.Equal(t, "proxmox", loaded.Provider)
 	assert.Equal(t, "https://pve.example.com:8006", loaded.Proxmox.Host)
-	assert.Equal(t, "root@pam!fluid", loaded.Proxmox.TokenID)
+	assert.Equal(t, "root@pam!deer", loaded.Proxmox.TokenID)
 	assert.Equal(t, "test-secret", loaded.Proxmox.Secret)
 	assert.Equal(t, "pve1", loaded.Proxmox.Node)
 	assert.Equal(t, "ceph", loaded.Proxmox.Storage)

@@ -214,6 +214,10 @@ func newLiveE2EHarness(t *testing.T, cfg redpandaE2EConfig) *liveE2EHarness {
 		strings.TrimSpace(string(caPubKeyBytes)),
 		bridgeIP,
 		readiness,
+		"",
+		false,
+		"",
+		"",
 		logger,
 	)
 
