@@ -647,6 +647,9 @@ if [ "$DRY_RUN" -eq 0 ]; then
 
     ssh_source "$SOURCE_IP" "sudo systemctl restart logstash || sudo systemctl start logstash"
     log "Logstash started on source VM."
+
+    # Update SSH config with deer-source-vm entry
+    update_ssh_config "deer-source-vm" "$SOURCE_IP"
 fi
 
 # ---- Write deer CLI config ----
