@@ -1330,11 +1330,11 @@ func runSandboxStart(sandboxID string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() { _ = svc.Close() }()
 
 	sb, err := svc.StartSandbox(ctx, sandboxID)
 	if err != nil {
@@ -1366,11 +1366,11 @@ func runSandboxStop(sandboxID string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() { _ = svc.Close() }()
 
 	err = svc.StopSandbox(ctx, sandboxID, false)
 	if err != nil {
@@ -1399,11 +1399,11 @@ func runSandboxGet(sandboxID string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() { _ = svc.Close() }()
 
 	sb, err := svc.GetSandbox(ctx, sandboxID)
 	if err != nil {
@@ -1442,11 +1442,11 @@ func runSandboxRun(sandboxID, command string, timeoutSec int) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() { _ = svc.Close() }()
 
 	result, err := svc.RunCommand(ctx, sandboxID, command, timeoutSec, nil)
 	if err != nil {
@@ -1483,11 +1483,11 @@ func runSandboxSnapshot(sandboxID, name string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() { _ = svc.Close() }()
 
 	if name == "" {
 		name = fmt.Sprintf("snap-%d", time.Now().Unix())
@@ -1532,7 +1532,7 @@ func runPlaybookList() error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
@@ -1582,7 +1582,7 @@ func runPlaybookCreate(name, hosts string, become bool) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
@@ -1621,7 +1621,7 @@ func runPlaybookGet(playbookID string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
@@ -1677,7 +1677,7 @@ func runPlaybookAddTask(playbookID, name, module, paramsJSON string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	playbookSvc := ansible.NewPlaybookService(core.store, loadedCfg.Ansible.PlaybooksDir)
@@ -1723,11 +1723,11 @@ func runFileRead(sandboxID, path string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() { _ = svc.Close() }()
 
 	validatedPath, err := deermcp.ValidateFilePath(path)
 	if err != nil {
@@ -1774,11 +1774,11 @@ func runFileEdit(sandboxID, path, oldStr, newStr string, replaceAll bool) error 
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	svc := initSandboxService(loadedCfg, logger)
-	defer svc.Close()
+	defer func() { _ = svc.Close() }()
 
 	validatedPath, err := deermcp.ValidateFilePath(path)
 	if err != nil {
@@ -1874,7 +1874,7 @@ func runSourceRun(host, command string, timeoutSec int) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	result, err := core.source.RunCommand(ctx, host, command)
@@ -1912,7 +1912,7 @@ func runSourceReadFile(host, path string) error {
 	if err != nil {
 		return fmt.Errorf("init core services: %w", err)
 	}
-	defer core.store.Close()
+	defer func() { _ = core.store.Close() }()
 	defer core.telemetry.Close()
 
 	validatedPath, err := deermcp.ValidateFilePath(path)
