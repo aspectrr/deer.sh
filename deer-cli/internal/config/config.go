@@ -28,6 +28,7 @@ type Config struct {
 	SandboxHosts                []SandboxHostConfig `yaml:"sandbox_hosts"` // Daemon hosts for sandbox operations
 	Redact                      RedactConfig        `yaml:"redact"`
 	Audit                       AuditConfig         `yaml:"audit"`
+	ChatsDir                    string              `yaml:"chats_dir"`
 	ExtraAllowedCommands        []string            `yaml:"extra_allowed_commands"`         // Additional commands allowed in read-only mode
 	ExtraAllowedSubcommands     map[string][]string `yaml:"extra_allowed_subcommands"`      // Additional subcommands allowed for specific commands
 	ExtraAllowedSubcommandsMode map[string]bool     `yaml:"extra_allowed_subcommands_mode"` // true = allowlist (block all except), false = blocklist (allow all except)
@@ -92,7 +93,7 @@ type ControlPlaneConfig struct {
 // ProxmoxConfig holds Proxmox VE API settings.
 type ProxmoxConfig struct {
 	Host      string `yaml:"host"`       // e.g., "https://pve.example.com:8006"
-	TokenID   string `yaml:"token_id"`   // e.g., "root@pam!fluid"
+	TokenID   string `yaml:"token_id"`   // e.g., "root@pam!deer"
 	Secret    string `yaml:"secret"`     // API token secret
 	Node      string `yaml:"node"`       // Target node name, e.g., "pve1"
 	VerifySSL bool   `yaml:"verify_ssl"` // Verify TLS certificates (default: true)
@@ -167,7 +168,7 @@ type LoggingConfig struct {
 }
 
 // HostConfig represents a source host for read-only SSH access.
-// Authentication uses system SSH config (~/.ssh/config and ssh-agent), or a dedicated fluid key pair.
+// Authentication uses system SSH config (~/.ssh/config and ssh-agent), or a dedicated deer key pair.
 type HostConfig struct {
 	Name          string        `yaml:"name"`            // Display name (e.g., "web-prod-01")
 	Address       string        `yaml:"address"`         // IP or hostname
@@ -178,7 +179,7 @@ type HostConfig struct {
 	DaemonSSHUser string        `yaml:"daemon_ssh_user"` // User the daemon connects as (default: deer-daemon)
 	DirectAccess  bool          `yaml:"direct_access"`   // VMs reachable without proxy jump (bridged networking)
 	QueryTimeout  time.Duration `yaml:"query_timeout"`   // Per-host query timeout (default: 30s)
-	Prepared      bool          `yaml:"prepared"`        // Whether fluid-readonly user has been set up
+	Prepared      bool          `yaml:"prepared"`        // Whether deer-readonly user has been set up
 }
 
 // mustConfigDir returns the config directory, falling back to a best-effort default.
@@ -187,7 +188,7 @@ func mustConfigDir() string {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not determine config dir: %v\n", err)
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".config", "fluid")
+		return filepath.Join(home, ".config", "deer")
 	}
 	return dir
 }
@@ -248,19 +249,34 @@ func DefaultConfig() *Config {
 			LogPath:   filepath.Join(configDir, "audit.jsonl"),
 			MaxSizeMB: 50,
 		},
+		ChatsDir: filepath.Join(configDir, "chats"),
 		AIAgent: AIAgentConfig{
 			Provider: "openrouter",
-			Model:    "anthropic/claude-opus-4.6",
+			Model:    "z-ai/glm-4.7",
 			Endpoint: "https://openrouter.ai/api/v1",
-			DefaultSystem: "You are Fluid, an infrastructure automation agent." +
-				"- Your goal is to complete the user's task by generating an Ansible playbook that recreates the task on a production machine." +
-				"- Test your updates by running relevant commands on the sandbox and then building out the playbook. Do not make assumptions on outputs." +
-				"- You MUST use the Ansible tools to create and manage the playbook." +
-				"- Do not add an extension to the playbook name like .yml or .yaml" +
-				"- Add any steps to the playbook that are necessary to fully recreate the intended output on the production system." +
-				"- You CANNOT UNDER ANY CIRCUMSTANCES make a sandbox from a VM if asked to work on a different VM. For example if asked to make a sandbox of VM-1, you CANNOT make a sandbox from VM-2 if the sandbox does not work. If that happens, please stop at once.",
-			TotalContextTokens: 1000000,
-			CompactModel:       "anthropic/claude-haiku-4.5",
+			DefaultSystem: "You are Deer, an ELK-stack (Elasticsearch, Logstash, Kibana) Consultant.\n\n" +
+				"## Tools and When to Use Them\n" +
+				"- **Source investigation** (run_source_command, read_source_file): Read-only access to production hosts. Use to understand current state, read configs, check logs and service status.\n" +
+				"- **Sandbox testing** (create_sandbox, run_command, edit_file): Isolated VMs cloned from production. Use to test fixes before they touch production.\n" +
+				"- **Ansible playbooks** (create_playbook, add_playbook_task): Generate runbooks for human-approved production changes. Only after a fix is verified in a sandbox.\n\n" +
+				"## Key Distinction: list_hosts vs list_vms\n" +
+				"- `list_hosts` returns SOURCE HOSTS - production systems you can investigate read-only via run_source_command.\n" +
+				"- `list_vms` returns VMs AVAILABLE FOR CLONING - disk images registered with the daemon that can be cloned into sandboxes.\n" +
+				"- `source_vm` in create_sandbox must be a name from `list_vms`, not from `list_hosts`.\n\n" +
+				"## When Testing Is Needed\n" +
+				"If you need to test a config change, a fix, or any modification: create a sandbox first. Use list_vms to see what can be cloned.\n" +
+				"- If list_vms is empty: tell the user no VMs are available for cloning. Do NOT apply untested changes to source hosts.\n" +
+				"- If the sandboxed service uses Kafka: pass kafka_stub=true to create_sandbox. A local Redpanda broker starts at localhost:9092 inside the sandbox.\n" +
+				"  After sandbox is ready: edit the service config to replace the original Kafka bootstrap address with localhost:9092, then restart the service.\n" +
+				"  To send test data: use `rpk topic produce <topic> --brokers localhost:9092` then type messages and press Ctrl+D.\n\n" +
+				"## Rules\n" +
+				"- Source hosts are READ-ONLY. Only diagnostic commands (systemctl status, journalctl, cat, grep, ls, ss, curl). Never modify.\n" +
+				"- Sandboxes are writable. Apply and verify all changes here before generating a playbook.\n" +
+				"- Be concise. 1-2 sentences after each tool call before proceeding.\n" +
+				"- When a fix is verified, state the root cause and fix clearly, then ask if the user wants a playbook.\n" +
+				"- Do not add extensions (.yml, .yaml) to playbook names.",
+			TotalContextTokens: 203000,
+			CompactModel:       "z-ai/glm-4.5-air:free",
 			CompactThreshold:   0.90,
 			TokensPerChar:      0.33,
 		},
@@ -477,11 +493,11 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.Proxmox.Node = v
 	}
 
-	// Fluid URL overrides
-	if v := os.Getenv("FLUID_API_URL"); v != "" {
+	// Deer URL overrides
+	if v := os.Getenv("DEER_API_URL"); v != "" {
 		cfg.APIURL = v
 	}
-	if v := os.Getenv("FLUID_WEB_URL"); v != "" {
+	if v := os.Getenv("DEER_WEB_URL"); v != "" {
 		cfg.WebURL = v
 	}
 }
