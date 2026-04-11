@@ -265,7 +265,9 @@ var sandboxCreateCmd = &cobra.Command{
 		cpu, _ := cmd.Flags().GetInt("cpu")
 		memoryMB, _ := cmd.Flags().GetInt("memory")
 		live, _ := cmd.Flags().GetBool("live")
-		return runSandboxCreate(sourceVM, cpu, memoryMB, live)
+		kafkaStub, _ := cmd.Flags().GetBool("kafka-stub")
+		esStub, _ := cmd.Flags().GetBool("es-stub")
+		return runSandboxCreate(sourceVM, cpu, memoryMB, live, kafkaStub, esStub)
 	},
 }
 
@@ -472,6 +474,8 @@ func init() {
 	sandboxCreateCmd.Flags().Int("cpu", 0, "Number of vCPUs")
 	sandboxCreateCmd.Flags().Int("memory", 0, "RAM in MB")
 	sandboxCreateCmd.Flags().Bool("live", false, "Clone from live state instead of cached image")
+	sandboxCreateCmd.Flags().Bool("kafka-stub", false, "Start local Redpanda Kafka broker at localhost:9092 inside the sandbox")
+	sandboxCreateCmd.Flags().Bool("es-stub", false, "Start local single-node Elasticsearch at localhost:9200 inside the sandbox")
 	sandboxRunCmd.Flags().Int("timeout", 0, "Command timeout in seconds")
 
 	playbookCmd.AddCommand(playbookListCmd)
@@ -1221,7 +1225,7 @@ func runSandboxList() error {
 	return nil
 }
 
-func runSandboxCreate(sourceVM string, cpu, memoryMB int, live bool) error {
+func runSandboxCreate(sourceVM string, cpu, memoryMB int, live, kafkaStub, esStub bool) error {
 	configPath, err := resolveConfigPath()
 	if err != nil {
 		return fmt.Errorf("determine config path: %w", err)
@@ -1254,11 +1258,13 @@ func runSandboxCreate(sourceVM string, cpu, memoryMB int, live bool) error {
 	}()
 
 	sb, err := svc.CreateSandbox(ctx, sandbox.CreateRequest{
-		SourceVM: sourceVM,
-		AgentID:  "cli",
-		VCPUs:    cpu,
-		MemoryMB: memoryMB,
-		Live:     live,
+		SourceVM:                  sourceVM,
+		AgentID:                   "cli",
+		VCPUs:                     cpu,
+		MemoryMB:                  memoryMB,
+		Live:                      live,
+		SimpleKafkaBroker:         kafkaStub,
+		SimpleElasticsearchBroker: esStub,
 	})
 	if err != nil {
 		return fmt.Errorf("create sandbox: %w", err)

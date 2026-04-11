@@ -156,7 +156,7 @@ func (p *Provider) CreateSandbox(ctx context.Context, req provider.CreateRequest
 	}
 
 	// Create overlay disk
-	overlayPath, err := microvm.CreateOverlay(ctx, imagePath, p.vmMgr.WorkDir(), req.SandboxID)
+	overlayPath, err := microvm.CreateOverlay(ctx, imagePath, p.vmMgr.WorkDir(), req.SandboxID, req.DiskSizeGB())
 	if err != nil {
 		return nil, fmt.Errorf("create overlay: %w", err)
 	}
@@ -265,7 +265,7 @@ func (p *Provider) CreateSandboxWithProgress(ctx context.Context, req provider.C
 
 	// Step 2: Create overlay disk
 	progress("Creating overlay disk", 2, totalSteps)
-	overlayPath, err := microvm.CreateOverlay(ctx, imagePath, p.vmMgr.WorkDir(), req.SandboxID)
+	overlayPath, err := microvm.CreateOverlay(ctx, imagePath, p.vmMgr.WorkDir(), req.SandboxID, req.DiskSizeGB())
 	if err != nil {
 		return nil, fmt.Errorf("create overlay: %w", err)
 	}

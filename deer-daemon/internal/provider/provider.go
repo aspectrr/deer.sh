@@ -101,6 +101,16 @@ func (r CreateRequest) WantsElasticsearchBroker() bool {
 	return r.ElasticsearchBroker != nil
 }
 
+func (r CreateRequest) DiskSizeGB() int {
+	if r.WantsKafkaBroker() && r.WantsElasticsearchBroker() {
+		return 20
+	}
+	if r.WantsKafkaBroker() || r.WantsElasticsearchBroker() {
+		return 15
+	}
+	return 0
+}
+
 func NormalizeCreateRequestResources(req CreateRequest, defaultVCPUs, defaultMemoryMB int) (CreateRequest, bool) {
 	if defaultVCPUs <= 0 {
 		defaultVCPUs = DefaultSandboxVCPUs

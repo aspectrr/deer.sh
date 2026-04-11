@@ -385,7 +385,8 @@ func generateUserData(opts CloudInitOptions) string {
       echo "resolved redpanda library path: $REDPANDA_LD_LIBRARY_PATH"
       df -h / /opt /var/tmp || true
       echo "deer redpanda install complete $(date -Is)"
-      echo "deer redpanda temp cleanup skipped for ephemeral sandbox $(date -Is)"
+      rm -rf "$tmpdir"
+      echo "deer redpanda temp cleanup complete $(date -Is)"
     owner: root:root
     permissions: '0755'
   - path: /usr/local/bin/deer-enable-redpanda.sh
@@ -623,12 +624,14 @@ func generateUserData(opts CloudInitOptions) string {
         exit 1
       fi
       ln -sf "$(dirname "$es_bin")/../" /opt/elasticsearch
+      cp /etc/elasticsearch/elasticsearch.yml /opt/deer-elasticsearch/config/elasticsearch.yml
       echo "ES_HOME=/opt/elasticsearch" > /etc/default/deer-elasticsearch
       echo "ES_JAVA_OPTS=-Xms512m -Xmx512m" >> /etc/default/deer-elasticsearch
       echo "ES_PORT=%d" >> /etc/default/deer-elasticsearch
       id elasticsearch 2>/dev/null || useradd -r -s /bin/false elasticsearch
       mkdir -p /var/lib/elasticsearch /var/log/elasticsearch
-      chown -R elasticsearch:elasticsearch /opt/deer-elasticsearch /var/lib/elasticsearch /var/log/elasticsearch
+      chown -R elasticsearch:elasticsearch /opt/deer-elasticsearch /var/lib/elasticsearch /var/log/elasticsearch /var/run/elasticsearch
+      rm -rf "$tmpdir"
       echo "deer elasticsearch install complete $(date -Is)"
     owner: root:root
     permissions: '0755'
@@ -689,7 +692,7 @@ func generateUserData(opts CloudInitOptions) string {
           journalctl -u deer-elasticsearch.service --no-pager -n 50 || true
           exit 1
         fi
-        if [ $((attempt %% 15)) -eq 0 ]; then
+        if [ $((attempt %%%% 15)) -eq 0 ]; then
           echo "deer elasticsearch readiness pending attempt ${attempt} $(date -Is)"
           systemctl status deer-elasticsearch.service --no-pager || true
         fi
@@ -704,7 +707,6 @@ func generateUserData(opts CloudInitOptions) string {
 `, esArchiveURL, esPort, esPort, esPort)
 		runcmd = append(runcmd,
 			"mkdir -p /etc/elasticsearch /var/lib/elasticsearch /var/log/elasticsearch /var/run/elasticsearch",
-			"chown -R elasticsearch:elasticsearch /var/run/elasticsearch",
 			"/usr/local/bin/deer-install-elasticsearch.sh",
 			"systemctl daemon-reload",
 			"systemctl enable --now deer-elasticsearch.service",

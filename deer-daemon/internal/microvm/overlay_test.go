@@ -34,7 +34,7 @@ func TestRemoveOverlay(t *testing.T) {
 
 func TestCreateOverlay_MissingBase(t *testing.T) {
 	workDir := t.TempDir()
-	_, err := CreateOverlay(context.Background(), "/nonexistent/base.qcow2", workDir, "test-id")
+	_, err := CreateOverlay(context.Background(), "/nonexistent/base.qcow2", workDir, "test-id", 0)
 	if err == nil {
 		t.Error("expected error for missing base image")
 	}
@@ -68,7 +68,7 @@ func TestCreateOverlay_CreatesOverlay(t *testing.T) {
 		t.Fatalf("set PATH: %v", err)
 	}
 
-	overlayPath, err := CreateOverlay(context.Background(), baseImage, workDir, "test-id")
+	overlayPath, err := CreateOverlay(context.Background(), baseImage, workDir, "test-id", 0)
 	if err != nil {
 		t.Fatalf("CreateOverlay returned error: %v", err)
 	}

@@ -266,8 +266,8 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "deer redpanda env file written") {
 		t.Fatalf("expected env-file progress marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "deer redpanda temp cleanup skipped for ephemeral sandbox") {
-		t.Fatalf("expected explicit temp cleanup skip marker in user-data, got %q", userContent)
+	if !strings.Contains(userContent, "deer redpanda temp cleanup complete") {
+		t.Fatalf("expected explicit temp cleanup marker in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "if tar -tzf \"$archive_path\" | grep -Eq '^(\\./)?(usr/bin/redpanda|opt/redpanda/)'; then") {
 		t.Fatalf("expected rootfs archive detection in user-data, got %q", userContent)
