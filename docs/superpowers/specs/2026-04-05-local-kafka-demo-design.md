@@ -11,7 +11,7 @@ Previously this required a paid Hetzner VM. The goal is to run everything locall
 ```
 Mac (Apple Hypervisor.framework)
   |
-  +-- Lima VM "fluid-demo" (Linux, 4 CPU / 8 GB / 100 GB)
+  +-- Lima VM "deer-demo" (Linux, 4 CPU / 8 GB / 100 GB)
   |     |
   |     +-- deer-daemon (gRPC :9091, port-forwarded to Mac)
   |     |
@@ -25,7 +25,7 @@ Mac (Apple Hypervisor.framework)
   |           +-- Redpanda stub     (127.0.0.1:9092, injected via cloud-init)
   |           +-- Logstash          (kafka input -> stub, ES output -> Lima Docker ES)
   |
-  +-- fluid CLI / TUI  (runs natively on Mac, connects to daemon at localhost:9091)
+  +-- deer CLI / TUI  (runs natively on Mac, connects to daemon at localhost:9091)
   +-- Browser          (Kibana at http://localhost:5601)
 ```
 
@@ -59,7 +59,7 @@ Networking inside Lima: the sandbox microVM sits on the libvirt bridge (virbr0, 
 ## Demo Flow
 
 1. `make demo-start` on Mac
-   - Creates/starts Lima VM `fluid-demo` (4 CPU, 8 GB, 100 GB)
+   - Creates/starts Lima VM `deer-demo` (4 CPU, 8 GB, 100 GB)
    - Installs QEMU + libvirt + Docker inside Lima (idempotent)
    - Starts Docker Compose inside Lima (Redpanda, ES, Kibana, weather producer)
    - Builds and starts deer-daemon inside Lima (in a tmux session named `deer-daemon`)

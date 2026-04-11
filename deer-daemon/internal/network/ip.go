@@ -78,7 +78,9 @@ func discoverIPLibvirt(ctx context.Context, macAddress, bridge string, timeout t
 			}
 		}
 
-		time.Sleep(2 * time.Second)
+		if err := contextSleep(ctx, 2*time.Second); err != nil {
+			return "", err
+		}
 	}
 
 	return "", fmt.Errorf("IP discovery timed out for MAC %s (libvirt mode)", macAddress)
@@ -163,7 +165,9 @@ func discoverIPARP(ctx context.Context, macAddress, bridge string, timeout time.
 			}
 		}
 
-		time.Sleep(2 * time.Second)
+		if err := contextSleep(ctx, 2*time.Second); err != nil {
+			return "", err
+		}
 	}
 
 	return "", fmt.Errorf("IP discovery timed out for MAC %s (arp mode)", macAddress)
@@ -222,8 +226,21 @@ func discoverIPDnsmasq(ctx context.Context, macAddress, bridge string, timeout t
 			}
 		}
 
-		time.Sleep(2 * time.Second)
+		if err := contextSleep(ctx, 2*time.Second); err != nil {
+			return "", err
+		}
 	}
 
 	return "", fmt.Errorf("IP discovery timed out for MAC %s (dnsmasq mode)", macAddress)
+}
+
+func contextSleep(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

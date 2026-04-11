@@ -1,12 +1,12 @@
 package readonly
 
 // RestrictedShellScript is the server-side restricted shell installed at
-// /usr/local/bin/fluid-readonly-shell on golden VMs. It blocks destructive
+// /usr/local/bin/deer-readonly-shell on golden VMs. It blocks destructive
 // commands as a defense-in-depth layer behind the client-side allowlist.
 const RestrictedShellScript = `#!/bin/bash
-# fluid-readonly-shell - restricted shell for read-only VM access.
-# Installed by: fluid source prepare
-# This shell is set as the login shell for the fluid-readonly user.
+# deer-readonly-shell - restricted shell for read-only VM access.
+# Installed by: deer source prepare
+# This shell is set as the login shell for the deer-readonly user.
 # Commands are accepted via SSH_ORIGINAL_COMMAND (ForceCommand) or -c arg (login shell).
 
 set -euo pipefail

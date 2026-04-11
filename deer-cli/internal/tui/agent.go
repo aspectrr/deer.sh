@@ -904,8 +904,8 @@ func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, erro
 			return nil, err
 		}
 		return a.getSandbox(ctx, args.SandboxID)
-	// case "list_vms": // use list_hosts instead
-	// 	return a.listVMs(ctx)
+	case "list_vms":
+		return a.listVMs(ctx)
 	case "create_snapshot":
 		a.clearStickyReadOnly()
 		var args struct {
@@ -1311,7 +1311,7 @@ func (a *DeerAgent) createSandbox(ctx context.Context, sourceVM, hostName string
 		})
 	})
 	if err != nil {
-		a.sendStatus(SandboxCreateProgressMsg{Done: true})
+		a.sendStatus(SandboxCreateProgressMsg{Done: true, SourceVM: sourceVM})
 		a.logger.Error("sandbox creation failed", "source_vm", sourceVM, "error", err)
 		return nil, err
 	}
@@ -1495,7 +1495,17 @@ func (a *DeerAgent) runCommand(ctx context.Context, sandboxID, command string) (
 		}
 		a.sendStatus(NetworkApprovalRequestMsg{Request: request})
 
-		approved := <-responseChan
+		var approved bool
+		select {
+		case approved = <-responseChan:
+		case <-ctx.Done():
+			a.pendingNetworkApproval = nil
+			return map[string]any{
+				"sandbox_id": sandboxID,
+				"error":      "network approval cancelled: context deadline exceeded",
+				"exit_code":  -1,
+			}, nil
+		}
 		a.pendingNetworkApproval = nil
 		a.logger.Info("network approval result", "approved", approved, "tool", networkTool, "sandbox_id", sandboxID)
 
@@ -1623,7 +1633,7 @@ func (a *DeerAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newSt
 	if oldStr == "" {
 		a.logger.Debug("creating file", "sandbox_id", sandboxID, "path", path)
 		encoded := base64.StdEncoding.EncodeToString([]byte(newStr))
-		cmd := fmt.Sprintf("echo '%s' | base64 -d > '%s'", encoded, path)
+		cmd := fmt.Sprintf("echo '%s' | base64 -d | sudo tee '%s' > /dev/null", encoded, path)
 
 		result, err := a.service.RunCommand(ctx, sandboxID, cmd, 0, nil)
 		if err != nil {
@@ -1646,7 +1656,7 @@ func (a *DeerAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newSt
 
 	a.logger.Debug("editing file", "sandbox_id", sandboxID, "path", path)
 	// Read the original file using base64 to handle binary/special chars
-	readResult, err := a.service.RunCommand(ctx, sandboxID, fmt.Sprintf("base64 '%s'", path), 0, nil)
+	readResult, err := a.service.RunCommand(ctx, sandboxID, fmt.Sprintf("sudo base64 '%s'", path), 0, nil)
 	if err != nil {
 		a.logger.Error("failed to read file for edit", "sandbox_id", sandboxID, "path", path, "error", err)
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -1677,7 +1687,7 @@ func (a *DeerAgent) editFile(ctx context.Context, sandboxID, path, oldStr, newSt
 
 	// Write the edited content back using base64
 	encoded := base64.StdEncoding.EncodeToString([]byte(edited))
-	writeCmd := fmt.Sprintf("echo '%s' | base64 -d > '%s'", encoded, path)
+	writeCmd := fmt.Sprintf("echo '%s' | base64 -d | sudo tee '%s' > /dev/null", encoded, path)
 
 	writeResult, err := a.service.RunCommand(ctx, sandboxID, writeCmd, 0, nil)
 	if err != nil {
@@ -1864,32 +1874,31 @@ func (a *DeerAgent) getSandbox(ctx context.Context, id string) (map[string]any, 
 	return result, nil
 }
 
-// list_vms - use list_hosts instead
-// func (a *DeerAgent) listVMs(ctx context.Context) (map[string]any, error) {
-// 	vms, err := a.service.ListVMs(ctx)
-// 	if err != nil {
-// 		a.logger.Error("list VMs failed", "error", err)
-// 		return nil, err
-// 	}
-//
-// 	result := make([]map[string]any, 0, len(vms))
-// 	for _, v := range vms {
-// 		item := map[string]any{
-// 			"name":     v.Name,
-// 			"state":    v.State,
-// 			"prepared": v.Prepared,
-// 		}
-// 		if v.IPAddress != "" {
-// 			item["ip"] = v.IPAddress
-// 		}
-// 		result = append(result, item)
-// 	}
-//
-// 	return map[string]any{
-// 		"vms":   result,
-// 		"count": len(result),
-// 	}, nil
-// }
+func (a *DeerAgent) listVMs(ctx context.Context) (map[string]any, error) {
+	vms, err := a.service.ListVMs(ctx)
+	if err != nil {
+		a.logger.Error("list VMs failed", "error", err)
+		return nil, err
+	}
+
+	result := make([]map[string]any, 0, len(vms))
+	for _, v := range vms {
+		item := map[string]any{
+			"name":     v.Name,
+			"state":    v.State,
+			"prepared": v.Prepared,
+		}
+		if v.IPAddress != "" {
+			item["ip"] = v.IPAddress
+		}
+		result = append(result, item)
+	}
+
+	return map[string]any{
+		"vms":   result,
+		"count": len(result),
+	}, nil
+}
 
 func (a *DeerAgent) createSnapshot(ctx context.Context, sandboxID, name string) (map[string]any, error) {
 	if name == "" {

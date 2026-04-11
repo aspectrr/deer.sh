@@ -24,13 +24,21 @@ func newKafkaManager(baseDir string, redactor *redact.Redactor, logger *slog.Log
 				if store == nil {
 					return
 				}
-				_ = mergeCaptureStatus(context.Background(), store, item)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := mergeCaptureStatus(ctx, store, item); err != nil {
+					logger.Warn("merge capture status failed", "config_id", item.CaptureConfigID, "error", err)
+				}
 			},
 			OnSandboxStub: func(stub *kafkastub.SandboxStub) {
 				if store == nil {
 					return
 				}
-				_ = store.UpsertSandboxKafkaStub(context.Background(), sandboxStubToState(stub))
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := store.UpsertSandboxKafkaStub(ctx, sandboxStubToState(stub)); err != nil {
+					logger.Warn("upsert sandbox kafka stub failed", "stub_id", stub.ID, "error", err)
+				}
 			},
 		}))
 	if err != nil {

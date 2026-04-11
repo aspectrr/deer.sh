@@ -17,7 +17,7 @@ export const quickstartSteps: Step[] = [
         <TerminalBlock
           lines={[
             {
-              command: 'go install github.com/aspectrr/deer.sh/deer-cli/cmd/fluid@latest',
+              command: 'go install github.com/aspectrr/deer.sh/deer-cli/cmd/deer@latest',
             },
           ]}
         />

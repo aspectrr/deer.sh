@@ -157,6 +157,15 @@ func (s *Server) handleUpdateKafkaCaptureConfig(w http.ResponseWriter, r *http.R
 	cfg.Enabled = req.Enabled
 	cfg.UpdatedAt = time.Now().UTC()
 
+	if cfg.BootstrapServers == nil || len(cfg.BootstrapServers) == 0 {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("bootstrap_servers is required"))
+		return
+	}
+	if cfg.Topics == nil || len(cfg.Topics) == 0 {
+		serverError.RespondError(w, http.StatusBadRequest, fmt.Errorf("topics is required"))
+		return
+	}
+
 	if err := s.store.UpdateKafkaCaptureConfig(r.Context(), cfg); err != nil {
 		serverError.RespondError(w, http.StatusInternalServerError, fmt.Errorf("failed to update kafka capture config"))
 		return

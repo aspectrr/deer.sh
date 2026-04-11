@@ -110,7 +110,7 @@ func (p *kafkaGoProducer) Close() error {
 }
 
 func consumerGroupID(configID string) string {
-	return "fluid-kafkastub-" + sanitizeID(configID)
+	return "deer-kafkastub-" + sanitizeID(configID)
 }
 
 func kafkaDialer(cfg CaptureConfig) (*kafka.Dialer, error) {

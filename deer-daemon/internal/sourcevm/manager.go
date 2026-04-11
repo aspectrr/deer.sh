@@ -148,15 +148,15 @@ func (m *Manager) ValidateSourceVM(ctx context.Context, vmName string) (*Validat
 		result.Warnings = append(result.Warnings, "Could not determine IP address")
 	}
 
-	// Check if fluid-readonly user exists by trying SSH
+	// Check if deer-readonly user exists by trying SSH
 	if ip != "" && m.keyMgr != nil {
 		creds, err := m.keyMgr.GetSourceVMCredentials(ctx, vmName)
 		if err == nil {
-			_, _, exitCode, err := m.sshCmd(ctx, ip, "fluid-readonly", creds, "whoami", 10*time.Second)
+			_, _, exitCode, err := m.sshCmd(ctx, ip, "deer-readonly", creds, "whoami", 10*time.Second)
 			if err == nil && exitCode == 0 {
 				result.Valid = true
 			} else {
-				result.Warnings = append(result.Warnings, "SSH as fluid-readonly failed - VM may not be prepared")
+				result.Warnings = append(result.Warnings, "SSH as deer-readonly failed - VM may not be prepared")
 			}
 		} else {
 			result.Warnings = append(result.Warnings, "Could not get SSH credentials")
@@ -170,7 +170,7 @@ func (m *Manager) ValidateSourceVM(ctx context.Context, vmName string) (*Validat
 	return result, nil
 }
 
-// PrepareSourceVM installs readonly shell, fluid-readonly user, SSH CA on a source VM.
+// PrepareSourceVM installs readonly shell, deer-readonly user, SSH CA on a source VM.
 func (m *Manager) PrepareSourceVM(ctx context.Context, vmName, sshUser, sshKeyPath string) (*PrepareResult, error) {
 	if sshUser == "" {
 		sshUser = m.sshUser
@@ -267,7 +267,7 @@ func (m *Manager) RunSourceCommand(ctx context.Context, vmName, command string, 
 		timeout = 30 * time.Second
 	}
 
-	return m.sshCmd(ctx, ip, "fluid-readonly", creds, command, timeout)
+	return m.sshCmd(ctx, ip, "deer-readonly", creds, command, timeout)
 }
 
 // ReadSourceFile reads a file from a source VM via base64-encoded transfer.
@@ -354,6 +354,7 @@ func (m *Manager) sshCmd(ctx context.Context, ip, user string, creds *sshkeys.Cr
 		"-i", creds.PrivateKeyPath,
 		"-o", "CertificateFile=" + creds.CertificatePath,
 		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "IdentitiesOnly=yes",
 		"-o", fmt.Sprintf("ConnectTimeout=%d", int(timeout.Seconds())),
 	}
 
@@ -392,6 +393,7 @@ func (m *Manager) sshCmdWithKey(ctx context.Context, ip, user, keyPath, command 
 	args := []string{
 		"-i", keyPath,
 		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "IdentitiesOnly=yes",
 		"-o", fmt.Sprintf("ConnectTimeout=%d", int(timeout.Seconds())),
 	}
 

@@ -179,9 +179,11 @@ func (l *Logger) write(e *Event) {
 
 	data, err := json.Marshal(e)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "chatlog: marshal error: %v\n", err)
 		return
 	}
 	data = append(data, '\n')
-	_, _ = l.file.Write(data)
-	_ = l.file.Sync()
+	if _, err := l.file.Write(data); err != nil {
+		fmt.Fprintf(os.Stderr, "chatlog: write error: %v\n", err)
+	}
 }

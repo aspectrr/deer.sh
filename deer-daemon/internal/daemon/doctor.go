@@ -235,7 +235,7 @@ func (s *Server) checkSourceHosts(ctx context.Context) []*deerv1.DoctorCheckResu
 				Category: "source-hosts",
 				Passed:   false,
 				Message:  fmt.Sprintf("cannot reach %s as %s: %v", host, user, err),
-				FixCmd:   fmt.Sprintf("Run 'fluid connect' and press Enter to setup source hosts, or manually: ssh-keyscan -H %s >> ~deer-daemon/.ssh/known_hosts", host),
+				FixCmd:   fmt.Sprintf("Run 'deer connect' and press Enter to setup source hosts, or manually: ssh-keyscan -H %s >> ~deer-daemon/.ssh/known_hosts", host),
 			})
 		} else {
 			results = append(results, &deerv1.DoctorCheckResult{

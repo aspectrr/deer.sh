@@ -83,9 +83,9 @@ make test
 
 ```bash
 # Create database
-sudo -u postgres psql -c "CREATE DATABASE fluid;"
-sudo -u postgres psql -c "CREATE USER fluid WITH PASSWORD 'fluid';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE fluid TO fluid;"
+sudo -u postgres psql -c "CREATE DATABASE deer;"
+sudo -u postgres psql -c "CREATE USER deer WITH PASSWORD 'deer';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE deer TO deer;"
 
 # Schema is auto-migrated on startup via GORM AutoMigrate
 ```

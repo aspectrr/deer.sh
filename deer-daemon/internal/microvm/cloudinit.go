@@ -63,44 +63,44 @@ func generateUserData(opts CloudInitOptions) string {
 		"systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service sshd restart 2>/dev/null || service ssh restart",
 	}
 	if opts.PhoneHomeURL != "" {
-		writeFiles += fmt.Sprintf(`  - path: /usr/local/bin/fluid-notify-ready.sh
+		writeFiles += fmt.Sprintf(`  - path: /usr/local/bin/deer-notify-ready.sh
     content: |
       #!/bin/bash
       set -euo pipefail
-      mkdir -p /var/log/fluid
-      exec > >(tee -a /var/log/fluid/notify-ready.log /dev/console) 2>&1
+      mkdir -p /var/log/deer
+      exec > >(tee -a /var/log/deer/notify-ready.log /dev/console) 2>&1
       set -x
       export DEBIAN_FRONTEND=noninteractive
       broker_port=%d
       fail_stage() {
         local stage="$1"
-        echo "fluid notify ready failure stage=${stage} $(date -Is)" >&2
-        /usr/local/bin/fluid-redpanda-diagnostics.sh || true
+        echo "deer notify ready failure stage=${stage} $(date -Is)" >&2
+        /usr/local/bin/deer-redpanda-diagnostics.sh || true
         exit 1
       }
       listener_ready() {
         ss -H -ltn "( sport = :${broker_port} )" | awk 'END { exit(NR==0) }'
       }
-      echo "fluid notify ready start $(date -Is)"
-      if [ -f /etc/default/fluid-redpanda ]; then
-        . /etc/default/fluid-redpanda
+      echo "deer notify ready start $(date -Is)"
+      if [ -f /etc/default/deer-redpanda ]; then
+        . /etc/default/deer-redpanda
       fi
       if [ -n "${REDPANDA_BIN:-}" ]; then
         test -x "${REDPANDA_BIN}"
-        systemctl is-enabled --quiet fluid-redpanda.service
-        systemctl is-active --quiet fluid-redpanda.service
+        systemctl is-enabled --quiet deer-redpanda.service
+        systemctl is-active --quiet deer-redpanda.service
         listener_ready
       fi
-      echo "fluid notify ready checks complete $(date -Is)"
+      echo "deer notify ready checks complete $(date -Is)"
       if ! command -v curl >/dev/null 2>&1; then
         apt-get update
         apt-get install -y ca-certificates curl
       fi
-      echo "fluid phone_home start $(date -Is)"
+      echo "deer phone_home start $(date -Is)"
       if ! timeout 1m curl --connect-timeout 10 --max-time 30 -fsS -X POST %q; then
         fail_stage "phone_home"
       fi
-      echo "fluid notify ready complete $(date -Is)"
+      echo "deer notify ready complete $(date -Is)"
     owner: root:root
     permissions: '0755'
 `, notifyPort, opts.PhoneHomeURL)
@@ -146,29 +146,29 @@ func generateUserData(opts CloudInitOptions) string {
             port: 9644
     owner: root:root
     permissions: '0644'
-  - path: /usr/local/bin/fluid-redpanda-diagnostics.sh
+  - path: /usr/local/bin/deer-redpanda-diagnostics.sh
     content: |
       #!/bin/bash
       set +e
       broker_port=%d
-      echo "fluid redpanda diagnostics start $(date -Is)"
+      echo "deer redpanda diagnostics start $(date -Is)"
       for path in \
-        /var/log/fluid/redpanda-install.log \
-        /var/log/fluid/redpanda-enable.log \
-        /var/log/fluid/redpanda-start.log \
-        /var/log/fluid/redpanda-wait.log \
-        /var/log/fluid/notify-ready.log; do
+        /var/log/deer/redpanda-install.log \
+        /var/log/deer/redpanda-enable.log \
+        /var/log/deer/redpanda-start.log \
+        /var/log/deer/redpanda-wait.log \
+        /var/log/deer/notify-ready.log; do
         if [ -f "$path" ]; then
           echo "===== $path ====="
           cat "$path"
         fi
       done
-      echo "===== systemctl status fluid-redpanda.service ====="
-      systemctl status fluid-redpanda.service --no-pager || true
-      echo "===== systemctl show fluid-redpanda.service (result/exit/restarts) ====="
-      systemctl show fluid-redpanda.service --property=Result --property=ExecMainStatus --property=SubState --property=NRestarts --no-pager || true
-      echo "===== systemctl show fluid-redpanda.service ====="
-      systemctl show fluid-redpanda.service --no-pager || true
+      echo "===== systemctl status deer-redpanda.service ====="
+      systemctl status deer-redpanda.service --no-pager || true
+      echo "===== systemctl show deer-redpanda.service (result/exit/restarts) ====="
+      systemctl show deer-redpanda.service --property=Result --property=ExecMainStatus --property=SubState --property=NRestarts --no-pager || true
+      echo "===== systemctl show deer-redpanda.service ====="
+      systemctl show deer-redpanda.service --no-pager || true
       echo "===== ss -H -ltn ( sport = :${broker_port} ) ====="
       ss -H -ltn "( sport = :${broker_port} )" || true
       echo "===== ss -H -ltnp ( sport = :${broker_port} ) ====="
@@ -181,16 +181,16 @@ func generateUserData(opts CloudInitOptions) string {
       free -m || true
       echo "===== /proc/meminfo ====="
       cat /proc/meminfo || true
-      echo "===== journalctl -u fluid-redpanda.service ====="
-      journalctl -u fluid-redpanda.service --no-pager -n 200 || true
+      echo "===== journalctl -u deer-redpanda.service ====="
+      journalctl -u deer-redpanda.service --no-pager -n 200 || true
       echo "===== journalctl -u cloud-final ====="
       journalctl -u cloud-final --no-pager -n 200 || true
       echo "===== journalctl -k ====="
       journalctl -k --no-pager -n 200 || true
-      echo "===== /etc/default/fluid-redpanda ====="
-      cat /etc/default/fluid-redpanda || true
-      if [ -f /etc/default/fluid-redpanda ]; then
-        . /etc/default/fluid-redpanda
+      echo "===== /etc/default/deer-redpanda ====="
+      cat /etc/default/deer-redpanda || true
+      if [ -f /etc/default/deer-redpanda ]; then
+        . /etc/default/deer-redpanda
       fi
       if [ -n "${RPK_BIN:-}" ] && [ -x "${RPK_BIN:-}" ]; then
         echo "===== rpk cluster info ====="
@@ -198,8 +198,8 @@ func generateUserData(opts CloudInitOptions) string {
         echo "===== rpk topic list ====="
         timeout 10s "${RPK_BIN}" topic list --brokers 127.0.0.1:${broker_port} || true
       fi
-      echo "===== /usr/local/bin/fluid-redpanda-start.sh ====="
-      sed -n '1,60p' /usr/local/bin/fluid-redpanda-start.sh || true
+      echo "===== /usr/local/bin/deer-redpanda-start.sh ====="
+      sed -n '1,60p' /usr/local/bin/deer-redpanda-start.sh || true
       echo "===== wrapper targets ====="
       readlink -f /usr/bin/redpanda || true
       readlink -f /usr/bin/rpk || true
@@ -212,44 +212,44 @@ func generateUserData(opts CloudInitOptions) string {
       echo "===== ss -ltn ====="
       ss -ltn || true
       echo "===== redpanda log files ====="
-      find /var/log /var/lib/redpanda -maxdepth 4 -type f \( -iname '*redpanda*.log' -o -iname '*redpanda*' -o -path '/var/log/fluid/*' \) 2>/dev/null | sort | while read -r log_path; do
+      find /var/log /var/lib/redpanda -maxdepth 4 -type f \( -iname '*redpanda*.log' -o -iname '*redpanda*' -o -path '/var/log/deer/*' \) 2>/dev/null | sort | while read -r log_path; do
         echo "===== $log_path ====="
         cat "$log_path" || true
       done
-      echo "fluid redpanda diagnostics complete $(date -Is)"
+      echo "deer redpanda diagnostics complete $(date -Is)"
     owner: root:root
     permissions: '0755'
-  - path: /usr/local/bin/fluid-install-redpanda.sh
+  - path: /usr/local/bin/deer-install-redpanda.sh
     content: |
       #!/bin/bash
       set -euo pipefail
-      mkdir -p /var/log/fluid
-      exec > >(tee -a /var/log/fluid/redpanda-install.log /dev/console) 2>&1
+      mkdir -p /var/log/deer
+      exec > >(tee -a /var/log/deer/redpanda-install.log /dev/console) 2>&1
       set -x
       export DEBIAN_FRONTEND=noninteractive
       fail_stage() {
         local stage="$1"
-        echo "fluid redpanda install failure stage=${stage} $(date -Is)" >&2
-        /usr/local/bin/fluid-redpanda-diagnostics.sh || true
+        echo "deer redpanda install failure stage=${stage} $(date -Is)" >&2
+        /usr/local/bin/deer-redpanda-diagnostics.sh || true
         exit 1
       }
-      echo "fluid redpanda install start $(date -Is)"
+      echo "deer redpanda install start $(date -Is)"
       df -h / /opt /var/tmp || true
       if ! command -v curl >/dev/null 2>&1; then
         apt-get update
         apt-get install -y ca-certificates curl
       fi
-      tmpdir=$(mktemp -d /var/tmp/fluid-redpanda.XXXXXX)
+      tmpdir=$(mktemp -d /var/tmp/deer-redpanda.XXXXXX)
       archive_url=%q
       requested_advertise_addr=%q
       archive_path="$tmpdir/redpanda.tar.gz"
       if ! curl --connect-timeout 10 --max-time 600 -fsSL --retry 5 --retry-delay 2 -o "$archive_path" "$archive_url"; then
         fail_stage "archive_download"
       fi
-      echo "fluid redpanda archive download complete $(date -Is)"
+      echo "deer redpanda archive download complete $(date -Is)"
       extract_root="$tmpdir/extract"
-      rm -rf "$extract_root" /opt/fluid-redpanda-root
-      install -d -m 0755 "$extract_root" /opt/fluid-redpanda-root
+      rm -rf "$extract_root" /opt/deer-redpanda-root
+      install -d -m 0755 "$extract_root" /opt/deer-redpanda-root
       redpanda_bin=""
       rpk_bin=""
       redpanda_install_dir=""
@@ -266,16 +266,16 @@ func generateUserData(opts CloudInitOptions) string {
         if ! timeout 15m tar -xzf "$archive_path" -C "$extract_root"; then
           fail_stage "archive_extract"
         fi
-        if ! cp -a "$extract_root"/. /opt/fluid-redpanda-root/; then
+        if ! cp -a "$extract_root"/. /opt/deer-redpanda-root/; then
           fail_stage "archive_stage_copy"
         fi
-        redpanda_bin=$(find /opt/fluid-redpanda-root -type f -path '*/bin/redpanda' -perm -u+x | head -n1)
-        rpk_bin=$(find /opt/fluid-redpanda-root -type f -path '*/bin/rpk' -perm -u+x | head -n1)
+        redpanda_bin=$(find /opt/deer-redpanda-root -type f -path '*/bin/redpanda' -perm -u+x | head -n1)
+        rpk_bin=$(find /opt/deer-redpanda-root -type f -path '*/bin/rpk' -perm -u+x | head -n1)
         if [ -z "$redpanda_bin" ]; then
-          redpanda_bin=$(find /opt/fluid-redpanda-root -type f -name redpanda -perm -u+x | head -n1)
+          redpanda_bin=$(find /opt/deer-redpanda-root -type f -name redpanda -perm -u+x | head -n1)
         fi
         if [ -z "$rpk_bin" ]; then
-          rpk_bin=$(find /opt/fluid-redpanda-root -type f -name rpk -perm -u+x | head -n1)
+          rpk_bin=$(find /opt/deer-redpanda-root -type f -name rpk -perm -u+x | head -n1)
         fi
         if [ -n "$redpanda_bin" ]; then
           case "$redpanda_bin" in
@@ -283,13 +283,13 @@ func generateUserData(opts CloudInitOptions) string {
               redpanda_install_dir=$(CDPATH= cd -- "$(dirname "$redpanda_bin")/.." && pwd)
               ;;
           esac
-          lib_dirs=$(find /opt/fluid-redpanda-root -type d \( -name lib -o -name lib64 \) ! -path '*/var/lib*' | sort -u | paste -sd: -)
+          lib_dirs=$(find /opt/deer-redpanda-root -type d \( -name lib -o -name lib64 \) ! -path '*/var/lib*' | sort -u | paste -sd: -)
           if [ -z "$lib_dirs" ]; then
             lib_dirs=$(dirname "$redpanda_bin")
           fi
         fi
       fi
-      echo "fluid redpanda extraction complete $(date -Is)"
+      echo "deer redpanda extraction complete $(date -Is)"
       if [ -z "$redpanda_bin" ] || [ ! -x "$redpanda_bin" ]; then
         echo "redpanda binary not found after extracting $archive_url" >&2
         find "$extract_root" -maxdepth 6 -type f | sort >&2 || true
@@ -318,8 +318,8 @@ func generateUserData(opts CloudInitOptions) string {
       if [ -n "$redpanda_install_dir" ] && [ -d "$redpanda_install_dir/lib" ]; then
         lib_dirs="$redpanda_install_dir/lib"
       fi
-      echo "fluid redpanda binary resolution complete $(date -Is)"
-      cat >/etc/default/fluid-redpanda <<EOF
+      echo "deer redpanda binary resolution complete $(date -Is)"
+      cat >/etc/default/deer-redpanda <<EOF
       REDPANDA_BIN=$redpanda_bin
       RPK_BIN=$rpk_bin
       REDPANDA_INSTALL_DIR=$redpanda_install_dir
@@ -328,7 +328,7 @@ func generateUserData(opts CloudInitOptions) string {
       RPK_LIBEXEC_BIN=$rpk_libexec
       REDPANDA_ADVERTISE_ADDRESS=$requested_advertise_addr
       EOF
-      echo "fluid redpanda env file written $(date -Is)"
+      echo "deer redpanda env file written $(date -Is)"
       if [ "$redpanda_bin" = "/usr/bin/redpanda" ] && [ -n "$redpanda_install_dir" ] && [ -x "$redpanda_install_dir/bin/redpanda" ]; then
         redpanda_bin="$redpanda_install_dir/bin/redpanda"
       fi
@@ -345,16 +345,16 @@ func generateUserData(opts CloudInitOptions) string {
       elif [ -n "$rpk_bin" ] && [ "$rpk_bin" != "/usr/bin/rpk" ]; then
         ln -sf "$rpk_bin" /usr/bin/rpk
       fi
-      . /etc/default/fluid-redpanda
+      . /etc/default/deer-redpanda
       if ! command -v redpanda >/dev/null 2>&1; then
         fail_stage "binary_resolution"
       fi
-      echo "fluid redpanda version probe start $(date -Is)"
+      echo "deer redpanda version probe start $(date -Is)"
       if test -x /usr/bin/redpanda; then
         timeout 10s /usr/bin/redpanda --version || true
       fi
-      echo "fluid redpanda version probe complete $(date -Is)"
-      echo "fluid rpk version probe skipped $(date -Is)"
+      echo "deer redpanda version probe complete $(date -Is)"
+      echo "deer rpk version probe skipped $(date -Is)"
       echo "resolved /usr/bin/redpanda: $(readlink -f /usr/bin/redpanda || true)"
       echo "resolved /usr/bin/rpk: $(readlink -f /usr/bin/rpk || true)"
       echo "resolved redpanda bin: $REDPANDA_BIN"
@@ -362,44 +362,44 @@ func generateUserData(opts CloudInitOptions) string {
       echo "resolved redpanda install dir: $REDPANDA_INSTALL_DIR"
       echo "resolved redpanda library path: $REDPANDA_LD_LIBRARY_PATH"
       df -h / /opt /var/tmp || true
-      echo "fluid redpanda install complete $(date -Is)"
-      echo "fluid redpanda temp cleanup skipped for ephemeral sandbox $(date -Is)"
+      echo "deer redpanda install complete $(date -Is)"
+      echo "deer redpanda temp cleanup skipped for ephemeral sandbox $(date -Is)"
     owner: root:root
     permissions: '0755'
-  - path: /usr/local/bin/fluid-enable-redpanda.sh
+  - path: /usr/local/bin/deer-enable-redpanda.sh
     content: |
       #!/bin/bash
       set -euo pipefail
-      mkdir -p /var/log/fluid
-      exec > >(tee -a /var/log/fluid/redpanda-enable.log /dev/console) 2>&1
+      mkdir -p /var/log/deer
+      exec > >(tee -a /var/log/deer/redpanda-enable.log /dev/console) 2>&1
       set -x
       fail_stage() {
         local stage="$1"
-        echo "fluid redpanda enable failure stage=${stage} $(date -Is)" >&2
-        /usr/local/bin/fluid-redpanda-diagnostics.sh || true
+        echo "deer redpanda enable failure stage=${stage} $(date -Is)" >&2
+        /usr/local/bin/deer-redpanda-diagnostics.sh || true
         exit 1
       }
-      echo "fluid redpanda enable start $(date -Is)"
+      echo "deer redpanda enable start $(date -Is)"
       if ! timeout 2m systemctl daemon-reload; then
         fail_stage "daemon_reload"
       fi
-      echo "fluid redpanda daemon reload complete $(date -Is)"
-      echo "fluid redpanda service start invoked $(date -Is)"
-      if ! timeout 10m systemctl enable --now fluid-redpanda.service; then
+      echo "deer redpanda daemon reload complete $(date -Is)"
+      echo "deer redpanda service start invoked $(date -Is)"
+      if ! timeout 10m systemctl enable --now deer-redpanda.service; then
         fail_stage "systemd_enable_start"
       fi
-      echo "fluid redpanda systemd enable complete $(date -Is)"
+      echo "deer redpanda systemd enable complete $(date -Is)"
     owner: root:root
     permissions: '0755'
-  - path: /usr/local/bin/fluid-redpanda-start.sh
+  - path: /usr/local/bin/deer-redpanda-start.sh
     content: |
       #!/bin/bash
       set -euo pipefail
-      mkdir -p /var/log/fluid
-      exec > >(tee -a /var/log/fluid/redpanda-start.log /dev/console) 2>&1
+      mkdir -p /var/log/deer
+      exec > >(tee -a /var/log/deer/redpanda-start.log /dev/console) 2>&1
       set -x
-      echo "fluid redpanda start wrapper $(date -Is)"
-      . /etc/default/fluid-redpanda
+      echo "deer redpanda start wrapper $(date -Is)"
+      . /etc/default/deer-redpanda
       resolve_advertise_addr() {
         if [ -n "${REDPANDA_ADVERTISE_ADDRESS:-}" ]; then
           echo "${REDPANDA_ADVERTISE_ADDRESS}"
@@ -412,12 +412,12 @@ func generateUserData(opts CloudInitOptions) string {
         fi
         echo "${resolved}"
       }
-      echo "fluid redpanda version probe start $(date -Is)"
+      echo "deer redpanda version probe start $(date -Is)"
       if test -x /usr/bin/redpanda; then
         timeout 10s /usr/bin/redpanda --version || true
       fi
-      echo "fluid redpanda version probe complete $(date -Is)"
-      echo "fluid rpk version probe skipped $(date -Is)"
+      echo "deer redpanda version probe complete $(date -Is)"
+      echo "deer rpk version probe skipped $(date -Is)"
       echo "resolved /usr/bin/redpanda: $(readlink -f /usr/bin/redpanda || true)"
       echo "resolved /usr/bin/rpk: $(readlink -f /usr/bin/rpk || true)"
       advertise_addr=$(resolve_advertise_addr)
@@ -425,22 +425,22 @@ func generateUserData(opts CloudInitOptions) string {
         sed -i "s/__FLUID_ADVERTISE_ADDRESS__/${advertise_addr}/g" /etc/redpanda/redpanda.yaml
       fi
       echo "resolved redpanda advertise address: ${advertise_addr}"
-      echo "fluid redpanda exec: /usr/bin/rpk redpanda start --install-dir /opt/redpanda --mode dev-container --smp 1 --default-log-level=info"
+      echo "deer redpanda exec: /usr/bin/rpk redpanda start --install-dir /opt/redpanda --mode dev-container --smp 1 --default-log-level=info"
       exec /usr/bin/rpk redpanda start --install-dir /opt/redpanda --mode dev-container --smp 1 --default-log-level=info
     owner: root:root
     permissions: '0755'
-  - path: /usr/local/bin/fluid-wait-redpanda.sh
+  - path: /usr/local/bin/deer-wait-redpanda.sh
     content: |
       #!/bin/bash
       set -euo pipefail
-      mkdir -p /var/log/fluid
-      exec > >(tee -a /var/log/fluid/redpanda-wait.log /dev/console) 2>&1
+      mkdir -p /var/log/deer
+      exec > >(tee -a /var/log/deer/redpanda-wait.log /dev/console) 2>&1
       set -x
       broker_port=%d
       fail_stage() {
         local stage="$1"
-        echo "fluid redpanda readiness failure stage=${stage} $(date -Is)" >&2
-        /usr/local/bin/fluid-redpanda-diagnostics.sh || true
+        echo "deer redpanda readiness failure stage=${stage} $(date -Is)" >&2
+        /usr/local/bin/deer-redpanda-diagnostics.sh || true
         exit 1
       }
       listener_ready() {
@@ -451,18 +451,18 @@ func generateUserData(opts CloudInitOptions) string {
         local stage="$1"
         if [ "${readiness_pending_stage}" != "${stage}" ]; then
           readiness_pending_stage="${stage}"
-          echo "fluid redpanda readiness pending stage=${stage} $(date -Is)"
+          echo "deer redpanda readiness pending stage=${stage} $(date -Is)"
         fi
       }
       service_state() {
         local result exec_status exec_code active_state sub_state n_restarts
-        result=$(systemctl show fluid-redpanda.service --property=Result --value 2>/dev/null || true)
-        exec_status=$(systemctl show fluid-redpanda.service --property=ExecMainStatus --value 2>/dev/null || true)
-        exec_code=$(systemctl show fluid-redpanda.service --property=ExecMainCode --value 2>/dev/null || true)
-        active_state=$(systemctl show fluid-redpanda.service --property=ActiveState --value 2>/dev/null || true)
-        sub_state=$(systemctl show fluid-redpanda.service --property=SubState --value 2>/dev/null || true)
-        n_restarts=$(systemctl show fluid-redpanda.service --property=NRestarts --value 2>/dev/null || true)
-        echo "fluid redpanda service_state active_state=${active_state} result=${result} sub_state=${sub_state} exec_main_code=${exec_code} exec_main_status=${exec_status} n_restarts=${n_restarts}"
+        result=$(systemctl show deer-redpanda.service --property=Result --value 2>/dev/null || true)
+        exec_status=$(systemctl show deer-redpanda.service --property=ExecMainStatus --value 2>/dev/null || true)
+        exec_code=$(systemctl show deer-redpanda.service --property=ExecMainCode --value 2>/dev/null || true)
+        active_state=$(systemctl show deer-redpanda.service --property=ActiveState --value 2>/dev/null || true)
+        sub_state=$(systemctl show deer-redpanda.service --property=SubState --value 2>/dev/null || true)
+        n_restarts=$(systemctl show deer-redpanda.service --property=NRestarts --value 2>/dev/null || true)
+        echo "deer redpanda service_state active_state=${active_state} result=${result} sub_state=${sub_state} exec_main_code=${exec_code} exec_main_status=${exec_status} n_restarts=${n_restarts}"
         if [ "${sub_state}" = "failed" ] && [ -n "${exec_status}" ] && [ "${exec_status}" != "0" ]; then
           return 0
         fi
@@ -478,11 +478,11 @@ func generateUserData(opts CloudInitOptions) string {
         return 1
       }
       broker_ready() {
-        if ! systemctl is-enabled --quiet fluid-redpanda.service; then
+        if ! systemctl is-enabled --quiet deer-redpanda.service; then
           note_pending_stage "service_enabled"
           return 1
         fi
-        if ! systemctl is-active --quiet fluid-redpanda.service; then
+        if ! systemctl is-active --quiet deer-redpanda.service; then
           note_pending_stage "service_active"
           return 1
         fi
@@ -499,35 +499,35 @@ func generateUserData(opts CloudInitOptions) string {
         readiness_pending_stage=""
         return 0
       }
-      echo "fluid redpanda readiness wait started $(date -Is)"
+      echo "deer redpanda readiness wait started $(date -Is)"
       for attempt in $(seq 1 180); do
         if test -x /usr/bin/redpanda && broker_ready; then
-          echo "fluid redpanda readiness wait success $(date -Is)"
-          echo "fluid redpanda ready on attempt ${attempt} $(date -Is)"
+          echo "deer redpanda readiness wait success $(date -Is)"
+          echo "deer redpanda ready on attempt ${attempt} $(date -Is)"
           exit 0
         fi
         if service_state; then
           fail_stage "systemd_start"
         fi
-        if systemctl is-failed --quiet fluid-redpanda.service; then
+        if systemctl is-failed --quiet deer-redpanda.service; then
           fail_stage "systemd_start"
         fi
         if [ $((attempt %%%% 15)) -eq 0 ]; then
           if [ -n "${readiness_pending_stage}" ]; then
-            echo "fluid redpanda readiness pending stage=${readiness_pending_stage} $(date -Is)"
+            echo "deer redpanda readiness pending stage=${readiness_pending_stage} $(date -Is)"
           fi
-          systemctl status fluid-redpanda.service --no-pager || true
-          systemctl show fluid-redpanda.service --property=Result --property=ExecMainStatus --property=SubState --property=NRestarts --no-pager || true
+          systemctl status deer-redpanda.service --no-pager || true
+          systemctl show deer-redpanda.service --property=Result --property=ExecMainStatus --property=SubState --property=NRestarts --no-pager || true
           ss -ltn || true
           ss -H -ltn "( sport = :${broker_port} )" || true
         fi
         sleep 2
       done
-      echo "fluid redpanda readiness wait timeout $(date -Is)"
+      echo "deer redpanda readiness wait timeout $(date -Is)"
       fail_stage "wait_timeout"
     owner: root:root
     permissions: '0755'
-  - path: /etc/systemd/system/fluid-redpanda.service
+  - path: /etc/systemd/system/deer-redpanda.service
     content: |
       [Unit]
       Description=Fluid Redpanda Broker
@@ -538,8 +538,8 @@ func generateUserData(opts CloudInitOptions) string {
 
       [Service]
       Type=simple
-      EnvironmentFile=-/etc/default/fluid-redpanda
-      ExecStart=/usr/local/bin/fluid-redpanda-start.sh
+      EnvironmentFile=-/etc/default/deer-redpanda
+      ExecStart=/usr/local/bin/deer-redpanda-start.sh
       StandardOutput=journal+console
       StandardError=journal+console
       Restart=on-failure
@@ -552,13 +552,13 @@ func generateUserData(opts CloudInitOptions) string {
 `, configAdvertiseAddr, port, configAdvertiseAddr, port, port, archiveURL, advertiseAddr, port)
 		runcmd = append(runcmd,
 			"mkdir -p /etc/redpanda /var/lib/redpanda/data",
-			"/usr/local/bin/fluid-install-redpanda.sh",
-			"/usr/local/bin/fluid-enable-redpanda.sh",
-			"/usr/local/bin/fluid-wait-redpanda.sh",
+			"/usr/local/bin/deer-install-redpanda.sh",
+			"/usr/local/bin/deer-enable-redpanda.sh",
+			"/usr/local/bin/deer-wait-redpanda.sh",
 		)
 	}
 	if opts.PhoneHomeURL != "" {
-		runcmd = append(runcmd, "/usr/local/bin/fluid-notify-ready.sh")
+		runcmd = append(runcmd, "/usr/local/bin/deer-notify-ready.sh")
 	}
 
 	var runcmdBuilder strings.Builder

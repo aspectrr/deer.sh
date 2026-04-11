@@ -30,7 +30,7 @@ type KeyProvider interface {
 	GetCredentials(ctx context.Context, sandboxID, username string) (*Credentials, error)
 
 	// GetSourceVMCredentials returns read-only SSH credentials for a source/golden VM.
-	// Uses the "fluid-readonly" principal instead of "sandbox".
+	// Uses the "deer-readonly" principal instead of "sandbox".
 	GetSourceVMCredentials(ctx context.Context, sourceVMName string) (*Credentials, error)
 
 	// CleanupSandbox removes all cached credentials for a sandbox.
@@ -345,13 +345,13 @@ func (m *KeyManager) generateCredentials(ctx context.Context, sandboxID, usernam
 }
 
 // GetSourceVMCredentials implements KeyProvider.
-// Issues a cert with principal "fluid-readonly" for read-only access to golden VMs.
+// Issues a cert with principal "deer-readonly" for read-only access to golden VMs.
 func (m *KeyManager) GetSourceVMCredentials(ctx context.Context, sourceVMName string) (*Credentials, error) {
 	if sourceVMName == "" {
 		return nil, fmt.Errorf("sourceVMName is required")
 	}
 
-	username := "fluid-readonly"
+	username := "deer-readonly"
 
 	// Use a virtual ID for locking and caching.
 	virtualID := "sourcevm:" + sourceVMName
@@ -426,7 +426,7 @@ func (m *KeyManager) generateSourceVMCredentials(ctx context.Context, sourceVMNa
 		SandboxID:   sourceVMName,
 		PublicKey:   publicKey,
 		TTL:         m.cfg.CertificateTTL,
-		Principals:  []string{"fluid-readonly"},
+		Principals:  []string{"deer-readonly"},
 		SourceIP:    "internal",
 		RequestTime: m.timeNowFn(),
 	}
@@ -453,7 +453,7 @@ func (m *KeyManager) generateSourceVMCredentials(ctx context.Context, sourceVMNa
 		PrivateKeyPath:  privateKeyPath,
 		CertificatePath: certPath,
 		PublicKey:       publicKey,
-		Username:        "fluid-readonly",
+		Username:        "deer-readonly",
 		ValidUntil:      cert.ValidBefore,
 		SandboxID:       sourceVMName,
 	}, nil

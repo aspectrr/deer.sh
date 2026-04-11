@@ -491,11 +491,11 @@ func (m RedactionModel) renderCustomRow(idx int, pattern string) string {
 }
 
 func renderHighlighted(text string, style lipgloss.Style) string {
-	re := regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b|` +
-		`\b[A-Za-z0-9+/]{20,}=*\b|` +
-		`\bAKIA[0-9A-Z]{16}\b|` +
-		`-----BEGIN [A-Z ]+PRIVATE KEY-----|` +
-		`\b(postgres|mysql|mongodb|redis)://[^\s]+`)
+	patterns := make([]string, len(builtinPatterns))
+	for i, p := range builtinPatterns {
+		patterns[i] = p.pattern
+	}
+	re := regexp.MustCompile(strings.Join(patterns, "|"))
 	locs := re.FindAllStringIndex(text, -1)
 	if len(locs) == 0 {
 		return text

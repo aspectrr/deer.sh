@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -126,6 +127,10 @@ func (rs *ReadinessServer) handleReady(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sandboxID := parts[0]
+	if len(sandboxID) > 128 || !isValidSandboxID(sandboxID) {
+		http.Error(w, "invalid sandbox_id", http.StatusBadRequest)
+		return
+	}
 
 	rs.logger.Info("phone_home received", "sandbox_id", sandboxID)
 
@@ -166,4 +171,10 @@ func (rs *ReadinessServer) ReadyIP(sandboxID string) string {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.readyIP[sandboxID]
+}
+
+var sandboxIDRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+func isValidSandboxID(id string) bool {
+	return sandboxIDRe.MatchString(id)
 }

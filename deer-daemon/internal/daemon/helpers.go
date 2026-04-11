@@ -22,7 +22,7 @@ func (s *Server) adhocSourceVMManager(conn *deerv1.SourceHostConnection) (*sourc
 	// Two SSH users are involved:
 	// - conn.GetSshUser() (default "deer-daemon") connects to the remote libvirt
 	//   host for virsh/qemu operations (VM listing, snapshots, disk access).
-	// - "fluid-readonly" (passed to NewManager) connects to source VMs running on
+	// - "deer-readonly" (passed to NewManager) connects to source VMs running on
 	//   that host for read-only file and command access.
 	user := conn.GetSshUser()
 	if user == "" {
@@ -47,7 +47,7 @@ func (s *Server) adhocSourceVMManager(conn *deerv1.SourceHostConnection) (*sourc
 		proxyJump = fmt.Sprintf("%s@%s:%d", user, host, port)
 	}
 
-	return sourcevm.NewManager(uri, "default", s.keyMgr, "fluid-readonly", proxyJump, s.sshIdentityFile, s.caPubKey, s.logger), nil
+	return sourcevm.NewManager(uri, "default", s.keyMgr, "deer-readonly", proxyJump, s.sshIdentityFile, s.caPubKey, s.logger), nil
 }
 
 // sourceHostConns builds SourceHostConnections from the daemon's configured source hosts.
@@ -88,6 +88,11 @@ func (s *Server) resolveSourceHost(ctx context.Context, vmName string) (*deerv1.
 	s.vmHostMu.RUnlock()
 
 	// Discover across all configured source hosts
+	// Clear stale entries before refreshing to prevent unbounded growth.
+	s.vmHostMu.Lock()
+	s.vmHostCache = make(map[string]*deerv1.SourceHostConnection)
+	s.vmHostMu.Unlock()
+
 	for _, conn := range s.sourceHostConns() {
 		mgr, err := s.adhocSourceVMManager(conn)
 		if err != nil {

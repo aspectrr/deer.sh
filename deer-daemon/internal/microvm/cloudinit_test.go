@@ -11,7 +11,7 @@ import (
 	"github.com/diskfs/go-diskfs/filesystem/iso9660"
 )
 
-const testCAPubKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestCAKeyForUnitTests fluid-ca@test"
+const testCAPubKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestCAKeyForUnitTests deer-ca@test"
 
 func TestGenerateCloudInitISO(t *testing.T) {
 	workDir := t.TempDir()
@@ -123,7 +123,7 @@ func TestGenerateCloudInitISO(t *testing.T) {
 	if !strings.Contains(userContent, "resize_rootfs: true") {
 		t.Errorf("user-data missing resize_rootfs, got: %q", userContent)
 	}
-	if strings.Contains(userContent, "fluid-install-redpanda.sh") || strings.Contains(userContent, "fluid-redpanda.service") {
+	if strings.Contains(userContent, "deer-install-redpanda.sh") || strings.Contains(userContent, "deer-redpanda.service") {
 		t.Errorf("non-kafka user-data should not include redpanda assets, got: %q", userContent)
 	}
 }
@@ -194,19 +194,19 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	}
 	userContent := string(userBytes)
 
-	if !strings.Contains(userContent, "fluid-install-redpanda.sh") {
+	if !strings.Contains(userContent, "deer-install-redpanda.sh") {
 		t.Fatalf("expected redpanda install script in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid-redpanda-start.sh") {
+	if !strings.Contains(userContent, "deer-redpanda-start.sh") {
 		t.Fatalf("expected redpanda start wrapper in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid-enable-redpanda.sh") {
+	if !strings.Contains(userContent, "deer-enable-redpanda.sh") {
 		t.Fatalf("expected redpanda enable wrapper in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid-wait-redpanda.sh") {
+	if !strings.Contains(userContent, "deer-wait-redpanda.sh") {
 		t.Fatalf("expected redpanda readiness wait script in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid-redpanda-diagnostics.sh") {
+	if !strings.Contains(userContent, "deer-redpanda-diagnostics.sh") {
 		t.Fatalf("expected redpanda diagnostics script in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "empty_seed_starts_cluster: true") {
@@ -233,7 +233,7 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "find /var/log /var/lib/redpanda -maxdepth 4 -type f") {
 		t.Fatalf("expected redpanda log discovery in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid-redpanda.service") {
+	if !strings.Contains(userContent, "deer-redpanda.service") {
 		t.Fatalf("expected redpanda systemd unit in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "StandardOutput=journal+console") {
@@ -248,25 +248,25 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "archive_path=\"$tmpdir/redpanda.tar.gz\"") {
 		t.Fatalf("expected archive-based install path in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "tmpdir=$(mktemp -d /var/tmp/fluid-redpanda.XXXXXX)") {
+	if !strings.Contains(userContent, "tmpdir=$(mktemp -d /var/tmp/deer-redpanda.XXXXXX)") {
 		t.Fatalf("expected /var/tmp install workspace in user-data, got %q", userContent)
 	}
 	if strings.Contains(userContent, "trap 'rm -rf \"$tmpdir\"' EXIT") {
 		t.Fatalf("did not expect install workspace cleanup trap in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda archive download complete") {
+	if !strings.Contains(userContent, "deer redpanda archive download complete") {
 		t.Fatalf("expected archive download progress marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda extraction complete") {
+	if !strings.Contains(userContent, "deer redpanda extraction complete") {
 		t.Fatalf("expected extraction progress marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda binary resolution complete") {
+	if !strings.Contains(userContent, "deer redpanda binary resolution complete") {
 		t.Fatalf("expected binary resolution progress marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda env file written") {
+	if !strings.Contains(userContent, "deer redpanda env file written") {
 		t.Fatalf("expected env-file progress marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda temp cleanup skipped for ephemeral sandbox") {
+	if !strings.Contains(userContent, "deer redpanda temp cleanup skipped for ephemeral sandbox") {
 		t.Fatalf("expected explicit temp cleanup skip marker in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "if tar -tzf \"$archive_path\" | grep -Eq '^(\\./)?(usr/bin/redpanda|opt/redpanda/)'; then") {
@@ -278,7 +278,7 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "tar -xzf \"$archive_path\" -C \"$extract_root\"") {
 		t.Fatalf("expected fallback tar extraction into a staging dir in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "find /opt/fluid-redpanda-root -type f -path '*/bin/redpanda' -perm -u+x") {
+	if !strings.Contains(userContent, "find /opt/deer-redpanda-root -type f -path '*/bin/redpanda' -perm -u+x") {
 		t.Fatalf("expected redpanda binary discovery in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "ln -sfn \"$redpanda_install_dir\" /opt/redpanda") {
@@ -293,10 +293,10 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if strings.Contains(userContent, "rpk_bin=\"$redpanda_install_dir/libexec/rpk\"") {
 		t.Fatalf("did not expect libexec rpk runtime preference in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "find /opt/fluid-redpanda-root -type f -path '*/bin/rpk' -perm -u+x") {
+	if !strings.Contains(userContent, "find /opt/deer-redpanda-root -type f -path '*/bin/rpk' -perm -u+x") {
 		t.Fatalf("expected rpk binary discovery in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "cat >/etc/default/fluid-redpanda <<EOF") {
+	if !strings.Contains(userContent, "cat >/etc/default/deer-redpanda <<EOF") {
 		t.Fatalf("expected resolved runtime env file in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "REDPANDA_LIBEXEC_BIN=$redpanda_libexec") || !strings.Contains(userContent, "RPK_LIBEXEC_BIN=$rpk_libexec") {
@@ -323,10 +323,10 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "resolved redpanda library path: $REDPANDA_LD_LIBRARY_PATH") {
 		t.Fatalf("expected resolved redpanda library path output in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda version probe start") || !strings.Contains(userContent, "fluid redpanda version probe complete") {
+	if !strings.Contains(userContent, "deer redpanda version probe start") || !strings.Contains(userContent, "deer redpanda version probe complete") {
 		t.Fatalf("expected redpanda version probe markers in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid rpk version probe skipped") {
+	if !strings.Contains(userContent, "deer rpk version probe skipped") {
 		t.Fatalf("expected rpk version probe skip marker in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "resolved /usr/bin/redpanda: $(readlink -f /usr/bin/redpanda || true)") {
@@ -350,22 +350,22 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "resolved redpanda advertise address: ${advertise_addr}") {
 		t.Fatalf("expected advertise-address diagnostics in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "===== /usr/local/bin/fluid-redpanda-start.sh =====") || !strings.Contains(userContent, "===== wrapper targets =====") || !strings.Contains(userContent, "===== /opt/redpanda/bin/redpanda =====") || !strings.Contains(userContent, "===== /opt/redpanda/bin/rpk =====") {
+	if !strings.Contains(userContent, "===== /usr/local/bin/deer-redpanda-start.sh =====") || !strings.Contains(userContent, "===== wrapper targets =====") || !strings.Contains(userContent, "===== /opt/redpanda/bin/redpanda =====") || !strings.Contains(userContent, "===== /opt/redpanda/bin/rpk =====") {
 		t.Fatalf("expected wrapper diagnostics in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda service start invoked") {
+	if !strings.Contains(userContent, "deer redpanda service start invoked") {
 		t.Fatalf("expected service start progress marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda systemd enable complete") {
+	if !strings.Contains(userContent, "deer redpanda systemd enable complete") {
 		t.Fatalf("expected systemd enable progress marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda readiness wait started") {
+	if !strings.Contains(userContent, "deer redpanda readiness wait started") {
 		t.Fatalf("expected readiness wait start marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda readiness wait success") {
+	if !strings.Contains(userContent, "deer redpanda readiness wait success") {
 		t.Fatalf("expected readiness wait success marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda readiness wait timeout") {
+	if !strings.Contains(userContent, "deer redpanda readiness wait timeout") {
 		t.Fatalf("expected readiness wait timeout marker in user-data, got %q", userContent)
 	}
 	if !strings.Contains(userContent, "service_state() {") {
@@ -398,7 +398,7 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "note_pending_stage \"rpk_cluster_info\"") {
 		t.Fatalf("expected readiness stage marker for cluster info in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda readiness pending stage=${stage}") {
+	if !strings.Contains(userContent, "deer redpanda readiness pending stage=${stage}") {
 		t.Fatalf("expected dynamic readiness pending marker in user-data, got %q", userContent)
 	}
 	if strings.Contains(userContent, "if timeout 30s \"${RPK_BIN}\" topic list --brokers 127.0.0.1:9092 >/dev/null 2>&1; then") {
@@ -419,7 +419,7 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "exec /usr/bin/rpk redpanda start --install-dir /opt/redpanda --mode dev-container --smp 1 --default-log-level=info") {
 		t.Fatalf("expected wrapper-based rpk startup without config flag, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid redpanda exec: /usr/bin/rpk redpanda start --install-dir /opt/redpanda --mode dev-container --smp 1 --default-log-level=info") {
+	if !strings.Contains(userContent, "deer redpanda exec: /usr/bin/rpk redpanda start --install-dir /opt/redpanda --mode dev-container --smp 1 --default-log-level=info") {
 		t.Fatalf("expected explicit rpk startup diagnostics in user-data, got %q", userContent)
 	}
 	if strings.Contains(userContent, "printf '%%s\\n'") {
@@ -446,10 +446,10 @@ func TestGenerateCloudInitISO_WithKafkaBroker(t *testing.T) {
 	if !strings.Contains(userContent, "if [ -n \"${REDPANDA_BIN:-}\" ]; then") {
 		t.Fatalf("expected readiness phone-home guard in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid phone_home start") {
+	if !strings.Contains(userContent, "deer phone_home start") {
 		t.Fatalf("expected explicit phone-home start marker in user-data, got %q", userContent)
 	}
-	if !strings.Contains(userContent, "fluid notify ready complete") {
+	if !strings.Contains(userContent, "deer notify ready complete") {
 		t.Fatalf("expected explicit notify completion marker in user-data, got %q", userContent)
 	}
 	if strings.Contains(userContent, "\nphone_home:") {

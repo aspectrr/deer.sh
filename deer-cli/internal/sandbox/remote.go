@@ -105,15 +105,16 @@ func (r *RemoteService) CreateSandbox(ctx context.Context, req CreateRequest) (*
 
 func (r *RemoteService) CreateSandboxStream(ctx context.Context, req CreateRequest, onProgress func(step string, stepNum, total int)) (*SandboxInfo, error) {
 	stream, err := r.client.CreateSandboxStream(ctx, &deerv1.CreateSandboxCommand{
-		BaseImage:  req.SourceVM,
-		SourceVm:   req.SourceVM,
-		Name:       req.Name,
-		Vcpus:      int32(req.VCPUs),
-		MemoryMb:   int32(req.MemoryMB),
-		TtlSeconds: int32(req.TTLSeconds),
-		AgentId:    req.AgentID,
-		Network:    req.Network,
-		Live:       req.Live,
+		BaseImage:         req.SourceVM,
+		SourceVm:          req.SourceVM,
+		Name:              req.Name,
+		Vcpus:             int32(req.VCPUs),
+		MemoryMb:          int32(req.MemoryMB),
+		TtlSeconds:        int32(req.TTLSeconds),
+		AgentId:           req.AgentID,
+		Network:           req.Network,
+		Live:              req.Live,
+		SimpleKafkaBroker: req.SimpleKafkaBroker,
 	})
 	if err != nil {
 		// Fall back to unary if streaming is unimplemented (older daemon)

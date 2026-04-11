@@ -46,7 +46,7 @@ source.qcow2        # Read-only base image (shared)
       <CodeBlock
         code={`# Network topology:
 host-eth0
-  └── fluid0 (bridge, 10.0.0.1/24)
+  └── deer0 (bridge, 10.0.0.1/24)
         ├── tap-sbx-001 (10.0.0.2)
         ├── tap-sbx-002 (10.0.0.3)
         └── tap-sbx-003 (10.0.0.4)`}

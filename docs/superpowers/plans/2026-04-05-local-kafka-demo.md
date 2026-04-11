@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a one-command local demo (`make demo-start`) that spins up the full fluid Kafka stub flow on a Mac using Lima, showing an agent diagnosing a broken Logstash pipeline with live weather data.
+**Goal:** Build a one-command local demo (`make demo-start`) that spins up the full deer Kafka stub flow on a Mac using Lima, showing an agent diagnosing a broken Logstash pipeline with live weather data.
 
-**Architecture:** Lima VM hosts deer-daemon, Docker Compose (Redpanda + Elasticsearch + Kibana + weather producer), and QEMU microVM sandboxes. The Mac runs only the fluid CLI and a browser. Lima port-forwards gRPC (:9091) and Kibana (:5601) to localhost. The sandbox microVM has Logstash pre-installed (from a prepared source image) and a Redpanda stub injected by the daemon at creation time. Logstash reads from the stub and outputs to Elasticsearch at the Lima virbr0 gateway (192.168.122.1:9200).
+**Architecture:** Lima VM hosts deer-daemon, Docker Compose (Redpanda + Elasticsearch + Kibana + weather producer), and QEMU microVM sandboxes. The Mac runs only the deer CLI and a browser. Lima port-forwards gRPC (:9091) and Kibana (:5601) to localhost. The sandbox microVM has Logstash pre-installed (from a prepared source image) and a Redpanda stub injected by the daemon at creation time. Logstash reads from the stub and outputs to Elasticsearch at the Lima virbr0 gateway (192.168.122.1:9200).
 
 **Tech Stack:** Lima, QEMU, Docker Compose, Redpanda, Elasticsearch 8.x, Kibana 8.x, Logstash 8.x, Open-Meteo API (no key), Bash
 
@@ -127,7 +127,7 @@ services:
 - [ ] **Step 2: Validate compose syntax inside Lima**
 
 ```bash
-limactl shell fluid-demo -- bash -c "cd /path/to/repo/demo && docker compose config --quiet"
+limactl shell deer-demo -- bash -c "cd /path/to/repo/demo && docker compose config --quiet"
 ```
 
 Expected: no output (valid syntax)
@@ -455,7 +455,7 @@ output {
 - [ ] **Step 7: Create `demo/logstash/logstash.yml`**
 
 ```yaml
-node.name: fluid-demo-sandbox
+node.name: deer-demo-sandbox
 pipeline.workers: 2
 pipeline.batch.size: 125
 pipeline.batch.delay: 50
@@ -541,7 +541,7 @@ done
 
 PIPELINE_DIR="${REPO_ROOT}/demo/logstash/pipeline"
 LOGSTASH_YML="${REPO_ROOT}/demo/logstash/logstash.yml"
-WORKDIR="$(mktemp -d /tmp/fluid-prepare-source.XXXXXX)"
+WORKDIR="$(mktemp -d /tmp/deer-prepare-source.XXXXXX)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 BASE_IMAGE_URL="https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-${ARCH}.img"
@@ -804,12 +804,12 @@ curl -sf -X POST "${KIBANA_URL}/api/saved_objects/index-pattern/weather-all" \
 log "Index pattern created: weather-*"
 
 log "Creating weather dashboard..."
-curl -sf -X POST "${KIBANA_URL}/api/saved_objects/dashboard/fluid-weather-demo" \
+curl -sf -X POST "${KIBANA_URL}/api/saved_objects/dashboard/deer-weather-demo" \
     -H "kbn-xsrf: true" \
     -H "Content-Type: application/json" \
     -d '{
   "attributes": {
-    "title": "fluid Demo: Weather by City",
+    "title": "deer Demo: Weather by City",
     "description": "Live weather data from the Kafka stub pipeline. Events appear here after the Logstash grok bug is fixed.",
     "panelsJSON": "[]",
     "optionsJSON": "{\"useMargins\":true}",
@@ -823,7 +823,7 @@ curl -sf -X POST "${KIBANA_URL}/api/saved_objects/dashboard/fluid-weather-demo" 
     }
   }
 }' > /dev/null
-log "Dashboard created: fluid Demo: Weather by City"
+log "Dashboard created: deer Demo: Weather by City"
 
 log ""
 log "Kibana setup complete."
@@ -868,14 +868,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-LIMA_NAME="fluid-demo"
+LIMA_NAME="deer-demo"
 LIMA_CPUS=4
 LIMA_MEMORY="8GiB"
 LIMA_DISK="100GiB"
 DRY_RUN=0
 
-SOURCE_IMAGE_PATH="/var/lib/fluid-demo/logstash-source.qcow2"
-DAEMON_WORKDIR="/var/lib/fluid-demo/daemon"
+SOURCE_IMAGE_PATH="/var/lib/deer-demo/logstash-source.qcow2"
+DAEMON_WORKDIR="/var/lib/deer-demo/daemon"
 
 usage() {
     cat <<'EOF'
@@ -1002,7 +1002,7 @@ fi
 
 # ---- microVM assets (kernel + initrd) ----
 log "Downloading microVM kernel and initrd assets..."
-ASSETS_DIR="/var/lib/fluid-demo/assets"
+ASSETS_DIR="/var/lib/deer-demo/assets"
 run_guest "
 sudo mkdir -p ${ASSETS_DIR}
 bash ${GUEST_REPO}/scripts/download-microvm-assets.sh --output-dir ${ASSETS_DIR}
@@ -1010,7 +1010,7 @@ bash ${GUEST_REPO}/scripts/download-microvm-assets.sh --output-dir ${ASSETS_DIR}
 
 # ---- deer-daemon config ----
 log "Writing deer-daemon config..."
-DAEMON_CONFIG="/var/lib/fluid-demo/daemon.yaml"
+DAEMON_CONFIG="/var/lib/deer-demo/daemon.yaml"
 IMAGES_DIR="${SOURCE_IMAGE_PATH%/*}"
 
 run_guest "
@@ -1053,11 +1053,11 @@ state:
   db_path: ${DAEMON_WORKDIR}/state.db
 
 ssh:
-  ca_key_path: /var/lib/fluid-demo/ssh_ca
-  ca_pub_key_path: /var/lib/fluid-demo/ssh_ca.pub
+  ca_key_path: /var/lib/deer-demo/ssh_ca
+  ca_pub_key_path: /var/lib/deer-demo/ssh_ca.pub
   key_dir: ${DAEMON_WORKDIR}/keys
   default_user: sandbox
-  identity_file: /var/lib/fluid-demo/identity
+  identity_file: /var/lib/deer-demo/identity
 
 libvirt:
   uri: qemu:///system
@@ -1091,12 +1091,12 @@ done
 
 log ""
 log "============================================================"
-log "fluid demo is ready!"
+log "deer demo is ready!"
 log ""
 log "  Daemon gRPC:  localhost:9091"
 log "  Kibana:       http://localhost:5601"
 log ""
-log "  Run the fluid CLI on your Mac:"
+log "  Run the deer CLI on your Mac:"
 log "    deer connect localhost:9091"
 log "    fluid"
 log ""
@@ -1181,7 +1181,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-LIMA_NAME="fluid-demo"
+LIMA_NAME="deer-demo"
 
 usage() { printf 'Usage: ./scripts/demo/stop.sh [--repo-root <path>]\n'; }
 
@@ -1243,7 +1243,7 @@ demo-stop:
 
 demo-reset:
 	bash scripts/demo/stop.sh || true
-	limactl delete fluid-demo --force 2>/dev/null || true
+	limactl delete deer-demo --force 2>/dev/null || true
 	@echo "Demo fully reset. Run 'make demo-start' to start fresh."
 ```
 
@@ -1274,7 +1274,7 @@ bash demo/prepare-source_test.sh
 
 # 3. Full run (requires limactl + ~20 min for first boot + source image)
 make demo-start
-# Expected: "fluid demo is ready!" with localhost:9091 and localhost:5601
+# Expected: "deer demo is ready!" with localhost:9091 and localhost:5601
 
 # 4. Verify services
 curl http://localhost:9200          # ES cluster info
@@ -1288,7 +1288,7 @@ fluid
 
 # 6. Verify Kibana shows data
 open http://localhost:5601/app/dashboards
-# Dashboard "fluid Demo: Weather by City" should show events
+# Dashboard "deer Demo: Weather by City" should show events
 
 # 7. Stop
 make demo-stop

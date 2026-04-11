@@ -103,3 +103,332 @@ func TestHandleListSandboxKafkaStubs(t *testing.T) {
 		t.Fatalf("expected count=1, got %v", resp["count"])
 	}
 }
+
+func TestHandleGetKafkaCaptureConfig_Success(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	existing := &store.KafkaCaptureConfig{
+		ID:               "cfg-get-1",
+		OrgID:            testOrg.ID,
+		SourceHostID:     "sh-1",
+		SourceVM:         "logstash-1",
+		Name:             "Logs",
+		BootstrapServers: store.StringSlice{"kafka-1:9092"},
+		Topics:           store.StringSlice{"logs"},
+		Codec:            "json",
+		Enabled:          true,
+	}
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		if id == existing.ID {
+			return existing, nil
+		}
+		return nil, store.ErrNotFound
+	}
+
+	s := newTestServer(ms, nil)
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "GET", "/v1/orgs/test-org/kafka-capture-configs/cfg-get-1", nil)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	resp := parseJSONResponse(rr)
+	if resp["id"] != "cfg-get-1" {
+		t.Fatalf("expected id=cfg-get-1, got %v", resp["id"])
+	}
+	if resp["name"] != "Logs" {
+		t.Fatalf("expected name=Logs, got %v", resp["name"])
+	}
+}
+
+func TestHandleGetKafkaCaptureConfig_NotFound(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		return nil, store.ErrNotFound
+	}
+
+	s := newTestServer(ms, nil)
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "GET", "/v1/orgs/test-org/kafka-capture-configs/cfg-missing", nil)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleGetKafkaCaptureConfig_WrongOrg(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	otherOrgConfig := &store.KafkaCaptureConfig{
+		ID:               "cfg-other-org",
+		OrgID:            "ORG-other",
+		SourceHostID:     "sh-2",
+		SourceVM:         "logstash-2",
+		Name:             "Other",
+		BootstrapServers: store.StringSlice{"kafka-2:9092"},
+		Topics:           store.StringSlice{"other-logs"},
+		Codec:            "json",
+		Enabled:          true,
+	}
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		if id == otherOrgConfig.ID {
+			return otherOrgConfig, nil
+		}
+		return nil, store.ErrNotFound
+	}
+
+	s := newTestServer(ms, nil)
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "GET", "/v1/orgs/test-org/kafka-capture-configs/cfg-other-org", nil)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleUpdateKafkaCaptureConfig_Success(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	existing := &store.KafkaCaptureConfig{
+		ID:               "cfg-upd-1",
+		OrgID:            testOrg.ID,
+		SourceHostID:     "sh-1",
+		SourceVM:         "logstash-1",
+		Name:             "Logs",
+		BootstrapServers: store.StringSlice{"kafka-1:9092"},
+		Topics:           store.StringSlice{"logs"},
+		Codec:            "json",
+		Enabled:          true,
+	}
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		if id == existing.ID {
+			return existing, nil
+		}
+		return nil, store.ErrNotFound
+	}
+
+	var updated *store.KafkaCaptureConfig
+	ms.UpdateKafkaCaptureConfigFn = func(_ context.Context, cfg *store.KafkaCaptureConfig) error {
+		updated = cfg
+		return nil
+	}
+
+	s := newTestServer(ms, nil)
+	body := httptest.NewRequest("PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-upd-1", strings.NewReader(`{
+		"source_host_id":"sh-1",
+		"source_vm":"logstash-1",
+		"name":"Updated Logs",
+		"bootstrap_servers":["kafka-1:9092","kafka-2:9092"],
+		"topics":["logs","metrics"],
+		"codec":"json",
+		"enabled":false
+	}`))
+	body.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-upd-1", body)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if updated == nil {
+		t.Fatal("expected UpdateKafkaCaptureConfig to be called")
+	}
+	if updated.Name != "Updated Logs" {
+		t.Fatalf("expected name=Updated Logs, got %s", updated.Name)
+	}
+	if updated.Enabled != false {
+		t.Fatalf("expected enabled=false, got %v", updated.Enabled)
+	}
+	resp := parseJSONResponse(rr)
+	if resp["name"] != "Updated Logs" {
+		t.Fatalf("expected response name=Updated Logs, got %v", resp["name"])
+	}
+}
+
+func TestHandleUpdateKafkaCaptureConfig_EmptyBootstrapServers(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	existing := &store.KafkaCaptureConfig{
+		ID:               "cfg-upd-bs",
+		OrgID:            testOrg.ID,
+		SourceHostID:     "sh-1",
+		SourceVM:         "logstash-1",
+		Name:             "Logs",
+		BootstrapServers: store.StringSlice{"kafka-1:9092"},
+		Topics:           store.StringSlice{"logs"},
+		Codec:            "json",
+		Enabled:          true,
+	}
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		if id == existing.ID {
+			return existing, nil
+		}
+		return nil, store.ErrNotFound
+	}
+
+	s := newTestServer(ms, nil)
+	body := httptest.NewRequest("PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-upd-bs", strings.NewReader(`{
+		"source_host_id":"sh-1",
+		"source_vm":"logstash-1",
+		"name":"Logs",
+		"bootstrap_servers":[],
+		"topics":["logs"],
+		"codec":"json",
+		"enabled":true
+	}`))
+	body.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-upd-bs", body)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleUpdateKafkaCaptureConfig_EmptyTopics(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	existing := &store.KafkaCaptureConfig{
+		ID:               "cfg-upd-topics",
+		OrgID:            testOrg.ID,
+		SourceHostID:     "sh-1",
+		SourceVM:         "logstash-1",
+		Name:             "Logs",
+		BootstrapServers: store.StringSlice{"kafka-1:9092"},
+		Topics:           store.StringSlice{"logs"},
+		Codec:            "json",
+		Enabled:          true,
+	}
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		if id == existing.ID {
+			return existing, nil
+		}
+		return nil, store.ErrNotFound
+	}
+
+	s := newTestServer(ms, nil)
+	body := httptest.NewRequest("PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-upd-topics", strings.NewReader(`{
+		"source_host_id":"sh-1",
+		"source_vm":"logstash-1",
+		"name":"Logs",
+		"bootstrap_servers":["kafka-1:9092"],
+		"topics":[],
+		"codec":"json",
+		"enabled":true
+	}`))
+	body.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-upd-topics", body)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleUpdateKafkaCaptureConfig_NotFound(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		return nil, store.ErrNotFound
+	}
+
+	s := newTestServer(ms, nil)
+	body := httptest.NewRequest("PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-missing", strings.NewReader(`{
+		"source_host_id":"sh-1",
+		"source_vm":"logstash-1",
+		"name":"Logs",
+		"bootstrap_servers":["kafka-1:9092"],
+		"topics":["logs"],
+		"codec":"json",
+		"enabled":true
+	}`))
+	body.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "PATCH", "/v1/orgs/test-org/kafka-capture-configs/cfg-missing", body)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleDeleteKafkaCaptureConfig_Success(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	existing := &store.KafkaCaptureConfig{
+		ID:               "cfg-del-1",
+		OrgID:            testOrg.ID,
+		SourceHostID:     "sh-1",
+		SourceVM:         "logstash-1",
+		Name:             "Logs",
+		BootstrapServers: store.StringSlice{"kafka-1:9092"},
+		Topics:           store.StringSlice{"logs"},
+		Codec:            "json",
+		Enabled:          true,
+	}
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		if id == existing.ID {
+			return existing, nil
+		}
+		return nil, store.ErrNotFound
+	}
+
+	var deletedID string
+	ms.DeleteKafkaCaptureConfigFn = func(_ context.Context, id string) error {
+		deletedID = id
+		return nil
+	}
+
+	s := newTestServer(ms, nil)
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "DELETE", "/v1/orgs/test-org/kafka-capture-configs/cfg-del-1", nil)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if deletedID != "cfg-del-1" {
+		t.Fatalf("expected deleted ID cfg-del-1, got %s", deletedID)
+	}
+	resp := parseJSONResponse(rr)
+	if resp["deleted"] != true {
+		t.Fatalf("expected deleted=true, got %v", resp["deleted"])
+	}
+}
+
+func TestHandleDeleteKafkaCaptureConfig_NotFound(t *testing.T) {
+	ms := &mockStore{}
+	setupOrgMembership(ms)
+
+	ms.GetKafkaCaptureConfigFn = func(_ context.Context, id string) (*store.KafkaCaptureConfig, error) {
+		return nil, store.ErrNotFound
+	}
+
+	s := newTestServer(ms, nil)
+	rr := httptest.NewRecorder()
+	req := authenticatedRequest(ms, "DELETE", "/v1/orgs/test-org/kafka-capture-configs/cfg-missing", nil)
+	s.Router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}

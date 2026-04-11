@@ -113,7 +113,13 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 
 	name := req.Name
 	if name == "" {
-		name = "sbx-" + sandboxID[4:12]
+		short := sandboxID
+		if len(short) > 12 {
+			short = short[:12]
+		} else if len(short) > 4 {
+			short = short[4:]
+		}
+		name = "sbx-" + short
 	}
 
 	// Map live flag to snapshot mode

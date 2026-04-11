@@ -250,7 +250,7 @@ type JanitorConfig struct {
 // DefaultConfig returns a configuration with sensible defaults.
 func DefaultConfig() Config {
 	home, _ := os.UserHomeDir()
-	fluidDir := filepath.Join(home, ".deer")
+	deerDir := filepath.Join(home, ".deer")
 
 	return Config{
 		Daemon: DaemonConfig{
@@ -270,8 +270,8 @@ func DefaultConfig() Config {
 			DefaultVCPUs:       2,
 			DefaultMemoryMB:    2048,
 			CommandTimeout:     5 * time.Minute,
-			IPDiscoveryTimeout: 2 * time.Minute,
-			ReadinessTimeout:   15 * time.Minute,
+			IPDiscoveryTimeout: 30 * time.Second,
+			ReadinessTimeout:   5 * time.Minute,
 		},
 		Network: NetworkConfig{
 			DefaultBridge: "virbr0",
@@ -284,19 +284,19 @@ func DefaultConfig() Config {
 			BaseDir: "/var/lib/deer-daemon/images",
 		},
 		SSH: SSHConfig{
-			CAKeyPath:    filepath.Join(fluidDir, "ssh_ca"),
-			CAPubKeyPath: filepath.Join(fluidDir, "ssh_ca.pub"),
+			CAKeyPath:    filepath.Join(deerDir, "ssh_ca"),
+			CAPubKeyPath: filepath.Join(deerDir, "ssh_ca.pub"),
 			KeyDir:       "/var/lib/deer-daemon/keys",
 			CertTTL:      30 * time.Minute,
 			DefaultUser:  "sandbox",
-			IdentityFile: filepath.Join(fluidDir, "identity"),
+			IdentityFile: filepath.Join(deerDir, "identity"),
 		},
 		Libvirt: LibvirtConfig{
 			URI:     "qemu:///system",
 			Network: "default",
 		},
 		State: StateConfig{
-			DBPath: filepath.Join(fluidDir, "sandbox-host.db"),
+			DBPath: filepath.Join(deerDir, "sandbox-host.db"),
 		},
 		Janitor: JanitorConfig{
 			Interval:   1 * time.Minute,
@@ -304,7 +304,7 @@ func DefaultConfig() Config {
 		},
 		Audit: AuditConfig{
 			Enabled:   true,
-			LogPath:   filepath.Join(fluidDir, "daemon-audit.jsonl"),
+			LogPath:   filepath.Join(deerDir, "daemon-audit.jsonl"),
 			MaxSizeMB: 50,
 		},
 	}

@@ -17,7 +17,7 @@ type PrepareStep int
 
 const (
 	StepInstallShell     PrepareStep = iota // Install restricted shell script
-	StepCreateUser                          // Create fluid-readonly user
+	StepCreateUser                          // Create deer-readonly user
 	StepInstallCAKey                        // Copy CA pub key
 	StepConfigureSSHD                       // Configure sshd to trust CA key
 	StepCreatePrincipals                    // Set up authorized principals
@@ -46,15 +46,15 @@ type PrepareResult struct {
 	SSHDRestarted     bool
 }
 
-// Prepare configures a golden VM for read-only access via the fluid-readonly user.
+// Prepare configures a golden VM for read-only access via the deer-readonly user.
 // All steps are idempotent. The sshRun function is used to execute commands on the VM.
 //
 // Steps:
-//  1. Create fluid-readonly user with restricted shell
+//  1. Create deer-readonly user with restricted shell
 //  2. Install restricted shell script
 //  3. Copy CA pub key for certificate verification
 //  4. Configure sshd to trust the CA key
-//  5. Set up authorized principals for fluid-readonly
+//  5. Set up authorized principals for deer-readonly
 //  6. Restart sshd
 func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress ProgressFunc, logger *slog.Logger) (*PrepareResult, error) {
 	if logger == nil {
@@ -78,7 +78,7 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 	//
 	// Security context: Prepare runs during one-time source VM setup by a
 	// trusted operator (not by AI agents). The SSH session is authenticated
-	// with the operator's own credentials, not the fluid-readonly user.
+	// with the operator's own credentials, not the deer-readonly user.
 	//
 	// Why base64: preparation commands contain heredocs, single quotes,
 	// double quotes, and newlines (e.g. writing the restricted shell script).
@@ -92,7 +92,7 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 	//   - sudo bash: executes with root privileges
 	//
 	// This wrapper is NOT used at runtime for agent commands. Agent commands
-	// go through RunWithCert which connects as the fluid-readonly user
+	// go through RunWithCert which connects as the deer-readonly user
 	// directly - no sudo, no base64, no privilege escalation.
 	origRun := sshRun
 	sshRun = func(ctx context.Context, command string) (string, string, int, error) {
@@ -100,10 +100,10 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 		return origRun(ctx, fmt.Sprintf("echo %s | base64 -d | sudo bash", encoded))
 	}
 
-	// 1. Install restricted shell script at /usr/local/bin/fluid-readonly-shell
+	// 1. Install restricted shell script at /usr/local/bin/deer-readonly-shell
 	report(StepInstallShell, "Installing restricted shell", false)
 	logger.Info("installing restricted shell script")
-	shellCmd := fmt.Sprintf("cat > /usr/local/bin/fluid-readonly-shell << 'FLUID_SHELL_EOF'\n%sFLUID_SHELL_EOF\nchmod 755 /usr/local/bin/fluid-readonly-shell", RestrictedShellScript)
+	shellCmd := fmt.Sprintf("cat > /usr/local/bin/deer-readonly-shell << 'DEER_SHELL_EOF'\n%sDEER_SHELL_EOF\nchmod 755 /usr/local/bin/deer-readonly-shell", RestrictedShellScript)
 	stdout, stderr, code, err := sshRun(ctx, shellCmd)
 	if err != nil || code != 0 {
 		return result, fmt.Errorf("install restricted shell: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
@@ -112,25 +112,25 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 	logger.Info("restricted shell installed")
 	report(StepInstallShell, "Installing restricted shell", true)
 
-	// 2. Create fluid-readonly user (idempotent - ignore if exists)
-	report(StepCreateUser, "Creating fluid-readonly user", false)
-	logger.Info("creating fluid-readonly user")
-	userCmd := `mkdir -p /var/empty && id fluid-readonly >/dev/null 2>&1 || useradd -r -s /usr/local/bin/fluid-readonly-shell -d /var/empty -M fluid-readonly`
+	// 2. Create deer-readonly user (idempotent - ignore if exists)
+	report(StepCreateUser, "Creating deer-readonly user", false)
+	logger.Info("creating deer-readonly user")
+	userCmd := `mkdir -p /var/empty && id deer-readonly >/dev/null 2>&1 || useradd -r -s /usr/local/bin/deer-readonly-shell -d /var/empty -M deer-readonly`
 	stdout, stderr, code, err = sshRun(ctx, userCmd)
 	if err != nil || code != 0 {
-		return result, fmt.Errorf("create fluid-readonly user: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
+		return result, fmt.Errorf("create deer-readonly user: exit=%d stdout=%q stderr=%q err=%v", code, stdout, stderr, err)
 	}
 	// Ensure the shell and home directory are correct even if user already existed
-	modOut, modErr, modCode, modRunErr := sshRun(ctx, "usermod -s /usr/local/bin/fluid-readonly-shell -d /var/empty fluid-readonly")
+	modOut, modErr, modCode, modRunErr := sshRun(ctx, "usermod -s /usr/local/bin/deer-readonly-shell -d /var/empty deer-readonly")
 	if modRunErr != nil || modCode != 0 {
 		logger.Warn("usermod fixup failed (non-fatal)", "exit", modCode, "stdout", modOut, "stderr", modErr, "error", modRunErr)
 	} else {
 		logger.Info("usermod fixup applied (shell and home directory)")
 	}
 	// systemd-journal grants journal read access; adm omitted as overly broad
-	sshRun(ctx, "usermod -a -G systemd-journal fluid-readonly 2>/dev/null || true") //nolint:errcheck
+	sshRun(ctx, "usermod -a -G systemd-journal deer-readonly 2>/dev/null || true") //nolint:errcheck
 	result.UserCreated = true
-	report(StepCreateUser, "Creating fluid-readonly user", true)
+	report(StepCreateUser, "Creating deer-readonly user", true)
 
 	// 3. Copy CA pub key to /etc/ssh/deer_ca.pub
 	report(StepInstallCAKey, "Installing CA key", false)
@@ -163,13 +163,13 @@ func Prepare(ctx context.Context, sshRun SSHRunFunc, caPubKey string, onProgress
 	logger.Info("sshd configured")
 	report(StepConfigureSSHD, "Configuring sshd", true)
 
-	// 5. Create authorized_principals directory and file for fluid-readonly
+	// 5. Create authorized_principals directory and file for deer-readonly
 	report(StepCreatePrincipals, "Creating authorized principals", false)
 	logger.Info("creating authorized principals")
 	principalsCmds := []string{
 		"mkdir -p /etc/ssh/authorized_principals",
-		"echo 'fluid-readonly' > /etc/ssh/authorized_principals/fluid-readonly",
-		"chmod 644 /etc/ssh/authorized_principals/fluid-readonly",
+		"echo 'deer-readonly' > /etc/ssh/authorized_principals/deer-readonly",
+		"chmod 644 /etc/ssh/authorized_principals/deer-readonly",
 	}
 	for _, cmd := range principalsCmds {
 		stdout, stderr, code, err = sshRun(ctx, cmd)

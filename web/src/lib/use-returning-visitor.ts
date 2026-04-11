@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 
-const STORAGE_KEY = 'fluid_has_visited'
+const STORAGE_KEY = 'deer_has_visited'
 
 function getSnapshot() {
   try {

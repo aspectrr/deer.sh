@@ -60,7 +60,7 @@ func (b *ProxmoxBackend) SnapshotAndPull(ctx context.Context, vmName string, des
 	}
 
 	// 2. Create snapshot
-	snapName := "fluid-tmp-snap"
+	snapName := "deer-tmp-snap"
 	if err := b.createSnapshot(ctx, vmid, snapName); err != nil {
 		return fmt.Errorf("create snapshot: %w", err)
 	}

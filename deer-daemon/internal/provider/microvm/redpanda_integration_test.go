@@ -60,7 +60,7 @@ func TestProviderIntegration_RedpandaStartsInGuest(t *testing.T) {
 
 	result := createLiveSandbox(t, h, req)
 	serialContent := waitForPhoneHomeNotification(t, h, result)
-	if !strings.Contains(serialContent, "fluid redpanda ready on attempt") {
+	if !strings.Contains(serialContent, "deer redpanda ready on attempt") {
 		t.Fatalf("sandbox posted readiness without a successful in-guest Redpanda readiness check\nlast_stage: %s\nserial:\n%s", redpandaSerialStage(serialContent), serialContent)
 	}
 
@@ -101,7 +101,7 @@ func TestProviderIntegration_SandboxStartsWithoutRedpanda(t *testing.T) {
 
 	result := createLiveSandbox(t, h, req)
 	serialContent := waitForPhoneHomeNotification(t, h, result)
-	if strings.Contains(serialContent, "fluid redpanda ready on attempt") {
+	if strings.Contains(serialContent, "deer redpanda ready on attempt") {
 		t.Fatalf("plain sandbox should not emit redpanda readiness markers\nlast_stage: %s\nserial:\n%s", redpandaSerialStage(serialContent), serialContent)
 	}
 
@@ -158,7 +158,7 @@ func newLiveE2EHarness(t *testing.T, cfg redpandaE2EConfig) *liveE2EHarness {
 	}
 
 	caKeyPath := filepath.Join(workDir, "sshca", "ca")
-	if err := sshca.GenerateCA(caKeyPath, "fluid-e2e-ca"); err != nil {
+	if err := sshca.GenerateCA(caKeyPath, "deer-e2e-ca"); err != nil {
 		t.Fatalf("GenerateCA: %v", err)
 	}
 	ca, err := sshca.NewCA(sshca.Config{
@@ -281,7 +281,7 @@ func waitForPhoneHomeNotification(t *testing.T, h *liveE2EHarness, result *provi
 		t.Fatalf("sandbox never posted readiness\nlast_stage: %s\nhost_diagnostics:\n%s\nserial:\n%s", redpandaSerialStage(serial), sandboxHostDiagnostics(h.vmMgr.WorkDir(), result.SandboxID, result.PID), serial)
 	}
 
-	serialContent, err := waitForSerialMarker(serialPath, "fluid notify ready complete", 10*time.Second)
+	serialContent, err := waitForSerialMarker(serialPath, "deer notify ready complete", 10*time.Second)
 	if err != nil {
 		t.Fatalf("sandbox posted readiness without completing in-guest phone_home notification: %v\nlast_stage: %s\nserial:\n%s", err, redpandaSerialStage(serialContent), serialContent)
 	}
@@ -390,23 +390,23 @@ func envOrDefault(key, fallback string) string {
 
 func TestWaitForSerialMarker_PollsUntilMarkerAppears(t *testing.T) {
 	serialPath := filepath.Join(t.TempDir(), "serial.log")
-	if err := os.WriteFile(serialPath, []byte("fluid phone_home start\n"), 0o644); err != nil {
+	if err := os.WriteFile(serialPath, []byte("deer phone_home start\n"), 0o644); err != nil {
 		t.Fatalf("write serial log: %v", err)
 	}
 
 	done := make(chan struct{})
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		_ = os.WriteFile(serialPath, []byte("fluid phone_home start\nfluid notify ready complete\n"), 0o644)
+		_ = os.WriteFile(serialPath, []byte("deer phone_home start\ndeer notify ready complete\n"), 0o644)
 		close(done)
 	}()
 
-	serialContent, err := waitForSerialMarker(serialPath, "fluid notify ready complete", time.Second)
+	serialContent, err := waitForSerialMarker(serialPath, "deer notify ready complete", time.Second)
 	<-done
 	if err != nil {
 		t.Fatalf("waitForSerialMarker: %v", err)
 	}
-	if !strings.Contains(serialContent, "fluid notify ready complete") {
+	if !strings.Contains(serialContent, "deer notify ready complete") {
 		t.Fatalf("serial content %q missing completion marker", serialContent)
 	}
 }
@@ -428,7 +428,7 @@ func e2eWorkDir(t *testing.T) string {
 	candidates := []string{"/var/tmp", os.TempDir()}
 	keepWorkDir := os.Getenv("FLUID_E2E_KEEP_WORKDIR") == "1"
 	for _, baseDir := range candidates {
-		dir, err := os.MkdirTemp(baseDir, "fluid-redpanda-e2e-")
+		dir, err := os.MkdirTemp(baseDir, "deer-redpanda-e2e-")
 		if err != nil {
 			continue
 		}
@@ -526,9 +526,9 @@ func redpandaArchiveCacheDir(t *testing.T) string {
 
 	candidates := make([]string, 0, 2)
 	if cacheDir, err := os.UserCacheDir(); err == nil && strings.TrimSpace(cacheDir) != "" {
-		candidates = append(candidates, filepath.Join(cacheDir, "fluid", "e2e", "redpanda"))
+		candidates = append(candidates, filepath.Join(cacheDir, "deer", "e2e", "redpanda"))
 	}
-	candidates = append(candidates, filepath.Join(os.TempDir(), "fluid-redpanda-cache"))
+	candidates = append(candidates, filepath.Join(os.TempDir(), "deer-redpanda-cache"))
 
 	for _, dir := range candidates {
 		if err := os.MkdirAll(dir, 0o755); err == nil {
@@ -736,28 +736,28 @@ func serialLog(workDir, sandboxID string) string {
 
 func redpandaSerialStage(serial string) string {
 	markers := []string{
-		"fluid redpanda install start",
-		"fluid redpanda archive download complete",
-		"fluid redpanda extraction complete",
-		"fluid redpanda binary resolution complete",
-		"fluid redpanda env file written",
-		"fluid redpanda install complete",
-		"fluid redpanda temp cleanup skipped for ephemeral sandbox",
-		"fluid redpanda enable start",
-		"fluid redpanda daemon reload complete",
-		"fluid redpanda service start invoked",
-		"fluid redpanda systemd enable complete",
-		"fluid redpanda readiness wait started",
-		"fluid redpanda readiness pending stage=",
-		"fluid redpanda readiness wait success",
-		"fluid redpanda readiness wait timeout",
-		"fluid redpanda readiness failure",
-		"fluid redpanda ready on attempt",
-		"fluid notify ready start",
-		"fluid notify ready checks complete",
-		"fluid phone_home start",
-		"fluid notify ready complete",
-		"fluid notify ready failure",
+		"deer redpanda install start",
+		"deer redpanda archive download complete",
+		"deer redpanda extraction complete",
+		"deer redpanda binary resolution complete",
+		"deer redpanda env file written",
+		"deer redpanda install complete",
+		"deer redpanda temp cleanup skipped for ephemeral sandbox",
+		"deer redpanda enable start",
+		"deer redpanda daemon reload complete",
+		"deer redpanda service start invoked",
+		"deer redpanda systemd enable complete",
+		"deer redpanda readiness wait started",
+		"deer redpanda readiness pending stage=",
+		"deer redpanda readiness wait success",
+		"deer redpanda readiness wait timeout",
+		"deer redpanda readiness failure",
+		"deer redpanda ready on attempt",
+		"deer notify ready start",
+		"deer notify ready checks complete",
+		"deer phone_home start",
+		"deer notify ready complete",
+		"deer notify ready failure",
 	}
 	last := "unknown"
 	for _, line := range strings.Split(serial, "\n") {
@@ -784,10 +784,10 @@ const redpandaProbeCommand = `bash -lc 'set -euo pipefail
 listener_ready() {
   ss -H -ltn "( sport = :9092 )" | awk '"'"'END { exit(NR==0) }'"'"'
 }
-systemctl is-active --quiet fluid-redpanda.service
-systemctl is-enabled --quiet fluid-redpanda.service
+systemctl is-active --quiet deer-redpanda.service
+systemctl is-enabled --quiet deer-redpanda.service
 test -x /usr/bin/redpanda
-test -s /etc/default/fluid-redpanda
+test -s /etc/default/deer-redpanda
 listener_ready
 '`
 
@@ -795,13 +795,13 @@ const plainSandboxProbeCommand = `bash -lc 'set -euo pipefail
 systemctl is-active --quiet ssh || systemctl is-active --quiet sshd
 test -f /etc/ssh/deer_ca.pub
 test -f /etc/ssh/authorized_principals/sandbox
-test ! -f /etc/default/fluid-redpanda
+test ! -f /etc/default/deer-redpanda
 id sandbox >/dev/null
 '`
 
 const redpandaDiagnosticsCommand = `bash -lc 'set +e
 echo "--- systemctl status ---"
-systemctl status fluid-redpanda.service --no-pager || true
+systemctl status deer-redpanda.service --no-pager || true
 echo "--- cloud-init status ---"
 cloud-init status --long || true
 echo "--- cloud-final journal ---"
@@ -809,7 +809,7 @@ journalctl -u cloud-final --no-pager -n 200 || true
 echo "--- kernel journal ---"
 journalctl -k --no-pager -n 200 || true
 echo "--- redpanda journal ---"
-journalctl -u fluid-redpanda.service --no-pager -n 200 || true
+journalctl -u deer-redpanda.service --no-pager -n 200 || true
 echo "--- sockets ---"
 ss -ltn || true
 echo "--- sockets 9092 ---"
@@ -817,9 +817,9 @@ ss -H -ltn "( sport = :9092 )" || true
 echo "--- sockets 9092 with pid ---"
 ss -H -ltnp "( sport = :9092 )" || true
 echo "--- redpanda env ---"
-cat /etc/default/fluid-redpanda || true
-if [ -f /etc/default/fluid-redpanda ]; then
-  . /etc/default/fluid-redpanda
+cat /etc/default/deer-redpanda || true
+if [ -f /etc/default/deer-redpanda ]; then
+  . /etc/default/deer-redpanda
 fi
 if [ -n "${RPK_BIN:-}" ] && [ -x "${RPK_BIN:-}" ]; then
   echo "--- rpk cluster info ---"
@@ -830,9 +830,9 @@ fi
 echo "--- redpanda config ---"
 cat /etc/redpanda/redpanda.yaml || true
 echo "--- redpanda tree ---"
-find /opt/fluid-redpanda-root -maxdepth 6 -type f | sort || true
+find /opt/deer-redpanda-root -maxdepth 6 -type f | sort || true
 echo "--- redpanda logs ---"
-find /var/log /var/lib/redpanda -maxdepth 4 -type f \( -iname '*redpanda*.log' -o -iname '*redpanda*' -o -path '/var/log/fluid/*' \) 2>/dev/null | sort | while read -r log_path; do
+find /var/log /var/lib/redpanda -maxdepth 4 -type f \( -iname '*redpanda*.log' -o -iname '*redpanda*' -o -path '/var/log/deer/*' \) 2>/dev/null | sort | while read -r log_path; do
   echo "--- $log_path ---"
   cat "$log_path" || true
 done

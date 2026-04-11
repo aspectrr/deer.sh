@@ -88,7 +88,7 @@ func NewClient(
 		hostname, _ = os.Hostname()
 	}
 
-	kafkaBaseDir := filepath.Join(os.TempDir(), "fluid-kafka-stub", cfg.HostID)
+	kafkaBaseDir := filepath.Join(os.TempDir(), "deer-kafka-stub", cfg.HostID)
 	kafkaMgr, err := newKafkaManager(kafkaBaseDir, logger, localStore)
 	if err != nil && logger != nil {
 		logger.Warn("failed to initialize kafka stub manager", "error", err)

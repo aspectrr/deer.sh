@@ -7,7 +7,7 @@ deer.sh uses defense-in-depth to isolate AI agent workloads in VM sandboxes. Thi
 Security is enforced across multiple layers:
 
 1. **SSH Certificate Authority** - short-lived certificates replace persistent credentials
-2. **Principal separation** - sandbox (`sandbox`) and read-only (`fluid-readonly`) access use distinct SSH principals
+2. **Principal separation** - sandbox (`sandbox`) and read-only (`deer-readonly`) access use distinct SSH principals
 3. **Read-only enforcement** - client-side allowlist + server-side restricted shell block destructive commands on source VMs
 4. **VM isolation** - QEMU microVM hypervisor isolation with copy-on-write overlays
 5. **Secrets redaction** - sensitive data stripped from LLM messages with deterministic tokens
@@ -95,7 +95,7 @@ Source: `deer-daemon/internal/readonly/validate.go`
 
 ### Layer 2: Server-side restricted shell
 
-A bash script installed at `/usr/local/bin/deer-readonly-shell` on source VMs acts as the login shell for the `fluid-readonly` user. It:
+A bash script installed at `/usr/local/bin/deer-readonly-shell` on source VMs acts as the login shell for the `deer-readonly` user. It:
 
 1. Denies interactive login (requires `SSH_ORIGINAL_COMMAND`)
 2. Blocks command substitution, subshells, output redirection, and newlines
@@ -121,18 +121,18 @@ Source: `deer-daemon/internal/readonly/shell.go`
 
 ### Layer 3: SSH principal separation
 
-Source VM credentials use the `"fluid-readonly"` principal. The `sshd` on source VMs is configured with:
-- `TrustedUserCAKeys /etc/ssh/fluid_ca.pub`
+Source VM credentials use the `"deer-readonly"` principal. The `sshd` on source VMs is configured with:
+- `TrustedUserCAKeys /etc/ssh/deer_ca.pub`
 - `AuthorizedPrincipalsFile /etc/ssh/authorized_principals/%u`
 
-Only certificates with the `fluid-readonly` principal are accepted for the `fluid-readonly` user. Sandbox certificates (principal `"sandbox"`) cannot authenticate to source VMs.
+Only certificates with the `deer-readonly` principal are accepted for the `deer-readonly` user. Sandbox certificates (principal `"sandbox"`) cannot authenticate to source VMs.
 
 Source VM preparation (`deer source prepare`) is idempotent and performs:
 1. Install restricted shell at `/usr/local/bin/deer-readonly-shell`
-2. Create `fluid-readonly` system user with the restricted shell as login shell
-3. Copy CA public key to `/etc/ssh/fluid_ca.pub`
+2. Create `deer-readonly` system user with the restricted shell as login shell
+3. Copy CA public key to `/etc/ssh/deer_ca.pub`
 4. Configure `sshd` to trust the CA key and use per-user authorized principals
-5. Create `/etc/ssh/authorized_principals/fluid-readonly` containing `fluid-readonly`
+5. Create `/etc/ssh/authorized_principals/deer-readonly` containing `deer-readonly`
 6. Restart `sshd`
 
 Source: `deer-daemon/internal/readonly/prepare.go`, `deer-daemon/internal/sshkeys/manager.go`
@@ -177,7 +177,7 @@ Source: `deer-cli/internal/tui/confirm.go`, `deer-cli/internal/tui/agent.go`
 
 ## Hash-Chained Audit Log
 
-Append-only JSONL audit log at `~/.config/fluid/audit.jsonl` with 0600 permissions.
+Append-only JSONL audit log at `~/.config/deer/audit.jsonl` with 0600 permissions.
 
 **Hash chain**: each entry contains a SHA-256 hash computed from the previous entry's hash plus the current entry. The genesis entry uses an all-zeros hash.
 
@@ -222,7 +222,7 @@ Source: `deer-cli/internal/config/config.go`
 Telemetry is enabled by default (opt-out). Disable via `telemetry.enable_anonymous_usage: false` in config or `ENABLE_ANONYMOUS_USAGE=false` env var.
 
 - Requires build-time API key injection; defaults to a no-op service otherwise
-- Persistent anonymous UUID at `~/.config/fluid/telemetry_id` for cross-session correlation
+- Persistent anonymous UUID at `~/.config/deer/telemetry_id` for cross-session correlation
 - `$ip` is set to `0.0.0.0` to prevent IP logging
 - Tracks only: tool names, message counts, OS/arch
 - Never collects: commands, file contents, IP addresses, hostnames, user input

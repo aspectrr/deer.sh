@@ -277,10 +277,10 @@ function SourcePreparePage() {
       <H3>3. Install the SSH CA public key</H3>
       <TerminalBlock
         lines={[
-          { command: "cat > /etc/ssh/fluid_ca.pub << 'EOF'" },
+          { command: "cat > /etc/ssh/deer_ca.pub << 'EOF'" },
           { output: '<your CA public key>' },
           { output: 'EOF' },
-          { command: 'chmod 644 /etc/ssh/fluid_ca.pub' },
+          { command: 'chmod 644 /etc/ssh/deer_ca.pub' },
         ]}
       />
       <Callout type="info" title="Where to find the CA key">
@@ -297,7 +297,7 @@ function SourcePreparePage() {
         lines={[
           {
             command:
-              "grep -q 'TrustedUserCAKeys /etc/ssh/fluid_ca.pub' /etc/ssh/sshd_config || \\\n  echo 'TrustedUserCAKeys /etc/ssh/fluid_ca.pub' >> /etc/ssh/sshd_config",
+              "grep -q 'TrustedUserCAKeys /etc/ssh/deer_ca.pub' /etc/ssh/sshd_config || \\\n  echo 'TrustedUserCAKeys /etc/ssh/deer_ca.pub' >> /etc/ssh/sshd_config",
           },
           {
             command:

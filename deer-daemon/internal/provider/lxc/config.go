@@ -8,7 +8,7 @@ import (
 // Config holds settings for connecting to Proxmox VE and managing LXC containers.
 type Config struct {
 	Host      string        `yaml:"host"`       // Base URL, e.g. "https://proxmox:8006"
-	TokenID   string        `yaml:"token_id"`   // API token ID, e.g. "user@pam!fluid"
+	TokenID   string        `yaml:"token_id"`   // API token ID, e.g. "user@pam!deer"
 	Secret    string        `yaml:"secret"`     // API token secret
 	Node      string        `yaml:"node"`       // Target node name, e.g. "pve"
 	Storage   string        `yaml:"storage"`    // Storage for CT disks, e.g. "local-lvm"

@@ -36,9 +36,9 @@ func TestWriteReadMetadata(t *testing.T) {
 
 	want := sandboxMetadata{
 		Name:       "test",
-		TAPDevice:  "fluid-abc123",
+		TAPDevice:  "deer-abc123",
 		MACAddress: "52:54:00:aa:bb:cc",
-		Bridge:     "fluid0",
+		Bridge:     "deer0",
 		VCPUs:      2,
 		MemoryMB:   2048,
 	}
@@ -127,9 +127,9 @@ func TestWriteReadMetadata_WithIP(t *testing.T) {
 
 	want := sandboxMetadata{
 		Name:       "test",
-		TAPDevice:  "fluid-abc123",
+		TAPDevice:  "deer-abc123",
 		MACAddress: "52:54:00:aa:bb:cc",
-		Bridge:     "fluid0",
+		Bridge:     "deer0",
 		VCPUs:      2,
 		MemoryMB:   2048,
 		IPAddress:  "10.0.0.42",

@@ -70,7 +70,7 @@ sudo systemctl enable --now deer-daemon
 
 ## Configuration
 
-Default config: `~/.config/fluid/daemon.yaml`
+Default config: `~/.config/deer/daemon.yaml`
 
 ```yaml
 listen:
@@ -79,12 +79,12 @@ listen:
 backend: qemu
 
 storage:
-  images: /var/lib/fluid/images
-  overlays: /var/lib/fluid/overlays
-  state: /var/lib/fluid/state.db
+  images: /var/lib/deer/images
+  overlays: /var/lib/deer/overlays
+  state: /var/lib/deer/state.db
 
 network:
-  bridge: fluid0
+  bridge: deer0
   subnet: 10.0.0.0/24
 
 # Optional: connect to control plane

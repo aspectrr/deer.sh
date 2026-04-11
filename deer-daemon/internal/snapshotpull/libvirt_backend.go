@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const fluidSnapPrefix = "fluid-tmp-snap"
+const deerSnapPrefix = "deer-tmp-snap"
 
 // LibvirtBackend snapshots and pulls a VM disk from a remote libvirt host via virsh over SSH transport.
 type LibvirtBackend struct {
@@ -127,12 +127,12 @@ func (b *LibvirtBackend) findCleanDiskPath(ctx context.Context, vmName string) (
 		return "", err
 	}
 
-	if isFluidOverlay(diskPath) {
+	if isDeerOverlay(diskPath) {
 		hasBacking, _ := b.hasBackingFile(ctx, diskPath)
 		if !hasBacking {
 			// Post-blockpull: overlay is standalone, just clean metadata
 			b.logger.Info("disk has overlay name but no backing file, using as-is", "vm", vmName, "disk", diskPath)
-			b.cleanupAllFluidSnapshots(ctx, vmName)
+			b.cleanupAllDeerSnapshots(ctx, vmName)
 			return diskPath, nil
 		}
 
@@ -145,7 +145,7 @@ func (b *LibvirtBackend) findCleanDiskPath(ctx context.Context, vmName string) (
 			return "", fmt.Errorf("recover stale overlay via blockpull: %w", err)
 		}
 
-		b.cleanupAllFluidSnapshots(ctx, vmName)
+		b.cleanupAllDeerSnapshots(ctx, vmName)
 		diskPath, err = b.findDiskPath(ctx, vmName)
 		if err != nil {
 			return "", fmt.Errorf("find disk after blockpull: %w", err)
@@ -153,13 +153,13 @@ func (b *LibvirtBackend) findCleanDiskPath(ctx context.Context, vmName string) (
 		return diskPath, nil
 	}
 
-	b.cleanupAllFluidSnapshots(ctx, vmName)
+	b.cleanupAllDeerSnapshots(ctx, vmName)
 	return diskPath, nil
 }
 
-// isFluidOverlay checks if a disk path looks like a fluid snapshot overlay.
-func isFluidOverlay(diskPath string) bool {
-	return strings.Contains(filepath.Base(diskPath), fluidSnapPrefix)
+// isDeerOverlay checks if a disk path looks like a deer snapshot overlay.
+func isDeerOverlay(diskPath string) bool {
+	return strings.Contains(filepath.Base(diskPath), deerSnapPrefix)
 }
 
 // hasBackingFile checks if a disk image has a backing file (is part of a chain).
@@ -177,15 +177,15 @@ func (b *LibvirtBackend) blockpull(ctx context.Context, vmName string) error {
 	return err
 }
 
-// cleanupAllFluidSnapshots removes all fluid snapshot metadata from a VM.
-func (b *LibvirtBackend) cleanupAllFluidSnapshots(ctx context.Context, vmName string) {
+// cleanupAllDeerSnapshots removes all deer snapshot metadata from a VM.
+func (b *LibvirtBackend) cleanupAllDeerSnapshots(ctx context.Context, vmName string) {
 	out, err := b.runVirshCmd(ctx, "snapshot-list", vmName, "--name")
 	if err != nil {
 		return
 	}
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		name := strings.TrimSpace(line)
-		if strings.HasPrefix(name, fluidSnapPrefix) {
+		if strings.HasPrefix(name, deerSnapPrefix) {
 			b.logger.Warn("cleaning up stale snapshot metadata", "vm", vmName, "snapshot", name)
 			_ = b.deleteSnapshotMetadata(ctx, vmName, name)
 		}

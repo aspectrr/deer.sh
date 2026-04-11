@@ -12,7 +12,7 @@ deer.sh lets AI agents do infrastructure work (provision servers, configure serv
 Agent Task -> Sandbox VM (autonomous) -> Human Approval -> Production
 ```
 
-- **fluid/** - Go CLI & API server. Manages VMs via libvirt/KVM.
+- **deer/** - Go CLI & API server. Manages VMs via libvirt/KVM.
 - **web/** - React frontend. Monitor sandboxes, approve actions.
 - **sdk/** - Python SDK. Build agents that talk to the API.
 - **examples/** - Working agent implementations.
@@ -41,14 +41,14 @@ Every code change needs tests. No exceptions.
 Use docker-compose:
 
 ```bash
-docker-compose up fluid            # API server
+docker-compose up deer            # API server
 docker-compose up web              # Frontend
 docker-compose up postgres         # Database
 ```
 
 ### Project-Specific Docs
 
-- @fluid/AGENTS.md - API server details
+- @deer/AGENTS.md - API server details
 - @sdk/AGENTS.md - Python SDK details
 - @web/AGENTS.md - Frontend details
 - @examples/agent-example/AGENTS.md - Agent example
@@ -57,7 +57,7 @@ docker-compose up postgres         # Database
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| fluid | 8080 | REST API for VM management |
+| deer | 8080 | REST API for VM management |
 | web | 5173 | React UI |
 | PostgreSQL | 5432 | State persistence |
 
@@ -65,10 +65,10 @@ docker-compose up postgres         # Database
 
 ```bash
 # Go services
-cd fluid && make test && make check
+cd deer && make test && make check
 
 # Python SDK
-cd sdk/fluid-sdk-py && pytest
+cd sdk/deer-py && pytest
 
 # Frontend
 cd web && bun run lint && bun run build

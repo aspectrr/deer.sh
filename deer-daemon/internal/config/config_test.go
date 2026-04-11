@@ -34,8 +34,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.MicroVM.CommandTimeout != 5*time.Minute {
 		t.Errorf("MicroVM.CommandTimeout = %v, want %v", cfg.MicroVM.CommandTimeout, 5*time.Minute)
 	}
-	if cfg.MicroVM.IPDiscoveryTimeout != 2*time.Minute {
-		t.Errorf("MicroVM.IPDiscoveryTimeout = %v, want %v", cfg.MicroVM.IPDiscoveryTimeout, 2*time.Minute)
+	if cfg.MicroVM.IPDiscoveryTimeout != 30*time.Second {
+		t.Errorf("MicroVM.IPDiscoveryTimeout = %v, want %v", cfg.MicroVM.IPDiscoveryTimeout, 30*time.Second)
 	}
 
 	// Network defaults
@@ -56,12 +56,12 @@ func TestDefaultConfig(t *testing.T) {
 
 	// SSH defaults
 	home, _ := os.UserHomeDir()
-	fluidDir := filepath.Join(home, ".deer")
-	if cfg.SSH.CAKeyPath != filepath.Join(fluidDir, "ssh_ca") {
-		t.Errorf("SSH.CAKeyPath = %q, want %q", cfg.SSH.CAKeyPath, filepath.Join(fluidDir, "ssh_ca"))
+	deerDir := filepath.Join(home, ".deer")
+	if cfg.SSH.CAKeyPath != filepath.Join(deerDir, "ssh_ca") {
+		t.Errorf("SSH.CAKeyPath = %q, want %q", cfg.SSH.CAKeyPath, filepath.Join(deerDir, "ssh_ca"))
 	}
-	if cfg.SSH.CAPubKeyPath != filepath.Join(fluidDir, "ssh_ca.pub") {
-		t.Errorf("SSH.CAPubKeyPath = %q, want %q", cfg.SSH.CAPubKeyPath, filepath.Join(fluidDir, "ssh_ca.pub"))
+	if cfg.SSH.CAPubKeyPath != filepath.Join(deerDir, "ssh_ca.pub") {
+		t.Errorf("SSH.CAPubKeyPath = %q, want %q", cfg.SSH.CAPubKeyPath, filepath.Join(deerDir, "ssh_ca.pub"))
 	}
 	if cfg.SSH.KeyDir != "/var/lib/deer-daemon/keys" {
 		t.Errorf("SSH.KeyDir = %q, want %q", cfg.SSH.KeyDir, "/var/lib/deer-daemon/keys")
@@ -82,8 +82,8 @@ func TestDefaultConfig(t *testing.T) {
 	}
 
 	// State defaults
-	if cfg.State.DBPath != filepath.Join(fluidDir, "sandbox-host.db") {
-		t.Errorf("State.DBPath = %q, want %q", cfg.State.DBPath, filepath.Join(fluidDir, "sandbox-host.db"))
+	if cfg.State.DBPath != filepath.Join(deerDir, "sandbox-host.db") {
+		t.Errorf("State.DBPath = %q, want %q", cfg.State.DBPath, filepath.Join(deerDir, "sandbox-host.db"))
 	}
 
 	// Janitor defaults

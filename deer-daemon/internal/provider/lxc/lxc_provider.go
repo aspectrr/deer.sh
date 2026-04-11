@@ -366,7 +366,7 @@ func (p *Provider) PrepareSourceVM(ctx context.Context, vmName, sshUser, sshKeyP
 
 	ip, _ := p.discoverIP(ctx, vmid, 10*time.Second)
 
-	// Install fluid-readonly user + restricted shell via pct exec
+	// Install deer-readonly user + restricted shell via pct exec
 	steps := []struct {
 		name  string
 		cmd   string
@@ -374,12 +374,12 @@ func (p *Provider) PrepareSourceVM(ctx context.Context, vmName, sshUser, sshKeyP
 	}{
 		{
 			name:  "install restricted shell",
-			cmd:   "cat > /usr/local/bin/fluid-readonly-shell << 'EOF'\n#!/bin/bash\nset -euo pipefail\nif [ -n \"${SSH_ORIGINAL_COMMAND:-}\" ]; then CMD=\"$SSH_ORIGINAL_COMMAND\"; elif [ \"${1:-}\" = \"-c\" ] && [ -n \"${2:-}\" ]; then CMD=\"$2\"; else echo 'ERROR: Interactive login not permitted.' >&2; exit 1; fi\nexec /bin/bash -c \"$CMD\"\nEOF\nchmod 755 /usr/local/bin/fluid-readonly-shell",
+			cmd:   "cat > /usr/local/bin/deer-readonly-shell << 'EOF'\n#!/bin/bash\nset -euo pipefail\nif [ -n \"${SSH_ORIGINAL_COMMAND:-}\" ]; then CMD=\"$SSH_ORIGINAL_COMMAND\"; elif [ \"${1:-}\" = \"-c\" ] && [ -n \"${2:-}\" ]; then CMD=\"$2\"; else echo 'ERROR: Interactive login not permitted.' >&2; exit 1; fi\nexec /bin/bash -c \"$CMD\"\nEOF\nchmod 755 /usr/local/bin/deer-readonly-shell",
 			field: func(r *provider.PrepareResult) { r.ShellInstalled = true },
 		},
 		{
-			name:  "create fluid-readonly user",
-			cmd:   "mkdir -p /var/empty && id fluid-readonly >/dev/null 2>&1 || useradd -r -s /usr/local/bin/fluid-readonly-shell -d /var/empty -M fluid-readonly",
+			name:  "create deer-readonly user",
+			cmd:   "mkdir -p /var/empty && id deer-readonly >/dev/null 2>&1 || useradd -r -s /usr/local/bin/deer-readonly-shell -d /var/empty -M deer-readonly",
 			field: func(r *provider.PrepareResult) { r.UserCreated = true },
 		},
 	}
@@ -415,8 +415,8 @@ func (p *Provider) RunSourceCommand(ctx context.Context, vmName, command string,
 	}
 
 	start := time.Now()
-	// Execute as fluid-readonly user via pct exec
-	wrappedCmd := fmt.Sprintf("su -s /usr/local/bin/fluid-readonly-shell fluid-readonly -c '%s'",
+	// Execute as deer-readonly user via pct exec
+	wrappedCmd := fmt.Sprintf("su -s /usr/local/bin/deer-readonly-shell deer-readonly -c '%s'",
 		strings.ReplaceAll(command, "'", "'\"'\"'"))
 
 	stdout, stderr, exitCode, err := p.pctExec(ctx, vmid, wrappedCmd, timeout)
@@ -438,8 +438,8 @@ func (p *Provider) ReadSourceFile(ctx context.Context, vmName, path string) (str
 		return "", fmt.Errorf("resolve CT %q: %w", vmName, err)
 	}
 
-	// Read file as fluid-readonly user
-	cmd := fmt.Sprintf("su - fluid-readonly -c 'cat %s'",
+	// Read file as deer-readonly user
+	cmd := fmt.Sprintf("su - deer-readonly -c 'cat %s'",
 		strings.ReplaceAll(path, "'", "'\"'\"'"))
 
 	stdout, stderr, exitCode, err := p.pctExec(ctx, vmid, cmd, 30*time.Second)

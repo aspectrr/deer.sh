@@ -236,15 +236,6 @@ func (h *StreamHandler) handleHostMessage(ctx context.Context, hostID string, ms
 // host responds with a matching request_id, the context is cancelled, or the
 // timeout expires.
 func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *deerv1.ControlMessage, timeout time.Duration) (*deerv1.HostMessage, error) {
-	streamVal, ok := h.streams.Load(hostID)
-	if !ok {
-		return nil, fmt.Errorf("host %s is not connected", hostID)
-	}
-	stream, ok := streamVal.(deerv1.HostService_ConnectServer)
-	if !ok {
-		return nil, fmt.Errorf("host %s: stream has unexpected type", hostID)
-	}
-
 	reqID := msg.GetRequestId()
 	if reqID == "" {
 		return nil, fmt.Errorf("control message must have a request_id")
@@ -256,6 +247,18 @@ func (h *StreamHandler) SendAndWait(ctx context.Context, hostID string, msg *dee
 
 	mu := h.hostMu(hostID)
 	mu.Lock()
+	// Load the stream while holding the per-host mutex to avoid TOCTOU race
+	// where the stream is replaced between loading and sending.
+	streamVal, ok := h.streams.Load(hostID)
+	if !ok {
+		mu.Unlock()
+		return nil, fmt.Errorf("host %s is not connected", hostID)
+	}
+	stream, ok := streamVal.(deerv1.HostService_ConnectServer)
+	if !ok {
+		mu.Unlock()
+		return nil, fmt.Errorf("host %s: stream has unexpected type", hostID)
+	}
 	err := stream.Send(msg)
 	mu.Unlock()
 	if err != nil {

@@ -132,6 +132,7 @@ type captureRuntime struct {
 	attached      map[string]int
 	captureCtx    context.Context
 	captureCancel context.CancelFunc
+	captureDone   chan struct{}
 	loaded        bool
 }
 
@@ -419,10 +420,18 @@ func (m *Manager) ensureAndMaybeStartCapture(cfg CaptureConfig) (*captureRuntime
 	runtime := m.ensureCaptureLocked(cfg)
 	status := runtime.status
 	if cfg.Enabled && runtime.captureCancel == nil {
+		// Wait for a previous worker to finish if one is still running.
+		if runtime.captureDone != nil {
+			<-runtime.captureDone
+		}
 		captureCtx, cancel := context.WithCancel(context.Background())
 		runtime.captureCtx = captureCtx
 		runtime.captureCancel = cancel
-		go m.runCaptureWorker(captureCtx, cfg.ID)
+		runtime.captureDone = make(chan struct{})
+		go func() {
+			m.runCaptureWorker(captureCtx, cfg.ID)
+			close(runtime.captureDone)
+		}()
 	}
 	if !cfg.Enabled {
 		if runtime.captureCancel != nil {

@@ -73,12 +73,12 @@ func TestFindCleanDiskPath_UnreachableHost(t *testing.T) {
 func TestCleanupAllFluidSnapshots_UnreachableHost(t *testing.T) {
 	b := NewLibvirtBackend("host1", 22, "root", "", nil)
 
-	// cleanupAllFluidSnapshots should not panic with unreachable host
+	// cleanupAllDeerSnapshots should not panic with unreachable host
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
 	// Should not panic
-	b.cleanupAllFluidSnapshots(ctx, "test-vm")
+	b.cleanupAllDeerSnapshots(ctx, "test-vm")
 }
 
 func TestIsFluidOverlay(t *testing.T) {
@@ -87,19 +87,19 @@ func TestIsFluidOverlay(t *testing.T) {
 		expected bool
 	}{
 		{"/var/lib/libvirt/images/test-vm-1.qcow2", false},
-		{"/var/lib/libvirt/images/test-vm-1.fluid-tmp-snap", true},
-		{"/var/lib/libvirt/images/test-vm-1.fluid-tmp-snap-1709000000", true},
+		{"/var/lib/libvirt/images/test-vm-1.deer-tmp-snap", true},
+		{"/var/lib/libvirt/images/test-vm-1.deer-tmp-snap-1709000000", true},
 		{"/data/vms/myvm.raw", false},
-		{"/data/vms/myvm.fluid-tmp-snap-1234567890", true},
-		{"test-vm.fluid-tmp-snap", true},
+		{"/data/vms/myvm.deer-tmp-snap-1234567890", true},
+		{"test-vm.deer-tmp-snap", true},
 		{"regular-disk.qcow2", false},
 		{"", false},
 	}
 
 	for _, tt := range tests {
-		got := isFluidOverlay(tt.path)
+		got := isDeerOverlay(tt.path)
 		if got != tt.expected {
-			t.Errorf("isFluidOverlay(%q) = %v, want %v", tt.path, got, tt.expected)
+			t.Errorf("isDeerOverlay(%q) = %v, want %v", tt.path, got, tt.expected)
 		}
 	}
 }
@@ -116,7 +116,7 @@ func TestHasBackingFile_OutputParsing(t *testing.T) {
 		{
 			"with backing file",
 			`<volume type='file'>
-  <name>test-vm.fluid-tmp-snap-123</name>
+  <name>test-vm.deer-tmp-snap-123</name>
   <backingStore>
     <path>/var/lib/libvirt/images/test-vm.qcow2</path>
     <format type='qcow2'/>
@@ -166,13 +166,13 @@ func TestSnapshotAndPull_UnreachableHost(t *testing.T) {
 
 func TestFluidSnapPrefix(t *testing.T) {
 	// Verify the prefix constant matches what we expect
-	if fluidSnapPrefix != "fluid-tmp-snap" {
-		t.Errorf("expected fluidSnapPrefix to be %q, got %q", "fluid-tmp-snap", fluidSnapPrefix)
+	if deerSnapPrefix != "deer-tmp-snap" {
+		t.Errorf("expected deerSnapPrefix to be %q, got %q", "deer-tmp-snap", deerSnapPrefix)
 	}
 
 	// Verify a generated snap name starts with the prefix
-	snapName := fmt.Sprintf("%s-%d", fluidSnapPrefix, 1709000000)
-	if !strings.HasPrefix(snapName, fluidSnapPrefix) {
-		t.Errorf("generated snap name %q does not start with prefix %q", snapName, fluidSnapPrefix)
+	snapName := fmt.Sprintf("%s-%d", deerSnapPrefix, 1709000000)
+	if !strings.HasPrefix(snapName, deerSnapPrefix) {
+		t.Errorf("generated snap name %q does not start with prefix %q", snapName, deerSnapPrefix)
 	}
 }

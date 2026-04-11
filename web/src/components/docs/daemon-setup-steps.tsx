@@ -51,11 +51,11 @@ const repoSetupTabs: TabDef[] = [
     lines: [
       {
         command:
-          'curl -fsSL https://packages.deer.sh/gpg | sudo gpg --dearmor -o /usr/share/keyrings/fluid.gpg',
+          'curl -fsSL https://packages.deer.sh/gpg | sudo gpg --dearmor -o /usr/share/keyrings/deer.gpg',
       },
       {
         command:
-          'echo "deb [signed-by=/usr/share/keyrings/fluid.gpg] https://packages.deer.sh/apt stable main" | sudo tee /etc/apt/sources.list.d/fluid.list',
+          'echo "deb [signed-by=/usr/share/keyrings/deer.gpg] https://packages.deer.sh/apt stable main" | sudo tee /etc/apt/sources.list.d/deer.list',
       },
       { command: 'sudo apt update' },
     ],
@@ -287,7 +287,7 @@ storage:
   state: /var/lib/deer-daemon/state.db
 
 network:
-  bridge: fluid0
+  bridge: deer0
   subnet: 10.0.0.0/24
 
 ssh:
