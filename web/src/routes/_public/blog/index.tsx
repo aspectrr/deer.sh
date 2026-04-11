@@ -242,7 +242,8 @@ function BlogIndex() {
             entry.kind === 'series' ? (
               <Link
                 key={`series-${entry.id}`}
-                to="/blog/series/hypervisor"
+                to="/blog/series/$seriesId"
+                params={{ seriesId: entry.id }}
                 className="group block rounded-lg border border-green-900/20 bg-neutral-900/50 p-4 no-underline transition-all duration-300 hover:border-green-900/40 hover:no-underline"
               >
                 <div className="flex items-center justify-between">

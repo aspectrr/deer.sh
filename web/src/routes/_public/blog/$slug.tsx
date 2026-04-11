@@ -324,7 +324,8 @@ function BlogPost() {
           {seriesInfo && (
             <nav className="mt-16 border-t border-neutral-800 pt-8">
               <Link
-                to="/blog/series/hypervisor"
+                to="/blog/series/$seriesId"
+                params={{ seriesId: seriesInfo.series.id }}
                 className="font-mono text-xs text-neutral-500 transition-colors hover:text-green-800"
               >
                 {seriesInfo.series.title}
