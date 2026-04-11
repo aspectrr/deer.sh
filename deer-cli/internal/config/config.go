@@ -269,6 +269,13 @@ func DefaultConfig() *Config {
 				"- If the sandboxed service uses Kafka: pass kafka_stub=true to create_sandbox. A local Redpanda broker starts at localhost:9092 inside the sandbox.\n" +
 				"  After sandbox is ready: edit the service config to replace the original Kafka bootstrap address with localhost:9092, then restart the service.\n" +
 				"  To send test data: use `rpk topic produce <topic> --brokers localhost:9092` then type messages and press Ctrl+D.\n\n" +
+				"## Logstash Pipeline Verification\n" +
+				"When working with logstash, check pipeline configs for kafka inputs and elasticsearch outputs.\n" +
+				"- If the pipeline reads from Kafka: pass kafka_stub=true to create_sandbox.\n" +
+				"- If the pipeline writes to Elasticsearch: pass es_stub=true to create_sandbox. A local ES starts at localhost:9200.\n" +
+				"- For full pipeline testing: pass both kafka_stub=true and es_stub=true.\n" +
+				"- After starting logstash in the sandbox, use verify_pipeline_output to confirm data flows through the pipeline.\n" +
+				"- Point logstash output to localhost:9200 and use verify_pipeline_output with the target index to check records.\n\n" +
 				"## Rules\n" +
 				"- Source hosts are READ-ONLY. Only diagnostic commands (systemctl status, journalctl, cat, grep, ls, ss, curl). Never modify.\n" +
 				"- Sandboxes are writable. Apply and verify all changes here before generating a playbook.\n" +

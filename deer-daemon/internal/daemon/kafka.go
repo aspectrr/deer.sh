@@ -234,6 +234,15 @@ func kafkaBrokerConfigForDataSources(dataSources []*deerv1.DataSourceAttachment,
 	}
 }
 
+func elasticsearchBrokerConfig(simpleElasticsearchBroker bool) *provider.ElasticsearchBrokerConfig {
+	if !simpleElasticsearchBroker {
+		return nil
+	}
+	return &provider.ElasticsearchBrokerConfig{
+		Port: 9200,
+	}
+}
+
 func providerDataSourcesFromProto(dataSources []*deerv1.DataSourceAttachment, fallback []*deerv1.KafkaCaptureConfigBinding) []provider.DataSourceAttachment {
 	attachments := kafkaSandboxAttachmentsFromProto(dataSources, fallback)
 	out := make([]provider.DataSourceAttachment, 0, len(attachments))

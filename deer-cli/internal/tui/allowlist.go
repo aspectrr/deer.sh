@@ -256,11 +256,12 @@ func (m AllowlistModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if m.mode == allowlistModeAdd {
+	switch m.mode {
+	case allowlistModeAdd:
 		var cmd tea.Cmd
 		m.addInput, cmd = m.addInput.Update(msg)
 		cmds = append(cmds, cmd)
-	} else if m.mode == allowlistModeDetail {
+	case allowlistModeDetail:
 		var cmd tea.Cmd
 		m.detailAddInput, cmd = m.detailAddInput.Update(msg)
 		cmds = append(cmds, cmd)

@@ -15,8 +15,10 @@ const (
 	DefaultSandboxVCPUs = 2
 	DefaultSandboxMemMB = 2048
 
-	KafkaBrokerMinVCPUs    = 2
-	KafkaBrokerMinMemoryMB = 2048
+	KafkaBrokerMinVCPUs            = 2
+	KafkaBrokerMinMemoryMB         = 2048
+	ElasticsearchBrokerMinVCPUs    = 2
+	ElasticsearchBrokerMinMemoryMB = 3072
 )
 
 type KafkaDataSourceConfig struct {
@@ -68,18 +70,19 @@ type SandboxProvider interface {
 
 // CreateRequest holds parameters for creating a sandbox.
 type CreateRequest struct {
-	SandboxID    string
-	Name         string
-	BaseImage    string // QCOW2 name (microvm) or CT template name (lxc)
-	SourceVM     string // for bridge resolution (microvm) or clone source (lxc)
-	Network      string // bridge override
-	VCPUs        int
-	MemoryMB     int
-	TTLSeconds   int
-	AgentID      string
-	SSHPublicKey string
-	DataSources  []DataSourceAttachment
-	KafkaBroker  *KafkaBrokerConfig
+	SandboxID           string
+	Name                string
+	BaseImage           string // QCOW2 name (microvm) or CT template name (lxc)
+	SourceVM            string // for bridge resolution (microvm) or clone source (lxc)
+	Network             string // bridge override
+	VCPUs               int
+	MemoryMB            int
+	TTLSeconds          int
+	AgentID             string
+	SSHPublicKey        string
+	DataSources         []DataSourceAttachment
+	KafkaBroker         *KafkaBrokerConfig
+	ElasticsearchBroker *ElasticsearchBrokerConfig
 }
 
 func (r CreateRequest) WantsKafkaBroker() bool {
@@ -92,6 +95,10 @@ func (r CreateRequest) WantsKafkaBroker() bool {
 		}
 	}
 	return false
+}
+
+func (r CreateRequest) WantsElasticsearchBroker() bool {
+	return r.ElasticsearchBroker != nil
 }
 
 func NormalizeCreateRequestResources(req CreateRequest, defaultVCPUs, defaultMemoryMB int) (CreateRequest, bool) {
@@ -120,6 +127,16 @@ func NormalizeCreateRequestResources(req CreateRequest, defaultVCPUs, defaultMem
 			clamped = true
 		}
 	}
+	if req.WantsElasticsearchBroker() {
+		if req.VCPUs < ElasticsearchBrokerMinVCPUs {
+			req.VCPUs = ElasticsearchBrokerMinVCPUs
+			clamped = true
+		}
+		if req.MemoryMB < ElasticsearchBrokerMinMemoryMB {
+			req.MemoryMB = ElasticsearchBrokerMinMemoryMB
+			clamped = true
+		}
+	}
 
 	return req, clamped
 }
@@ -129,6 +146,12 @@ type KafkaBrokerConfig struct {
 	AdvertiseAddress string
 	ArchiveURL       string
 	Port             int
+}
+
+// ElasticsearchBrokerConfig requests a sandbox-local single-node Elasticsearch.
+type ElasticsearchBrokerConfig struct {
+	Port       int
+	ArchiveURL string
 }
 
 // SandboxResult holds the result of a sandbox lifecycle operation.

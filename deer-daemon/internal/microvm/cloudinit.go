@@ -28,12 +28,19 @@ type KafkaBrokerOptions struct {
 	Port             int
 }
 
+type ElasticsearchBrokerOptions struct {
+	Enabled    bool
+	Port       int
+	ArchiveURL string
+}
+
 type CloudInitOptions struct {
-	CAPubKey         string
-	PhoneHomeURL     string
-	KafkaBroker      KafkaBrokerOptions
-	RedpandaCacheURL string // file:// URL for local Redpanda tarball (faster than S3 download)
-	Disable          bool   // If true, skip cloud-init ISO creation entirely (for pre-baked images)
+	CAPubKey            string
+	PhoneHomeURL        string
+	KafkaBroker         KafkaBrokerOptions
+	ElasticsearchBroker ElasticsearchBrokerOptions
+	RedpandaCacheURL    string // file:// URL for local Redpanda tarball (faster than S3 download)
+	Disable             bool   // If true, skip cloud-init ISO creation entirely (for pre-baked images)
 }
 
 // generateUserData builds cloud-init user-data YAML with the CA public key
@@ -57,6 +64,11 @@ func generateUserData(opts CloudInitOptions) string {
     owner: root:root
     permissions: '0644'
 `
+	esPort := opts.ElasticsearchBroker.Port
+	if esPort == 0 {
+		esPort = 9200
+	}
+
 	runcmd := []string{
 		"grep -q 'TrustedUserCAKeys /etc/ssh/deer_ca.pub' /etc/ssh/sshd_config || echo 'TrustedUserCAKeys /etc/ssh/deer_ca.pub' >> /etc/ssh/sshd_config",
 		"grep -q 'AuthorizedPrincipalsFile /etc/ssh/authorized_principals/%u' /etc/ssh/sshd_config || echo 'AuthorizedPrincipalsFile /etc/ssh/authorized_principals/%u' >> /etc/ssh/sshd_config",
@@ -72,6 +84,7 @@ func generateUserData(opts CloudInitOptions) string {
       set -x
       export DEBIAN_FRONTEND=noninteractive
       broker_port=%d
+      es_port=%d
       fail_stage() {
         local stage="$1"
         echo "deer notify ready failure stage=${stage} $(date -Is)" >&2
@@ -91,6 +104,15 @@ func generateUserData(opts CloudInitOptions) string {
         systemctl is-active --quiet deer-redpanda.service
         listener_ready
       fi
+      if [ -f /etc/default/deer-elasticsearch ] && systemctl is-enabled --quiet deer-elasticsearch.service 2>/dev/null; then
+        echo "deer elasticsearch readiness check start $(date -Is)"
+        if ! timeout 5m curl -sf "http://localhost:${es_port}/_cluster/health" >/dev/null 2>&1; then
+          echo "deer elasticsearch readiness check failed $(date -Is)" >&2
+          journalctl -u deer-elasticsearch.service --no-pager -n 50 || true
+          fail_stage "elasticsearch_readiness"
+        fi
+        echo "deer elasticsearch readiness check complete $(date -Is)"
+      fi
       echo "deer notify ready checks complete $(date -Is)"
       if ! command -v curl >/dev/null 2>&1; then
         apt-get update
@@ -103,7 +125,7 @@ func generateUserData(opts CloudInitOptions) string {
       echo "deer notify ready complete $(date -Is)"
     owner: root:root
     permissions: '0755'
-`, notifyPort, opts.PhoneHomeURL)
+`, notifyPort, esPort, opts.PhoneHomeURL)
 	}
 
 	if opts.KafkaBroker.Enabled {
@@ -557,6 +579,139 @@ func generateUserData(opts CloudInitOptions) string {
 			"/usr/local/bin/deer-wait-redpanda.sh",
 		)
 	}
+
+	if opts.ElasticsearchBroker.Enabled {
+		esPort := opts.ElasticsearchBroker.Port
+		if esPort == 0 {
+			esPort = 9200
+		}
+		esArchiveURL := opts.ElasticsearchBroker.ArchiveURL
+		if esArchiveURL == "" {
+			esArchiveURL = defaultElasticsearchArchiveURL()
+		}
+		writeFiles += fmt.Sprintf(`  - path: /usr/local/bin/deer-install-elasticsearch.sh
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      mkdir -p /var/log/deer
+      exec > >(tee -a /var/log/deer/elasticsearch-install.log /dev/console) 2>&1
+      set -x
+      export DEBIAN_FRONTEND=noninteractive
+      echo "deer elasticsearch install start $(date -Is)"
+      if ! command -v curl >/dev/null 2>&1; then
+        apt-get update
+        apt-get install -y ca-certificates curl
+      fi
+      tmpdir=$(mktemp -d /var/tmp/deer-elasticsearch.XXXXXX)
+      archive_url=%q
+      archive_path="$tmpdir/elasticsearch.tar.gz"
+      if ! curl --connect-timeout 10 --max-time 900 -fsSL --retry 5 --retry-delay 2 -o "$archive_path" "$archive_url"; then
+        echo "deer elasticsearch archive download failed $(date -Is)" >&2
+        exit 1
+      fi
+      echo "deer elasticsearch archive download complete $(date -Is)"
+      rm -rf /opt/deer-elasticsearch
+      mkdir -p /opt/deer-elasticsearch
+      if ! tar -xzf "$archive_path" -C /opt/deer-elasticsearch --strip-components=1; then
+        echo "deer elasticsearch extraction failed $(date -Is)" >&2
+        exit 1
+      fi
+      echo "deer elasticsearch extraction complete $(date -Is)"
+      es_bin=$(find /opt/deer-elasticsearch -type f -name elasticsearch -path '*/bin/*' | head -n1)
+      if [ -z "$es_bin" ]; then
+        echo "elasticsearch binary not found" >&2
+        exit 1
+      fi
+      ln -sf "$(dirname "$es_bin")/../" /opt/elasticsearch
+      echo "ES_HOME=/opt/elasticsearch" > /etc/default/deer-elasticsearch
+      echo "ES_JAVA_OPTS=-Xms512m -Xmx512m" >> /etc/default/deer-elasticsearch
+      echo "ES_PORT=%d" >> /etc/default/deer-elasticsearch
+      id elasticsearch 2>/dev/null || useradd -r -s /bin/false elasticsearch
+      mkdir -p /var/lib/elasticsearch /var/log/elasticsearch
+      chown -R elasticsearch:elasticsearch /opt/deer-elasticsearch /var/lib/elasticsearch /var/log/elasticsearch
+      echo "deer elasticsearch install complete $(date -Is)"
+    owner: root:root
+    permissions: '0755'
+  - path: /etc/elasticsearch/elasticsearch.yml
+    content: |
+      cluster.name: deer-sandbox
+      node.name: sandbox-node-1
+      path.data: /var/lib/elasticsearch
+      path.logs: /var/log/elasticsearch
+      network.host: 0.0.0.0
+      http.port: %d
+      discovery.type: single-node
+      xpack.security.enabled: false
+      xpack.security.enrollment.enabled: false
+      xpack.security.http.ssl.enabled: false
+      xpack.security.transport.ssl.enabled: false
+    owner: root:root
+    permissions: '0644'
+  - path: /etc/systemd/system/deer-elasticsearch.service
+    content: |
+      [Unit]
+      Description=Deer Sandbox Elasticsearch
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      Type=simple
+      EnvironmentFile=-/etc/default/deer-elasticsearch
+      User=elasticsearch
+      Group=elasticsearch
+      ExecStart=/opt/elasticsearch/bin/elasticsearch -p /var/run/elasticsearch/es.pid
+      StandardOutput=journal+console
+      StandardError=journal+console
+      Restart=on-failure
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root:root
+    permissions: '0644'
+  - path: /usr/local/bin/deer-wait-elasticsearch.sh
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      mkdir -p /var/log/deer
+      exec > >(tee -a /var/log/deer/elasticsearch-wait.log /dev/console) 2>&1
+      set -x
+      es_port=%d
+      echo "deer elasticsearch readiness wait started $(date -Is)"
+      for attempt in $(seq 1 120); do
+        if curl -sf "http://localhost:${es_port}/_cluster/health" >/dev/null 2>&1; then
+          echo "deer elasticsearch ready on attempt ${attempt} $(date -Is)"
+          exit 0
+        fi
+        if systemctl is-failed --quiet deer-elasticsearch.service; then
+          echo "deer elasticsearch service failed $(date -Is)" >&2
+          systemctl status deer-elasticsearch.service --no-pager || true
+          journalctl -u deer-elasticsearch.service --no-pager -n 50 || true
+          exit 1
+        fi
+        if [ $((attempt %% 15)) -eq 0 ]; then
+          echo "deer elasticsearch readiness pending attempt ${attempt} $(date -Is)"
+          systemctl status deer-elasticsearch.service --no-pager || true
+        fi
+        sleep 5
+      done
+      echo "deer elasticsearch readiness wait timeout $(date -Is)" >&2
+      systemctl status deer-elasticsearch.service --no-pager || true
+      journalctl -u deer-elasticsearch.service --no-pager -n 100 || true
+      exit 1
+    owner: root:root
+    permissions: '0755'
+`, esArchiveURL, esPort, esPort, esPort)
+		runcmd = append(runcmd,
+			"mkdir -p /etc/elasticsearch /var/lib/elasticsearch /var/log/elasticsearch /var/run/elasticsearch",
+			"chown -R elasticsearch:elasticsearch /var/run/elasticsearch",
+			"/usr/local/bin/deer-install-elasticsearch.sh",
+			"systemctl daemon-reload",
+			"systemctl enable --now deer-elasticsearch.service",
+			"/usr/local/bin/deer-wait-elasticsearch.sh",
+		)
+	}
+
 	if opts.PhoneHomeURL != "" {
 		runcmd = append(runcmd, "/usr/local/bin/deer-notify-ready.sh")
 	}
@@ -611,8 +766,8 @@ func GenerateCloudInitISO(workDir, sandboxID string, opts CloudInitOptions) (str
 
 	isoPath := filepath.Join(dir, "cidata.iso")
 
-	// 2 MB is more than enough for cloud-init metadata
-	const isoSize int64 = 2 * 1024 * 1024
+	// 4 MB to accommodate ES broker cloud-init scripts alongside Redpanda.
+	const isoSize int64 = 4 * 1024 * 1024
 
 	// ISO 9660 requires 2048-byte logical sectors.
 	d, err := diskfs.Create(isoPath, isoSize, diskfs.SectorSize(2048))
@@ -667,4 +822,11 @@ func defaultRedpandaArchiveURL() string {
 		return "https://vectorized-public.s3.us-west-2.amazonaws.com/releases/redpanda/25.2.7/redpanda-25.2.7-arm64.tar.gz"
 	}
 	return "https://vectorized-public.s3.us-west-2.amazonaws.com/releases/redpanda/25.2.7/redpanda-25.2.7-amd64.tar.gz"
+}
+
+func defaultElasticsearchArchiveURL() string {
+	if runtime.GOARCH == "arm64" {
+		return "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.13.4-linux-aarch64.tar.gz"
+	}
+	return "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.13.4-linux-x86_64.tar.gz"
 }

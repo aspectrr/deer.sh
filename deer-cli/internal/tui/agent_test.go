@@ -250,7 +250,7 @@ func TestCreateSandbox_SendsDoneProgressOnSuccess(t *testing.T) {
 		statuses = append(statuses, msg)
 	})
 
-	result, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true, false)
+	result, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true, false, false)
 	if err != nil {
 		t.Fatalf("createSandbox returned error: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestCreateSandbox_SendsDoneProgressOnError(t *testing.T) {
 		statuses = append(statuses, msg)
 	})
 
-	_, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true, false)
+	_, err := agent.createSandbox(context.Background(), "ubuntu", "", 2, 2048, true, false, false)
 	if err == nil {
 		t.Fatal("expected createSandbox to return error")
 	}

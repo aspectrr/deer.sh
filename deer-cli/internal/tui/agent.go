@@ -848,17 +848,18 @@ func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, erro
 	case "create_sandbox":
 		a.clearStickyReadOnly()
 		var args struct {
-			SourceVM          string `json:"source_vm"`
-			Host              string `json:"host"`
-			CPU               int    `json:"cpu"`
-			MemoryMB          int    `json:"memory_mb"`
-			Live              bool   `json:"live"`
-			SimpleKafkaBroker bool   `json:"kafka_stub"`
+			SourceVM                  string `json:"source_vm"`
+			Host                      string `json:"host"`
+			CPU                       int    `json:"cpu"`
+			MemoryMB                  int    `json:"memory_mb"`
+			Live                      bool   `json:"live"`
+			SimpleKafkaBroker         bool   `json:"kafka_stub"`
+			SimpleElasticsearchBroker bool   `json:"es_stub"`
 		}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, err
 		}
-		return a.createSandbox(ctx, args.SourceVM, args.Host, args.CPU, args.MemoryMB, args.Live, args.SimpleKafkaBroker)
+		return a.createSandbox(ctx, args.SourceVM, args.Host, args.CPU, args.MemoryMB, args.Live, args.SimpleKafkaBroker, args.SimpleElasticsearchBroker)
 	case "destroy_sandbox":
 		a.clearStickyReadOnly()
 		var args struct {
@@ -1049,6 +1050,17 @@ func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, erro
 		return a.withAutoReadOnly(args.Host, func() (any, error) {
 			return a.readSourceFile(ctx, args.Host, args.Path)
 		})
+	case "verify_pipeline_output":
+		var args struct {
+			SandboxID string `json:"sandbox_id"`
+			Index     string `json:"index"`
+			Query     string `json:"query"`
+			Size      int    `json:"size"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return a.verifyPipelineOutput(ctx, args.SandboxID, args.Index, args.Query, args.Size)
 	case "list_hosts":
 		if a.sourceService != nil {
 			hosts := a.sourceService.ListHosts()
@@ -1262,7 +1274,7 @@ func normalizeVMName(name string) string {
 	return strings.Trim(s, "-")
 }
 
-func (a *DeerAgent) createSandbox(ctx context.Context, sourceVM, hostName string, cpu, memoryMB int, live bool, simpleKafkaBroker bool) (map[string]any, error) {
+func (a *DeerAgent) createSandbox(ctx context.Context, sourceVM, hostName string, cpu, memoryMB int, live bool, simpleKafkaBroker bool, simpleElasticsearchBroker bool) (map[string]any, error) {
 	if sourceVM == "" {
 		return nil, fmt.Errorf("source-vm is required - call list_vms first to see available VM images for cloning")
 	}
@@ -1289,17 +1301,18 @@ func (a *DeerAgent) createSandbox(ctx context.Context, sourceVM, hostName string
 		sourceVM = resolvedName
 	}
 
-	a.logger.Info("sandbox creation attempt", "source_vm", sourceVM, "cpu", cpu, "memory_mb", memoryMB, "live", live, "kafka_stub", simpleKafkaBroker)
+	a.logger.Info("sandbox creation attempt", "source_vm", sourceVM, "cpu", cpu, "memory_mb", memoryMB, "live", live, "kafka_stub", simpleKafkaBroker, "es_stub", simpleElasticsearchBroker)
 	lastStepNum := 0
 	lastTotal := 0
 
 	sb, err := a.service.CreateSandboxStream(ctx, sandbox.CreateRequest{
-		SourceVM:          sourceVM,
-		AgentID:           "tui-agent",
-		VCPUs:             cpu,
-		MemoryMB:          memoryMB,
-		Live:              live,
-		SimpleKafkaBroker: simpleKafkaBroker,
+		SourceVM:                  sourceVM,
+		AgentID:                   "tui-agent",
+		VCPUs:                     cpu,
+		MemoryMB:                  memoryMB,
+		Live:                      live,
+		SimpleKafkaBroker:         simpleKafkaBroker,
+		SimpleElasticsearchBroker: simpleElasticsearchBroker,
 	}, func(step string, stepNum, total int) {
 		lastStepNum = stepNum
 		lastTotal = total
@@ -1766,6 +1779,53 @@ func (a *DeerAgent) readFile(ctx context.Context, sandboxID, path string) (map[s
 		"sandbox_id": sandboxID,
 		"path":       path,
 		"content":    content,
+	}, nil
+}
+
+func (a *DeerAgent) verifyPipelineOutput(ctx context.Context, sandboxID, index, query string, size int) (map[string]any, error) {
+	if sandboxID == "" {
+		return nil, fmt.Errorf("sandbox_id is required")
+	}
+	if index == "" {
+		index = "_all"
+	}
+	if size <= 0 {
+		size = 10
+	}
+
+	esURL := fmt.Sprintf("http://localhost:9200/%s/_search?size=%d", index, size)
+	if query != "" {
+		esURL += "&q=" + query
+	}
+
+	curlCmd := fmt.Sprintf("curl -sf '%s'", esURL)
+	result, err := a.service.RunCommand(ctx, sandboxID, curlCmd, 0, nil)
+	if err != nil {
+		return nil, fmt.Errorf("elasticsearch query failed: %w", err)
+	}
+
+	var esResp map[string]any
+	if err := json.Unmarshal([]byte(result.Stdout), &esResp); err != nil {
+		return map[string]any{
+			"sandbox_id": sandboxID,
+			"raw_output": result.Stdout,
+			"error":      "failed to parse elasticsearch response",
+		}, nil
+	}
+
+	hits, _ := esResp["hits"].(map[string]any)
+	total := float64(0)
+	if hits != nil {
+		if t, ok := hits["total"].(float64); ok {
+			total = t
+		}
+	}
+
+	return map[string]any{
+		"sandbox_id":   sandboxID,
+		"total_hits":   int(total),
+		"index":        index,
+		"raw_response": result.Stdout,
 	}, nil
 }
 

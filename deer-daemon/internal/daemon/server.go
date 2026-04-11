@@ -138,22 +138,23 @@ func (s *Server) persistCreatedSandbox(ctx context.Context, result *provider.San
 
 func (s *Server) providerCreateRequest(req *deerv1.CreateSandboxCommand, sandboxID, baseImage string, vcpus, memMB int) provider.CreateRequest {
 	createReq := provider.CreateRequest{
-		SandboxID:    sandboxID,
-		Name:         req.GetName(),
-		BaseImage:    baseImage,
-		SourceVM:     req.GetSourceVm(),
-		Network:      req.GetNetwork(),
-		VCPUs:        vcpus,
-		MemoryMB:     memMB,
-		TTLSeconds:   int(req.GetTtlSeconds()),
-		AgentID:      req.GetAgentId(),
-		SSHPublicKey: req.GetSshPublicKey(),
-		DataSources:  providerDataSourcesFromProto(req.GetDataSources(), req.GetKafkaCaptureConfigs()),
-		KafkaBroker:  kafkaBrokerConfigForDataSources(req.GetDataSources(), req.GetKafkaCaptureConfigs(), req.GetSimpleKafkaBroker()),
+		SandboxID:           sandboxID,
+		Name:                req.GetName(),
+		BaseImage:           baseImage,
+		SourceVM:            req.GetSourceVm(),
+		Network:             req.GetNetwork(),
+		VCPUs:               vcpus,
+		MemoryMB:            memMB,
+		TTLSeconds:          int(req.GetTtlSeconds()),
+		AgentID:             req.GetAgentId(),
+		SSHPublicKey:        req.GetSshPublicKey(),
+		DataSources:         providerDataSourcesFromProto(req.GetDataSources(), req.GetKafkaCaptureConfigs()),
+		KafkaBroker:         kafkaBrokerConfigForDataSources(req.GetDataSources(), req.GetKafkaCaptureConfigs(), req.GetSimpleKafkaBroker()),
+		ElasticsearchBroker: elasticsearchBrokerConfig(req.GetSimpleElasticsearchBroker()),
 	}
 	normalized, clamped := provider.NormalizeCreateRequestResources(createReq, provider.DefaultSandboxVCPUs, provider.DefaultSandboxMemMB)
 	if clamped {
-		s.logger.Info("clamped kafka-backed sandbox resources",
+		s.logger.Info("clamped sandbox resources",
 			"sandbox_id", sandboxID,
 			"effective_vcpus", normalized.VCPUs,
 			"effective_memory_mb", normalized.MemoryMB,

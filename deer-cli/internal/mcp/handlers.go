@@ -102,14 +102,16 @@ func (s *Server) handleCreateSandbox(ctx context.Context, request mcp.CallToolRe
 	memoryMB := request.GetInt("memory_mb", 0)
 	live := request.GetBool("live", false)
 	kafkaStub := request.GetBool("kafka_stub", false)
+	esStub := request.GetBool("es_stub", false)
 
 	sb, err := s.service.CreateSandbox(ctx, sandbox.CreateRequest{
-		SourceVM:          sourceVM,
-		AgentID:           mcpAgentID,
-		VCPUs:             cpu,
-		MemoryMB:          memoryMB,
-		Live:              live,
-		SimpleKafkaBroker: kafkaStub,
+		SourceVM:                  sourceVM,
+		AgentID:                   mcpAgentID,
+		VCPUs:                     cpu,
+		MemoryMB:                  memoryMB,
+		Live:                      live,
+		SimpleKafkaBroker:         kafkaStub,
+		SimpleElasticsearchBroker: esStub,
 	})
 	if err != nil {
 		s.logger.Error("create_sandbox failed", "error", err, "source_vm", sourceVM)

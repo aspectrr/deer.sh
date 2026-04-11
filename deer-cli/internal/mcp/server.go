@@ -69,6 +69,7 @@ func (s *Server) registerTools() {
 		mcp.WithNumber("memory_mb", mcp.Description("RAM in MB (default: 4096).")),
 		mcp.WithBoolean("live", mcp.Description("If true, clone from the VM's live current state. If false (default), use cached image if available.")),
 		mcp.WithBoolean("kafka_stub", mcp.Description("If true, start a local Redpanda Kafka broker inside the sandbox at localhost:9092.")),
+		mcp.WithBoolean("es_stub", mcp.Description("If true, start a local single-node Elasticsearch inside the sandbox at localhost:9200.")),
 	), s.handleCreateSandbox)
 
 	s.mcpServer.AddTool(mcp.NewTool("destroy_sandbox",

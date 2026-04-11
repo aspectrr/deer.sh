@@ -164,11 +164,12 @@ func (p *Provider) CreateSandbox(ctx context.Context, req provider.CreateRequest
 	// Generate cloud-init NoCloud ISO with catch-all DHCP config so the
 	// sandbox gets an IP regardless of the source VM's interface naming.
 	cloudInitISO, err := microvm.GenerateCloudInitISO(p.vmMgr.WorkDir(), req.SandboxID, microvm.CloudInitOptions{
-		CAPubKey:         p.caPubKey,
-		PhoneHomeURL:     p.phoneHomeURL(req.SandboxID),
-		KafkaBroker:      kafkaBrokerOptions(req),
-		RedpandaCacheURL: p.redpandaCacheURL,
-		Disable:          p.disableCloudInit,
+		CAPubKey:            p.caPubKey,
+		PhoneHomeURL:        p.phoneHomeURL(req.SandboxID),
+		KafkaBroker:         kafkaBrokerOptions(req),
+		ElasticsearchBroker: elasticsearchBrokerOptions(req),
+		RedpandaCacheURL:    p.redpandaCacheURL,
+		Disable:             p.disableCloudInit,
 	})
 	if err != nil {
 		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
@@ -272,11 +273,12 @@ func (p *Provider) CreateSandboxWithProgress(ctx context.Context, req provider.C
 	// Step 3: Generate cloud-init
 	progress("Generating cloud-init", 3, totalSteps)
 	cloudInitISO, err := microvm.GenerateCloudInitISO(p.vmMgr.WorkDir(), req.SandboxID, microvm.CloudInitOptions{
-		CAPubKey:         p.caPubKey,
-		PhoneHomeURL:     p.phoneHomeURL(req.SandboxID),
-		KafkaBroker:      kafkaBrokerOptions(req),
-		RedpandaCacheURL: p.redpandaCacheURL,
-		Disable:          p.disableCloudInit,
+		CAPubKey:            p.caPubKey,
+		PhoneHomeURL:        p.phoneHomeURL(req.SandboxID),
+		KafkaBroker:         kafkaBrokerOptions(req),
+		ElasticsearchBroker: elasticsearchBrokerOptions(req),
+		RedpandaCacheURL:    p.redpandaCacheURL,
+		Disable:             p.disableCloudInit,
 	})
 	if err != nil {
 		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), req.SandboxID)
@@ -918,6 +920,21 @@ func kafkaBrokerOptions(req provider.CreateRequest) microvm.KafkaBrokerOptions {
 		}
 	}
 	return microvm.KafkaBrokerOptions{}
+}
+
+func elasticsearchBrokerOptions(req provider.CreateRequest) microvm.ElasticsearchBrokerOptions {
+	if req.ElasticsearchBroker != nil {
+		port := req.ElasticsearchBroker.Port
+		if port == 0 {
+			port = 9200
+		}
+		return microvm.ElasticsearchBrokerOptions{
+			Enabled:    true,
+			Port:       port,
+			ArchiveURL: req.ElasticsearchBroker.ArchiveURL,
+		}
+	}
+	return microvm.ElasticsearchBrokerOptions{}
 }
 
 // runSSHCommand executes a command on a sandbox via SSH using cert-based auth.

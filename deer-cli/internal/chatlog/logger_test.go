@@ -19,7 +19,7 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	if !uuidPattern.MatchString(sessionID) {
 		t.Fatalf("session ID %q is not a valid UUID", sessionID)
@@ -42,7 +42,7 @@ func TestNewCreatesDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	info, err := os.Stat(dir)
 	if err != nil {

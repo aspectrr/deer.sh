@@ -43,7 +43,6 @@ import { Route as AppSettingsOrganizationRouteImport } from './routes/_app/setti
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsHostsRouteImport } from './routes/_app/settings/hosts'
 import { Route as AppBillingCalculatorRouteImport } from './routes/_app/billing/calculator'
-import { Route as PublicBlogSeriesHypervisorRouteImport } from './routes/_public/blog/series/hypervisor'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -212,11 +211,6 @@ const AppBillingCalculatorRoute = AppBillingCalculatorRouteImport.update({
   path: '/calculator',
   getParentRoute: () => AppBillingRoute,
 } as any)
-const PublicBlogSeriesHypervisorRoute = PublicBlogSeriesHypervisorRouteImport.update({
-  id: '/blog/series/hypervisor',
-  path: '/blog/series/hypervisor',
-  getParentRoute: () => PublicRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
@@ -250,7 +244,6 @@ export interface FileRoutesByFullPath {
   '/billing/': typeof AppBillingIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/blog': typeof PublicBlogIndexRoute
-  '/blog/series/hypervisor': typeof PublicBlogSeriesHypervisorRoute
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
@@ -281,7 +274,6 @@ export interface FileRoutesByTo {
   '/billing': typeof AppBillingIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/blog': typeof PublicBlogIndexRoute
-  '/blog/series/hypervisor': typeof PublicBlogSeriesHypervisorRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -319,7 +311,6 @@ export interface FileRoutesById {
   '/_app/billing/': typeof AppBillingIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_public/blog/': typeof PublicBlogIndexRoute
-  '/_public/blog/series/hypervisor': typeof PublicBlogSeriesHypervisorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -355,7 +346,6 @@ export interface FileRouteTypes {
     | '/billing/'
     | '/settings/'
     | '/blog'
-    | '/blog/series/hypervisor'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
@@ -386,7 +376,6 @@ export interface FileRouteTypes {
     | '/billing'
     | '/settings'
     | '/blog'
-    | '/blog/series/hypervisor'
   id:
     | '__root__'
     | '/_app'
@@ -423,7 +412,6 @@ export interface FileRouteTypes {
     | '/_app/billing/'
     | '/_app/settings/'
     | '/_public/blog/'
-    | '/_public/blog/series/hypervisor'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -674,13 +662,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBillingCalculatorRouteImport
       parentRoute: typeof AppBillingRoute
     }
-    '/_public/blog/series/hypervisor': {
-      id: '/_public/blog/series/hypervisor'
-      path: '/blog/series/hypervisor'
-      fullPath: '/blog/series/hypervisor'
-      preLoaderRoute: typeof PublicBlogSeriesHypervisorRouteImport
-      parentRoute: typeof PublicRoute
-    }
   }
 }
 
@@ -744,7 +725,6 @@ interface PublicRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
   PublicBlogSlugRoute: typeof PublicBlogSlugRoute
   PublicBlogIndexRoute: typeof PublicBlogIndexRoute
-  PublicBlogSeriesHypervisorRoute: typeof PublicBlogSeriesHypervisorRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
@@ -753,7 +733,6 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
   PublicBlogSlugRoute: PublicBlogSlugRoute,
   PublicBlogIndexRoute: PublicBlogIndexRoute,
-  PublicBlogSeriesHypervisorRoute: PublicBlogSeriesHypervisorRoute,
 }
 
 const PublicRouteWithChildren = PublicRoute._addFileChildren(PublicRouteChildren)

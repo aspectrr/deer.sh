@@ -112,6 +112,10 @@ func GetTools() []Tool {
 							Type:        "boolean",
 							Description: "If true, start a local Redpanda Kafka broker (localhost:9092) inside the sandbox. Use when the source service depends on Kafka. After creation, update service configs to use localhost:9092 instead of the original Kafka address.",
 						},
+						"es_stub": {
+							Type:        "boolean",
+							Description: "If true, start a local single-node Elasticsearch (localhost:9200) inside the sandbox. Use together with kafka_stub for logstash pipelines to verify data flows correctly through the pipeline. Logstash output should be pointed to localhost:9200.",
+						},
 					},
 					Required: []string{"source_vm"},
 				},
@@ -409,6 +413,35 @@ func GetTools() []Tool {
 						},
 					},
 					Required: []string{"host", "path"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "verify_pipeline_output",
+				Description: "Query the local Elasticsearch stub inside a sandbox to verify logstash pipeline output. Use this after configuring logstash to confirm data is flowing correctly through the pipeline. Requires es_stub=true during sandbox creation.",
+				Parameters: ParameterSchema{
+					Type: "object",
+					Properties: map[string]Property{
+						"sandbox_id": {
+							Type:        "string",
+							Description: "The ID of the sandbox running the Elasticsearch stub.",
+						},
+						"index": {
+							Type:        "string",
+							Description: "Elasticsearch index pattern to query (e.g. 'logstash-*'). Defaults to '_all'.",
+						},
+						"query": {
+							Type:        "string",
+							Description: "Optional Elasticsearch query string (lucene syntax). Defaults to match_all.",
+						},
+						"size": {
+							Type:        "integer",
+							Description: "Maximum number of documents to return. Defaults to 10.",
+						},
+					},
+					Required: []string{"sandbox_id"},
 				},
 			},
 		},
