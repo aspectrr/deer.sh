@@ -107,12 +107,17 @@ cleanup_sandboxes() {
 
 cleanup_keys() {
     log "Removing SSH keys and certificates..."
+    # Preserve source_ed25519 key so source VM SSH works across restarts
+    mv "${DEER_DIR}/keys/source_ed25519" "${DEER_DIR}/source_ed25519.bak" 2>/dev/null || true
+    mv "${DEER_DIR}/keys/source_ed25519.pub" "${DEER_DIR}/source_ed25519.pub.bak" 2>/dev/null || true
     rm -rf "${DEER_DIR}/keys/"* 2>/dev/null || true
+    mv "${DEER_DIR}/source_ed25519.bak" "${DEER_DIR}/keys/source_ed25519" 2>/dev/null || true
+    mv "${DEER_DIR}/source_ed25519.pub.bak" "${DEER_DIR}/keys/source_ed25519.pub" 2>/dev/null || true
     rm -f "${DEER_DIR}/ssh_ca" "${DEER_DIR}/ssh_ca.pub" 2>/dev/null || true
     rm -f "${DEER_DIR}/identity" "${DEER_DIR}/identity.pub" 2>/dev/null || true
     rm -f "${DEER_DIR}/sandbox-host.db" 2>/dev/null || true
     rm -f "${DEER_DIR}/daemon-audit.jsonl" 2>/dev/null || true
-    log "  keys and state cleaned up"
+    log "  keys and state cleaned up (source SSH key preserved)"
 }
 
 cleanup_backups() {
