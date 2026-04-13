@@ -155,7 +155,7 @@ const logos = [
   },
   { src: '/images/logos/ucsc-logo-png-4-4148969120.png', name: 'UC Santa Cruz' },
   { src: '/images/logos/UCSD-Seal-Logo-3371647571.png', name: 'UC San Diego' },
-  { src: '/images/logos/951515-249938965.png', name: '' },
+  { src: '/images/logos/951515-249938965.png', name: '951515' },
 ]
 
 // 4 copies per half = 8 total; mr-24 on each item makes slot width exact so -50% loops seamlessly
@@ -238,6 +238,9 @@ function ConsultingHomePage() {
               <Link to="/product" className="transition-colors hover:text-stone-800">
                 Product
               </Link>
+              <Link to="/blog" className="transition-colors hover:text-stone-800">
+                Blog
+              </Link>
               <a
                 href="#contact"
                 className="inline-flex items-center gap-1 rounded-full border border-green-900/40 bg-green-900/10 px-4 py-1.5 text-green-700 transition-colors hover:border-green-900/60 hover:bg-green-900/20"
@@ -282,6 +285,13 @@ function ConsultingHomePage() {
                   className="transition-colors hover:text-white"
                 >
                   Product
+                </Link>
+                <Link
+                  to="/blog"
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  Blog
                 </Link>
                 <a
                   href="#contact"
@@ -455,7 +465,12 @@ function ConsultingHomePage() {
               >
                 Contact <ArrowRight className="h-4 w-4" />
               </a>
-              <span className="text-sm text-stone-400">or book a 30-min discovery call</span>
+              <a
+                href="#contact"
+                className="text-sm text-stone-400 underline underline-offset-2 transition-colors hover:text-stone-600"
+              >
+                or book a 30-min discovery call
+              </a>
             </div>
 
             <div className="mt-12 rounded-2xl border border-stone-200 bg-white p-5">

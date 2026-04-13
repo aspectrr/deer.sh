@@ -144,17 +144,13 @@ func (rs *ReadinessServer) handleReady(w http.ResponseWriter, r *http.Request) {
 	if ok {
 		rs.ready[sandboxID] = true
 		rs.readyIP[sandboxID] = remoteIP
-	}
-	rs.mu.Unlock()
-
-	if ok {
 		select {
 		case <-ch:
-			// Already signaled
 		default:
 			close(ch)
 		}
 	}
+	rs.mu.Unlock()
 
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintf(w, "ok\n")

@@ -1633,3 +1633,211 @@ func TestCreateSnapshot_SenderError(t *testing.T) {
 		t.Errorf("error = %q, want it to contain %q", err.Error(), "snapshot failed")
 	}
 }
+
+func TestListSandboxKafkaStubs(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", nil)
+	ms := &mockStore{
+		GetSandboxByOrgFn: func(_ context.Context, _, _ string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: "sbx-1", OrgID: "org-1", HostID: "host-1"}, nil
+		},
+		UpdateSandboxKafkaStubFn: func(_ context.Context, _ *store.SandboxKafkaStub) error {
+			return store.ErrNotFound
+		},
+		CreateSandboxKafkaStubFn: func(_ context.Context, _ *store.SandboxKafkaStub) error {
+			return nil
+		},
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			return &deerv1.HostMessage{
+				RequestId: msg.GetRequestId(),
+				Payload: &deerv1.HostMessage_ListSandboxKafkaStubsResponse{
+					ListSandboxKafkaStubsResponse: &deerv1.ListSandboxKafkaStubsResponse{
+						Stubs: []*deerv1.SandboxKafkaStubInfo{{
+							StubId:          "stub-1",
+							SandboxId:       "sbx-1",
+							CaptureConfigId: "cfg-1",
+							BrokerEndpoint:  "10.0.0.10:9092",
+							State:           deerv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING,
+						}},
+					},
+				},
+			}, nil
+		},
+	}
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	stubs, err := orch.ListSandboxKafkaStubs(context.Background(), "org-1", "sbx-1")
+	if err != nil {
+		t.Fatalf("ListSandboxKafkaStubs: %v", err)
+	}
+	if len(stubs) != 1 {
+		t.Fatalf("expected 1 stub, got %d", len(stubs))
+	}
+	if stubs[0].ID != "stub-1" {
+		t.Fatalf("expected stub ID stub-1, got %s", stubs[0].ID)
+	}
+}
+
+func TestGetSandboxKafkaStub(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", nil)
+	ms := &mockStore{
+		GetSandboxByOrgFn: func(_ context.Context, _, _ string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: "sbx-1", OrgID: "org-1", HostID: "host-1"}, nil
+		},
+		UpdateSandboxKafkaStubFn: func(_ context.Context, _ *store.SandboxKafkaStub) error {
+			return nil
+		},
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			return &deerv1.HostMessage{
+				RequestId: msg.GetRequestId(),
+				Payload: &deerv1.HostMessage_SandboxKafkaStubInfo{
+					SandboxKafkaStubInfo: &deerv1.SandboxKafkaStubInfo{
+						StubId:    "stub-1",
+						SandboxId: "sbx-1",
+						State:     deerv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING,
+					},
+				},
+			}, nil
+		},
+	}
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	stub, err := orch.GetSandboxKafkaStub(context.Background(), "org-1", "sbx-1", "stub-1")
+	if err != nil {
+		t.Fatalf("GetSandboxKafkaStub: %v", err)
+	}
+	if stub.ID != "stub-1" {
+		t.Fatalf("expected stub ID stub-1, got %s", stub.ID)
+	}
+}
+
+func TestStartSandboxKafkaStub(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", nil)
+	ms := &mockStore{
+		GetSandboxByOrgFn: func(_ context.Context, _, _ string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: "sbx-1", OrgID: "org-1", HostID: "host-1"}, nil
+		},
+		UpdateSandboxKafkaStubFn: func(_ context.Context, _ *store.SandboxKafkaStub) error {
+			return nil
+		},
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			if msg.GetStartSandboxKafkaStub() == nil {
+				t.Fatalf("expected StartSandboxKafkaStub command")
+			}
+			return &deerv1.HostMessage{
+				RequestId: msg.GetRequestId(),
+				Payload: &deerv1.HostMessage_SandboxKafkaStubInfo{
+					SandboxKafkaStubInfo: &deerv1.SandboxKafkaStubInfo{
+						StubId:    "stub-1",
+						SandboxId: "sbx-1",
+						State:     deerv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING,
+					},
+				},
+			}, nil
+		},
+	}
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	stub, err := orch.StartSandboxKafkaStub(context.Background(), "org-1", "sbx-1", "stub-1")
+	if err != nil {
+		t.Fatalf("StartSandboxKafkaStub: %v", err)
+	}
+	if stub.State != "running" {
+		t.Fatalf("expected state running, got %s", stub.State)
+	}
+}
+
+func TestStopSandboxKafkaStub(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", nil)
+	ms := &mockStore{
+		GetSandboxByOrgFn: func(_ context.Context, _, _ string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: "sbx-1", OrgID: "org-1", HostID: "host-1"}, nil
+		},
+		UpdateSandboxKafkaStubFn: func(_ context.Context, _ *store.SandboxKafkaStub) error {
+			return nil
+		},
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			if msg.GetStopSandboxKafkaStub() == nil {
+				t.Fatalf("expected StopSandboxKafkaStub command")
+			}
+			return &deerv1.HostMessage{
+				RequestId: msg.GetRequestId(),
+				Payload: &deerv1.HostMessage_SandboxKafkaStubInfo{
+					SandboxKafkaStubInfo: &deerv1.SandboxKafkaStubInfo{
+						StubId:    "stub-1",
+						SandboxId: "sbx-1",
+						State:     deerv1.KafkaStubState_KAFKA_STUB_STATE_STOPPED,
+					},
+				},
+			}, nil
+		},
+	}
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	stub, err := orch.StopSandboxKafkaStub(context.Background(), "org-1", "sbx-1", "stub-1")
+	if err != nil {
+		t.Fatalf("StopSandboxKafkaStub: %v", err)
+	}
+	if stub.State != "stopped" {
+		t.Fatalf("expected state stopped, got %s", stub.State)
+	}
+}
+
+func TestRestartSandboxKafkaStub(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", nil)
+	ms := &mockStore{
+		GetSandboxByOrgFn: func(_ context.Context, _, _ string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: "sbx-1", OrgID: "org-1", HostID: "host-1"}, nil
+		},
+		UpdateSandboxKafkaStubFn: func(_ context.Context, _ *store.SandboxKafkaStub) error {
+			return nil
+		},
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, msg *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			if msg.GetRestartSandboxKafkaStub() == nil {
+				t.Fatalf("expected RestartSandboxKafkaStub command")
+			}
+			return &deerv1.HostMessage{
+				RequestId: msg.GetRequestId(),
+				Payload: &deerv1.HostMessage_SandboxKafkaStubInfo{
+					SandboxKafkaStubInfo: &deerv1.SandboxKafkaStubInfo{
+						StubId:    "stub-1",
+						SandboxId: "sbx-1",
+						State:     deerv1.KafkaStubState_KAFKA_STUB_STATE_RUNNING,
+					},
+				},
+			}, nil
+		},
+	}
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	stub, err := orch.RestartSandboxKafkaStub(context.Background(), "org-1", "sbx-1", "stub-1")
+	if err != nil {
+		t.Fatalf("RestartSandboxKafkaStub: %v", err)
+	}
+	if stub.State != "running" {
+		t.Fatalf("expected state running, got %s", stub.State)
+	}
+}
+
+func TestTransitionSandboxKafkaStub_SenderError(t *testing.T) {
+	reg := newRegistryWithHost(t, "host-1", "org-1", nil)
+	ms := &mockStore{
+		GetSandboxByOrgFn: func(_ context.Context, _, _ string) (*store.Sandbox, error) {
+			return &store.Sandbox{ID: "sbx-1", OrgID: "org-1", HostID: "host-1"}, nil
+		},
+	}
+	sender := &mockSender{
+		SendAndWaitFn: func(_ context.Context, _ string, _ *deerv1.ControlMessage, _ time.Duration) (*deerv1.HostMessage, error) {
+			return nil, fmt.Errorf("host unreachable")
+		},
+	}
+	orch := New(reg, ms, sender, nil, 24*time.Hour, 90*time.Second)
+	_, err := orch.StartSandboxKafkaStub(context.Background(), "org-1", "sbx-1", "stub-1")
+	if err == nil {
+		t.Fatal("expected error when sender fails")
+	}
+}

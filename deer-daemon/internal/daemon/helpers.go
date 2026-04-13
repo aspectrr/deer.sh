@@ -88,11 +88,6 @@ func (s *Server) resolveSourceHost(ctx context.Context, vmName string) (*deerv1.
 	s.vmHostMu.RUnlock()
 
 	// Discover across all configured source hosts
-	// Clear stale entries before refreshing to prevent unbounded growth.
-	s.vmHostMu.Lock()
-	s.vmHostCache = make(map[string]*deerv1.SourceHostConnection)
-	s.vmHostMu.Unlock()
-
 	for _, conn := range s.sourceHostConns() {
 		mgr, err := s.adhocSourceVMManager(conn)
 		if err != nil {

@@ -10,7 +10,7 @@ import { useAuth } from '~/lib/auth'
 import { usePostHog } from '~/lib/posthog'
 import { useReturningVisitor } from '~/lib/use-returning-visitor'
 
-export const Route = createFileRoute('/_public/product')({
+export const Route = createFileRoute('/_public/product/')({
   component: ProductPage,
 })
 
@@ -208,6 +208,9 @@ function ProductPage() {
               <Link to="/docs/quickstart" className="transition-colors hover:text-neutral-200">
                 Docs
               </Link>
+              <Link to="/product/blog" className="transition-colors hover:text-neutral-200">
+                Blog
+              </Link>
               <a
                 href="https://github.com/aspectrr/deer.sh"
                 target="_blank"
@@ -278,6 +281,13 @@ function ProductPage() {
                   className="transition-colors hover:text-white"
                 >
                   Docs
+                </Link>
+                <Link
+                  to="/product/blog"
+                  onClick={() => setMobileOpen(false)}
+                  className="transition-colors hover:text-white"
+                >
+                  Blog
                 </Link>
                 <a
                   href="https://github.com/aspectrr/deer.sh"

@@ -54,7 +54,7 @@ func (s *Server) checkKVMAvailable() *deerv1.DoctorCheckResult {
 			Category: "prerequisites",
 			Passed:   false,
 			Message:  "KVM not available (/dev/kvm missing)",
-			FixCmd:   "sudo modprobe kvm && sudo modprobe kvm_intel || sudo modprobe kvm_amd. Or set accel: tcg in daemon config to use software emulation",
+			FixCmd:   "sudo modprobe kvm && (sudo modprobe kvm_intel || sudo modprobe kvm_amd). Or set accel: tcg in daemon config to use software emulation",
 		}
 	}
 	return &deerv1.DoctorCheckResult{

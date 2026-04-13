@@ -205,3 +205,23 @@ func TestRecordCapturePersistsRedactedPayload(t *testing.T) {
 		t.Fatal("expected persisted payload to be redacted")
 	}
 }
+
+func TestSanitizeID(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"normal-id", "normal-id"},
+		{"has/slash", "has-slash"},
+		{"has:colon", "has-colon"},
+		{"has_underscore", "has-underscore"},
+		{"HAS-CAPS", "has-caps"},
+		{"../traversal", "--traversal"},
+		{"..", "-"},
+		{"a\x00b", "ab"},
+		{"mix/../path:with_special\x00chars", "mix---path-with-specialchars"},
+	}
+	for _, tt := range tests {
+		got := sanitizeID(tt.in)
+		if got != tt.want {
+			t.Errorf("sanitizeID(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}

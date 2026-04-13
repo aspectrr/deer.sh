@@ -301,7 +301,7 @@ func (o *Orchestrator) CreateSandbox(ctx context.Context, req CreateSandboxReque
 			LastReplayCursor:    stub.GetLastReplayCursor(),
 			AutoStart:           stub.GetAutoStart(),
 		}); err != nil {
-			o.logger.Warn("persist sandbox kafka stub failed", "sandbox_id", sandboxID, "stub_id", stub.GetStubId(), "error", err)
+			o.logger.Error("persist sandbox kafka stub failed", "sandbox_id", sandboxID, "stub_id", stub.GetStubId(), "error", err)
 		}
 	}
 
@@ -422,7 +422,9 @@ func (o *Orchestrator) ListSandboxKafkaStubs(ctx context.Context, orgID, sandbox
 		if err := o.store.UpdateSandboxKafkaStub(ctx, item); err != nil && !errors.Is(err, store.ErrNotFound) {
 			o.logger.Warn("update sandbox kafka stub failed", "stub_id", item.ID, "error", err)
 		} else if errors.Is(err, store.ErrNotFound) {
-			_ = o.store.CreateSandboxKafkaStub(ctx, item)
+			if err := o.store.CreateSandboxKafkaStub(ctx, item); err != nil {
+				o.logger.Error("create sandbox kafka stub failed", "stub_id", item.ID, "error", err)
+			}
 		}
 	}
 	return stubs, nil
@@ -458,7 +460,9 @@ func (o *Orchestrator) GetSandboxKafkaStub(ctx context.Context, orgID, sandboxID
 	if err := o.store.UpdateSandboxKafkaStub(ctx, item); err != nil && !errors.Is(err, store.ErrNotFound) {
 		o.logger.Warn("update sandbox kafka stub failed", "stub_id", item.ID, "error", err)
 	} else if errors.Is(err, store.ErrNotFound) {
-		_ = o.store.CreateSandboxKafkaStub(ctx, item)
+		if err := o.store.CreateSandboxKafkaStub(ctx, item); err != nil {
+			o.logger.Error("create sandbox kafka stub failed", "stub_id", item.ID, "error", err)
+		}
 	}
 	return item, nil
 }

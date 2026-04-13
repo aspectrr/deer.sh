@@ -610,6 +610,9 @@ func (s *Server) RunCommand(ctx context.Context, req *deerv1.RunCommandCommand) 
 	}
 
 	timeout := time.Duration(req.GetTimeoutSeconds()) * time.Second
+	if req.GetTimeoutSeconds() > 3600 {
+		timeout = time.Hour
+	}
 	if timeout == 0 {
 		timeout = 5 * time.Minute
 	}

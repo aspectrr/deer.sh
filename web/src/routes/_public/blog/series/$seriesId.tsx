@@ -10,7 +10,7 @@ interface BlogModule {
   default: React.ComponentType
 }
 
-const modules = import.meta.glob<BlogModule>('/src/content/blog/*.{md,mdx}', {
+const modules = import.meta.glob<BlogModule>('/src/content/blog/**/*.{md,mdx}', {
   eager: true,
 })
 

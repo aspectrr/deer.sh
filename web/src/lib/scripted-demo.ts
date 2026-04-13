@@ -75,7 +75,7 @@ const SCRIPT: ScriptAction[] = [
   {
     type: 'message',
     content:
-      'Found it. Single consumer thread cannot keep up with the partition count. Frequent rebalances cause the consumer to stall. I willincrease consumer_threads to match partition count and test in a sandbox.',
+      'Found it. Single consumer thread cannot keep up with the partition count. Frequent rebalances cause the consumer to stall. I will increase consumer_threads to match partition count and test in a sandbox.',
   },
   {
     type: 'tool',
@@ -156,6 +156,7 @@ export class ScriptedDemoEngine {
   private thinkingInterval: ReturnType<typeof setInterval> | null = null
   private destroyed = false
   private timers: ReturnType<typeof setTimeout>[] = []
+  private resizeObserver: ResizeObserver | null = null
   private contentRow = 1
   private mode: 'edit' | 'read-only' = 'edit'
   private sandboxId: string | null = null
@@ -193,11 +194,11 @@ export class ScriptedDemoEngine {
     this.term.open(container)
     this.fitAddon.fit()
 
-    const resizeObserver = new ResizeObserver(() => {
+    this.resizeObserver = new ResizeObserver(() => {
       this.fitAddon.fit()
       this.setupLayout()
     })
-    resizeObserver.observe(container)
+    this.resizeObserver.observe(container)
 
     this.run()
   }
@@ -463,6 +464,10 @@ export class ScriptedDemoEngine {
       clearTimeout(id)
     }
     this.timers = []
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect()
+      this.resizeObserver = null
+    }
     this.term.dispose()
   }
 }

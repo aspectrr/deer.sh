@@ -332,17 +332,20 @@ func (p *Provider) CreateSandboxWithProgress(ctx context.Context, req provider.C
 }
 
 func (p *Provider) DestroySandbox(ctx context.Context, sandboxID string) error {
-	if p.vmMgr != nil {
-		info, err := p.vmMgr.Get(sandboxID)
-		if err == nil && info.TAPDevice != "" {
-			_ = network.DestroyTAP(ctx, info.TAPDevice)
-		}
-		if err := p.vmMgr.Destroy(ctx, sandboxID); err != nil {
-			p.logger.Error("destroy microVM failed", "sandbox_id", sandboxID, "error", err)
-		}
-		_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), sandboxID)
+	if p.vmMgr == nil {
+		return nil
 	}
-	return nil
+	info, err := p.vmMgr.Get(sandboxID)
+	if err == nil && info.TAPDevice != "" {
+		_ = network.DestroyTAP(ctx, info.TAPDevice)
+	}
+	var destroyErr error
+	if err := p.vmMgr.Destroy(ctx, sandboxID); err != nil {
+		p.logger.Error("destroy microVM failed", "sandbox_id", sandboxID, "error", err)
+		destroyErr = err
+	}
+	_ = microvm.RemoveOverlay(p.vmMgr.WorkDir(), sandboxID)
+	return destroyErr
 }
 
 func (p *Provider) StartSandbox(ctx context.Context, sandboxID string) (*provider.SandboxResult, error) {
@@ -817,9 +820,9 @@ func kernelOOMDiagnosticsForPID(pid int, kernelLog string) string {
 	pidStr := strconv.Itoa(pid)
 	matchLine := func(line string) bool {
 		return strings.Contains(line, "Killed process "+pidStr+" ") ||
-			strings.Contains(line, "pid="+pidStr) ||
-			strings.Contains(line, "["+pidStr+"]") ||
-			strings.Contains(line, " "+pidStr+"]")
+			strings.Contains(line, "pid="+pidStr+" ") ||
+			strings.Contains(line, "pid="+pidStr+"]") ||
+			strings.Contains(line, "["+pidStr+"]")
 	}
 
 	seen := make(map[int]struct{})

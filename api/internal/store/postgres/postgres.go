@@ -1523,13 +1523,22 @@ func (s *postgresStore) kafkaCaptureConfigToModel(cfg *store.KafkaCaptureConfig)
 		UpdatedAt:          cfg.UpdatedAt,
 	}
 	if len(s.encryptionKey) > 0 {
-		if enc, err := crypto.Encrypt(s.encryptionKey, cfg.Username); err == nil {
+		enc, err := crypto.Encrypt(s.encryptionKey, cfg.Username)
+		if err != nil {
+			slog.Error("encrypt username failed — credential will not be stored encrypted", "error", err)
+		} else {
 			m.Username = enc
 		}
-		if enc, err := crypto.Encrypt(s.encryptionKey, cfg.Password); err == nil {
+		enc, err = crypto.Encrypt(s.encryptionKey, cfg.Password)
+		if err != nil {
+			slog.Error("encrypt password failed — credential will not be stored encrypted", "error", err)
+		} else {
 			m.Password = enc
 		}
-		if enc, err := crypto.Encrypt(s.encryptionKey, cfg.TLSCAPEM); err == nil {
+		enc, err = crypto.Encrypt(s.encryptionKey, cfg.TLSCAPEM)
+		if err != nil {
+			slog.Error("encrypt tls_ca_pem failed — credential will not be stored encrypted", "error", err)
+		} else {
 			m.TLSCAPEM = enc
 		}
 	}
@@ -1564,13 +1573,22 @@ func (s *postgresStore) kafkaCaptureConfigFromModel(m *KafkaCaptureConfigModel) 
 		UpdatedAt:          m.UpdatedAt,
 	}
 	if len(s.encryptionKey) > 0 {
-		if dec, err := crypto.Decrypt(s.encryptionKey, m.Username); err == nil {
+		dec, err := crypto.Decrypt(s.encryptionKey, m.Username)
+		if err != nil {
+			slog.Error("decrypt username failed — returning encrypted value", "error", err)
+		} else {
 			cfg.Username = dec
 		}
-		if dec, err := crypto.Decrypt(s.encryptionKey, m.Password); err == nil {
+		dec, err = crypto.Decrypt(s.encryptionKey, m.Password)
+		if err != nil {
+			slog.Error("decrypt password failed — returning encrypted value", "error", err)
+		} else {
 			cfg.Password = dec
 		}
-		if dec, err := crypto.Decrypt(s.encryptionKey, m.TLSCAPEM); err == nil {
+		dec, err = crypto.Decrypt(s.encryptionKey, m.TLSCAPEM)
+		if err != nil {
+			slog.Error("decrypt tls_ca_pem failed — returning encrypted value", "error", err)
+		} else {
 			cfg.TLSCAPEM = dec
 		}
 	}
@@ -1645,8 +1663,29 @@ func (s *postgresStore) ListKafkaCaptureConfigsByOrg(ctx context.Context, orgID 
 
 func (s *postgresStore) UpdateKafkaCaptureConfig(ctx context.Context, cfg *store.KafkaCaptureConfig) error {
 	cfg.UpdatedAt = time.Now().UTC()
+	model := s.kafkaCaptureConfigToModel(cfg)
 	res := s.db.WithContext(ctx).Model(&KafkaCaptureConfigModel{}).Where("id = ?", cfg.ID).
-		Updates(s.kafkaCaptureConfigToModel(cfg))
+		Updates(map[string]any{
+			"org_id":               model.OrgID,
+			"source_host_id":       model.SourceHostID,
+			"source_vm":            model.SourceVM,
+			"name":                 model.Name,
+			"bootstrap_servers":    model.BootstrapServers,
+			"topics":               model.Topics,
+			"username":             model.Username,
+			"password":             model.Password,
+			"sasl_mechanism":       model.SASLMechanism,
+			"tls_enabled":          model.TLSEnabled,
+			"insecure_skip_verify": model.InsecureSkipVerify,
+			"tls_ca_pem":           model.TLSCAPEM,
+			"codec":                model.Codec,
+			"redaction_rules":      model.RedactionRules,
+			"max_buffer_age_secs":  model.MaxBufferAgeSecs,
+			"max_buffer_bytes":     model.MaxBufferBytes,
+			"enabled":              model.Enabled,
+			"last_capture_state":   model.LastCaptureState,
+			"updated_at":           model.UpdatedAt,
+		})
 	if res.Error != nil {
 		return mapDBError(res.Error)
 	}

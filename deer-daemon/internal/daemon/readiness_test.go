@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -107,5 +108,62 @@ func TestReadinessServerNestedRegisterKeepsWaiterUntilFinalUnregister(t *testing
 	}
 	if got := rs.ReadyIP("sbx-nested"); got != "" {
 		t.Fatalf("ReadyIP after final unregister = %q, want empty", got)
+	}
+}
+
+func TestReadinessServer_WaitReadyTimeout(t *testing.T) {
+	rs := NewReadinessServer("127.0.0.1:39094", slog.Default())
+	rs.Register("sbx-timeout")
+
+	err := rs.WaitReady("sbx-timeout", 50*time.Millisecond)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("error = %q, want timeout", err.Error())
+	}
+}
+
+func TestReadinessServer_UnregisteredReady(t *testing.T) {
+	rs := NewReadinessServer("127.0.0.1:39095", slog.Default())
+
+	ln, err := net.Listen("tcp", "127.0.0.1:39095")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	go rs.Serve(ln)
+	defer rs.Shutdown(context.Background())
+
+	resp, err := http.Post("http://127.0.0.1:39095/ready/sbx-unknown", "", nil)
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for unregistered ID, got %d", resp.StatusCode)
+	}
+	if rs.WasReady("sbx-unknown") {
+		t.Fatal("unregistered ID should not be marked ready")
+	}
+}
+
+func TestReadinessServer_WrongMethod(t *testing.T) {
+	rs := NewReadinessServer("127.0.0.1:39096", slog.Default())
+
+	ln, err := net.Listen("tcp", "127.0.0.1:39096")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	go rs.Serve(ln)
+	defer rs.Shutdown(context.Background())
+
+	req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1:39096/ready/sbx-1", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", resp.StatusCode)
 	}
 }

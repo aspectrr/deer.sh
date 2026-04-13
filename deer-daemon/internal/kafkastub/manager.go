@@ -1107,6 +1107,8 @@ func sanitizeID(v string) string {
 	v = strings.ReplaceAll(v, "/", "-")
 	v = strings.ReplaceAll(v, ":", "-")
 	v = strings.ReplaceAll(v, "_", "-")
+	v = strings.ReplaceAll(v, "..", "-")
+	v = strings.ReplaceAll(v, string(rune(0)), "")
 	return v
 }
 
