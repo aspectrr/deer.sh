@@ -131,14 +131,14 @@ func TestReadinessServer_UnregisteredReady(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	go rs.Serve(ln)
-	defer rs.Shutdown(context.Background())
+	go func() { _ = rs.Serve(ln) }()
+	defer func() { _ = rs.Shutdown(context.Background()) }()
 
 	resp, err := http.Post("http://127.0.0.1:39095/ready/sbx-unknown", "", nil)
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 for unregistered ID, got %d", resp.StatusCode)
 	}
@@ -154,15 +154,15 @@ func TestReadinessServer_WrongMethod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	go rs.Serve(ln)
-	defer rs.Shutdown(context.Background())
+	go func() { _ = rs.Serve(ln) }()
+	defer func() { _ = rs.Shutdown(context.Background()) }()
 
 	req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1:39096/ready/sbx-1", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Fatalf("expected 405, got %d", resp.StatusCode)
 	}
