@@ -193,11 +193,16 @@ func newLiveE2EHarness(t *testing.T, cfg redpandaE2EConfig) *liveE2EHarness {
 		_ = keyMgr.Close()
 	})
 
-	bridgeIP, err := network.GetBridgeIP(cfg.bridge)
-	if err != nil {
-		t.Fatalf("GetBridgeIP(%q): %v", cfg.bridge, err)
+	var bridgeIP string
+	var readiness *daemon.ReadinessServer
+	if cfg.bridge != "" {
+		var err error
+		bridgeIP, err = network.GetBridgeIP(cfg.bridge)
+		if err != nil {
+			t.Fatalf("GetBridgeIP(%q): %v", cfg.bridge, err)
+		}
+		readiness = startReadinessServer(t, bridgeIP, logger)
 	}
-	readiness := startReadinessServer(t, bridgeIP, logger)
 
 	p := New(
 		vmMgr,
@@ -216,8 +221,8 @@ func newLiveE2EHarness(t *testing.T, cfg redpandaE2EConfig) *liveE2EHarness {
 		readiness,
 		"",
 		false,
-		"",
-		"",
+		cfg.socketVMNetClient,
+		cfg.socketVMNetPath,
 		logger,
 	)
 
@@ -236,17 +241,19 @@ func newLiveE2EHarness(t *testing.T, cfg redpandaE2EConfig) *liveE2EHarness {
 func createLiveSandbox(t *testing.T, h *liveE2EHarness, req provider.CreateRequest) *provider.SandboxResult {
 	t.Helper()
 
-	h.readiness.Register(req.SandboxID)
-	t.Cleanup(func() {
-		h.readiness.Unregister(req.SandboxID)
-	})
+	if h.readiness != nil {
+		h.readiness.Register(req.SandboxID)
+		t.Cleanup(func() {
+			h.readiness.Unregister(req.SandboxID)
+		})
+	}
 
 	result, err := h.provider.CreateSandboxWithProgress(h.ctx, req, func(string, int, int) {})
 	if err != nil {
 		serial := serialLog(h.vmMgr.WorkDir(), req.SandboxID)
 		t.Fatalf("CreateSandboxWithProgress: %v\nlast_stage: %s\nhost_diagnostics:\n%s\nserial:\n%s", err, redpandaSerialStage(serial), sandboxHostDiagnostics(h.vmMgr.WorkDir(), req.SandboxID, 0), serial)
 	}
-	if os.Getenv("FLUID_E2E_KEEP_SANDBOX") != "1" {
+	if os.Getenv("DEER_E2E_KEEP_SANDBOX") != "1" {
 		t.Cleanup(func() {
 			destroyCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -271,14 +278,18 @@ func waitForPhoneHomeNotification(t *testing.T, h *liveE2EHarness, result *provi
 
 	serialPath := filepath.Join(h.vmMgr.WorkDir(), result.SandboxID, "serial.log")
 	serialBytes, _ := os.ReadFile(serialPath)
-	if err := h.readiness.WaitReady(result.SandboxID, h.cfg.startupTimeout); err != nil {
-		serial := string(serialBytes)
-		t.Fatalf("sandbox did not post readiness within %v: %v\nlast_stage: %s\nready_ip: %s\nhost_diagnostics:\n%s\nserial:\n%s", h.cfg.startupTimeout, err, redpandaSerialStage(serial), h.readiness.ReadyIP(result.SandboxID), sandboxHostDiagnostics(h.vmMgr.WorkDir(), result.SandboxID, result.PID), serial)
-	}
-	serialBytes, _ = os.ReadFile(serialPath)
-	if !h.readiness.WasReady(result.SandboxID) {
-		serial := string(serialBytes)
-		t.Fatalf("sandbox never posted readiness\nlast_stage: %s\nhost_diagnostics:\n%s\nserial:\n%s", redpandaSerialStage(serial), sandboxHostDiagnostics(h.vmMgr.WorkDir(), result.SandboxID, result.PID), serial)
+	if h.readiness != nil {
+		if err := h.readiness.WaitReady(result.SandboxID, h.cfg.startupTimeout); err != nil {
+			serial := string(serialBytes)
+			t.Fatalf("sandbox did not post readiness within %v: %v\nlast_stage: %s\nready_ip: %s\nhost_diagnostics:\n%s\nserial:\n%s", h.cfg.startupTimeout, err, redpandaSerialStage(serial), h.readiness.ReadyIP(result.SandboxID), sandboxHostDiagnostics(h.vmMgr.WorkDir(), result.SandboxID, result.PID), serial)
+		}
+		serialBytes, _ = os.ReadFile(serialPath)
+		if !h.readiness.WasReady(result.SandboxID) {
+			serial := string(serialBytes)
+			t.Fatalf("sandbox never posted readiness\nlast_stage: %s\nhost_diagnostics:\n%s\nserial:\n%s", redpandaSerialStage(serial), sandboxHostDiagnostics(h.vmMgr.WorkDir(), result.SandboxID, result.PID), serial)
+		}
+	} else {
+		t.Logf("no readiness server (socket_vmnet without bridge); waiting for serial marker only")
 	}
 
 	serialContent, err := waitForSerialMarker(serialPath, "deer notify ready complete", 10*time.Second)
@@ -289,16 +300,18 @@ func waitForPhoneHomeNotification(t *testing.T, h *liveE2EHarness, result *provi
 }
 
 type redpandaE2EConfig struct {
-	baseImagePath  string
-	kernelPath     string
-	initrdPath     string
-	archiveURL     string
-	qemuBinary     string
-	bridge         string
-	dhcpMode       string
-	rootDevice     string
-	accel          string
-	startupTimeout time.Duration
+	baseImagePath     string
+	kernelPath        string
+	initrdPath        string
+	archiveURL        string
+	qemuBinary        string
+	bridge            string
+	dhcpMode          string
+	rootDevice        string
+	accel             string
+	startupTimeout    time.Duration
+	socketVMNetClient string
+	socketVMNetPath   string
 }
 
 func loadRedpandaE2EConfig(t *testing.T) redpandaE2EConfig {
@@ -307,43 +320,54 @@ func loadRedpandaE2EConfig(t *testing.T) redpandaE2EConfig {
 	if testing.Short() {
 		t.Skip("skipping live guest integration test in short mode")
 	}
-	if os.Getenv("FLUID_E2E_MICROVM") != "1" {
-		t.Skip("set FLUID_E2E_MICROVM=1 to run live guest microVM integration tests")
+	if os.Getenv("DEER_E2E_MICROVM") != "1" {
+		t.Skip("set DEER_E2E_MICROVM=1 to run live guest microVM integration tests")
 	}
-	if os.Geteuid() != 0 {
-		t.Skip("live guest microVM integration test requires root for TAP/bridge setup")
+	socketVMNetClient := strings.TrimSpace(os.Getenv("DEER_E2E_SOCKET_VMNET_CLIENT"))
+	socketVMNetPath := strings.TrimSpace(os.Getenv("DEER_E2E_SOCKET_VMNET_PATH"))
+	usingSocketVMNet := socketVMNetClient != ""
+
+	if !usingSocketVMNet && os.Geteuid() != 0 {
+		t.Skip("live guest microVM integration test requires root for TAP/bridge setup (or set DEER_E2E_SOCKET_VMNET_CLIENT for socket_vmnet)")
+	}
+
+	defaultAccel := "tcg"
+	if runtime.GOOS == "darwin" {
+		defaultAccel = "hvf"
 	}
 
 	cfg := redpandaE2EConfig{
-		baseImagePath:  os.Getenv("FLUID_E2E_BASE_IMAGE"),
-		kernelPath:     os.Getenv("FLUID_E2E_KERNEL"),
-		initrdPath:     os.Getenv("FLUID_E2E_INITRD"),
-		archiveURL:     strings.TrimSpace(os.Getenv("FLUID_E2E_REDPANDA_ARCHIVE_URL")),
-		qemuBinary:     envOrDefault("FLUID_E2E_QEMU_BINARY", defaultQEMUBinary()),
-		bridge:         os.Getenv("FLUID_E2E_BRIDGE"),
-		dhcpMode:       envOrDefault("FLUID_E2E_DHCP_MODE", "arp"),
-		rootDevice:     envOrDefault("FLUID_E2E_ROOT_DEVICE", "/dev/vda1"),
-		accel:          envOrDefault("FLUID_E2E_ACCEL", "tcg"),
-		startupTimeout: 25 * time.Minute,
+		baseImagePath:     os.Getenv("DEER_E2E_BASE_IMAGE"),
+		kernelPath:        os.Getenv("DEER_E2E_KERNEL"),
+		initrdPath:        os.Getenv("DEER_E2E_INITRD"),
+		archiveURL:        strings.TrimSpace(os.Getenv("DEER_E2E_REDPANDA_ARCHIVE_URL")),
+		qemuBinary:        envOrDefault("DEER_E2E_QEMU_BINARY", defaultQEMUBinary()),
+		bridge:            os.Getenv("DEER_E2E_BRIDGE"),
+		dhcpMode:          envOrDefault("DEER_E2E_DHCP_MODE", "arp"),
+		rootDevice:        envOrDefault("DEER_E2E_ROOT_DEVICE", "/dev/vda1"),
+		accel:             envOrDefault("DEER_E2E_ACCEL", defaultAccel),
+		startupTimeout:    25 * time.Minute,
+		socketVMNetClient: socketVMNetClient,
+		socketVMNetPath:   socketVMNetPath,
 	}
 
-	if timeoutRaw := os.Getenv("FLUID_E2E_STARTUP_TIMEOUT"); timeoutRaw != "" {
+	if timeoutRaw := os.Getenv("DEER_E2E_STARTUP_TIMEOUT"); timeoutRaw != "" {
 		timeout, err := time.ParseDuration(timeoutRaw)
 		if err != nil {
-			t.Fatalf("invalid FLUID_E2E_STARTUP_TIMEOUT %q: %v", timeoutRaw, err)
+			t.Fatalf("invalid DEER_E2E_STARTUP_TIMEOUT %q: %v", timeoutRaw, err)
 		}
 		cfg.startupTimeout = timeout
 	}
 
 	missing := make([]string, 0, 3)
 	if cfg.baseImagePath == "" {
-		missing = append(missing, "FLUID_E2E_BASE_IMAGE")
+		missing = append(missing, "DEER_E2E_BASE_IMAGE")
 	}
 	if cfg.kernelPath == "" {
-		missing = append(missing, "FLUID_E2E_KERNEL")
+		missing = append(missing, "DEER_E2E_KERNEL")
 	}
-	if cfg.bridge == "" {
-		missing = append(missing, "FLUID_E2E_BRIDGE")
+	if !usingSocketVMNet && cfg.bridge == "" {
+		missing = append(missing, "DEER_E2E_BRIDGE")
 	}
 	if len(missing) > 0 {
 		t.Skipf("missing required env vars for live guest integration test: %s", strings.Join(missing, ", "))
@@ -360,7 +384,9 @@ func loadRedpandaE2EConfig(t *testing.T) redpandaE2EConfig {
 		}
 	}
 	requiredBins := []string{cfg.qemuBinary, "qemu-img", "ssh-keygen"}
-	if runtime.GOOS == "darwin" {
+	if usingSocketVMNet {
+		requiredBins = append(requiredBins, cfg.socketVMNetClient)
+	} else if runtime.GOOS == "darwin" {
 		requiredBins = append(requiredBins, "ifconfig", "arp")
 	} else {
 		requiredBins = append(requiredBins, "ip")
@@ -372,11 +398,13 @@ func loadRedpandaE2EConfig(t *testing.T) redpandaE2EConfig {
 	}
 	if cfg.archiveURL == "" {
 		if _, err := exec.LookPath("dpkg-deb"); err != nil {
-			t.Fatalf("required binary %q not found: %v", "dpkg-deb", err)
+			t.Fatalf("required binary %q not found: %v (set DEER_E2E_REDPANDA_ARCHIVE_URL to provide a pre-built archive)", "dpkg-deb", err)
 		}
 	}
-	if _, err := network.GetBridgeIP(cfg.bridge); err != nil {
-		t.Fatalf("bridge %q is not usable for integration test: %v", cfg.bridge, err)
+	if cfg.bridge != "" {
+		if _, err := network.GetBridgeIP(cfg.bridge); err != nil {
+			t.Fatalf("bridge %q is not usable for integration test: %v", cfg.bridge, err)
+		}
 	}
 	return cfg
 }
@@ -414,19 +442,19 @@ func TestWaitForSerialMarker_PollsUntilMarkerAppears(t *testing.T) {
 func e2eWorkDir(t *testing.T) string {
 	t.Helper()
 
-	if dir := strings.TrimSpace(os.Getenv("FLUID_E2E_WORKDIR")); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("DEER_E2E_WORKDIR")); dir != "" {
 		if err := os.RemoveAll(dir); err != nil {
-			t.Fatalf("remove FLUID_E2E_WORKDIR %q: %v", dir, err)
+			t.Fatalf("remove DEER_E2E_WORKDIR %q: %v", dir, err)
 		}
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatalf("create FLUID_E2E_WORKDIR %q: %v", dir, err)
+			t.Fatalf("create DEER_E2E_WORKDIR %q: %v", dir, err)
 		}
-		t.Logf("using FLUID_E2E_WORKDIR=%s", dir)
+		t.Logf("using DEER_E2E_WORKDIR=%s", dir)
 		return dir
 	}
 
 	candidates := []string{"/var/tmp", os.TempDir()}
-	keepWorkDir := os.Getenv("FLUID_E2E_KEEP_WORKDIR") == "1"
+	keepWorkDir := os.Getenv("DEER_E2E_KEEP_WORKDIR") == "1"
 	for _, baseDir := range candidates {
 		dir, err := os.MkdirTemp(baseDir, "deer-redpanda-e2e-")
 		if err != nil {

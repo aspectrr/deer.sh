@@ -616,25 +616,25 @@ fi
 
 # ---- Write deer CLI config ----
 
-log "Writing deer CLI config..."
-if [ "$DRY_RUN" -eq 0 ]; then
-    run mkdir -p "$DEER_CLI_CONFIG_DIR"
-    cat > "$DEER_CLI_CONFIG" <<EOF
-daemon:
-  address: ${DAEMON_GRPC_ADDR}
-  insecure: true
+# log "Writing deer CLI config..."
+# if [ "$DRY_RUN" -eq 0 ]; then
+#     run mkdir -p "$DEER_CLI_CONFIG_DIR"
+#     cat > "$DEER_CLI_CONFIG" <<EOF
+# daemon:
+#   address: ${DAEMON_GRPC_ADDR}
+#   insecure: true
 
-ssh:
-  identity_file: ${SOURCE_KEY}
-  default_user: ${SOURCE_VM_SSH_USER}
+# ssh:
+#   identity_file: ${SOURCE_KEY}
+#   default_user: ${SOURCE_VM_SSH_USER}
 
-source_hosts:
-  - address: ${SOURCE_IP}
-    ssh_user: ${SOURCE_VM_SSH_USER}
-    ssh_port: 22
-    type: ssh
-EOF
-fi
+# source_hosts:
+#   - address: ${SOURCE_IP}
+#     ssh_user: ${SOURCE_VM_SSH_USER}
+#     ssh_port: 22
+#     type: ssh
+# EOF
+# fi
 
 # ---- Summary ----
 

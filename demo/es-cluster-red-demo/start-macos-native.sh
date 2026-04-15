@@ -742,40 +742,76 @@ fi
 
 # ---- Write deer CLI config ----
 
-log "Writing deer CLI config..."
-if [ "$DRY_RUN" -eq 0 ]; then
-    run mkdir -p "$DEER_CLI_CONFIG_DIR"
+# log "Writing deer CLI config..."
+# if [ "$DRY_RUN" -eq 0 ]; then
+#     run mkdir -p "$DEER_CLI_CONFIG_DIR"
 
-    # Build source_hosts YAML
-    SOURCE_HOSTS=""
+#     # Build source_hosts YAML
+#     SOURCE_HOSTS=""
+#     for i in $(seq 1 "$NUM_NODES"); do
+#         idx=$((i - 1))
+#         ip="${NODE_IPS[$idx]}"
+#         name="${NODE_NAMES[$idx]}"
+#         STATUS_MARKER="online"
+#         if [ "$idx" -eq "$KILL_NODE_IDX" ]; then
+#             STATUS_MARKER="OFFLINE (killed)"
+#         fi
+#         SOURCE_HOSTS="${SOURCE_HOSTS}  - address: ${ip}
+#     name: ${name}
+#     ssh_user: ${SSH_USER}
+#     ssh_port: 22
+#     type: ssh
+# "
+#     done
+
+#     cat > "$DEER_CLI_CONFIG" <<EOF
+# daemon:
+#   address: ${DAEMON_GRPC_ADDR}
+#   insecure: true
+
+# ssh:
+#   identity_file: ${SOURCE_KEY}
+#   default_user: ${SSH_USER}
+
+# source_hosts:
+# ${SOURCE_HOSTS}
+# EOF
+# fi
+
+# ---- Configure ~/.ssh/config for ES cluster nodes ----
+
+SSH_CONFIG="${HOME}/.ssh/config"
+
+log "Configuring ~/.ssh/config for ES cluster nodes..."
+if [ "$DRY_RUN" -eq 0 ]; then
+    # Remove old deer-es-cluster block
+    if grep -q '# deer-es-cluster-start' "$SSH_CONFIG" 2>/dev/null; then
+        TMPFILE="$(mktemp)"
+        awk '/^# deer-es-cluster-start/{skip=1} skip{if(/^# deer-es-cluster-end/){skip=0; next}; next} {print}' "$SSH_CONFIG" > "$TMPFILE"
+        mv "$TMPFILE" "$SSH_CONFIG"
+    fi
+
+    mkdir -p "$(dirname "$SSH_CONFIG")"
+    SSH_BLOCK=""
     for i in $(seq 1 "$NUM_NODES"); do
         idx=$((i - 1))
         ip="${NODE_IPS[$idx]}"
         name="${NODE_NAMES[$idx]}"
-        STATUS_MARKER="online"
-        if [ "$idx" -eq "$KILL_NODE_IDX" ]; then
-            STATUS_MARKER="OFFLINE (killed)"
-        fi
-        SOURCE_HOSTS="${SOURCE_HOSTS}  - address: ${ip}
-    name: ${name}
-    ssh_user: ${SSH_USER}
-    ssh_port: 22
-    type: ssh
+        SSH_BLOCK="${SSH_BLOCK}
+Host ${name}
+  HostName ${ip}
+  User root
+  IdentityFile ${HOME}/.ssh/id_ed25519
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
 "
     done
 
-    cat > "$DEER_CLI_CONFIG" <<EOF
-daemon:
-  address: ${DAEMON_GRPC_ADDR}
-  insecure: true
+    cat >> "$SSH_CONFIG" <<EOF
 
-ssh:
-  identity_file: ${SOURCE_KEY}
-  default_user: ${SSH_USER}
-
-source_hosts:
-${SOURCE_HOSTS}
+# deer-es-cluster-start${SSH_BLOCK}# deer-es-cluster-end
 EOF
+    log "Added ES cluster hosts to ${SSH_CONFIG}"
 fi
 
 # ---- Summary ----

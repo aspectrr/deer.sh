@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/aspectrr/deer.sh/deer-cli/internal/readonly"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/redact"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sandbox"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/skill"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/source"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sourcekeys"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sshconfig"
@@ -420,6 +422,41 @@ var auditCmd = &cobra.Command{
 	Short: "Manage the audit log",
 }
 
+// --- skills commands ---
+
+var skillsCmd = &cobra.Command{
+	Use:   "skills",
+	Short: "Manage deer skills",
+	Long:  "Install, list, and remove domain-specific skills that provide the agent with expert knowledge for technologies like Elasticsearch, Kafka, PostgreSQL, and more.",
+}
+
+var skillsListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List installed skills",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSkillsList()
+	},
+}
+
+var skillsInstallCmd = &cobra.Command{
+	Use:   "install <source>",
+	Short: "Install a skill from a local path or GitHub repo",
+	Long:  "Install a skill from a local directory path (./my-skill) or GitHub source (owner/repo). The skill directory must contain a SKILL.md file.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSkillsInstall(args[0])
+	},
+}
+
+var skillsRemoveCmd = &cobra.Command{
+	Use:   "remove <name>",
+	Short: "Remove an installed skill",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runSkillsRemove(args[0])
+	},
+}
+
 var auditVerifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Verify hash chain integrity of the audit log",
@@ -490,6 +527,10 @@ func init() {
 	fileCmd.AddCommand(fileReadCmd)
 	fileCmd.AddCommand(fileEditCmd)
 
+	skillsCmd.AddCommand(skillsListCmd)
+	skillsCmd.AddCommand(skillsInstallCmd)
+	skillsCmd.AddCommand(skillsRemoveCmd)
+
 	fileEditCmd.Flags().String("old", "", "String to find and replace")
 	fileEditCmd.Flags().String("new", "", "Replacement string (required)")
 	fileEditCmd.Flags().Bool("replace-all", false, "Replace all occurrences")
@@ -503,6 +544,7 @@ func init() {
 	rootCmd.AddCommand(sandboxCmd)
 	rootCmd.AddCommand(playbookCmd)
 	rootCmd.AddCommand(fileCmd)
+	rootCmd.AddCommand(skillsCmd)
 }
 
 // colorFunc returns an ANSI color wrapper when useColor is true.
@@ -1932,5 +1974,239 @@ func runSourceReadFile(host, path string) error {
 	}
 
 	fmt.Println(content)
+	return nil
+}
+
+// --- skills command handlers ---
+
+func runSkillsList() error {
+	skillsDir, err := skill.SkillsDir()
+	if err != nil {
+		return fmt.Errorf("resolve skills dir: %w", err)
+	}
+
+	loader := skill.NewLoader(skillsDir)
+	count, err := loader.Discover()
+	if err != nil {
+		return fmt.Errorf("discover skills: %w", err)
+	}
+
+	if count == 0 {
+		fmt.Println("  No skills installed.")
+		fmt.Println()
+		fmt.Println("  Install a skill with: deer skills install <source>")
+		fmt.Println("  Sources can be local paths (./my-skill) or GitHub repos (owner/repo)")
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Printf("  %-25s %-50s %s\n", "NAME", "DESCRIPTION", "VERSION")
+	fmt.Printf("  %-25s %-50s %s\n", strings.Repeat("-", 25), strings.Repeat("-", 50), strings.Repeat("-", 10))
+	for _, s := range loader.List() {
+		desc := s.Description
+		if len(desc) > 48 {
+			desc = desc[:48] + "..."
+		}
+		ver := s.Version
+		if ver == "" {
+			ver = "-"
+		}
+		fmt.Printf("  %-25s %-50s %s\n", s.Name, desc, ver)
+	}
+	fmt.Println()
+	return nil
+}
+
+func runSkillsInstall(source string) error {
+	skillsDir, err := skill.EnsureSkillsDir()
+	if err != nil {
+		return fmt.Errorf("ensure skills dir: %w", err)
+	}
+
+	useColor := os.Getenv("NO_COLOR") == ""
+	green := colorFunc(useColor, "\033[32m")
+	red := colorFunc(useColor, "\033[31m")
+
+	var srcDir string
+	var srcType string
+	var lockSource string
+
+	// Check for GitHub source patterns:
+	//   owner/repo
+	//   owner/repo//path/to/skill
+	//   https://github.com/owner/repo
+	//   github.com/owner/repo
+	if isGitHubSource(source) {
+		srcType = "github"
+		lockSource = source
+
+		repoRef, subPath := parseGitHubSource(source)
+		fmt.Printf("  Cloning %s...\n", repoRef)
+
+		tmpDir, err := os.MkdirTemp("", "deer-skill-*")
+		if err != nil {
+			return fmt.Errorf("create temp dir: %w", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		cloneURL := "https://github.com/" + repoRef + ".git"
+		if err := gitCloneShallow(cloneURL, tmpDir); err != nil {
+			fmt.Printf("  %s git clone failed: %v\n", red("[error]"), err)
+			fmt.Printf("  Check that %s exists and is accessible\n", repoRef)
+			return err
+		}
+
+		if subPath != "" {
+			srcDir = filepath.Join(tmpDir, subPath)
+		} else {
+			srcDir = tmpDir
+		}
+	} else {
+		// Local path
+		srcType = "local"
+		absPath, err := filepath.Abs(source)
+		if err != nil {
+			return fmt.Errorf("resolve path: %w", err)
+		}
+		srcDir = absPath
+		lockSource = absPath
+	}
+
+	// Validate source has SKILL.md
+	skillMD := filepath.Join(srcDir, "SKILL.md")
+	data, err := os.ReadFile(skillMD)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if srcType == "github" {
+				return fmt.Errorf("%s does not contain a SKILL.md file. Use owner/repo//path/to/skill if the skill is in a subdirectory", srcDir)
+			}
+			return fmt.Errorf("%s does not contain a SKILL.md file", srcDir)
+		}
+		return fmt.Errorf("read SKILL.md: %w", err)
+	}
+
+	s, err := skill.Parse(data)
+	if err != nil {
+		return fmt.Errorf("parse SKILL.md: %w", err)
+	}
+
+	// Copy to skills directory
+	destDir := filepath.Join(skillsDir, s.Name)
+	if srcDir != destDir {
+		if err := os.MkdirAll(destDir, 0o755); err != nil {
+			return fmt.Errorf("create skill dir: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(destDir, "SKILL.md"), data, 0o644); err != nil {
+			return fmt.Errorf("write SKILL.md: %w", err)
+		}
+	}
+
+	// Update lock file
+	lf, err := skill.LoadLock()
+	if err != nil {
+		return fmt.Errorf("load lock: %w", err)
+	}
+	lf.Add(s.Name, skill.LockEntry{
+		Source:     lockSource,
+		SourceType: srcType,
+	})
+	if err := lf.Save(); err != nil {
+		return fmt.Errorf("save lock: %w", err)
+	}
+
+	fmt.Printf("  %s Installed skill %q from %s\n", green("[ok]"), s.Name, lockSource)
+	if s.Description != "" {
+		fmt.Printf("  %s\n", s.Description)
+	}
+	return nil
+}
+
+// isGitHubSource returns true if the source looks like a GitHub reference.
+func isGitHubSource(source string) bool {
+	if strings.HasPrefix(source, "github.com/") {
+		return true
+	}
+	if strings.HasPrefix(source, "https://github.com/") {
+		return true
+	}
+	// owner/repo pattern: exactly one slash, no leading dot or slash
+	if !strings.HasPrefix(source, ".") && !strings.HasPrefix(source, "/") {
+		parts := strings.SplitN(source, "//", 2)
+		repo := parts[0]
+		slashCount := strings.Count(repo, "/")
+		if slashCount == 1 && !strings.Contains(repo, " ") {
+			return true
+		}
+	}
+	return false
+}
+
+// parseGitHubSource returns the repo reference (owner/repo) and optional subpath.
+// Supports: owner/repo, owner/repo//path/to/skill, github.com/owner/repo, https://github.com/owner/repo
+func parseGitHubSource(source string) (repoRef, subPath string) {
+	// Strip URL prefixes
+	source = strings.TrimPrefix(source, "https://")
+	source = strings.TrimPrefix(source, "github.com/")
+
+	// Split on // for subpath
+	if idx := strings.Index(source, "//"); idx >= 0 {
+		repoRef = source[:idx]
+		subPath = source[idx+2:]
+	} else {
+		repoRef = source
+	}
+	return repoRef, subPath
+}
+
+// gitCloneShallow does a depth-1 clone into the target directory.
+func gitCloneShallow(url, dir string) error {
+	cmd := exec.Command("git", "clone", "--depth", "1", "--quiet", url, dir)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git clone: %s", strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func runSkillsRemove(name string) error {
+	skillsDir, err := skill.SkillsDir()
+	if err != nil {
+		return fmt.Errorf("resolve skills dir: %w", err)
+	}
+
+	useColor := os.Getenv("NO_COLOR") == ""
+	green := colorFunc(useColor, "\033[32m")
+
+	// Find and remove the skill directory
+	skillDir := filepath.Join(skillsDir, name)
+	if _, err := os.Stat(skillDir); os.IsNotExist(err) {
+		// Try case-insensitive search
+		entries, readErr := os.ReadDir(skillsDir)
+		if readErr != nil {
+			return fmt.Errorf("read skills dir: %w", readErr)
+		}
+		for _, e := range entries {
+			if strings.EqualFold(e.Name(), name) {
+				skillDir = filepath.Join(skillsDir, e.Name())
+				break
+			}
+		}
+	}
+
+	if err := os.RemoveAll(skillDir); err != nil {
+		return fmt.Errorf("remove skill directory: %w", err)
+	}
+
+	// Update lock file
+	lf, err := skill.LoadLock()
+	if err != nil {
+		return fmt.Errorf("load lock: %w", err)
+	}
+	lf.Remove(name)
+	if err := lf.Save(); err != nil {
+		return fmt.Errorf("save lock: %w", err)
+	}
+
+	fmt.Printf("  %s Removed skill %q\n", green("[done]"), name)
 	return nil
 }

@@ -404,6 +404,38 @@ func (m *Manager) Stop(ctx context.Context, sandboxID string, force bool) error 
 	return nil
 }
 
+// ValidateAccel checks the configured accelerator against the runtime platform
+// and returns warnings if the choice is suboptimal.
+func ValidateAccel(goos, accel string) []string {
+	var warnings []string
+
+	switch {
+	case accel == "tcg":
+		optimal := optimalAccel(goos)
+		warnings = append(warnings, fmt.Sprintf("accel is set to 'tcg' (software emulation); '%s' would provide significantly better performance on %s", optimal, goos))
+	case accel == "hvf" && goos != "darwin":
+		warnings = append(warnings, "accel is set to 'hvf' which is only available on macOS; consider using 'kvm' on Linux for hardware acceleration")
+	case accel == "kvm" && goos == "darwin":
+		warnings = append(warnings, "accel is set to 'kvm' which is not available on macOS; consider using 'hvf' for hardware acceleration or remove the setting to auto-detect")
+	case accel == "" && goos == "linux":
+		if _, err := os.Stat("/dev/kvm"); err != nil {
+			warnings = append(warnings, "KVM device /dev/kvm not found; virtualization will fall back to software emulation (tcg). Install KVM kernel modules for hardware acceleration")
+		}
+	case accel == "" && goos == "darwin":
+		// HVF is always available on Apple Silicon and Intel Macs with Hypervisor.framework
+	}
+
+	return warnings
+}
+
+// optimalAccel returns the best accelerator for the given OS.
+func optimalAccel(goos string) string {
+	if goos == "darwin" {
+		return "hvf"
+	}
+	return "kvm"
+}
+
 // resolveAccelArgs returns the QEMU accelerator flags for the given OS and accel config.
 // On darwin, an empty accel defaults to HVF. On linux, an empty accel defaults to KVM.
 func resolveAccelArgs(goos, accel string) []string {

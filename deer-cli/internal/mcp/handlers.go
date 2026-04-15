@@ -810,3 +810,40 @@ func (s *Server) handleListHosts(ctx context.Context, request mcp.CallToolReques
 		"count": len(hosts),
 	})
 }
+
+func (s *Server) handleListSkills(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if s.skillLoader == nil {
+		return jsonResult(map[string]any{"skills": []any{}, "count": 0})
+	}
+	entries := s.skillLoader.Catalog()
+	skills := make([]map[string]any, 0, len(entries))
+	for _, e := range entries {
+		skills = append(skills, map[string]any{
+			"name":        e.Name,
+			"description": e.Description,
+		})
+	}
+	return jsonResult(map[string]any{"skills": skills, "count": len(skills)})
+}
+
+func (s *Server) handleLoadSkill(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name := request.GetString("name", "")
+	if name == "" {
+		return errorResult(map[string]any{"error": "name parameter is required"})
+	}
+	if s.skillLoader == nil {
+		return errorResult(map[string]any{"error": "no skills loaded"})
+	}
+	sk := s.skillLoader.Get(name)
+	if sk == nil {
+		return errorResult(map[string]any{
+			"error": fmt.Sprintf("skill %q not found. Use list_skills to see available skills.", name),
+		})
+	}
+	return jsonResult(map[string]any{
+		"name":        sk.Name,
+		"description": sk.Description,
+		"version":     sk.Version,
+		"content":     sk.Content,
+	})
+}

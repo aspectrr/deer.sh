@@ -193,6 +193,72 @@ func TestQEMUPlatformOptions(t *testing.T) {
 	}
 }
 
+func TestValidateAccel(t *testing.T) {
+	tests := []struct {
+		name    string
+		goos    string
+		accel   string
+		wantAny int // expected minimum number of warnings
+	}{
+		{
+			name:    "auto on darwin is fine",
+			goos:    "darwin",
+			accel:   "",
+			wantAny: 0,
+		},
+		{
+			name:    "auto on linux is fine",
+			goos:    "linux",
+			accel:   "",
+			wantAny: 0,
+		},
+		{
+			name:    "hvf on darwin is fine",
+			goos:    "darwin",
+			accel:   "hvf",
+			wantAny: 0,
+		},
+		{
+			name:    "kvm on linux is fine",
+			goos:    "linux",
+			accel:   "kvm",
+			wantAny: 0,
+		},
+		{
+			name:    "tcg warns about suboptimal performance on darwin",
+			goos:    "darwin",
+			accel:   "tcg",
+			wantAny: 1,
+		},
+		{
+			name:    "tcg warns about suboptimal performance on linux",
+			goos:    "linux",
+			accel:   "tcg",
+			wantAny: 1,
+		},
+		{
+			name:    "kvm on darwin warns wrong platform",
+			goos:    "darwin",
+			accel:   "kvm",
+			wantAny: 1,
+		},
+		{
+			name:    "hvf on linux warns wrong platform",
+			goos:    "linux",
+			accel:   "hvf",
+			wantAny: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ValidateAccel(tt.goos, tt.accel)
+			if (len(got) >= tt.wantAny) != true {
+				t.Errorf("ValidateAccel(%q, %q) returned %d warnings, want at least %d", tt.goos, tt.accel, len(got), tt.wantAny)
+			}
+		})
+	}
+}
+
 func TestResolveAccelArgs(t *testing.T) {
 	tests := []struct {
 		name  string

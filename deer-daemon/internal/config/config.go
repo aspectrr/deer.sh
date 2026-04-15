@@ -130,7 +130,8 @@ type MicroVMConfig struct {
 	// QEMUBinary is the path to qemu-system-x86_64.
 	QEMUBinary string `yaml:"qemu_binary"`
 
-	// Accel is the QEMU accelerator: "kvm" (default) or "tcg".
+	// Accel is the QEMU accelerator: "" (auto-detect), "kvm", "hvf", or "tcg".
+	// Auto-detect selects HVF on macOS, KVM on Linux.
 	Accel string `yaml:"accel"`
 
 	// KernelPath is the path to a pre-downloaded Linux kernel for microVM boot.

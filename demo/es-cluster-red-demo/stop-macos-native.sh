@@ -105,6 +105,17 @@ cleanup_config() {
     log "  config removed"
 }
 
+cleanup_ssh_config() {
+    log "Removing ES cluster SSH config entries..."
+    SSH_CONFIG="${HOME}/.ssh/config"
+    if grep -q '# deer-es-cluster-start' "$SSH_CONFIG" 2>/dev/null; then
+        TMPFILE="$(mktemp)"
+        awk '/^# deer-es-cluster-start/{skip=1} skip{if(/^# deer-es-cluster-end/){skip=0; next}; next} {print}' "$SSH_CONFIG" > "$TMPFILE"
+        mv "$TMPFILE" "$SSH_CONFIG"
+        log "  Removed ES cluster hosts from ${SSH_CONFIG}"
+    fi
+}
+
 main() {
     echo ""
     log "Stopping ES cluster yellow demo..."
@@ -115,6 +126,7 @@ main() {
     cleanup_keys
     cleanup_pids
     cleanup_config
+    cleanup_ssh_config
     echo ""
     log "---- All services stopped ----"
     echo ""

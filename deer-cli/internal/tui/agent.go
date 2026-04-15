@@ -24,6 +24,7 @@ import (
 	"github.com/aspectrr/deer.sh/deer-cli/internal/readonly"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/redact"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sandbox"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/skill"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/source"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sourcekeys"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sshconfig"
@@ -60,6 +61,7 @@ type DeerAgent struct {
 	auditLog        *audit.Logger
 	chatLog         *chatlog.Logger
 	logger          *slog.Logger
+	skillLoader     *skill.Loader
 
 	// Status callback for sending updates to TUI
 	statusCallback func(tea.Msg)
@@ -135,10 +137,27 @@ func NewDeerAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcSv
 		auditLog:        auditLog,
 		chatLog:         chatLog,
 		logger:          logger,
+		skillLoader:     initSkillLoader(logger),
 		history:         make([]llm.Message, 0),
 		swapTimeout:     2 * time.Second,
 		redactedSeen:    make(map[string]bool),
 	}
+}
+
+// initSkillLoader creates and populates a skill loader from the deer config directory.
+func initSkillLoader(logger *slog.Logger) *skill.Loader {
+	skillsDir, err := skill.SkillsDir()
+	if err != nil {
+		logger.Warn("skill loader: could not resolve skills dir", "error", err)
+		return skill.NewLoader()
+	}
+	loader := skill.NewLoader(skillsDir)
+	if count, err := loader.Discover(); err != nil {
+		logger.Warn("skill loader: discover failed", "error", err)
+	} else if count > 0 {
+		logger.Info("skill loader: loaded skills", "count", count, "dir", skillsDir)
+	}
+	return loader
 }
 
 // SetStatusCallback sets the callback function for status updates
@@ -501,6 +520,23 @@ func (a *DeerAgent) Run(input string) tea.Cmd {
 			// when !HasSandboxHosts (source-only mode) - so the guidance is never appended twice.
 			if len(a.cfg.PreparedHosts()) > 0 && a.cfg.HasSandboxHosts() && !isReadOnly {
 				systemPrompt += tlsDebuggingGuidance
+			}
+
+			// Inject skills catalog into system prompt so the LLM knows what's available.
+			if a.skillLoader != nil && a.skillLoader.HasSkills() {
+				systemPrompt += "\n\n## Available Skills\n\n" +
+					"You have access to domain-specific skills via the `list_skills` and `load_skill` tools. " +
+					"Skills contain detailed procedures, runbooks, and tool-usage guidance for specific technologies.\n" +
+					"When a user's question relates to a technology covered by a skill, load it with `load_skill` first.\n\n" +
+					"Available skills:\n"
+				for _, entry := range a.skillLoader.Catalog() {
+					desc := entry.Description
+					if desc == "" {
+						desc = "(no description)"
+					}
+					systemPrompt += fmt.Sprintf("- **%s**: %s\n", entry.Name, desc)
+				}
+				systemPrompt += "\nUse `load_skill` to retrieve the full content of any skill listed above."
 			}
 
 			// Build messages, applying redaction if enabled
@@ -1075,6 +1111,16 @@ func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, erro
 			return map[string]any{"hosts": hostList, "count": len(hostList)}, nil
 		}
 		return a.listHostsWithVMs(ctx)
+	case "list_skills":
+		return a.handleListSkills()
+	case "load_skill":
+		var args struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return a.handleLoadSkill(args.Name)
 	default:
 		a.logger.Error("unknown tool name", "tool", tc.Function.Name)
 		return nil, fmt.Errorf("unknown tool: %s", tc.Function.Name)
@@ -2516,4 +2562,35 @@ func (a *DeerAgent) clearStickyReadOnly() {
 	a.displayReadOnly = false
 	a.mu.Unlock()
 	a.sendStatus(AutoReadOnlyMsg{Enabled: false})
+}
+
+func (a *DeerAgent) handleListSkills() (map[string]any, error) {
+	if a.skillLoader == nil {
+		return map[string]any{"skills": []any{}, "count": 0}, nil
+	}
+	entries := a.skillLoader.Catalog()
+	skills := make([]map[string]any, 0, len(entries))
+	for _, e := range entries {
+		skills = append(skills, map[string]any{
+			"name":        e.Name,
+			"description": e.Description,
+		})
+	}
+	return map[string]any{"skills": skills, "count": len(skills)}, nil
+}
+
+func (a *DeerAgent) handleLoadSkill(name string) (map[string]any, error) {
+	if a.skillLoader == nil {
+		return nil, fmt.Errorf("no skills loaded")
+	}
+	s := a.skillLoader.Get(name)
+	if s == nil {
+		return nil, fmt.Errorf("skill %q not found. Use list_skills to see available skills.", name)
+	}
+	return map[string]any{
+		"name":        s.Name,
+		"description": s.Description,
+		"version":     s.Version,
+		"content":     s.Content,
+	}, nil
 }

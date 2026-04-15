@@ -11,6 +11,8 @@ var readOnlyTools = map[string]bool{
 	"run_source_command": true,
 	"read_source_file":   true,
 	"list_hosts":         true,
+	"list_skills":        true,
+	"load_skill":         true,
 }
 
 // sourceOnlyTools is the set of tool names available when no sandbox hosts are configured.
@@ -22,6 +24,8 @@ var sourceOnlyTools = map[string]bool{
 	"add_playbook_task":  true,
 	"list_playbooks":     true,
 	"get_playbook":       true,
+	"list_skills":        true,
+	"load_skill":         true,
 }
 
 // GetReadOnlyTools returns only the tools that are safe for read-only mode.
@@ -53,6 +57,8 @@ var noSourceTools = map[string]bool{
 	"add_playbook_task": true,
 	"list_playbooks":    true,
 	"get_playbook":      true,
+	"list_skills":       true,
+	"load_skill":        true,
 }
 
 // GetNoSourceTools returns tools for when no source hosts are prepared.
@@ -453,6 +459,34 @@ func GetTools() []Tool {
 				Parameters: ParameterSchema{
 					Type:       "object",
 					Properties: map[string]Property{},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "list_skills",
+				Description: "List all available skills. Skills provide domain-specific knowledge (e.g. Elasticsearch deployment, Kafka operations, on-call debugging). Use this to discover what skills are available, then use load_skill to get the full content.",
+				Parameters: ParameterSchema{
+					Type:       "object",
+					Properties: map[string]Property{},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "load_skill",
+				Description: "Load the full content of a skill by name. Use this after list_skills to retrieve detailed domain knowledge. The loaded skill provides procedures, runbooks, and tool usage guidance for specific technologies.",
+				Parameters: ParameterSchema{
+					Type: "object",
+					Properties: map[string]Property{
+						"name": {
+							Type:        "string",
+							Description: "The name of the skill to load (must match a name from list_skills).",
+						},
+					},
+					Required: []string{"name"},
 				},
 			},
 		},

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -129,6 +130,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		prov, keyMgr, caPubKey, err = initMicroVMProvider(ctx, cfg, logger)
 		if err != nil {
 			return err
+		}
+		for _, w := range microvm.ValidateAccel(runtime.GOOS, cfg.MicroVM.Accel) {
+			logger.Warn("accelerator performance warning", "warning", w, "accel", cfg.MicroVM.Accel)
 		}
 	}
 

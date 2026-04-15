@@ -9,6 +9,7 @@ import (
 	"github.com/aspectrr/deer.sh/deer-cli/internal/ansible"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/config"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/sandbox"
+	"github.com/aspectrr/deer.sh/deer-cli/internal/skill"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/source"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/store"
 	"github.com/aspectrr/deer.sh/deer-cli/internal/telemetry"
@@ -29,6 +30,7 @@ type Server struct {
 	telemetry       telemetry.Service
 	logger          *slog.Logger
 	mcpServer       *server.MCPServer
+	skillLoader     *skill.Loader
 }
 
 // NewServer creates a new MCP server wired to the deer services.
@@ -46,6 +48,19 @@ func NewServer(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc *
 	s.mcpServer = server.NewMCPServer("deer", "0.1.0",
 		server.WithToolCapabilities(false),
 	)
+
+	// Initialize skill loader
+	skillsDir, err := skill.SkillsDir()
+	if err != nil {
+		s.logger.Warn("could not resolve skills dir", "error", err)
+	} else {
+		s.skillLoader = skill.NewLoader(skillsDir)
+		if count, discoverErr := s.skillLoader.Discover(); discoverErr != nil {
+			s.logger.Warn("skill discovery failed", "error", discoverErr)
+		} else if count > 0 {
+			s.logger.Info("loaded skills", "count", count, "dir", skillsDir)
+		}
+	}
 
 	s.registerTools()
 	return s
@@ -164,4 +179,13 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(mcp.NewTool("list_hosts",
 		mcp.WithDescription("List all configured source hosts (production systems) with their preparation status. These are for read-only investigation via run_source_command, NOT for create_sandbox."),
 	), s.handleListHosts)
+
+	s.mcpServer.AddTool(mcp.NewTool("list_skills",
+		mcp.WithDescription("List all available skills. Skills provide domain-specific knowledge (e.g. Elasticsearch deployment, Kafka operations, on-call debugging). Use this to discover what skills are available, then use load_skill to get the full content."),
+	), s.handleListSkills)
+
+	s.mcpServer.AddTool(mcp.NewTool("load_skill",
+		mcp.WithDescription("Load the full content of a skill by name. Use this after list_skills to retrieve detailed domain knowledge. The loaded skill provides procedures, runbooks, and tool usage guidance for specific technologies."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("The name of the skill to load (must match a name from list_skills).")),
+	), s.handleLoadSkill)
 }

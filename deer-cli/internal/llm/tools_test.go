@@ -24,6 +24,8 @@ func TestGetNoSourceTools(t *testing.T) {
 		"get_playbook",
 		"list_hosts",
 		"list_playbooks",
+		"list_skills",
+		"load_skill",
 	}
 
 	if len(names) != len(expected) {
@@ -67,6 +69,8 @@ func TestGetSourceOnlyTools(t *testing.T) {
 		"get_playbook",
 		"list_hosts",
 		"list_playbooks",
+		"list_skills",
+		"load_skill",
 		"read_source_file",
 		"run_source_command",
 	}
@@ -92,7 +96,9 @@ func TestGetReadOnlyTools(t *testing.T) {
 		"list_hosts",
 		"list_playbooks",
 		"list_sandboxes",
+		"list_skills",
 		"list_vms",
+		"load_skill",
 		"read_file",
 		"read_source_file",
 		"run_source_command",
