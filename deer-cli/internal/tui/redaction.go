@@ -401,7 +401,7 @@ func (m RedactionModel) View() string {
 	if m.selected == 0 {
 		prefix = m.styles.indicator.Render("> ")
 	}
-	b.WriteString(fmt.Sprintf("%sRedaction: %s (Space/E to toggle)\n", prefix, enabledStyle.Render(enabledStr)))
+	fmt.Fprintf(&b, "%sRedaction: %s (Space/E to toggle)\n", prefix, enabledStyle.Render(enabledStr))
 
 	totalItems := len(builtinPatterns) + len(m.customPatterns) + 1
 	visibleStart := m.scrollY

@@ -101,23 +101,27 @@ func TestLoaderDiscover(t *testing.T) {
 	if err := os.MkdirAll(esDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(filepath.Join(esDir, "SKILL.md"), []byte(`---
+	if err := os.WriteFile(filepath.Join(esDir, "SKILL.md"), []byte(`---
 name: elasticsearch-deploy
 description: "Deploy ES clusters"
 ---
 ES content.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	kafkaDir := filepath.Join(dir, "kafka-ops")
 	if err := os.MkdirAll(kafkaDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(filepath.Join(kafkaDir, "SKILL.md"), []byte(`---
+	if err := os.WriteFile(filepath.Join(kafkaDir, "SKILL.md"), []byte(`---
 name: kafka-ops
 description: "Kafka operations"
 ---
 Kafka content.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir)
 	count, err := loader.Discover()
@@ -156,16 +160,22 @@ Kafka content.
 func TestLoaderCaseInsensitive(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
-	os.MkdirAll(skillDir, 0o755)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
 name: My-Skill
 description: "Test"
 ---
 Content.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir)
-	loader.Discover()
+	if _, err := loader.Discover(); err != nil {
+		t.Fatal(err)
+	}
 
 	if loader.Get("my-skill") == nil {
 		t.Error("Get(my-skill) should find My-Skill (case-insensitive)")
@@ -179,21 +189,29 @@ func TestLoaderMultipleDirs(t *testing.T) {
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()
 
-	os.MkdirAll(filepath.Join(dir1, "skill-a"), 0o755)
-	os.WriteFile(filepath.Join(dir1, "skill-a", "SKILL.md"), []byte(`---
+	if err := os.MkdirAll(filepath.Join(dir1, "skill-a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir1, "skill-a", "SKILL.md"), []byte(`---
 name: skill-a
 description: "From dir1"
 ---
 A content.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-	os.MkdirAll(filepath.Join(dir2, "skill-b"), 0o755)
-	os.WriteFile(filepath.Join(dir2, "skill-b", "SKILL.md"), []byte(`---
+	if err := os.MkdirAll(filepath.Join(dir2, "skill-b"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir2, "skill-b", "SKILL.md"), []byte(`---
 name: skill-b
 description: "From dir2"
 ---
 B content.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir1, dir2)
 	count, err := loader.Discover()
@@ -224,16 +242,22 @@ func TestLoaderNonexistentDir(t *testing.T) {
 
 func TestLoaderCatalog(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "es"), 0o755)
-	os.WriteFile(filepath.Join(dir, "es", "SKILL.md"), []byte(`---
+	if err := os.MkdirAll(filepath.Join(dir, "es"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "es", "SKILL.md"), []byte(`---
 name: elasticsearch
 description: "ES operations"
 ---
 Content.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir)
-	loader.Discover()
+	if _, err := loader.Discover(); err != nil {
+		t.Fatal(err)
+	}
 
 	catalog := loader.Catalog()
 	defaultCount := bundledDefaultCount()
@@ -258,16 +282,22 @@ Content.
 
 func TestLoaderNames(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "a"), 0o755)
-	os.WriteFile(filepath.Join(dir, "a", "SKILL.md"), []byte(`---
+	if err := os.MkdirAll(filepath.Join(dir, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a", "SKILL.md"), []byte(`---
 name: alpha
 description: "A"
 ---
 A.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir)
-	loader.Discover()
+	if _, err := loader.Discover(); err != nil {
+		t.Fatal(err)
+	}
 
 	names := loader.Names()
 	defaultCount := bundledDefaultCount()
@@ -289,22 +319,30 @@ A.
 func TestLoaderHasSkills(t *testing.T) {
 	// Even with no user dirs, defaults are loaded
 	loader := NewLoader("/nonexistent")
-	loader.Discover()
+	if _, err := loader.Discover(); err != nil {
+		t.Fatal(err)
+	}
 	if !loader.HasSkills() {
 		t.Error("HasSkills() should be true (bundled defaults always loaded)")
 	}
 
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "x"), 0o755)
-	os.WriteFile(filepath.Join(dir, "x", "SKILL.md"), []byte(`---
+	if err := os.MkdirAll(filepath.Join(dir, "x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "x", "SKILL.md"), []byte(`---
 name: x
 description: "X"
 ---
 X.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader2 := NewLoader(dir)
-	loader2.Discover()
+	if _, err := loader2.Discover(); err != nil {
+		t.Fatal(err)
+	}
 	if !loader2.HasSkills() {
 		t.Error("HasSkills() should be true with skills loaded")
 	}
@@ -312,7 +350,9 @@ X.
 
 func TestLoaderSkipNonDir(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "README.md"), []byte("not a skill"), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("not a skill"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir)
 	count, err := loader.Discover()
@@ -327,7 +367,9 @@ func TestLoaderSkipNonDir(t *testing.T) {
 
 func TestLoaderSkipDirWithoutSkillFile(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "no-skill-file"), 0o755)
+	if err := os.MkdirAll(filepath.Join(dir, "no-skill-file"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir)
 	count, err := loader.Discover()
@@ -370,16 +412,22 @@ func TestBundledDefaults(t *testing.T) {
 
 func TestUserOverridesDefault(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "kafka"), 0o755)
-	os.WriteFile(filepath.Join(dir, "kafka", "SKILL.md"), []byte(`---
+	if err := os.MkdirAll(filepath.Join(dir, "kafka"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "kafka", "SKILL.md"), []byte(`---
 name: kafka
 description: "Custom kafka override"
 ---
 Custom kafka content.
-`), 0o644)
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := NewLoader(dir)
-	loader.Discover()
+	if _, err := loader.Discover(); err != nil {
+		t.Fatal(err)
+	}
 
 	kafka := loader.Get("kafka")
 	if kafka == nil {

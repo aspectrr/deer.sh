@@ -32,6 +32,8 @@ type Styles struct {
 	ToolDetails      lipgloss.Style
 	ToolDetailsError lipgloss.Style
 	ToolName         lipgloss.Style
+	SkillBadge       lipgloss.Style
+	SkillDescription lipgloss.Style
 
 	// Input
 	InputPrompt lipgloss.Style
@@ -106,6 +108,16 @@ func DefaultStyles() Styles {
 
 		ToolName: lipgloss.NewStyle().
 			Bold(true),
+
+		SkillBadge: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ffffff")).
+			Background(successColor).
+			Padding(0, 1).
+			Bold(true),
+
+		SkillDescription: lipgloss.NewStyle().
+			Foreground(secondaryColor).
+			PaddingLeft(1),
 
 		InputPrompt: lipgloss.NewStyle().
 			Foreground(primaryColor).

@@ -2047,7 +2047,7 @@ func runSkillsInstall(source string) error {
 		if err != nil {
 			return fmt.Errorf("create temp dir: %w", err)
 		}
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		cloneURL := "https://github.com/" + repoRef + ".git"
 		if err := gitCloneShallow(cloneURL, tmpDir); err != nil {

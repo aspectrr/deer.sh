@@ -2458,6 +2458,38 @@ func (m *Model) formatToolOutput(toolName string, args, result map[string]any) s
 			b.WriteString("\n")
 		}
 
+	case "load_skill":
+		if name, ok := result["name"].(string); ok {
+			badge := m.styles.SkillBadge.Render("skill loaded")
+			desc := ""
+			if d, ok := result["description"].(string); ok && d != "" {
+				desc = " " + m.styles.SkillDescription.Render(d)
+			}
+			fmt.Fprintf(&b, "    %s %s%s", badge, name, desc)
+			b.WriteString("\n")
+		}
+
+	case "list_skills":
+		if skills, ok := result["skills"].([]any); ok {
+			if len(skills) == 0 {
+				b.WriteString(m.styles.ToolDetails.Render("      No skills available"))
+				b.WriteString("\n")
+			} else {
+				for i, s := range skills {
+					if i >= 15 {
+						b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      ... and %d more", len(skills)-15)))
+						b.WriteString("\n")
+						break
+					}
+					if sMap, ok := s.(map[string]any); ok {
+						name := sMap["name"]
+						b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      - %v", name)))
+						b.WriteString("\n")
+					}
+				}
+			}
+		}
+
 	default:
 		// Generic key-value rendering for unknown tools
 		lines := 0

@@ -250,10 +250,10 @@ func (m ConfirmModel) View() string {
 
 	b.WriteString(m.styles.warning.Render("Memory Status:"))
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("  Required:  %s MB\n", m.styles.highlight.Render(fmt.Sprintf("%d", m.request.RequiredMemoryMB))))
-	b.WriteString(fmt.Sprintf("  Available: %s MB (%.1f%% of total)\n", m.styles.error.Render(fmt.Sprintf("%d", m.request.AvailableMemoryMB)), percentAvailable))
-	b.WriteString(fmt.Sprintf("  Total:     %d MB\n", m.request.TotalMemoryMB))
-	b.WriteString(fmt.Sprintf("  Deficit:   %s MB\n", m.styles.error.Render(fmt.Sprintf("%d", deficit))))
+	fmt.Fprintf(&b, "  Required:  %s MB\n", m.styles.highlight.Render(fmt.Sprintf("%d", m.request.RequiredMemoryMB)))
+	fmt.Fprintf(&b, "  Available: %s MB (%.1f%% of total)\n", m.styles.error.Render(fmt.Sprintf("%d", m.request.AvailableMemoryMB)), percentAvailable)
+	fmt.Fprintf(&b, "  Total:     %d MB\n", m.request.TotalMemoryMB)
+	fmt.Fprintf(&b, "  Deficit:   %s MB\n", m.styles.error.Render(fmt.Sprintf("%d", deficit)))
 	b.WriteString("\n")
 
 	// Warnings

@@ -1190,16 +1190,16 @@ func (a *DeerAgent) Compact(ctx context.Context) (CompactCompleteMsg, error) {
 	for _, msg := range a.history {
 		switch msg.Role {
 		case llm.RoleUser:
-			convText.WriteString(fmt.Sprintf("User: %s\n\n", msg.Content))
+			fmt.Fprintf(&convText, "User: %s\n\n", msg.Content)
 		case llm.RoleAssistant:
 			if msg.Content != "" {
-				convText.WriteString(fmt.Sprintf("Assistant: %s\n\n", msg.Content))
+				fmt.Fprintf(&convText, "Assistant: %s\n\n", msg.Content)
 			}
 			for _, tc := range msg.ToolCalls {
-				convText.WriteString(fmt.Sprintf("Assistant called tool: %s(%s)\n\n", tc.Function.Name, tc.Function.Arguments))
+				fmt.Fprintf(&convText, "Assistant called tool: %s(%s)\n\n", tc.Function.Name, tc.Function.Arguments)
 			}
 		case llm.RoleTool:
-			convText.WriteString(fmt.Sprintf("Tool result (%s): %s\n\n", msg.Name, msg.Content))
+			fmt.Fprintf(&convText, "Tool result (%s): %s\n\n", msg.Name, msg.Content)
 		}
 	}
 
@@ -2088,7 +2088,7 @@ func (a *DeerAgent) formatSandboxesResult(result map[string]any, err error) stri
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Found %d sandbox(es):\n\n", len(sandboxes)))
+	fmt.Fprintf(&b, "Found %d sandbox(es):\n\n", len(sandboxes))
 
 	// Group sandboxes by host if host information is present
 	hostSandboxes := make(map[string][]map[string]any)
@@ -2103,7 +2103,7 @@ func (a *DeerAgent) formatSandboxesResult(result map[string]any, err error) stri
 	// Display sandboxes grouped by host
 	for host, sbs := range hostSandboxes {
 		if len(hostSandboxes) > 1 || host != "local" {
-			b.WriteString(fmt.Sprintf("### Host: %s\n", host))
+			fmt.Fprintf(&b, "### Host: %s\n", host)
 		}
 		for _, sb := range sbs {
 			state := "unknown"
@@ -2114,10 +2114,10 @@ func (a *DeerAgent) formatSandboxesResult(result map[string]any, err error) stri
 			id := sb["id"]
 			baseImage := sb["base_image"]
 
-			b.WriteString(fmt.Sprintf("- **%s** (%s)\n", name, id))
-			b.WriteString(fmt.Sprintf("  State: %s | Base: %s", state, baseImage))
+			fmt.Fprintf(&b, "- **%s** (%s)\n", name, id)
+			fmt.Fprintf(&b, "  State: %s | Base: %s", state, baseImage)
 			if ip, ok := sb["ip"].(string); ok {
-				b.WriteString(fmt.Sprintf(" | IP: %s", ip))
+				fmt.Fprintf(&b, " | IP: %s", ip)
 			}
 			b.WriteString("\n")
 		}
@@ -2199,7 +2199,7 @@ func (a *DeerAgent) formatHostsResult(result map[string]any, err error) string {
 	}
 
 	b.WriteString("# Hosts Overview\n\n")
-	b.WriteString(fmt.Sprintf("Total: %d host VM(s), %d sandbox(es)\n\n", totalHostVMs, totalSandboxes))
+	fmt.Fprintf(&b, "Total: %d host VM(s), %d sandbox(es)\n\n", totalHostVMs, totalSandboxes)
 
 	// Display domains grouped by host
 	for host, ds := range hostDomains {
@@ -2214,8 +2214,8 @@ func (a *DeerAgent) formatHostsResult(result map[string]any, err error) string {
 			}
 		}
 
-		b.WriteString(fmt.Sprintf("## %s\n", host))
-		b.WriteString(fmt.Sprintf("Host VMs: %d | Sandboxes: %d\n\n", hostVMCount, sandboxCount))
+		fmt.Fprintf(&b, "## %s\n", host)
+		fmt.Fprintf(&b, "Host VMs: %d | Sandboxes: %d\n\n", hostVMCount, sandboxCount)
 
 		// Display host VMs first
 		if hostVMCount > 0 {
@@ -2228,7 +2228,7 @@ func (a *DeerAgent) formatHostsResult(result map[string]any, err error) string {
 				if s, ok := d["state"].(string); ok {
 					state = s
 				}
-				b.WriteString(fmt.Sprintf("- %s (%s)\n", d["name"], state))
+				fmt.Fprintf(&b, "- %s (%s)\n", d["name"], state)
 			}
 			b.WriteString("\n")
 		}
@@ -2244,7 +2244,7 @@ func (a *DeerAgent) formatHostsResult(result map[string]any, err error) string {
 				if s, ok := d["state"].(string); ok {
 					state = s
 				}
-				b.WriteString(fmt.Sprintf("- %s (%s)\n", d["name"], state))
+				fmt.Fprintf(&b, "- %s (%s)\n", d["name"], state)
 			}
 			b.WriteString("\n")
 		}
@@ -2254,7 +2254,7 @@ func (a *DeerAgent) formatHostsResult(result map[string]any, err error) string {
 	if hostErrors, ok := result["host_errors"].([]map[string]any); ok && len(hostErrors) > 0 {
 		b.WriteString("## Host Errors\n")
 		for _, he := range hostErrors {
-			b.WriteString(fmt.Sprintf("- **%s**: %s\n", he["host"], he["error"]))
+			fmt.Fprintf(&b, "- **%s**: %s\n", he["host"], he["error"])
 		}
 	}
 
@@ -2301,7 +2301,7 @@ func (a *DeerAgent) formatPlaybooksResult(result map[string]any, err error) stri
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Found %d playbook(s):\n\n", len(playbooks)))
+	fmt.Fprintf(&b, "Found %d playbook(s):\n\n", len(playbooks))
 	for _, pb := range playbooks {
 		name := pb["name"].(string)
 		path := pb["path"].(string)
@@ -2310,7 +2310,7 @@ func (a *DeerAgent) formatPlaybooksResult(result map[string]any, err error) stri
 		// OSC 8 hyperlink
 		link := fmt.Sprintf("\033]8;;file://%s\033\\%s\033]8;;\033\\", absPath, path)
 
-		b.WriteString(fmt.Sprintf("- **%s**: %s\n", name, link))
+		fmt.Fprintf(&b, "- **%s**: %s\n", name, link)
 	}
 	return b.String()
 }
@@ -2585,7 +2585,7 @@ func (a *DeerAgent) handleLoadSkill(name string) (map[string]any, error) {
 	}
 	s := a.skillLoader.Get(name)
 	if s == nil {
-		return nil, fmt.Errorf("skill %q not found. Use list_skills to see available skills.", name)
+		return nil, fmt.Errorf("skill %q not found; use list_skills to see available skills", name)
 	}
 	return map[string]any{
 		"name":        s.Name,

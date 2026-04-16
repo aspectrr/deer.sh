@@ -379,7 +379,7 @@ func (m ConnectModel) View() string {
 			if connectField(i) == m.focused {
 				prefix = "> "
 			}
-			b.WriteString(fmt.Sprintf("%s%s %s\n", prefix, labels[i], m.inputs[i].View()))
+			fmt.Fprintf(&b, "%s%s %s\n", prefix, labels[i], m.inputs[i].View())
 		}
 		// Insecure boolean toggle
 		insecurePrefix := "  "
@@ -390,7 +390,7 @@ func (m ConnectModel) View() string {
 		if m.insecure {
 			checkbox = "[x]"
 		}
-		b.WriteString(fmt.Sprintf("%s  Insecure: %s  (space/y/n to toggle)\n", insecurePrefix, checkbox))
+		fmt.Fprintf(&b, "%s  Insecure: %s  (space/y/n to toggle)\n", insecurePrefix, checkbox)
 		if m.addrErr != "" {
 			b.WriteString(errStyle.Render(fmt.Sprintf("  Error: %s\n", m.addrErr)))
 		}
@@ -406,11 +406,11 @@ func (m ConnectModel) View() string {
 			b.WriteString("\n\n")
 			b.WriteString(dimStyle.Render("  Enter: retry  Esc: cancel"))
 		} else {
-			b.WriteString(fmt.Sprintf("  %s Connecting to %s...", m.spinner.View(), addr))
+			fmt.Fprintf(&b, "  %s Connecting to %s...", m.spinner.View(), addr)
 		}
 
 	case StepDoctor:
-		b.WriteString(fmt.Sprintf("  %s Running doctor checks...", m.spinner.View()))
+		fmt.Fprintf(&b, "  %s Running doctor checks...", m.spinner.View())
 
 	case StepDeployKeys:
 		b.WriteString("  Setting up source hosts (user + key)...\n\n")
@@ -421,7 +421,7 @@ func (m ConnectModel) View() string {
 			case HostDeployFailed:
 				b.WriteString(errStyle.Render(fmt.Sprintf("  x %s: %s", hs.Name, hs.ErrMsg)))
 			case HostDeployDeploying:
-				b.WriteString(fmt.Sprintf("  %s %s", m.spinner.View(), hs.Name))
+				fmt.Fprintf(&b, "  %s %s", m.spinner.View(), hs.Name)
 			default:
 				b.WriteString(dimStyle.Render(fmt.Sprintf("  - %s", hs.Name)))
 			}
