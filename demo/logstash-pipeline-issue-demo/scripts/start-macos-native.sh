@@ -14,12 +14,12 @@
 #   brew install qemu socket_vmnet docker tmux
 #   sudo brew services start socket_vmnet
 #
-# Usage: ./demo/scripts/start-macos-native.sh [--repo-root <path>] [--dry-run]
+# Usage: ./demo/logstash-pipeline-issue-demo/scripts/start-macos-native.sh [--repo-root <path>] [--dry-run]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 DEER_DIR="${HOME}/.deer"
 DEER_ASSETS_DIR="${DEER_DIR}/assets"
@@ -65,7 +65,7 @@ DRY_RUN=0
 
 usage() {
     cat <<'EOF'
-Usage: ./demo/scripts/start-macos-native.sh [--repo-root <path>] [--dry-run]
+Usage: ./demo/logstash-pipeline-issue-demo/scripts/start-macos-native.sh [--repo-root <path>] [--dry-run]
 
 Options:
   --repo-root <path>   Repo root on host (default: two levels above this script)
@@ -294,7 +294,8 @@ run mkdir -p \
 # ---- Docker Compose ----
 
 log "Starting Docker Compose services (Redpanda, Elasticsearch, Kibana)..."
-run docker compose -f "${REPO_ROOT}/demo/docker-compose.yml" up -d
+export HOST_IP="${HOST_IP:-$(ipconfig getifaddr en0 2>/dev/null || route -n get default 2>/dev/null | awk '/gateway/{print $2}' || echo '127.0.0.1')}"
+run docker compose -f "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/docker-compose.yml" up -d
 
 if [ "$DRY_RUN" -eq 0 ]; then
     log "Waiting for Elasticsearch..."
@@ -309,9 +310,9 @@ if [ "$DRY_RUN" -eq 0 ]; then
         log "  waiting... (${i}/36)"; sleep 5
     done
 
-    if [ -f "${REPO_ROOT}/demo/kibana/setup-dashboard.sh" ]; then
+    if [ -f "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/kibana/setup-dashboard.sh" ]; then
         log "Setting up Kibana dashboard..."
-        bash "${REPO_ROOT}/demo/kibana/setup-dashboard.sh" http://localhost:5601
+        bash "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/kibana/setup-dashboard.sh" http://localhost:5601
     fi
 fi
 
@@ -323,7 +324,7 @@ UBUNTU_IMAGE="${DEER_IMAGES_DIR}/Deer Source VM.qcow2"
 
 if [ ! -f "$UBUNTU_KERNEL" ] || [ ! -f "$UBUNTU_INITRD" ] || [ ! -f "$UBUNTU_IMAGE" ]; then
     log "Downloading Ubuntu ${UBUNTU_VERSION} arm64 cloud images..."
-    ASSETS_SCRIPT="${REPO_ROOT}/demo/scripts/download-microvm-assets.sh"
+    ASSETS_SCRIPT="${REPO_ROOT}/demo/logstash-pipeline-issue-demo/scripts/download-microvm-assets.sh"
     if [ -f "$ASSETS_SCRIPT" ]; then
         run bash "$ASSETS_SCRIPT" --arch "$UBUNTU_ARCH" --output-dir "$DEER_ASSETS_DIR" --images-dir "$DEER_IMAGES_DIR"
     else
@@ -590,25 +591,25 @@ if [ "$DRY_RUN" -eq 0 ]; then
 
     log "Deploying Logstash pipeline configs..."
     ssh_source "$SOURCE_IP" "sudo mkdir -p /etc/logstash/conf.d"
-    for conf in "${REPO_ROOT}/demo/logstash/pipeline/"*.conf; do
+    for conf in "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/pipeline/"*.conf; do
         scp_to_source "$SOURCE_IP" "$conf" "/tmp/$(basename "$conf")"
         ssh_source "$SOURCE_IP" "sudo mv /tmp/$(basename "$conf") /etc/logstash/conf.d/"
     done
 
-    if [ -f "${REPO_ROOT}/demo/logstash/station_timezones.csv" ]; then
-        scp_to_source "$SOURCE_IP" "${REPO_ROOT}/demo/logstash/station_timezones.csv" "/tmp/station_timezones.csv"
+    if [ -f "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/station_timezones.csv" ]; then
+        scp_to_source "$SOURCE_IP" "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/station_timezones.csv" "/tmp/station_timezones.csv"
         ssh_source "$SOURCE_IP" "sudo mv /tmp/station_timezones.csv /etc/logstash/"
     fi
 
-    if [ -f "${REPO_ROOT}/demo/logstash/logstash.yml" ]; then
-        scp_to_source "$SOURCE_IP" "${REPO_ROOT}/demo/logstash/logstash.yml" "/tmp/logstash.yml"
+    if [ -f "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/logstash.yml" ]; then
+        scp_to_source "$SOURCE_IP" "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/logstash.yml" "/tmp/logstash.yml"
         ssh_source "$SOURCE_IP" "sudo mv /tmp/logstash.yml /etc/logstash/logstash.yml"
     fi
 
     # Patch Kafka and ES addresses to point at macOS host
     log "Patching pipeline addresses to host IP ${HOST_IP}..."
-    ssh_source "$SOURCE_IP" "sudo sed -i 's|127\.0\.0\.1:9092|${HOST_IP}:9092|g;s|127\.0\.0\.1:9093|${HOST_IP}:9093|g' /etc/logstash/conf.d/01-input-kafka.conf 2>/dev/null || true"
-    ssh_source "$SOURCE_IP" "sudo sed -i 's|192\.168\.[0-9]*\.[0-9]*:9200|${HOST_IP}:9200|g;s|127\.0\.0\.1:9200|${HOST_IP}:9200|g' /etc/logstash/conf.d/15-output-es.conf 2>/dev/null || true"
+    ssh_source "$SOURCE_IP" "sudo sed -i 's|[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+:909[0-9]|${HOST_IP}:9093|g' /etc/logstash/conf.d/01-input-kafka.conf 2>/dev/null || true"
+    ssh_source "$SOURCE_IP" "sudo sed -i 's|[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+:9200|${HOST_IP}:9200|g' /etc/logstash/conf.d/15-output-es.conf 2>/dev/null || true"
 
     ssh_source "$SOURCE_IP" "sudo systemctl restart logstash || sudo systemctl start logstash"
     log "Logstash started on source VM."
@@ -656,4 +657,4 @@ log "  tail -f ${DEER_DAEMON_LOG}"
 log ""
 log "Teardown:"
 log "  kill \$(cat ${SOURCE_VM_PID_FILE})"
-log "  docker compose -f ${REPO_ROOT}/demo/docker-compose.yml down"
+log "  docker compose -f ${REPO_ROOT}/demo/logstash-pipeline-issue-demo/docker-compose.yml down"

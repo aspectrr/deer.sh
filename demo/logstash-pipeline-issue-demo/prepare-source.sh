@@ -127,7 +127,7 @@ write_files:
       echo "[setup] Installing Kafka input plugin..."
       /usr/share/logstash/bin/logstash-plugin install logstash-input-kafka 2>/dev/null || true
       mkdir -p /etc/logstash/conf.d /var/log/logstash
-      chown logstash:logstash /var/log/logstash
+      chown -R logstash:logstash /etc/logstash /var/log/logstash /usr/share/logstash/data
       sed -i 's/-Xms1g/-Xms512m/g' /etc/logstash/jvm.options 2>/dev/null || true
       sed -i 's/-Xmx1g/-Xmx512m/g' /etc/logstash/jvm.options 2>/dev/null || true
       echo "[setup] Logstash installed."

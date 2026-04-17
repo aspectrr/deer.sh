@@ -108,6 +108,11 @@ type Model struct {
 	inSourcePrepareConfirm    bool
 	sourcePrepareApprovalChan chan<- SourcePrepareApprovalResult
 
+	// Source access elevation dialog
+	sourceAccessConfirmModel SourceAccessConfirmModel
+	inSourceAccessConfirm    bool
+	sourceAccessApprovalChan chan<- SourceAccessApprovalResult
+
 	// Agent
 	agentRunner AgentRunner
 	readOnly    bool
@@ -149,6 +154,11 @@ type Model struct {
 	liveCreateSourceVM string
 	liveCreateSteps    []string
 	liveCreateIndex    int
+
+	// Task panel
+	tasks          []Task
+	tasksExpanded  bool
+	tasksPanelOpen bool
 
 	// SSH host cache for /prepare autocomplete
 	sshHosts          []string
@@ -588,6 +598,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(ThinkingCmd(), m.listenForStatus())
 	}
 
+	// Handle source access elevation response
+	if saResp, ok := msg.(SourceAccessApprovalResponseMsg); ok {
+		m.inSourceAccessConfirm = false
+		m.state = StateThinking
+		m.thinking = true
+		m.thinkingDots = 0
+
+		if agent, ok := m.agentRunner.(*DeerAgent); ok {
+			agent.HandleSourceAccessResponse(saResp.Result)
+		}
+
+		if saResp.Result.Approved {
+			detail := "allowed once"
+			if saResp.Result.Session {
+				detail = "allowed for session"
+			}
+			m.addSystemMessage(fmt.Sprintf("Command elevation %s. Executing...", detail))
+		} else {
+			m.addSystemMessage("Command elevation denied.")
+		}
+
+		m.updateViewportContent(true)
+		return m, tea.Batch(ThinkingCmd(), m.listenForStatus())
+	}
+
 	// If in memory confirmation mode, delegate to confirm model
 	if m.inMemoryConfirm {
 		var cmd tea.Cmd
@@ -609,6 +644,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		spModel, cmd := m.sourcePrepareConfirmModel.Update(msg)
 		m.sourcePrepareConfirmModel = spModel.(SourcePrepareConfirmModel)
+		return m, cmd
+	}
+
+	// If in source access elevation mode, delegate to source access confirm model
+	if m.inSourceAccessConfirm {
+		var cmd tea.Cmd
+		samodel, cmd := m.sourceAccessConfirmModel.Update(msg)
+		m.sourceAccessConfirmModel = samodel.(SourceAccessConfirmModel)
 		return m, cmd
 	}
 
@@ -708,6 +751,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addSystemMessage(fmt.Sprintf("Switched to %s mode.", mode))
 			m.updateViewportContent(false)
 			return m, nil
+		case "ctrl+t":
+			if len(m.tasks) > 0 {
+				if !m.tasksPanelOpen {
+					m.tasksPanelOpen = true
+					m.tasksExpanded = false
+				} else {
+					m.tasksExpanded = !m.tasksExpanded
+				}
+			}
+			return m, nil
 		case "ctrl+c":
 			// If already in cleanup, allow force quit
 			if m.inCleanup {
@@ -743,6 +796,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "ctrl+r":
 			m.conversation = make([]ConversationEntry, 0)
+			m.tasks = nil
+			m.tasksPanelOpen = false
+			m.tasksExpanded = false
 			m.addSystemMessage("Conversation reset.")
 			if m.agentRunner != nil {
 				m.agentRunner.Reset()
@@ -819,6 +875,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.agentRunner != nil {
 						m.agentRunner.Reset()
 					}
+					m.tasks = nil
+					m.tasksPanelOpen = false
+					m.tasksExpanded = false
 					m.addSystemMessage("Conversation cleared.")
 					m.updateViewportContent(true)
 					return m, nil
@@ -1240,6 +1299,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.agentStatus = StatusThinking
 		m.currentToolName = ""
 
+		// Sync tasks from agent on completion
+		if agent, ok := m.agentRunner.(*DeerAgent); ok {
+			if tasks := agent.GetTasks(); len(tasks) > 0 {
+				m.tasks = tasks
+				m.tasksPanelOpen = true
+			}
+		}
+
 		// Check for review request or completion
 		if msg.Response.AwaitingInput {
 			// Handle review - we'd need more context here
@@ -1362,6 +1429,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+
+	case SourceAccessApprovalRequestMsg:
+		m.inSourceAccessConfirm = true
+		m.state = StateMemoryApproval
+		m.thinking = false
+
+		resultChan := make(chan SourceAccessApprovalResult, 1)
+		m.sourceAccessApprovalChan = resultChan
+		m.sourceAccessConfirmModel = NewSourceAccessConfirmModel(msg.Request, resultChan)
+
+		if m.width > 0 && m.height > 0 {
+			saModel, _ := m.sourceAccessConfirmModel.Update(tea.WindowSizeMsg{
+				Width:  m.width,
+				Height: m.height,
+			})
+			m.sourceAccessConfirmModel = saModel.(SourceAccessConfirmModel)
+		}
+
+		return m, nil
+
+	case TasksUpdatedMsg:
+		m.tasks = msg.Tasks
+		if len(m.tasks) > 0 {
+			m.tasksPanelOpen = true
+		}
+		m.updateViewportContent(false)
+		return m, tea.Batch(m.listenForStatus(), m.spinner.Tick)
 
 	case UpdateAvailableMsg:
 		m.addSystemMessage(fmt.Sprintf("Update available: v%s - run `deer update`", msg.Version))
@@ -1506,6 +1600,11 @@ func (m Model) View() string {
 		return m.sourcePrepareConfirmModel.View()
 	}
 
+	// Show source access elevation dialog if in confirmation mode
+	if m.inSourceAccessConfirm {
+		return m.sourceAccessConfirmModel.View()
+	}
+
 	// Show settings screen if in settings mode
 	if m.inSettings {
 		return m.settingsModel.View()
@@ -1599,6 +1698,14 @@ func (m Model) View() string {
 		suggestionHeight = lipgloss.Height(suggestions)
 	}
 
+	// Build task panel (if shown)
+	var taskPanel string
+	taskPanelHeight := 0
+	if m.tasksPanelOpen && len(m.tasks) > 0 {
+		taskPanel = renderTaskPanel(m.tasks, m.width, m.tasksExpanded)
+		taskPanelHeight = lipgloss.Height(taskPanel)
+	}
+
 	// Build input area
 	inputBox := m.styles.Border.Width(m.width - 2).Render(
 		m.styles.InputPrompt.Render("$ ") + m.textarea.View(),
@@ -1618,7 +1725,7 @@ func (m Model) View() string {
 	statusHeight := lipgloss.Height(statusBar)
 
 	// Calculate viewport height to fill remaining space
-	viewportHeight := m.height - bannerHeight - suggestionHeight - inputHeight - statusHeight
+	viewportHeight := m.height - bannerHeight - suggestionHeight - taskPanelHeight - inputHeight - statusHeight
 	if viewportHeight < 1 {
 		viewportHeight = 1
 	}
@@ -1657,6 +1764,9 @@ func (m Model) View() string {
 	parts = append(parts, viewportContent)
 	if suggestions != "" {
 		parts = append(parts, suggestions)
+	}
+	if taskPanel != "" {
+		parts = append(parts, taskPanel)
 	}
 	parts = append(parts, inputBox)
 	parts = append(parts, statusBar)
@@ -2487,6 +2597,39 @@ func (m *Model) formatToolOutput(toolName string, args, result map[string]any) s
 						b.WriteString("\n")
 					}
 				}
+			}
+		}
+
+	case "add_task":
+		if id, ok := result["id"].(string); ok {
+			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Task %s added", id)))
+			b.WriteString("\n")
+		}
+
+	case "update_task":
+		if id, ok := result["id"].(string); ok {
+			status := ""
+			if s, ok := result["status"].(string); ok {
+				status = s
+			}
+			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Task %s -> %s", id, status)))
+			b.WriteString("\n")
+		}
+
+	case "delete_task":
+		if id, ok := result["id"].(string); ok {
+			b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      Task %s deleted", id)))
+			b.WriteString("\n")
+		}
+
+	case "list_tasks":
+		if tasks, ok := result["tasks"].([]any); ok {
+			if len(tasks) == 0 {
+				b.WriteString(m.styles.ToolDetails.Render("      No tasks"))
+				b.WriteString("\n")
+			} else {
+				b.WriteString(m.styles.ToolDetails.Render(fmt.Sprintf("      %d task(s)", len(tasks))))
+				b.WriteString("\n")
 			}
 		}
 

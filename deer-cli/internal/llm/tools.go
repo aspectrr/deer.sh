@@ -2,30 +2,40 @@ package llm
 
 // readOnlyTools is the set of tool names allowed in read-only mode.
 var readOnlyTools = map[string]bool{
-	"list_sandboxes":     true,
-	"get_sandbox":        true,
-	"list_vms":           true,
-	"read_file":          true,
-	"list_playbooks":     true,
-	"get_playbook":       true,
-	"run_source_command": true,
-	"read_source_file":   true,
-	"list_hosts":         true,
-	"list_skills":        true,
-	"load_skill":         true,
+	"list_sandboxes":        true,
+	"get_sandbox":           true,
+	"list_vms":              true,
+	"read_file":             true,
+	"list_playbooks":        true,
+	"get_playbook":          true,
+	"run_source_command":    true,
+	"read_source_file":      true,
+	"request_source_access": true,
+	"list_hosts":            true,
+	"list_skills":           true,
+	"load_skill":            true,
+	"add_task":              true,
+	"update_task":           true,
+	"delete_task":           true,
+	"list_tasks":            true,
 }
 
 // sourceOnlyTools is the set of tool names available when no sandbox hosts are configured.
 var sourceOnlyTools = map[string]bool{
-	"run_source_command": true,
-	"read_source_file":   true,
-	"list_hosts":         true,
-	"create_playbook":    true,
-	"add_playbook_task":  true,
-	"list_playbooks":     true,
-	"get_playbook":       true,
-	"list_skills":        true,
-	"load_skill":         true,
+	"run_source_command":    true,
+	"read_source_file":      true,
+	"request_source_access": true,
+	"list_hosts":            true,
+	"create_playbook":       true,
+	"add_playbook_task":     true,
+	"list_playbooks":        true,
+	"get_playbook":          true,
+	"list_skills":           true,
+	"load_skill":            true,
+	"add_task":              true,
+	"update_task":           true,
+	"delete_task":           true,
+	"list_tasks":            true,
 }
 
 // GetReadOnlyTools returns only the tools that are safe for read-only mode.
@@ -59,6 +69,10 @@ var noSourceTools = map[string]bool{
 	"get_playbook":      true,
 	"list_skills":       true,
 	"load_skill":        true,
+	"add_task":          true,
+	"update_task":       true,
+	"delete_task":       true,
+	"list_tasks":        true,
 }
 
 // GetNoSourceTools returns tools for when no source hosts are prepared.
@@ -384,7 +398,7 @@ func GetTools() []Tool {
 			Type: "function",
 			Function: Function{
 				Name:        "run_source_command",
-				Description: "Execute a read-only command on a source host. Only diagnostic commands are allowed (ps, ls, cat, systemctl status, journalctl, etc.). This does NOT create or modify anything.",
+				Description: "Execute a read-only command on a source host. Only diagnostic commands are allowed (ps, ls, cat, systemctl status, journalctl, etc.). This does NOT create or modify anything. If a command is blocked, use request_source_access to ask the human for approval.",
 				Parameters: ParameterSchema{
 					Type: "object",
 					Properties: map[string]Property{
@@ -419,6 +433,31 @@ func GetTools() []Tool {
 						},
 					},
 					Required: []string{"host", "path"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "request_source_access",
+				Description: "Request human approval to run a command that was blocked by the read-only allowlist on a source host. Use this when a diagnostic command is denied and you genuinely need it for troubleshooting. The human will see your reason and can approve or deny the request.",
+				Parameters: ParameterSchema{
+					Type: "object",
+					Properties: map[string]Property{
+						"host": {
+							Type:        "string",
+							Description: "The name of the source host to run the command on.",
+						},
+						"command": {
+							Type:        "string",
+							Description: "The command that was blocked by the read-only allowlist.",
+						},
+						"reason": {
+							Type:        "string",
+							Description: "Why you need this command. Be specific about what information it provides and why it is necessary for diagnosis.",
+						},
+					},
+					Required: []string{"host", "command", "reason"},
 				},
 			},
 		},
@@ -487,6 +526,77 @@ func GetTools() []Tool {
 						},
 					},
 					Required: []string{"name"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "add_task",
+				Description: "Add a new task to the task list. Use this to track the steps you plan to take. Tasks help the human follow your progress.",
+				Parameters: ParameterSchema{
+					Type: "object",
+					Properties: map[string]Property{
+						"content": {
+							Type:        "string",
+							Description: "A short description of the task (imperative form, e.g. 'Install nginx').",
+						},
+					},
+					Required: []string{"content"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "update_task",
+				Description: "Update a task's status or content. Use this to mark tasks as in_progress when you start them and completed when done.",
+				Parameters: ParameterSchema{
+					Type: "object",
+					Properties: map[string]Property{
+						"task_id": {
+							Type:        "string",
+							Description: "The ID of the task to update.",
+						},
+						"status": {
+							Type:        "string",
+							Description: "New status: 'pending', 'in_progress', or 'completed'.",
+							Enum:        []string{"pending", "in_progress", "completed"},
+						},
+						"content": {
+							Type:        "string",
+							Description: "Updated task description (optional).",
+						},
+					},
+					Required: []string{"task_id"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "delete_task",
+				Description: "Delete a task from the task list by ID.",
+				Parameters: ParameterSchema{
+					Type: "object",
+					Properties: map[string]Property{
+						"task_id": {
+							Type:        "string",
+							Description: "The ID of the task to delete.",
+						},
+					},
+					Required: []string{"task_id"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: Function{
+				Name:        "list_tasks",
+				Description: "List all current tasks and their statuses. Returns the full task list so you can review progress.",
+				Parameters: ParameterSchema{
+					Type:       "object",
+					Properties: map[string]Property{},
 				},
 			},
 		},

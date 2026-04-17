@@ -11,14 +11,11 @@ services:
       - --node-id=0
       - --check=false
       - --kafka-addr=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
-      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://host.lima.internal:9093
+      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://${HOST_IP:-192.168.122.1}:9093
     ports:
-      # INTERNAL listener: loopback only for weather-producer (Docker internal network).
-      # Does not conflict with deer-daemon readiness server on virbr0:9092.
-      - "127.0.0.1:9092:9092"
-      # EXTERNAL listener: all interfaces so Lima VMs can reach Redpanda at
-      # host.lima.internal:9093. Advertised as host.lima.internal:9093 so
-      # Logstash clients follow broker metadata correctly.
+      # INTERNAL listener: Docker network only (weather-producer).
+      - "9092:9092"
+      # EXTERNAL listener: QEMU VMs reach Redpanda at 192.168.122.1:9093.
       - "9093:9093"
     healthcheck:
       test: ["CMD", "rpk", "cluster", "info", "--brokers=localhost:9092"]

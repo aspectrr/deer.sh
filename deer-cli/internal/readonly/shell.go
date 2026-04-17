@@ -57,7 +57,7 @@ BLOCKED_PATTERNS=(
     "^lvm "
     "^mdadm "
     "^wget "
-    "^curl "
+    "^curl .*-(X|-request|d|-data|-data-raw|-data-binary|-data-urlencode|F|-form|T|-upload-file|o|-output|O|-remote-name|K|-config|x|-proxy) "
     "^scp "
     "^rsync "
     "^ftp "

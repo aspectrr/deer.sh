@@ -88,6 +88,12 @@ type DeerAgent struct {
 	// Pending approval for network access
 	pendingNetworkApproval *PendingNetworkApproval
 
+	// Pending approval for source command elevation
+	pendingSourceAccess *PendingSourceAccess
+
+	// Session-level elevated commands (host -> set of approved commands)
+	sessionElevatedCommands map[string]map[string]bool
+
 	// Read-only mode: only query tools are available to the LLM
 	readOnly bool
 
@@ -99,6 +105,9 @@ type DeerAgent struct {
 
 	// Dedup tracking for sensitive content redaction messages
 	redactedSeen map[string]bool
+
+	// Task list for tracking agent progress
+	taskList *TaskList
 
 	// cancelFunc cancels the active agent Run context when ESC is pressed.
 	// mu protects cancelFunc, runID, done, currentSourceVM, autoReadOnly, and readOnly.
@@ -114,6 +123,12 @@ type PendingNetworkApproval struct {
 	ResponseChan chan bool
 }
 
+// PendingSourceAccess represents a command elevation request waiting for approval
+type PendingSourceAccess struct {
+	Request      SourceAccessApprovalRequest
+	ResponseChan chan SourceAccessApprovalResult
+}
+
 // NewDeerAgent creates a new deer agent
 func NewDeerAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcSvc source.Provider, tele telemetry.Service, redactor *redact.Redactor, auditLog *audit.Logger, chatLog *chatlog.Logger, logger *slog.Logger) *DeerAgent {
 	if logger == nil {
@@ -126,21 +141,22 @@ func NewDeerAgent(cfg *config.Config, st store.Store, svc sandbox.Service, srcSv
 	}
 
 	return &DeerAgent{
-		cfg:             cfg,
-		store:           st,
-		service:         svc,
-		sourceService:   srcSvc,
-		llmClient:       llmClient,
-		playbookService: ansible.NewPlaybookService(st, cfg.Ansible.PlaybooksDir),
-		telemetry:       tele,
-		redactor:        redactor,
-		auditLog:        auditLog,
-		chatLog:         chatLog,
-		logger:          logger,
-		skillLoader:     initSkillLoader(logger),
-		history:         make([]llm.Message, 0),
-		swapTimeout:     2 * time.Second,
-		redactedSeen:    make(map[string]bool),
+		cfg:                     cfg,
+		store:                   st,
+		service:                 svc,
+		sourceService:           srcSvc,
+		llmClient:               llmClient,
+		playbookService:         ansible.NewPlaybookService(st, cfg.Ansible.PlaybooksDir),
+		telemetry:               tele,
+		redactor:                redactor,
+		auditLog:                auditLog,
+		chatLog:                 chatLog,
+		logger:                  logger,
+		skillLoader:             initSkillLoader(logger),
+		history:                 make([]llm.Message, 0),
+		swapTimeout:             2 * time.Second,
+		redactedSeen:            make(map[string]bool),
+		sessionElevatedCommands: make(map[string]map[string]bool),
 	}
 }
 
@@ -526,8 +542,9 @@ func (a *DeerAgent) Run(input string) tea.Cmd {
 			if a.skillLoader != nil && a.skillLoader.HasSkills() {
 				systemPrompt += "\n\n## Available Skills\n\n" +
 					"You have access to domain-specific skills via the `list_skills` and `load_skill` tools. " +
-					"Skills contain detailed procedures, runbooks, and tool-usage guidance for specific technologies.\n" +
-					"When a user's question relates to a technology covered by a skill, load it with `load_skill` first.\n\n" +
+					"Skills contain detailed procedures, runbooks, and tool-usage guidance for specific technologies.\n\n" +
+					"**IMPORTANT**: When a user describes an issue, immediately `load_skill` the most relevant skill BEFORE running any diagnostic commands. " +
+					"Skills tell you exactly which commands to run and in what order, preventing wasted iterations.\n\n" +
 					"Available skills:\n"
 				for _, entry := range a.skillLoader.Catalog() {
 					desc := entry.Description
@@ -537,6 +554,11 @@ func (a *DeerAgent) Run(input string) tea.Cmd {
 					systemPrompt += fmt.Sprintf("- **%s**: %s\n", entry.Name, desc)
 				}
 				systemPrompt += "\nUse `load_skill` to retrieve the full content of any skill listed above."
+			}
+
+			// Inject current task list into system prompt so the LLM stays on track.
+			if a.taskList != nil && a.taskList.HasTasks() {
+				systemPrompt += "\n\n" + a.taskList.FormatForSystemPrompt()
 			}
 
 			// Build messages, applying redaction if enabled
@@ -754,6 +776,27 @@ func (a *DeerAgent) RunHeadless(ctx context.Context, input string) (string, erro
 
 		if len(a.cfg.PreparedHosts()) > 0 && a.cfg.HasSandboxHosts() && !isReadOnly {
 			systemPrompt += tlsDebuggingGuidance
+		}
+
+		if a.skillLoader != nil && a.skillLoader.HasSkills() {
+			systemPrompt += "\n\n## Available Skills\n\n" +
+				"You have access to domain-specific skills via the `list_skills` and `load_skill` tools. " +
+				"Skills contain detailed procedures, runbooks, and tool-usage guidance for specific technologies.\n\n" +
+				"**IMPORTANT**: When a user describes an issue, immediately `load_skill` the most relevant skill BEFORE running any diagnostic commands. " +
+				"Skills tell you exactly which commands to run and in what order, preventing wasted iterations.\n\n" +
+				"Available skills:\n"
+			for _, entry := range a.skillLoader.Catalog() {
+				desc := entry.Description
+				if desc == "" {
+					desc = "(no description)"
+				}
+				systemPrompt += fmt.Sprintf("- **%s**: %s\n", entry.Name, desc)
+			}
+			systemPrompt += "\nUse `load_skill` to retrieve the full content of any skill listed above."
+		}
+
+		if a.taskList != nil && a.taskList.HasTasks() {
+			systemPrompt += "\n\n" + a.taskList.FormatForSystemPrompt()
 		}
 
 		messages := append([]llm.Message{{Role: llm.RoleSystem, Content: systemPrompt}}, a.history...)
@@ -1097,6 +1140,16 @@ func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, erro
 			return nil, err
 		}
 		return a.verifyPipelineOutput(ctx, args.SandboxID, args.Index, args.Query, args.Size)
+	case "request_source_access":
+		var args struct {
+			Host    string `json:"host"`
+			Command string `json:"command"`
+			Reason  string `json:"reason"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return a.handleRequestSourceAccess(ctx, args.Host, args.Command, args.Reason)
 	case "list_hosts":
 		if a.sourceService != nil {
 			hosts := a.sourceService.ListHosts()
@@ -1121,6 +1174,34 @@ func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, erro
 			return nil, err
 		}
 		return a.handleLoadSkill(args.Name)
+	case "add_task":
+		var args struct {
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return a.handleAddTask(args.Content)
+	case "update_task":
+		var args struct {
+			TaskID  string     `json:"task_id"`
+			Status  TaskStatus `json:"status"`
+			Content string     `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return a.handleUpdateTask(args.TaskID, args.Status, args.Content)
+	case "delete_task":
+		var args struct {
+			TaskID string `json:"task_id"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return a.handleDeleteTask(args.TaskID)
+	case "list_tasks":
+		return a.handleListTasks()
 	default:
 		a.logger.Error("unknown tool name", "tool", tc.Function.Name)
 		return nil, fmt.Errorf("unknown tool: %s", tc.Function.Name)
@@ -1131,6 +1212,9 @@ func (a *DeerAgent) executeTool(ctx context.Context, tc llm.ToolCall) (any, erro
 func (a *DeerAgent) Reset() {
 	a.logger.Debug("conversation reset", "previous_message_count", len(a.history))
 	a.history = make([]llm.Message, 0)
+	if a.taskList != nil {
+		a.taskList.Clear()
+	}
 }
 
 // EstimateTokens estimates the token count for the current conversation history
@@ -1422,6 +1506,133 @@ func (a *DeerAgent) HandleNetworkApprovalResponse(approved bool) {
 	if a.pendingNetworkApproval != nil && a.pendingNetworkApproval.ResponseChan != nil {
 		a.pendingNetworkApproval.ResponseChan <- approved
 	}
+}
+
+// HandleSourceAccessResponse handles the response from the source command elevation dialog
+func (a *DeerAgent) HandleSourceAccessResponse(result SourceAccessApprovalResult) {
+	a.logger.Info("source access response", "approved", result.Approved, "session", result.Session)
+	if a.pendingSourceAccess != nil && a.pendingSourceAccess.ResponseChan != nil {
+		a.pendingSourceAccess.ResponseChan <- result
+	}
+}
+
+// isSessionElevated checks if a command has been approved for the session on a given host.
+func (a *DeerAgent) isSessionElevated(host, command string) bool {
+	if a.sessionElevatedCommands == nil {
+		return false
+	}
+	cmds, ok := a.sessionElevatedCommands[host]
+	if !ok {
+		return false
+	}
+	return cmds[command]
+}
+
+// addSessionElevated records a command as approved for the rest of the session.
+func (a *DeerAgent) addSessionElevated(host, command string) {
+	if a.sessionElevatedCommands == nil {
+		a.sessionElevatedCommands = make(map[string]map[string]bool)
+	}
+	if _, ok := a.sessionElevatedCommands[host]; !ok {
+		a.sessionElevatedCommands[host] = make(map[string]bool)
+	}
+	a.sessionElevatedCommands[host][command] = true
+}
+
+// handleRequestSourceAccess handles the request_source_access tool.
+// It prompts the human for approval and, if granted, executes the command
+// with validation bypassed.
+func (a *DeerAgent) handleRequestSourceAccess(ctx context.Context, host, command, reason string) (map[string]any, error) {
+	if a.sourceService == nil {
+		return nil, fmt.Errorf("no source service configured")
+	}
+	if host == "" {
+		return nil, fmt.Errorf("host is required")
+	}
+	if command == "" {
+		return nil, fmt.Errorf("command is required")
+	}
+	if reason == "" {
+		return nil, fmt.Errorf("reason is required - explain why you need this command")
+	}
+
+	// Check session cache first
+	if a.isSessionElevated(host, command) {
+		a.logger.Info("using session-elevated command", "host", host, "command", command)
+		result, err := a.sourceService.RunCommandElevated(ctx, host, command)
+		if err != nil {
+			return nil, err
+		}
+		stdout, stdoutRedacted := a.redactContent(result.Stdout)
+		stderr, stderrRedacted := a.redactContent(result.Stderr)
+		if stdoutRedacted || stderrRedacted {
+			a.sendRedactedMsg(host, "")
+		}
+		return map[string]any{
+			"host":      host,
+			"exit_code": result.ExitCode,
+			"stdout":    stdout,
+			"stderr":    stderr,
+			"elevated":  true,
+		}, nil
+	}
+
+	// Send approval request to TUI and block
+	request := SourceAccessApprovalRequest{
+		Host:    host,
+		Command: command,
+		Reason:  reason,
+	}
+	responseChan := make(chan SourceAccessApprovalResult, 1)
+	a.pendingSourceAccess = &PendingSourceAccess{
+		Request:      request,
+		ResponseChan: responseChan,
+	}
+	a.sendStatus(SourceAccessApprovalRequestMsg{Request: request})
+
+	var result SourceAccessApprovalResult
+	select {
+	case result = <-responseChan:
+	case <-ctx.Done():
+		a.pendingSourceAccess = nil
+		return map[string]any{
+			"host":      host,
+			"error":     "elevation request cancelled: context deadline exceeded",
+			"exit_code": -1,
+		}, nil
+	}
+	a.pendingSourceAccess = nil
+
+	if !result.Approved {
+		return map[string]any{
+			"host":      host,
+			"error":     "command elevation denied by user",
+			"exit_code": -1,
+		}, nil
+	}
+
+	// Cache for session if requested
+	if result.Session {
+		a.addSessionElevated(host, command)
+	}
+
+	// Execute the elevated command
+	cmdResult, err := a.sourceService.RunCommandElevated(ctx, host, command)
+	if err != nil {
+		return nil, err
+	}
+	stdout, stdoutRedacted := a.redactContent(cmdResult.Stdout)
+	stderr, stderrRedacted := a.redactContent(cmdResult.Stderr)
+	if stdoutRedacted || stderrRedacted {
+		a.sendRedactedMsg(host, "")
+	}
+	return map[string]any{
+		"host":      host,
+		"exit_code": cmdResult.ExitCode,
+		"stdout":    stdout,
+		"stderr":    stderr,
+		"elevated":  true,
+	}, nil
 }
 
 // HandleSourcePrepareApprovalResponse handles the response from the source prepare approval dialog
@@ -2593,4 +2804,80 @@ func (a *DeerAgent) handleLoadSkill(name string) (map[string]any, error) {
 		"version":     s.Version,
 		"content":     s.Content,
 	}, nil
+}
+
+func (a *DeerAgent) handleAddTask(content string) (map[string]any, error) {
+	if a.taskList == nil {
+		a.taskList = NewTaskList()
+	}
+	t := a.taskList.Add(content)
+	a.notifyTasks()
+	return map[string]any{
+		"id":      t.ID,
+		"content": t.Content,
+		"status":  string(t.Status),
+		"message": "Task added",
+	}, nil
+}
+
+func (a *DeerAgent) handleUpdateTask(taskID string, status TaskStatus, content string) (map[string]any, error) {
+	if a.taskList == nil {
+		return nil, fmt.Errorf("no tasks to update")
+	}
+	t, found := a.taskList.Update(taskID, status, content)
+	if !found {
+		return nil, fmt.Errorf("task %s not found", taskID)
+	}
+	a.notifyTasks()
+	return map[string]any{
+		"id":      t.ID,
+		"content": t.Content,
+		"status":  string(t.Status),
+		"message": "Task updated",
+	}, nil
+}
+
+func (a *DeerAgent) handleDeleteTask(taskID string) (map[string]any, error) {
+	if a.taskList == nil {
+		return nil, fmt.Errorf("no tasks to delete")
+	}
+	if !a.taskList.Delete(taskID) {
+		return nil, fmt.Errorf("task %s not found", taskID)
+	}
+	a.notifyTasks()
+	return map[string]any{
+		"id":      taskID,
+		"message": "Task deleted",
+	}, nil
+}
+
+func (a *DeerAgent) handleListTasks() (map[string]any, error) {
+	if a.taskList == nil {
+		return map[string]any{"tasks": []any{}, "count": 0}, nil
+	}
+	tasks := a.taskList.List()
+	result := make([]map[string]any, 0, len(tasks))
+	for _, t := range tasks {
+		result = append(result, map[string]any{
+			"id":      t.ID,
+			"content": t.Content,
+			"status":  string(t.Status),
+		})
+	}
+	return map[string]any{"tasks": result, "count": len(result)}, nil
+}
+
+func (a *DeerAgent) notifyTasks() {
+	if a.taskList == nil || a.statusCallback == nil {
+		return
+	}
+	a.statusCallback(TasksUpdatedMsg{Tasks: a.taskList.List()})
+}
+
+// GetTasks returns the current task list for TUI display.
+func (a *DeerAgent) GetTasks() []Task {
+	if a.taskList == nil {
+		return nil
+	}
+	return a.taskList.List()
 }

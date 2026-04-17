@@ -313,3 +313,8 @@ type ScanKeysCompleteMsg struct {
 	Results []sandbox.ScanSourceHostKeysResult
 	Err     error
 }
+
+// TasksUpdatedMsg is sent when the agent's task list changes.
+type TasksUpdatedMsg struct {
+	Tasks []Task
+}

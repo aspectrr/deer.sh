@@ -663,3 +663,161 @@ func (m SourcePrepareConfirmModel) View() string {
 
 	return content
 }
+
+// SourceAccessApprovalRequest contains details about a command elevation request.
+type SourceAccessApprovalRequest struct {
+	Host    string // Source host name
+	Command string // The command that was blocked
+	Reason  string // Why the agent needs this command
+}
+
+// SourceAccessApprovalResult is the response from the user.
+type SourceAccessApprovalResult struct {
+	Approved bool // true = allowed
+	Session  bool // true if "Allow for session" was selected
+	Request  SourceAccessApprovalRequest
+}
+
+// SourceAccessApprovalRequestMsg is sent when the agent requests command elevation.
+type SourceAccessApprovalRequestMsg struct {
+	Request SourceAccessApprovalRequest
+}
+
+// SourceAccessApprovalResponseMsg is sent when the user responds to the elevation dialog.
+type SourceAccessApprovalResponseMsg struct {
+	Result SourceAccessApprovalResult
+}
+
+// SourceAccessConfirmModel is a Bubble Tea model for approving elevated source commands.
+type SourceAccessConfirmModel struct {
+	request    SourceAccessApprovalRequest
+	selected   int // 0 = No, 1 = Allow once, 2 = Allow for session
+	width      int
+	height     int
+	styles     confirmStyles
+	resultChan chan<- SourceAccessApprovalResult
+}
+
+// NewSourceAccessConfirmModel creates a new confirmation dialog for source command elevation.
+func NewSourceAccessConfirmModel(request SourceAccessApprovalRequest, resultChan chan<- SourceAccessApprovalResult) SourceAccessConfirmModel {
+	return SourceAccessConfirmModel{
+		request:    request,
+		selected:   0, // Default to "No"
+		styles:     newConfirmStyles(),
+		resultChan: resultChan,
+	}
+}
+
+// Init implements tea.Model
+func (m SourceAccessConfirmModel) Init() tea.Cmd {
+	return nil
+}
+
+// Update implements tea.Model
+func (m SourceAccessConfirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, confirmKeys.Left):
+			if m.selected > 0 {
+				m.selected--
+			}
+		case key.Matches(msg, confirmKeys.Right):
+			if m.selected < 2 {
+				m.selected++
+			}
+		case key.Matches(msg, confirmKeys.Tab):
+			m.selected = (m.selected + 1) % 3
+		case key.Matches(msg, confirmKeys.Yes):
+			m.selected = 1
+			return m.confirm()
+		case key.Matches(msg, confirmKeys.No), key.Matches(msg, confirmKeys.Escape):
+			m.selected = 0
+			return m.confirm()
+		case key.Matches(msg, confirmKeys.Enter):
+			return m.confirm()
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	}
+	return m, nil
+}
+
+func (m SourceAccessConfirmModel) confirm() (tea.Model, tea.Cmd) {
+	result := SourceAccessApprovalResult{
+		Approved: m.selected == 1 || m.selected == 2,
+		Session:  m.selected == 2,
+		Request:  m.request,
+	}
+	if m.resultChan != nil {
+		m.resultChan <- result
+	}
+	return m, func() tea.Msg {
+		return SourceAccessApprovalResponseMsg{Result: result}
+	}
+}
+
+// View implements tea.Model
+func (m SourceAccessConfirmModel) View() string {
+	var b strings.Builder
+
+	b.WriteString(m.styles.title.Render("! Command Elevation Request"))
+	b.WriteString("\n\n")
+
+	b.WriteString(m.styles.info.Render(fmt.Sprintf("Host: %s", m.styles.highlight.Render(m.request.Host))))
+	b.WriteString("\n\n")
+
+	b.WriteString(m.styles.warning.Render("Blocked command:"))
+	b.WriteString("\n")
+	cmd := m.request.Command
+	if len(cmd) > 80 {
+		cmd = cmd[:77] + "..."
+	}
+	b.WriteString(m.styles.info.Render(fmt.Sprintf("  %s", cmd)))
+	b.WriteString("\n\n")
+
+	b.WriteString(m.styles.warning.Render("Agent reason:"))
+	b.WriteString("\n")
+	reason := m.request.Reason
+	maxReasonWidth := 70
+	if len(reason) > maxReasonWidth {
+		reason = reason[:maxReasonWidth-3] + "..."
+	}
+	b.WriteString(m.styles.info.Render(fmt.Sprintf("  %s", reason)))
+	b.WriteString("\n\n")
+
+	b.WriteString(m.styles.warning.Render("This command is outside the read-only allowlist."))
+	b.WriteString("\n")
+	b.WriteString(m.styles.info.Render("  - The command will execute on the source host"))
+	b.WriteString("\n")
+	b.WriteString(m.styles.info.Render("  - Approving bypasses the read-only safety check"))
+	b.WriteString("\n\n")
+
+	b.WriteString(m.styles.highlight.Render("Allow this command?"))
+	b.WriteString("\n\n")
+
+	labels := []string{"  No  ", " Allow once ", " Allow session "}
+	var buttons []string
+	for i, label := range labels {
+		if i == m.selected {
+			buttons = append(buttons, m.styles.buttonFocus.Render(fmt.Sprintf("[ %s ]", label)))
+		} else {
+			buttons = append(buttons, m.styles.button.Render(fmt.Sprintf("  %s  ", label)))
+		}
+	}
+
+	btnRow := lipgloss.JoinHorizontal(lipgloss.Center, buttons...)
+	b.WriteString(btnRow)
+	b.WriteString("\n\n")
+
+	b.WriteString(m.styles.help.Render("  <-/-> or Tab: select | Enter: confirm | y: allow once | n/Esc: deny"))
+
+	content := m.styles.dialog.Render(b.String())
+
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	}
+
+	return content
+}

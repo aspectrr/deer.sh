@@ -748,6 +748,9 @@ func (s *stubSourceProvider) RunCommandStreaming(ctx context.Context, hostName, 
 
 func (s *stubSourceProvider) ReadFile(_ context.Context, _, _ string) (string, error) { return "", nil }
 func (s *stubSourceProvider) ListHosts() []source.HostInfo                            { return nil }
+func (s *stubSourceProvider) RunCommandElevated(_ context.Context, _, _ string) (*source.CommandResult, error) {
+	return &source.CommandResult{ExitCode: 0}, nil
+}
 
 // TestRunSourceCommand_StreamingChunksAreRedacted verifies that sensitive content
 // in streaming output chunks is redacted before being sent to the TUI live output box.

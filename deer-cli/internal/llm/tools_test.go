@@ -20,12 +20,16 @@ func TestGetNoSourceTools(t *testing.T) {
 
 	expected := []string{
 		"add_playbook_task",
+		"add_task",
 		"create_playbook",
+		"delete_task",
 		"get_playbook",
 		"list_hosts",
 		"list_playbooks",
 		"list_skills",
+		"list_tasks",
 		"load_skill",
+		"update_task",
 	}
 
 	if len(names) != len(expected) {
@@ -65,14 +69,19 @@ func TestGetSourceOnlyTools(t *testing.T) {
 
 	expected := []string{
 		"add_playbook_task",
+		"add_task",
 		"create_playbook",
+		"delete_task",
 		"get_playbook",
 		"list_hosts",
 		"list_playbooks",
 		"list_skills",
+		"list_tasks",
 		"load_skill",
 		"read_source_file",
+		"request_source_access",
 		"run_source_command",
+		"update_task",
 	}
 
 	if len(names) != len(expected) {
@@ -91,17 +100,22 @@ func TestGetReadOnlyTools(t *testing.T) {
 	names := toolNames(tools)
 
 	expected := []string{
+		"add_task",
+		"delete_task",
 		"get_playbook",
 		"get_sandbox",
 		"list_hosts",
 		"list_playbooks",
 		"list_sandboxes",
 		"list_skills",
+		"list_tasks",
 		"list_vms",
 		"load_skill",
 		"read_file",
 		"read_source_file",
+		"request_source_access",
 		"run_source_command",
+		"update_task",
 	}
 
 	if len(names) != len(expected) {

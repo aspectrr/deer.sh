@@ -30,6 +30,7 @@ type HostInfo struct {
 // *Service satisfies this interface.
 type Provider interface {
 	RunCommandStreaming(ctx context.Context, hostName, command string, onOutput hostexec.OutputCallback) (*CommandResult, error)
+	RunCommandElevated(ctx context.Context, hostName, command string) (*CommandResult, error)
 	ReadFile(ctx context.Context, hostName, path string) (string, error)
 	ListHosts() []HostInfo
 }
@@ -62,7 +63,7 @@ func (s *Service) RunCommand(ctx context.Context, hostName, command string) (*Co
 	}
 
 	if err := readonly.ValidateCommandWithExtra(command, s.cfg.ExtraAllowedCommands); err != nil {
-		return nil, fmt.Errorf("command not allowed: %w", err)
+		return nil, fmt.Errorf("command not allowed: %w (use request_source_access to ask the human for approval if this command is needed for diagnosis)", err)
 	}
 
 	// Use host name as SSH alias to preserve ~/.ssh/config (ProxyJump, etc.)
@@ -97,7 +98,7 @@ func (s *Service) RunCommandStreaming(ctx context.Context, hostName, command str
 	}
 
 	if err := readonly.ValidateCommandWithExtra(command, s.cfg.ExtraAllowedCommands); err != nil {
-		return nil, fmt.Errorf("command not allowed: %w", err)
+		return nil, fmt.Errorf("command not allowed: %w (use request_source_access to ask the human for approval if this command is needed for diagnosis)", err)
 	}
 
 	extraArgs := []string{
@@ -143,6 +144,40 @@ func (s *Service) ReadFile(ctx context.Context, hostName, path string) (string, 
 		return "", fmt.Errorf("read file failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
 	return result.Stdout, nil
+}
+
+// RunCommandElevated executes a command on a source host after human approval.
+// It bypasses the read-only command validation - the human has explicitly approved this.
+func (s *Service) RunCommandElevated(ctx context.Context, hostName, command string) (*CommandResult, error) {
+	host, err := s.findHost(hostName)
+	if err != nil {
+		return nil, err
+	}
+	if !host.Prepared {
+		return nil, fmt.Errorf("host %q is not prepared - run: deer source prepare %s", hostName, hostName)
+	}
+
+	extraArgs := []string{
+		"-l", "deer-readonly",
+		"-o", "IdentitiesOnly=yes",
+		"-i", s.keyPath,
+	}
+	stdout, stderr, exitCode, err := hostexec.RunStreamingSSHAlias(ctx, hostName, extraArgs, command, nil)
+	if err != nil {
+		return &CommandResult{
+			Host:     hostName,
+			ExitCode: exitCode,
+			Stdout:   stdout,
+			Stderr:   stderr,
+		}, fmt.Errorf("ssh command failed: %w", err)
+	}
+
+	return &CommandResult{
+		Host:     hostName,
+		ExitCode: exitCode,
+		Stdout:   stdout,
+		Stderr:   stderr,
+	}, nil
 }
 
 // ListHosts returns all configured source hosts.

@@ -1,4 +1,5 @@
 node.name: deer-demo-sandbox
+path.data: /var/lib/logstash
 pipeline.workers: 2
 pipeline.batch.size: 125
 pipeline.batch.delay: 50
