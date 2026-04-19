@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # prepare-source.sh
 #
-# Runs INSIDE Lima. Creates a QCOW2 source image with Logstash 8.x pre-installed
+# Creates a QCOW2 source image with Logstash 8.x pre-installed
 # and the demo pipeline configs in /etc/logstash/conf.d/.
 #
-# Usage: bash prepare-source.sh --repo-root <path> --output <path> [--arch amd64|arm64]
+# Optionally starts Docker Compose (Redpanda + ES) so Logstash can process
+# real data during the build, seeding realistic error logs into the image.
+#
+# Usage: bash prepare-source.sh --repo-root <path> --output <path> [--arch amd64|arm64] [--with-docker]
 #
 # The output image is used by deer-daemon as the source VM for sandbox cloning.
 
@@ -15,15 +18,17 @@ REPO_ROOT=""
 OUTPUT_IMAGE=""
 ARCH="amd64"
 DRY_RUN=0
+WITH_DOCKER=0
 
 usage() {
     cat <<'EOF'
-Usage: bash prepare-source.sh --repo-root <path> --output <path> [--arch amd64|arm64] [--dry-run]
+Usage: bash prepare-source.sh --repo-root <path> --output <path> [--arch amd64|arm64] [--with-docker] [--dry-run]
 
 Options:
   --repo-root <path>   Repository root (where demo/ lives)
   --output <path>      Output QCOW2 image path
   --arch <arch>        Guest architecture: amd64 or arm64 (default: amd64)
+  --with-docker        Start Docker Compose so Logstash generates real logs
   --dry-run            Print commands without executing
   -h, --help           Show help
 EOF
@@ -39,11 +44,12 @@ run() {
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --repo-root) REPO_ROOT="$2"; shift 2 ;;
-        --output)    OUTPUT_IMAGE="$2"; shift 2 ;;
-        --arch)      ARCH="$2"; shift 2 ;;
-        --dry-run)   DRY_RUN=1; shift ;;
-        -h|--help)   usage; exit 0 ;;
+        --repo-root)  REPO_ROOT="$2"; shift 2 ;;
+        --output)     OUTPUT_IMAGE="$2"; shift 2 ;;
+        --arch)       ARCH="$2"; shift 2 ;;
+        --with-docker) WITH_DOCKER=1; shift ;;
+        --dry-run)    DRY_RUN=1; shift ;;
+        -h|--help)    usage; exit 0 ;;
         *) fail "unknown argument: $1" ;;
     esac
 done
@@ -53,8 +59,9 @@ done
 [ -d "$REPO_ROOT" ]    || fail "repo root not found: $REPO_ROOT"
 [ "$ARCH" = "amd64" ] || [ "$ARCH" = "arm64" ] || fail "--arch must be amd64 or arm64, got: $ARCH"
 
-PIPELINE_DIR="${REPO_ROOT}/demo/logstash/pipeline"
-LOGSTASH_YML="${REPO_ROOT}/demo/logstash/logstash.yml"
+PIPELINE_DIR="${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/pipeline"
+LOGSTASH_YML="${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/logstash.yml"
+COMPOSE_FILE="${REPO_ROOT}/demo/logstash-pipeline-issue-demo/docker-compose.yml"
 WORKDIR="$(mktemp -d /tmp/deer-prepare-source.XXXXXX)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -64,11 +71,55 @@ WORK_DISK="${WORKDIR}/work.qcow2"
 CLOUD_INIT_ISO="${WORKDIR}/cloud-init.iso"
 SEED_DIR="${WORKDIR}/seed"
 
+# QEMU user-mode networking gateway (host as seen from guest)
+QEMU_HOST_IP="10.0.2.2"
+
+# ---- Optionally start Docker Compose ----
+
+if [ "$WITH_DOCKER" -eq 1 ]; then
+    log "Starting Docker Compose (Redpanda, Elasticsearch, weather-producer)..."
+    export HOST_IP="127.0.0.1"
+    run docker compose -f "$COMPOSE_FILE" up -d
+
+    log "Waiting for Redpanda to be healthy..."
+    for i in $(seq 1 30); do
+        docker compose -f "$COMPOSE_FILE" exec redpanda rpk cluster info --brokers=localhost:9092 >/dev/null 2>&1 && break
+        log "  waiting... (${i}/30)"
+        sleep 5
+    done
+
+    log "Waiting for Elasticsearch..."
+    for i in $(seq 1 30); do
+        curl -sf http://localhost:9200 >/dev/null 2>&1 && break
+        log "  waiting... (${i}/30)"
+        sleep 5
+    done
+
+    # Patch pipeline configs to point at QEMU gateway IP
+    log "Patching pipeline configs to use QEMU host IP ${QEMU_HOST_IP}..."
+    PATCHED_DIR="${WORKDIR}/patched-pipeline"
+    mkdir -p "$PATCHED_DIR"
+    for conf in "${PIPELINE_DIR}"/*.conf; do
+        fname="$(basename "$conf")"
+        sed \
+            -e "s|127\.0\.0\.1:9092|${QEMU_HOST_IP}:9092|g" \
+            -e "s|127\.0\.0\.1:9093|${QEMU_HOST_IP}:9093|g" \
+            -e "s|192\.168\.[0-9]*\.[0-9]*:9200|${QEMU_HOST_IP}:9200|g" \
+            -e "s|127\.0\.0\.1:9200|${QEMU_HOST_IP}:9200|g" \
+            "$conf" > "${PATCHED_DIR}/${fname}"
+    done
+    PIPELINE_DIR="$PATCHED_DIR"
+fi
+
+# ---- Download base image ----
+
 log "Downloading base Ubuntu 24.04 image..."
 run curl -fsSL --progress-bar -o "$BASE_IMAGE" "$BASE_IMAGE_URL"
 
 log "Creating work overlay..."
 run qemu-img create -f qcow2 -F qcow2 -b "$BASE_IMAGE" "$WORK_DISK" 20G
+
+# ---- Cloud-init ----
 
 log "Writing cloud-init user-data..."
 mkdir -p "$SEED_DIR"
@@ -86,7 +137,7 @@ ethernets:
     dhcp4: true
 EOF
 
-# Pre-compute pipeline write_files for cloud-init (handles all current pipeline files)
+# Pre-compute pipeline write_files for cloud-init
 PIPELINE_WRITE_FILES=""
 for conf in "${PIPELINE_DIR}"/*.conf; do
     fname="$(basename "$conf")"
@@ -97,8 +148,14 @@ $(sed 's/^/      /' "$conf")
 "
 done
 
-# Station timezone CSV has binary content (UTF-8 BOM + CRLF) - embed as base64
-CSV_B64="$(base64 "${REPO_ROOT}/demo/logstash/station_timezones.csv" | tr -d '\n')"
+CSV_B64="$(base64 -i "${REPO_ROOT}/demo/logstash-pipeline-issue-demo/logstash/station_timezones.csv" | tr -d '\n')"
+
+# Determine how long to run Logstash
+if [ "$WITH_DOCKER" -eq 1 ]; then
+    LOGSTASH_RUN_TIME=60
+else
+    LOGSTASH_RUN_TIME=0
+fi
 
 cat > "${SEED_DIR}/user-data" <<CLOUDINIT
 #cloud-config
@@ -119,11 +176,12 @@ write_files:
       #!/bin/bash
       set -euo pipefail
       echo "[setup] Installing Logstash 8.x..."
-      wget -qO /usr/share/keyrings/elasticsearch.asc https://artifacts.elastic.co/GPG-KEY-elasticsearch
-      echo "deb [signed-by=/usr/share/keyrings/elasticsearch.asc] https://artifacts.elastic.co/packages/8.x/apt stable main" \
+      apt-get install -y -qq apt-transport-https wget gnupg
+      wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --batch --yes --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+      echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" \
           > /etc/apt/sources.list.d/elastic-8.x.list
       apt-get update -qq
-      apt-get install -y -qq logstash
+      apt-get install -y logstash
       echo "[setup] Installing Kafka input plugin..."
       /usr/share/logstash/bin/logstash-plugin install logstash-input-kafka 2>/dev/null || true
       mkdir -p /etc/logstash/conf.d /var/log/logstash
@@ -151,27 +209,50 @@ runcmd:
   - /opt/setup-logstash.sh >> /var/log/logstash-setup.log 2>&1
   - systemctl daemon-reload
   - systemctl enable logstash
+  - systemctl start logstash
+  - sleep ${LOGSTASH_RUN_TIME}
+  - systemctl stop logstash
+  - chown -R logstash:logstash /var/log/logstash /var/lib/logstash
   - poweroff
 CLOUDINIT
 
 log "Building cloud-init ISO..."
-run cloud-localds "$CLOUD_INIT_ISO" \
-    "${SEED_DIR}/user-data" \
-    "${SEED_DIR}/meta-data" \
-    --network-config "${SEED_DIR}/network-config"
+SEED_TMP="${WORKDIR}/iso_seed"
+mkdir -p "$SEED_TMP"
+printf '%s' "$(cat "${SEED_DIR}/user-data")" > "${SEED_TMP}/user-data"
+printf '%s' "$(cat "${SEED_DIR}/meta-data")" > "${SEED_TMP}/meta-data"
+printf 'version: 2\nethernets:\n  id0:\n    match: {name: "en*"}\n    dhcp4: true\n' > "${SEED_TMP}/network-config"
+
+if command -v mkisofs >/dev/null 2>&1; then
+    run mkisofs -output "$CLOUD_INIT_ISO" -volid "cidata" -joliet -rock "$SEED_TMP"
+elif command -v hdiutil >/dev/null 2>&1; then
+    run hdiutil makehybrid -o "$CLOUD_INIT_ISO" -hfs -iso -joliet -default-volume-name cidata "$SEED_TMP"
+else
+    fail "Neither mkisofs nor hdiutil found. Install with: brew install cdrtools"
+fi
+
+# ---- Boot QEMU ----
 
 QEMU_BIN="qemu-system-x86_64"
 [ "$ARCH" = "arm64" ] && QEMU_BIN="qemu-system-aarch64"
 
-# Set machine type per arch - do NOT append -machine twice
 MACHINE_ARG="type=q35,accel=tcg"
 [ "$ARCH" = "arm64" ] && MACHINE_ARG="virt"
 
-log "Booting setup VM (this takes ~10 minutes)..."
-log "Output: /var/log/logstash-setup.log inside the VM"
+if [ "$WITH_DOCKER" -eq 1 ]; then
+    log "Booting setup VM with Docker services (this takes ~12 minutes)..."
+    log "Logstash will process real data for ${LOGSTASH_RUN_TIME}s to seed logs."
+else
+    log "Booting setup VM (this takes ~10 minutes)..."
+fi
+log "Setup log: /var/log/logstash-setup.log inside the VM"
 
-# -serial stdio is omitted: -nographic already redirects the first serial port to stdio.
-# Adding both causes "cannot use stdio by multiple character devices" on QEMU 6+.
+if [ "$WITH_DOCKER" -eq 1 ]; then
+    NETDEV="user,id=net0"
+else
+    NETDEV="user,id=net0"
+fi
+
 QEMU_ARGS=(
     -nographic
     -machine "$MACHINE_ARG"
@@ -180,16 +261,31 @@ QEMU_ARGS=(
     -m 2048
     -drive "file=${WORK_DISK},if=virtio,cache=unsafe"
     -drive "file=${CLOUD_INIT_ISO},if=virtio,format=raw"
-    -netdev user,id=net0
+    -netdev "$NETDEV"
     -device virtio-net-pci,netdev=net0
     -no-reboot
 )
 
 if [ "$ARCH" = "arm64" ]; then
-    QEMU_ARGS+=(-bios /usr/share/qemu-efi-aarch64/QEMU_EFI.fd)
+    if [ -f /opt/homebrew/share/qemu/edk2-aarch64-code.fd ]; then
+        QEMU_ARGS+=(-bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd)
+    elif [ -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
+        QEMU_ARGS+=(-bios /usr/share/qemu-efi-aarch64/QEMU_EFI.fd)
+    else
+        fail "No arm64 EFI firmware found. Install qemu (brew install qemu) or qemu-efi-aarch64"
+    fi
 fi
 
 run "$QEMU_BIN" "${QEMU_ARGS[@]}"
+
+# ---- Teardown Docker ----
+
+if [ "$WITH_DOCKER" -eq 1 ]; then
+    log "Stopping Docker Compose..."
+    run docker compose -f "$COMPOSE_FILE" down
+fi
+
+# ---- Finalize image ----
 
 log "VM powered off. Converting to final image..."
 run qemu-img convert -f qcow2 -O qcow2 "$WORK_DISK" "$OUTPUT_IMAGE"

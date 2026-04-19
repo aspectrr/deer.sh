@@ -95,12 +95,12 @@ func (tl *TaskList) Summary() string {
 			completed++
 		}
 	}
-	b.WriteString(fmt.Sprintf("Tasks: %d/%d completed", completed, len(tl.tasks)))
+	fmt.Fprintf(&b, "Tasks: %d/%d completed", completed, len(tl.tasks))
 	if inProgress > 0 {
-		b.WriteString(fmt.Sprintf(", %d in progress", inProgress))
+		fmt.Fprintf(&b, ", %d in progress", inProgress)
 	}
 	if pending > 0 {
-		b.WriteString(fmt.Sprintf(", %d pending", pending))
+		fmt.Fprintf(&b, ", %d pending", pending)
 	}
 	return b.String()
 }
@@ -121,7 +121,7 @@ func (tl *TaskList) FormatForSystemPrompt() string {
 		case TaskCompleted:
 			icon = "[x]"
 		}
-		b.WriteString(fmt.Sprintf("- %s %s (%s)\n", icon, t.Content, t.ID))
+		fmt.Fprintf(&b, "- %s %s (%s)\n", icon, t.Content, t.ID)
 	}
 	b.WriteString("\nUpdate tasks as you work. Mark tasks in_progress when starting, completed when done.")
 	return b.String()

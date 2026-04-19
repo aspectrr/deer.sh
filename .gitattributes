@@ -1,0 +1,2 @@
+# Prevent git from normalizing BOM/CRLF in this file — the BOM is the demo bug
+demo/logstash-pipeline-issue-demo/logstash/station_timezones.csv binary

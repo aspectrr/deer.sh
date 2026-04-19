@@ -279,7 +279,7 @@ done
 
 UBUNTU_KERNEL="${DEER_ASSETS_DIR}/ubuntu-${UBUNTU_VERSION}-server-cloudimg-${UBUNTU_ARCH}-vmlinuz-generic"
 UBUNTU_INITRD="${DEER_ASSETS_DIR}/ubuntu-${UBUNTU_VERSION}-server-cloudimg-${UBUNTU_ARCH}-initrd-generic"
-UBUNTU_IMAGE="${DEER_IMAGES_DIR}/Deer Source VM.qcow2"
+UBUNTU_IMAGE="${DEER_IMAGES_DIR}/deer-source-vm.qcow2"
 
 if [ ! -f "$UBUNTU_KERNEL" ] || [ ! -f "$UBUNTU_INITRD" ] || [ ! -f "$UBUNTU_IMAGE" ]; then
     log "Downloading Ubuntu ${UBUNTU_VERSION} arm64 cloud images..."

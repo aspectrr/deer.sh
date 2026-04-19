@@ -320,7 +320,7 @@ fi
 
 UBUNTU_KERNEL="${DEER_ASSETS_DIR}/ubuntu-${UBUNTU_VERSION}-server-cloudimg-${UBUNTU_ARCH}-vmlinuz-generic"
 UBUNTU_INITRD="${DEER_ASSETS_DIR}/ubuntu-${UBUNTU_VERSION}-server-cloudimg-${UBUNTU_ARCH}-initrd-generic"
-UBUNTU_IMAGE="${DEER_IMAGES_DIR}/Deer Source VM.qcow2"
+UBUNTU_IMAGE="${DEER_IMAGES_DIR}/deer-source-vm.qcow2"
 
 if [ ! -f "$UBUNTU_KERNEL" ] || [ ! -f "$UBUNTU_INITRD" ] || [ ! -f "$UBUNTU_IMAGE" ]; then
     log "Downloading Ubuntu ${UBUNTU_VERSION} arm64 cloud images..."
@@ -399,7 +399,7 @@ fi
 log "Creating source VM overlay..."
 run rm -f "$SOURCE_VM_OVERLAY"
 run qemu-img create -f qcow2 -b "$UBUNTU_IMAGE" -F qcow2 "$SOURCE_VM_OVERLAY"
-run qemu-img resize "$SOURCE_VM_OVERLAY" 10G
+run qemu-img resize "$SOURCE_VM_OVERLAY" 20G
 
 # Detect macOS host IP (reachable from VMs via socket_vmnet gateway)
 HOST_IP=""
