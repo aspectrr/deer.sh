@@ -40,7 +40,7 @@ func newTestModelWithAgent(t *testing.T) (Model, *DeerAgent) {
 	t.Helper()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	agent := &DeerAgent{logger: logger}
+	agent := &DeerAgent{logger: logger, service: &stubService{}}
 	model := NewModel("deer", "test", "test-model", agent, &config.Config{}, "", logger)
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
