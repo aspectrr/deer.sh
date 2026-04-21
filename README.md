@@ -1,7 +1,7 @@
 <div align="center">
 
 <p align="center">
-    <img src="docs/assets/G-fD3zSWMAAv6L4.jpeg"  width="100%">
+    <img src="docs/assets/G-fD3zSWMAAv6L5.jpeg"  width="100%">
 </p>
 
 # 🦌 deer.sh
@@ -142,7 +142,7 @@ This gives the agent a complete feedback loop: it can investigate an issue in re
 
 ## Demo
 
-[![CLI Agent Demo](https://img.youtube.com/vi/ZSUBGXNTz34/0.jpg)](https://www.youtube.com/watch?v=ZSUBGXNTz34)
+[![CLI Agent Demo](https://img.youtube.com/vi/M9NtxwMO7ys/0.jpg)](https://youtu.be/M9NtxwMO7ys)
 
 Try the hands-on demos:
 
